@@ -22,6 +22,7 @@ export const CHAMPS_BANCAIRES: ChampCible[] = [
     requis: true,
     est_lettrable: false,
     aliases: ['date', 'date valeur', 'date operation', 'date ope', 'date transaction', 'valeur date'],
+    hint: 'Format attendu : jj/mm/aaaa',
   },
   {
     cle: 'libelle',
@@ -33,11 +34,20 @@ export const CHAMPS_BANCAIRES: ChampCible[] = [
   },
   {
     cle: 'detail',
-    label: 'Détail / Réf. client',
+    label: 'Réf. client / Communication',
     est_pivot: false,
     requis: false,
     est_lettrable: false,
-    aliases: ['detail', 'ref client', 'reference client', 'communication', 'info complementaire', 'commentaire'],
+    aliases: ['detail', 'ref client', 'reference client', 'communication', 'info complementaire'],
+  },
+  {
+    cle: 'infos_complementaires',
+    label: 'Informations complémentaires',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['infos complementaires', 'informations complementaires', 'info', 'note', 'remarque', 'observation'],
+    hint: 'Visible par l\'opérateur lors du lettrage',
   },
   {
     cle: 'debit',
@@ -76,7 +86,15 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     est_pivot: false,
     requis: true,
     est_lettrable: false,
-    aliases: ['code client', 'codeclient', 'client', 'code dso', 'codedso', 'dso', 'code'],
+    aliases: ['code client', 'codeclient', 'code dso', 'codedso', 'dso', 'code'],
+  },
+  {
+    cle: 'nom_client',
+    label: 'Nom du client',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['nom client', 'nomclient', 'client', 'raison sociale', 'raisonsociale', 'nom', 'societe'],
   },
   {
     cle: 'date_emission',
@@ -85,6 +103,7 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: true,
     est_lettrable: false,
     aliases: ['date emission', 'datemission', 'date facture', 'datefacture', 'date creation', 'date'],
+    hint: 'Format attendu : jj/mm/aaaa',
   },
   {
     cle: 'date_echeance',
@@ -93,6 +112,16 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: false,
     est_lettrable: false,
     aliases: ['echeance', 'date echeance', 'dateecheance', 'due date', 'duedate', 'expiration'],
+    hint: 'Format attendu : jj/mm/aaaa',
+  },
+  {
+    cle: 'montant_ht',
+    label: 'Montant HT',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['montant ht', 'montantht', 'total ht', 'totalht', 'ht', 'montant hors taxe'],
+    hint: 'Arrondi à 2 décimales',
   },
   {
     cle: 'montant_ttc',
@@ -101,6 +130,7 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: true,
     est_lettrable: false,
     aliases: ['montant ttc', 'montantttc', 'total ttc', 'totalttc', 'montant', 'total', 'ttc', 'amount'],
+    hint: 'Arrondi à 2 décimales',
   },
   {
     cle: 'est_avoir',
@@ -109,5 +139,6 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: false,
     est_lettrable: false,
     aliases: ['avoir', 'est avoir', 'estavoir', 'type', 'nature document'],
+    hint: 'Valeurs acceptées : AVOIR, OUI, 1, TRUE',
   },
 ]

@@ -97,6 +97,9 @@ export function EtapeMapping({
                         </option>
                       ))}
                     </select>
+                    {champInfo?.hint && (
+                      <p className="text-[10px] text-gray-400 mt-0.5 ml-0.5">{champInfo.hint}</p>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-400 max-w-[160px] truncate">
                     {m.exemple || '—'}

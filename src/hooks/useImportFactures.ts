@@ -21,8 +21,9 @@ function appliquerMapping(
   for (const m of mapping) {
     if (!m.champ_cible) continue
     const val = ligne[m.colonne_source]
-    if (m.champ_cible === 'montant_ttc') {
-      res[m.champ_cible] = parseNombre(val)
+    if (m.champ_cible === 'montant_ttc' || m.champ_cible === 'montant_ht') {
+      const n = parseNombre(val)
+      res[m.champ_cible] = n !== null ? Math.round(n * 100) / 100 : null
     } else if (m.champ_cible === 'date_emission' || m.champ_cible === 'date_echeance') {
       res[m.champ_cible] = parseDate(val)
     } else if (m.champ_cible === 'est_avoir') {

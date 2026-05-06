@@ -27,8 +27,10 @@ export interface Database {
         Row: {
           numero_piece: string
           code_client: string
+          nom_client: string | null
           date_emission: string
           date_echeance: string | null
+          montant_ht: number | null
           montant_ttc: number
           est_provisionnee: boolean
           est_avoir: boolean
@@ -45,6 +47,7 @@ export interface Database {
           date_operation: string
           libelle: string
           detail: string | null
+          infos_complementaires: string | null
           debit: number | null
           credit: number | null
           code_client_propose: string | null
