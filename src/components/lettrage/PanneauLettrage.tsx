@@ -125,14 +125,17 @@ export function PanneauLettrage(props: Props) {
             <div key={ligne._key}>
               <div className="grid grid-cols-[80px_1fr_76px_24px] gap-2 items-center">
                 {/* Classe */}
-                <select
-                  value={ligne.classe}
-                  onChange={e => modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage })}
-                  className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none"
-                >
-                  <option value="facture">Facture</option>
-                  <option value="autres">Autres</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ligne.classe}
+                    onChange={e => modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, montant: '', info_facture: null })}
+                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                  >
+                    <option value="facture">Facture</option>
+                    <option value="autres">Autres</option>
+                  </select>
+                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+                </div>
 
                 {/* N° Facture */}
                 <div className="relative">
@@ -148,14 +151,19 @@ export function PanneauLettrage(props: Props) {
                   )}
                 </div>
 
-                {/* Montant */}
+                {/* Montant — grisé pour "Autres" (auto-calculé) */}
                 <input
                   type="number"
                   value={ligne.montant}
                   onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
-                  placeholder="0,00"
+                  placeholder={ligne.classe === 'autres' ? '— auto' : '0,00'}
                   step="0.01"
-                  className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none focus:border-blue-400"
+                  disabled={ligne.classe === 'autres'}
+                  className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
+                    ligne.classe === 'autres'
+                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                      : 'border-gray-200 focus:border-blue-400'
+                  }`}
                 />
 
                 {/* Supprimer */}

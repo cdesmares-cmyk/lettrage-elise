@@ -78,9 +78,11 @@ export function useLettrageForm(onSuccess: () => void) {
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length) return false
     return lignesForme.every(l => {
-      const m = parseFloat(l.montant)
-      if (!l.montant || isNaN(m) || m === 0) return false
-      if (l.classe === 'facture') return !!l.info_facture
+      if (l.classe === 'facture') {
+        const m = parseFloat(l.montant)
+        return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
+      }
+      // "Autres" : description obligatoire, montant optionnel (auto-calculé)
       return !!l.numero_facture.trim()
     })
   }
@@ -90,11 +92,21 @@ export function useLettrageForm(onSuccess: () => void) {
     setChargement(true)
     try {
       const today = new Date().toISOString().split('T')[0]
+      // Pour les lignes "Autres" sans montant : utiliser le restant après les factures
+      const montantFactures = Math.round(
+        lignesForme
+          .filter(l => l.classe === 'facture')
+          .reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
+      ) / 100
+      const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
+
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
         numero_facture: l.numero_facture.trim(),
         code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
-        montant: Math.round(parseFloat(l.montant) * 100) / 100,
+        montant: l.classe === 'autres' && !l.montant
+          ? resteAutres
+          : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
         mode: 'manuel' as const,
         commentaire: l.classe === 'autres' ? 'Hors-facture (Autres)' : null,

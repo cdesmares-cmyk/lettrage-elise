@@ -52,8 +52,12 @@ export function PageLettrage() {
           ligneActiveId={forme.ligneActive?.id_operation ?? null}
           recherche={liste.recherche}
           filtre={liste.filtre}
+          dateDebut={liste.dateDebut}
+          dateFin={liste.dateFin}
           onRecherche={liste.setRecherche}
           onFiltre={liste.setFiltre}
+          onDateDebut={liste.setDateDebut}
+          onDateFin={liste.setDateFin}
           onSelectLigne={handleSelectLigne}
         />
 

@@ -18,6 +18,8 @@ export function useLignesBancaires() {
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
   const [filtre, setFiltre] = useState<FiltreStatut>('toutes')
+  const [dateDebut, setDateDebut] = useState('')
+  const [dateFin, setDateFin] = useState('')
   const [version, setVersion] = useState(0)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -39,6 +41,8 @@ export function useLignesBancaires() {
         .limit(300)
 
       if (filtre !== 'toutes') q = q.eq('statut_lettrage', filtre)
+      if (dateDebut) q = q.gte('date_operation', dateDebut)
+      if (dateFin)   q = q.lte('date_operation', dateFin)
 
       const { data } = await q
       if (annule) return
@@ -66,7 +70,7 @@ export function useLignesBancaires() {
     charger()
     return () => { annule = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtre, version])
+  }, [filtre, dateDebut, dateFin, version])
 
   function rafraichir() { setVersion(v => v + 1) }
 
@@ -80,7 +84,9 @@ export function useLignesBancaires() {
 
   return {
     lignes, chargement, recherche, setRecherche,
-    filtre, setFiltre, rafraichir,
-    nbNonLettres, montantRestant,
+    filtre, setFiltre,
+    dateDebut, setDateDebut,
+    dateFin, setDateFin,
+    rafraichir, nbNonLettres, montantRestant,
   }
 }

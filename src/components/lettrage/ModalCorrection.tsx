@@ -145,14 +145,17 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
               return (
                 <div key={ligne._key}>
                   <div className="grid grid-cols-[80px_1fr_80px_60px_24px] gap-2 items-center">
-                    <select
-                      value={ligne.classe}
-                      onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
-                      className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none"
-                    >
-                      <option value="facture">Facture</option>
-                      <option value="autres">Autres</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={ligne.classe}
+                        onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
+                        className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                      >
+                        <option value="facture">Facture</option>
+                        <option value="autres">Autres</option>
+                      </select>
+                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+                    </div>
 
                     <div className="relative">
                       <input

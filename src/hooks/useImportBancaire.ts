@@ -82,17 +82,34 @@ export function useImportBancaire() {
       rows?.forEach(r => existantes.add(r.id_operation))
     }
 
-    const nouvelles = lignes.filter(l => !existantes.has(l[colPivot]))
+    // Doublons vs base de données
+    const candidats = lignes.filter(l => !existantes.has(l[colPivot]))
+
+    // Doublons intra-fichier : même clé pivot en double dans le fichier
+    const vuesDansFichier = new Set<string>()
+    const nouvelles: typeof lignes = []
+    const doublonsIntraFichier: typeof lignes = []
+    for (const l of candidats) {
+      const cle = l[colPivot]
+      if (vuesDansFichier.has(cle)) { doublonsIntraFichier.push(l) }
+      else { vuesDansFichier.add(cle); nouvelles.push(l) }
+    }
+
+    // Aperçu avec détection de doublon en ordre de lecture
+    const vuesApercu = new Set<string>()
+    const apercu = lignes.slice(0, 10).map(l => {
+      const cle = l[colPivot] ?? ''
+      const estDoublon = existantes.has(cle) || vuesApercu.has(cle)
+      vuesApercu.add(cle)
+      return { donnees: l, statut: estDoublon ? 'doublon' as const : 'nouveau' as const, cle_pivot: cle }
+    })
+
     return {
       lignes_a_inserer: nouvelles.map(l => appliquerMapping(l, mapping)),
-      apercu: lignes.slice(0, 10).map(l => ({
-        donnees: l,
-        statut: existantes.has(l[colPivot]) ? 'doublon' : 'nouveau',
-        cle_pivot: l[colPivot] ?? '',
-      })),
+      apercu,
       nb_total: lignes.length,
       nb_nouvelles: nouvelles.length,
-      nb_doublons: lignes.length - nouvelles.length,
+      nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
       hash,
       nom_fichier: fichier.name,
     }

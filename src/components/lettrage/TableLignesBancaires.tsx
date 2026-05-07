@@ -8,8 +8,12 @@ interface Props {
   ligneActiveId: string | null
   recherche: string
   filtre: FiltreStatut
+  dateDebut: string
+  dateFin: string
   onRecherche: (v: string) => void
   onFiltre: (v: FiltreStatut) => void
+  onDateDebut: (v: string) => void
+  onDateFin: (v: string) => void
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
 }
 
@@ -39,37 +43,68 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
 
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,
-  recherche, filtre, onRecherche, onFiltre, onSelectLigne,
+  recherche, filtre, dateDebut, dateFin,
+  onRecherche, onFiltre, onDateDebut, onDateFin, onSelectLigne,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       {/* En-tête avec filtres */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
+        {/* Filtres statut */}
         <div className="flex gap-1">
           {FILTRES.map(f => (
             <button
               key={f.val}
               onClick={() => onFiltre(f.val)}
               className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                filtre === f.val
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-500 hover:bg-gray-100'
+                filtre === f.val ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               {f.label}
             </button>
           ))}
         </div>
+
+        <div className="flex-1" />
+
+        {/* Filtre période */}
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Du</span>
+          <input
+            type="date"
+            value={dateDebut}
+            onChange={e => onDateDebut(e.target.value)}
+            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-blue-400 bg-white"
+          />
+          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">au</span>
+          <input
+            type="date"
+            value={dateFin}
+            onChange={e => onDateFin(e.target.value)}
+            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-blue-400 bg-white"
+          />
+          {(dateDebut || dateFin) && (
+            <button
+              onClick={() => { onDateDebut(''); onDateFin('') }}
+              className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
+              title="Effacer le filtre date"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
+        {/* Recherche */}
         <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5">
           <span className="text-gray-400 text-xs">🔍</span>
           <input
             type="text"
             value={recherche}
             onChange={e => onRecherche(e.target.value)}
-            placeholder="Libellé, montant, réf…"
-            className="text-xs text-gray-700 placeholder-gray-400 outline-none w-40 bg-transparent"
+            placeholder="Libellé, réf…"
+            className="text-xs text-gray-700 placeholder-gray-400 outline-none w-32 bg-transparent"
           />
         </div>
       </div>
