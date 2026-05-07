@@ -21,6 +21,11 @@ const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label:
     extensions: ['.xlsx', '.xls'],
     label: 'Factures XLSX',
   },
+  import_lettrage: {
+    accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    extensions: ['.csv', '.xlsx', '.xls'],
+    label: 'Lettrage CSV ou XLSX',
+  },
 }
 
 export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, chargement }: Props) {

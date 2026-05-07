@@ -1,6 +1,6 @@
 // Types partagés pour le flux d'import (onglet Dépôt, section 5.1 du CDC)
 
-export type TypeFichier = 'csv_bancaire' | 'xlsx_factures'
+export type TypeFichier = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage'
 
 // Définition d'un champ cible en base de données
 export interface ChampCible {
@@ -32,7 +32,7 @@ export interface ResultatAnalyse {
 // Une ligne dans l'aperçu de validation
 export interface LigneApercu {
   donnees: Record<string, string>
-  statut: 'nouveau' | 'doublon'
+  statut: 'nouveau' | 'doublon' | 'sur_paiement' | 'invalide'
   cle_pivot: string
 }
 
@@ -43,6 +43,8 @@ export interface ResultatValidation {
   nb_total: number
   nb_nouvelles: number
   nb_doublons: number
+  nb_avertissements?: number  // lettrages sur factures déjà soldées (sur-paiement)
+  nb_invalides?: number       // factures introuvables en base
   hash: string
   nom_fichier: string
 }

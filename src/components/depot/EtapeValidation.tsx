@@ -1,5 +1,5 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES } from '../../lib/champsImport'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -25,7 +25,10 @@ function StatCard({
 export function EtapeValidation({
   typeFichier, resultat, mapping, onConfirmer, onRetour, chargement,
 }: Props) {
-  const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES : CHAMPS_FACTURES
+  const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
+    : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
+    : CHAMPS_LETTRAGES
+  const estLettrage = typeFichier === 'import_lettrage'
 
   // Colonnes mappées à afficher dans l'aperçu (max 6 pour éviter le débordement)
   const colonnesMappees = mapping
@@ -42,9 +45,37 @@ export function EtapeValidation({
       <div className="grid grid-cols-4 gap-3 mb-6">
         <StatCard valeur={resultat.nb_total} label="Lignes détectées" couleur="border-gray-200 text-blue-600" />
         <StatCard valeur={resultat.nb_nouvelles} label="À importer" couleur="border-emerald-200 text-emerald-600" />
-        <StatCard valeur={resultat.nb_doublons} label="Doublons (ignorés)" couleur="border-amber-200 text-amber-600" />
-        <StatCard valeur={0} label="Erreurs" couleur="border-gray-200 text-gray-400" />
+        {estLettrage
+          ? <StatCard valeur={resultat.nb_avertissements ?? 0} label="Sur-paiements" couleur="border-amber-200 text-amber-600" />
+          : <StatCard valeur={resultat.nb_doublons} label="Doublons (ignorés)" couleur="border-amber-200 text-amber-600" />
+        }
+        {estLettrage
+          ? <StatCard valeur={resultat.nb_invalides ?? 0} label="Factures introuvables" couleur="border-red-200 text-red-500" />
+          : <StatCard valeur={0} label="Erreurs" couleur="border-gray-200 text-gray-400" />
+        }
       </div>
+
+      {/* Bannière sur-paiement (import_lettrage uniquement) */}
+      {estLettrage && (resultat.nb_avertissements ?? 0) > 0 && (
+        <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-sm text-amber-800">
+          <span className="flex-shrink-0">⚠️</span>
+          <span>
+            <strong>{resultat.nb_avertissements} facture{(resultat.nb_avertissements ?? 0) > 1 ? 's' : ''} déjà soldée{(resultat.nb_avertissements ?? 0) > 1 ? 's' : ''}</strong> figurent dans ce fichier.
+            {' '}Si vous confirmez, ces factures passeront en statut <strong>trop perçu (sur-lettré)</strong>.
+          </span>
+        </div>
+      )}
+
+      {/* Bannière factures introuvables (import_lettrage uniquement) */}
+      {estLettrage && (resultat.nb_invalides ?? 0) > 0 && (
+        <div className="flex gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3 text-sm text-red-800">
+          <span className="flex-shrink-0">🚫</span>
+          <span>
+            <strong>{resultat.nb_invalides} ligne{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''} ignorée{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''}</strong> — numéro de facture introuvable en base.
+            {' '}Ces lignes ne seront pas importées.
+          </span>
+        </div>
+      )}
 
       {resultat.nb_nouvelles === 0 && (
         <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-700">
@@ -73,16 +104,20 @@ export function EtapeValidation({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {resultat.apercu.map((ligne, i) => (
-              <tr key={i} className={ligne.statut === 'doublon' ? 'bg-amber-50' : 'hover:bg-gray-50'}>
+              <tr key={i} className={
+                ligne.statut === 'doublon' || ligne.statut === 'sur_paiement' ? 'bg-amber-50' :
+                ligne.statut === 'invalide' ? 'bg-red-50' :
+                'hover:bg-gray-50'
+              }>
                 <td className="px-4 py-2">
                   {ligne.statut === 'doublon' ? (
-                    <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                      Doublon
-                    </span>
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Doublon</span>
+                  ) : ligne.statut === 'sur_paiement' ? (
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Sur-paiement</span>
+                  ) : ligne.statut === 'invalide' ? (
+                    <span className="bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Introuvable</span>
                   ) : (
-                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
-                      Nouveau
-                    </span>
+                    <span className="bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Nouveau</span>
                   )}
                 </td>
                 {colonnesMappees.map(m => (

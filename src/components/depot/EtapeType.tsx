@@ -7,9 +7,16 @@ interface Props {
   onSuivant: () => void
 }
 
-const OPTIONS = [
+const OPTIONS: {
+  type: TypeFichier
+  icone: string
+  titre: string
+  description: string
+  formats: string[]
+  pivot: string
+}[] = [
   {
-    type: 'csv_bancaire' as const,
+    type: 'csv_bancaire',
     icone: '🏦',
     titre: 'Relevé bancaire',
     description: 'Lignes de transactions exportées depuis votre banque.',
@@ -17,19 +24,29 @@ const OPTIONS = [
     pivot: 'N° Opération',
   },
   {
-    type: 'xlsx_factures' as const,
+    type: 'xlsx_factures',
     icone: '🧾',
     titre: 'Factures',
     description: 'Export de votre logiciel comptable ou ERP (numéros de pièce, montants, échéances).',
     formats: ['XLSX', 'XLS'],
     pivot: 'N° de pièce',
   },
+  {
+    type: 'import_lettrage',
+    icone: '🔗',
+    titre: 'Lettrage / Associations',
+    description: 'Import en masse d\'associations factures ↔ règlements. Utile pour la migration historique ou les prélèvements automatiques.',
+    formats: ['CSV', 'XLSX'],
+    pivot: 'N° de facture',
+  },
 ]
 
 export function EtapeType({ valeur, onChange, onSuivant }: Props) {
+  const optionSelectionnee = OPTIONS.find(o => o.type === valeur)
+
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-3 gap-4 mb-5">
         {OPTIONS.map(opt => (
           <button
             key={opt.type}
@@ -63,8 +80,12 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
       <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800">
         <span className="text-base flex-shrink-0">🔑</span>
         <span>
-          {valeur
-            ? <>Clé pivot (anti-doublon) : <strong>{OPTIONS.find(o => o.type === valeur)?.pivot}</strong>. Toute ligne déjà présente en base sera ignorée automatiquement.</>
+          {optionSelectionnee
+            ? <>Clé pivot (anti-doublon) : <strong>{optionSelectionnee.pivot}</strong>. {
+                optionSelectionnee.type === 'import_lettrage'
+                  ? 'Les factures introuvables en base seront ignorées. Les factures déjà soldées déclencheront un avertissement.'
+                  : 'Toute ligne déjà présente en base sera ignorée automatiquement.'
+              }</>
             : <>Sélectionnez un type pour voir la clé anti-doublon utilisée.</>
           }
         </span>

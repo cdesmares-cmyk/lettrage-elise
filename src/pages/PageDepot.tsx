@@ -9,6 +9,7 @@ import { EtapeValidation } from '../components/depot/EtapeValidation'
 import { HistoriqueImports } from '../components/depot/HistoriqueImports'
 import { useImportBancaire } from '../hooks/useImportBancaire'
 import { useImportFactures } from '../hooks/useImportFactures'
+import { useImportLettrage } from '../hooks/useImportLettrage'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
 type Etape = 'type' | 'upload' | 'mapping' | 'validation' | 'succes'
@@ -37,7 +38,10 @@ export function PageDepot() {
 
   const hookBancaire = useImportBancaire()
   const hookFactures = useImportFactures()
-  const hook = typeFichier === 'csv_bancaire' ? hookBancaire : hookFactures
+  const hookLettrage = useImportLettrage()
+  const hook = typeFichier === 'csv_bancaire' ? hookBancaire
+    : typeFichier === 'xlsx_factures' ? hookFactures
+    : hookLettrage
 
   function reinitialiser() {
     setEtape('type')
@@ -198,6 +202,8 @@ export function PageDepot() {
               <p className="text-gray-500 text-sm mb-6">
                 {validation.nom_fichier} · {validation.nb_nouvelles.toLocaleString('fr-FR')} lignes importées
                 {validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
+                {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} factures ignorées`}
+                {(validation.nb_avertissements ?? 0) > 0 && ` · ${validation.nb_avertissements} sur-paiements`}
               </p>
               <div className="flex gap-3 justify-center">
                 <button
