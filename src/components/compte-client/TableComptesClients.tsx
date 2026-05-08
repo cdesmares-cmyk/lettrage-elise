@@ -144,15 +144,10 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                   <tr key={`${c.code_dso}-fac`}>
                     <td colSpan={9} className="px-0 py-0 border-b-2 border-blue-100">
                       <div className="px-4 py-3 bg-blue-50/60">
-                        <LignesFactures
-                          factures={factures}
-                          chargement={estChargement(c.code_dso)}
-                          onStatutChange={onStatutChange}
-                          onHistorique={onHistorique}
-                          compact
-                        />
-                        {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (
-                          <div className="mt-2 text-center">
+                        {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
+                          // Toutes les factures sont réglées — pas d'impayée en mémoire
+                          <div className="py-3 text-center">
+                            <p className="text-xs text-emerald-600 font-medium mb-2">✓ Toutes les factures sont réglées</p>
                             <button
                               onClick={e => { e.stopPropagation(); onChargerHistorique(c.code_dso) }}
                               className="text-[11px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors"
@@ -160,6 +155,26 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                               + Charger {nbReglees} facture{nbReglees > 1 ? 's' : ''} réglée{nbReglees > 1 ? 's' : ''}
                             </button>
                           </div>
+                        ) : (
+                          <>
+                            <LignesFactures
+                              factures={factures}
+                              chargement={estChargement(c.code_dso)}
+                              onStatutChange={onStatutChange}
+                              onHistorique={onHistorique}
+                              compact
+                            />
+                            {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (
+                              <div className="mt-2 text-center">
+                                <button
+                                  onClick={e => { e.stopPropagation(); onChargerHistorique(c.code_dso) }}
+                                  className="text-[11px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                                >
+                                  + Charger {nbReglees} facture{nbReglees > 1 ? 's' : ''} réglée{nbReglees > 1 ? 's' : ''}
+                                </button>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </td>

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useFacturesClient } from '../hooks/useFacturesClient'
+import { useAppData } from '../contexts/AppDataContext'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
 import { TableComptesClients } from '../components/compte-client/TableComptesClients'
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
@@ -25,8 +26,7 @@ export function PageCompteClient() {
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
-
-  // Les factures actives sont déjà en mémoire via AppDataContext — pas de preload nécessaire
+  const { facturesActives } = useAppData()
 
   return (
     <div>
@@ -76,6 +76,18 @@ export function PageCompteClient() {
             <button onClick={() => comptes.setRecherche('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
           )}
         </div>
+
+        {/* Indicateur de chargement mémoire */}
+        {!comptes.chargement && (
+          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium ${
+            facturesActives.length === comptes.kpis.nbFacturesAttente
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${facturesActives.length === comptes.kpis.nbFacturesAttente ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            {facturesActives.length} / {comptes.kpis.nbFacturesAttente} factures actives en mémoire
+          </div>
+        )}
       </div>
 
       {/* Contenu selon la vue */}
