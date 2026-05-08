@@ -66,10 +66,24 @@ export function useImportBancaire() {
     }
 
     const { lignes } = await parserCSV(fichier)
-    const colPivot = mapping.find(m => m.champ_cible === 'id_operation')?.colonne_source
+    const colPivot   = mapping.find(m => m.champ_cible === 'id_operation')?.colonne_source
+    const colDate    = mapping.find(m => m.champ_cible === 'date_operation')?.colonne_source
+    const colLibelle = mapping.find(m => m.champ_cible === 'libelle')?.colonne_source
+    const colRef     = mapping.find(m => m.champ_cible === 'detail')?.colonne_source
     if (!colPivot) throw new Error('La colonne N° Opération (pivot) doit être mappée.')
 
-    const toutesLesCles = [...new Set(lignes.map(l => l[colPivot]).filter(Boolean))]
+    // Clé d'unicité : pivot réel si présent, sinon clé synthétique SYNTH|date|libelle|ref
+    // Couvre les remises CHQ/LCR qui n'ont pas de numéro d'opération
+    function cleEffective(ligne: Record<string, string>): string {
+      const pivot = (ligne[colPivot as string] ?? '').trim()
+      if (pivot) return pivot
+      const d  = (ligne[colDate    ?? ''] ?? '').trim()
+      const lb = (ligne[colLibelle ?? ''] ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+      const rf = (ligne[colRef     ?? ''] ?? '').trim()
+      return `SYNTH|${d}|${lb}|${rf}`
+    }
+
+    const toutesLesCles = [...new Set(lignes.map(l => cleEffective(l)))]
 
     // Vérification par lots de 500 (limite URL Supabase)
     const existantes = new Set<string>()
@@ -83,14 +97,14 @@ export function useImportBancaire() {
     }
 
     // Doublons vs base de données
-    const candidats = lignes.filter(l => !existantes.has(l[colPivot]))
+    const candidats = lignes.filter(l => !existantes.has(cleEffective(l)))
 
-    // Doublons intra-fichier : même clé pivot en double dans le fichier
+    // Doublons intra-fichier : même clé en double dans le fichier
     const vuesDansFichier = new Set<string>()
     const nouvelles: typeof lignes = []
     const doublonsIntraFichier: typeof lignes = []
     for (const l of candidats) {
-      const cle = l[colPivot]
+      const cle = cleEffective(l)
       if (vuesDansFichier.has(cle)) { doublonsIntraFichier.push(l) }
       else { vuesDansFichier.add(cle); nouvelles.push(l) }
     }
@@ -98,7 +112,7 @@ export function useImportBancaire() {
     // Aperçu avec détection de doublon en ordre de lecture
     const vuesApercu = new Set<string>()
     const apercu = lignes.slice(0, 10).map(l => {
-      const cle = l[colPivot] ?? ''
+      const cle = cleEffective(l)
       const estDoublon = existantes.has(cle) || vuesApercu.has(cle)
       vuesApercu.add(cle)
       return { donnees: l, statut: estDoublon ? 'doublon' as const : 'nouveau' as const, cle_pivot: cle }
@@ -112,7 +126,12 @@ export function useImportBancaire() {
     ) / 100
 
     return {
-      lignes_a_inserer: nouvelles.map(l => appliquerMapping(l, mapping)),
+      // Injecte la clé synthétique dans id_operation si le pivot est vide
+      lignes_a_inserer: nouvelles.map(l => {
+        const mapped = appliquerMapping(l, mapping)
+        if (!mapped['id_operation']) mapped['id_operation'] = cleEffective(l)
+        return mapped
+      }),
       apercu,
       nb_total: lignes.length,
       nb_nouvelles: nouvelles.length,
