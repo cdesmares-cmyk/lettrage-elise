@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
 export function useComptesClients() {
-  const { clients: raw, chargement, rafraichir } = useAppData()
+  const { clients: raw, facturesActives, chargement, rafraichir } = useAppData()
   const [recherche, setRecherche] = useState('')
 
   const clients = useMemo((): CompteClient[] => {
@@ -20,12 +20,21 @@ export function useComptesClients() {
     )
   }, [raw, recherche])
 
-  const kpis = useMemo((): KpisCompteClient => ({
-    nbClientsActifs: clients.filter(c => c.encours_total > 0).length,
-    encoursTotalTtc: clients.reduce((s, c) => s + c.encours_total, 0),
-    nbFacturesAttente: clients.reduce((s, c) => s + c.nb_impayees, 0),
-    nbFacturesTotal: clients.reduce((s, c) => s + c.nb_factures_total, 0),
-  }), [clients])
+  const kpis = useMemo((): KpisCompteClient => {
+    // Factures impayées (source : facturesActives chargées en mémoire avec pagination complète)
+    // On évite de sommer nb_impayees depuis v_comptes_clients car la vue manque les factures
+    // dont le code_client n'existe pas dans la table clients (factures orphelines).
+    const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
+    return {
+      nbClientsActifs: clients.filter(c => c.encours_total > 0).length,
+      encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
+      encoursTotalAvoirs: facturesActives
+        .filter(f => f.est_avoir && f.reste_du < -0.005)
+        .reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      nbFacturesAttente: impayees.length,
+      nbFacturesTotal: clients.reduce((s, c) => s + c.nb_factures_total, 0),
+    }
+  }, [clients, facturesActives])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
     const groups = new Map<string, CompteClient[]>()

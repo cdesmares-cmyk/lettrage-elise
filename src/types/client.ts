@@ -57,6 +57,7 @@ export interface GroupeNebuleuse {
 export interface KpisCompteClient {
   nbClientsActifs: number
   encoursTotalTtc: number
+  encoursTotalAvoirs: number
   nbFacturesAttente: number
   nbFacturesTotal: number
 }

@@ -35,9 +35,9 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir'
       const PAGE = 1000
 
-      // Clients + première page de factures en parallèle
-      const [clientsRes, page0] = await Promise.all([
-        supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }),
+      // Première page clients + première page factures en parallèle
+      const [clientsPage0, page0] = await Promise.all([
+        supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
           .or('reste_du.gt.0.005,reste_du.lt.-0.005')
           .order('code_client', { ascending: true })
@@ -45,12 +45,22 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           .range(0, PAGE - 1),
       ])
 
-      if (clientsRes.error) { toast.error('Erreur chargement clients'); return }
+      if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
 
-      const rows = clientsRes.data as unknown as RowCompteClient[]
-      const maxEncours = Math.max(...rows.map(r => r.encours_total), 1)
-      const maxImpayees = Math.max(...rows.map(r => r.nb_impayees), 1)
-      setClients(rows.map(r => ({
+      let tousClients: RowCompteClient[] = (clientsPage0.data as unknown as RowCompteClient[]) ?? []
+      let offsetClients = PAGE
+      while (tousClients.length === offsetClients) {
+        const { data, error } = await supabase.from('v_comptes_clients').select('*')
+          .order('nom', { ascending: true })
+          .range(offsetClients, offsetClients + PAGE - 1)
+        if (error || !data?.length) break
+        tousClients = [...tousClients, ...(data as unknown as RowCompteClient[])]
+        offsetClients += PAGE
+      }
+
+      const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
+      const maxImpayees = Math.max(...tousClients.map(r => r.nb_impayees), 1)
+      setClients(tousClients.map(r => ({
         ...r,
         statut_juridique: r.statut_juridique as StatutJuridique | null,
         note_risque: Math.round(
