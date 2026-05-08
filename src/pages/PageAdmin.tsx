@@ -118,7 +118,11 @@ export function PageAdmin() {
       <section className="bg-white border border-amber-200 rounded-xl shadow-sm mb-5 overflow-hidden">
         <div className="px-5 py-4 border-b border-amber-100">
           <h2 className="text-sm font-bold text-gray-800">Supprimer des lettrages</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Supprime uniquement les lettrages — les factures et lignes bancaires sont conservées, les restants dus sont recalculés</p>
+          <p className="text-xs text-gray-400 mt-0.5">Réservé aux resets de test — en production, utilisez le module <strong>Correction</strong> (délettrage en négatif)</p>
+        </div>
+        <div className="mx-5 mt-4 flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
+          <span className="flex-shrink-0 mt-0.5">⚠️</span>
+          <span>Supprimer des lettrages remet automatiquement les factures concernées en <strong>impayées</strong>. Les lignes bancaires redeviennent non lettrées. Cette action n'est pas réversible.</span>
         </div>
         <div className="px-5 py-4 flex items-end gap-3 flex-wrap">
           <div>
