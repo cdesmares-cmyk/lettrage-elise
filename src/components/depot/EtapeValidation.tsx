@@ -11,12 +11,25 @@ interface Props {
   chargement: boolean
 }
 
+function fmt(n: number) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+
 function StatCard({
   valeur, label, couleur,
 }: { valeur: number; label: string; couleur: string }) {
   return (
     <div className={`bg-gray-50 border rounded-xl px-5 py-4 ${couleur}`}>
       <p className="text-2xl font-bold tabular-nums">{valeur.toLocaleString('fr-FR')}</p>
+      <p className="text-xs font-medium text-gray-500 mt-0.5">{label}</p>
+    </div>
+  )
+}
+
+function StatCardMontant({ valeur, label }: { valeur: number; label: string }) {
+  return (
+    <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
+      <p className="text-2xl font-bold tabular-nums text-blue-700">{fmt(valeur)}</p>
       <p className="text-xs font-medium text-gray-500 mt-0.5">{label}</p>
     </div>
   )
@@ -42,7 +55,7 @@ export function EtapeValidation({
   return (
     <div>
       {/* Statistiques */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className={`grid gap-3 mb-6 ${estLettrage || (!resultat.total_credit_fichier && !resultat.total_ttc_fichier) ? 'grid-cols-4' : 'grid-cols-5'}`}>
         <StatCard valeur={resultat.nb_total} label="Lignes détectées" couleur="border-gray-200 text-blue-600" />
         <StatCard valeur={resultat.nb_nouvelles} label="À importer" couleur="border-emerald-200 text-emerald-600" />
         {estLettrage
@@ -53,6 +66,12 @@ export function EtapeValidation({
           ? <StatCard valeur={resultat.nb_invalides ?? 0} label="Factures introuvables" couleur="border-red-200 text-red-500" />
           : <StatCard valeur={0} label="Erreurs" couleur="border-gray-200 text-gray-400" />
         }
+        {resultat.total_credit_fichier != null && (
+          <StatCardMontant valeur={resultat.total_credit_fichier} label="Total crédits (fichier)" />
+        )}
+        {resultat.total_ttc_fichier != null && (
+          <StatCardMontant valeur={resultat.total_ttc_fichier} label="Total TTC (fichier)" />
+        )}
       </div>
 
       {/* Bannière sur-paiement (import_lettrage uniquement) */}

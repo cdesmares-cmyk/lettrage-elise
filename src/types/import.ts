@@ -45,6 +45,8 @@ export interface ResultatValidation {
   nb_doublons: number
   nb_avertissements?: number  // lettrages sur factures déjà soldées (sur-paiement)
   nb_invalides?: number       // factures introuvables en base
+  total_credit_fichier?: number   // csv_bancaire : somme des crédits du fichier
+  total_ttc_fichier?: number      // xlsx_factures : somme des montants TTC du fichier
   hash: string
   nom_fichier: string
 }

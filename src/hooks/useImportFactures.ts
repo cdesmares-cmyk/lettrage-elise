@@ -124,12 +124,20 @@ export function useImportFactures() {
       }
     })
 
+    const totalTtcFichier = Math.round(
+      lignes.reduce((s, l) => {
+        const m = appliquerMapping(l, mapping)
+        return s + (typeof m['montant_ttc'] === 'number' ? m['montant_ttc'] : 0)
+      }, 0) * 100
+    ) / 100
+
     return {
       lignes_a_inserer: nouvelles.map(l => appliquerMapping(l, mapping)),
       apercu,
       nb_total: lignes.length,
       nb_nouvelles: nouvelles.length,
       nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
+      total_ttc_fichier: totalTtcFichier,
       hash,
       nom_fichier: fichier.name,
     }

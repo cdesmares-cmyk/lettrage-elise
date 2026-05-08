@@ -104,12 +104,20 @@ export function useImportBancaire() {
       return { donnees: l, statut: estDoublon ? 'doublon' as const : 'nouveau' as const, cle_pivot: cle }
     })
 
+    const totalCreditFichier = Math.round(
+      lignes.reduce((s, l) => {
+        const m = appliquerMapping(l, mapping)
+        return s + (typeof m['credit'] === 'number' && m['credit'] > 0 ? m['credit'] : 0)
+      }, 0) * 100
+    ) / 100
+
     return {
       lignes_a_inserer: nouvelles.map(l => appliquerMapping(l, mapping)),
       apercu,
       nb_total: lignes.length,
       nb_nouvelles: nouvelles.length,
       nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
+      total_credit_fichier: totalCreditFichier,
       hash,
       nom_fichier: fichier.name,
     }
