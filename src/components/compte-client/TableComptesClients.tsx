@@ -1,5 +1,5 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { CompteClient, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 
@@ -15,6 +15,8 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
 }
+
+const PAGE_SIZE = 25
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -39,6 +41,10 @@ const STATUT_CLASSES: Record<string, string> = {
 
 export function TableComptesClients({ clients, chargement, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+
+  // Réinitialiser la page et fermer le panneau ouvert quand la liste filtrée change
+  useEffect(() => { setPage(0); setOuvert(null) }, [clients])
 
   function toggle(code: string) {
     if (ouvert === code) { setOuvert(null) }
@@ -47,6 +53,9 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
 
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
+
+  const nbPages = Math.ceil(clients.length / PAGE_SIZE)
+  const clientsPage = clients.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -65,7 +74,7 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
           </tr>
         </thead>
         <tbody>
-          {clients.map(c => {
+          {clientsPage.map(c => {
             const estOuvert = ouvert === c.code_dso
             const sc = classeScore(c.note_risque)
             const factures = getFactures(c.code_dso)
@@ -142,7 +151,6 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                           onHistorique={onHistorique}
                           compact
                         />
-                        {/* Bouton charger factures réglées — visible uniquement si l'historique n'est pas encore chargé */}
                         {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (
                           <div className="mt-2 text-center">
                             <button
@@ -162,6 +170,52 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
           })}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      {nbPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+          <span className="text-xs text-gray-400">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, clients.length)} sur {clients.length} clients
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="px-2.5 py-1 text-xs font-medium rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Préc.
+            </button>
+            {(() => {
+              // Affiche au max 5 boutons : début, fenêtre autour de la page courante, fin
+              const btn = (i: number) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i)}
+                  className={`w-7 h-7 text-xs font-medium rounded border transition-colors ${
+                    i === page ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
+                  }`}
+                >{i + 1}</button>
+              )
+              const sep = (k: string) => <span key={k} className="text-xs text-gray-300 px-0.5">…</span>
+              if (nbPages <= 7) return Array.from({ length: nbPages }, (_, i) => btn(i))
+              const pages: React.ReactNode[] = []
+              pages.push(btn(0))
+              if (page > 2) pages.push(sep('s1'))
+              for (let i = Math.max(1, page - 1); i <= Math.min(nbPages - 2, page + 1); i++) pages.push(btn(i))
+              if (page < nbPages - 3) pages.push(sep('s2'))
+              pages.push(btn(nbPages - 1))
+              return pages
+            })()}
+            <button
+              onClick={() => setPage(p => Math.min(nbPages - 1, p + 1))}
+              disabled={page === nbPages - 1}
+              className="px-2.5 py-1 text-xs font-medium rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Suiv. →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -41,7 +41,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         supabase
           .from('v_factures_avec_reste_du')
           .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
-          .gt('reste_du', 0.005)   // uniquement les factures avec un restant dû > 0
+          .or('reste_du.gt.0.005,reste_du.lt.-0.005')   // impayées + avoirs non soldés (signe positif ou négatif)
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false }),
       ])
