@@ -1,25 +1,32 @@
 // Onglet 2 — Lettrage : affectation des crédits bancaires aux factures (Sprint 2)
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
+import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
 import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
+import { useRemises } from '../hooks/useRemises'
 import { useAppData } from '../contexts/AppDataContext'
 
 export function PageLettrage() {
   const [correctionOuverte, setCorrectionOuverte] = useState(false)
   const [extractionOuverte, setExtractionOuverte] = useState(false)
+  const [remisesOuverte, setRemisesOuverte] = useState(false)
 
   const { rafraichir: rafraichirDonnees } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   // Après chaque lettrage validé : rafraîchit les lignes bancaires, le cache et l'historique
   const forme = useLettrageForm(() => { liste.rafraichir(); rafraichirDonnees(); if (historique.visible) historique.charger() })
+  // Remises : chargement initial pour le badge dans BarreResume
+  const remisesHook = useRemises(() => rafraichirDonnees())
+  const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
+  useEffect(() => { remisesHook.charger() }, [])
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     // Si on clique sur la ligne déjà active → désélectionner
@@ -57,7 +64,9 @@ export function PageLettrage() {
       <BarreResume
         nbNonLettres={liste.nbNonLettres}
         montantRestant={liste.montantRestant}
+        nbRemisesEnAttente={nbRemisesEnAttente}
         onCorrection={() => setCorrectionOuverte(true)}
+        onOuvrirRemises={() => setRemisesOuverte(true)}
       />
 
       {/* Deux panneaux */}
@@ -123,6 +132,13 @@ export function PageLettrage() {
       <ModalExtractionLettrage
         ouvert={extractionOuverte}
         onFermer={() => setExtractionOuverte(false)}
+      />
+
+      {/* Modal remises Chèque / LCR */}
+      <ModalRemises
+        ouvert={remisesOuverte}
+        onFermer={() => setRemisesOuverte(false)}
+        onSuccess={() => { liste.rafraichir(); rafraichirDonnees(); remisesHook.charger() }}
       />
     </div>
   )
