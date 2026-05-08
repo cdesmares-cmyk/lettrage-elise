@@ -28,6 +28,23 @@ export function PageLettrage() {
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
   useEffect(() => { remisesHook.charger() }, [])
 
+  // Remises dont le montant correspond au crédit de la ligne sélectionnée (± 5 ct)
+  const creditActif = forme.ligneActive?.credit ?? 0
+  const remisesCorrespondantes = remisesHook.remises.filter(r => {
+    if (r.statut !== 'en_attente') return false
+    const total = r.montant_total ?? r.lignes.reduce((s, l) => s + l.montant, 0)
+    return Math.abs(total - creditActif) <= 0.05
+  })
+
+  async function handleEncaisser(remiseId: string) {
+    if (!forme.ligneActive) return
+    await remisesHook.encaisser(remiseId, forme.ligneActive.id_operation)
+    liste.rafraichir()
+    rafraichirDonnees()
+    if (historique.visible) historique.charger()
+    forme.annuler()
+  }
+
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     // Si on clique sur la ligne déjà active → désélectionner
     if (forme.ligneActive?.id_operation === ligne.id_operation) {
@@ -90,6 +107,8 @@ export function PageLettrage() {
         <PanneauLettrage
           {...forme}
           onOuvrirCorrection={() => setCorrectionOuverte(true)}
+          remisesCorrespondantes={remisesCorrespondantes}
+          onEncaisser={handleEncaisser}
         />
       </div>
 

@@ -161,5 +161,31 @@ export function useRemises(onSuccessCallback?: () => void) {
     }
   }
 
-  return { remises, chargement, charger, creer, modifier, supprimer }
+  async function encaisser(remiseId: string, idLigneBancaire: string) {
+    setChargement(true)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { error: le } = await supabase
+        .from('lettrages')
+        .update({ id_ligne_bancaire: idLigneBancaire } as never)
+        .eq('remise_id', remiseId)
+      if (le) throw le
+
+      const { error: re } = await supabase
+        .from('remises')
+        .update({ statut: 'encaisse', id_ligne_bancaire: idLigneBancaire, date_encaissement: today } as never)
+        .eq('id', remiseId)
+      if (re) throw re
+
+      toast.success('Remise encaissée — lettrages finalisés.')
+      await charger()
+      onSuccessCallback?.()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'encaissement.')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  return { remises, chargement, charger, creer, modifier, supprimer, encaisser }
 }
