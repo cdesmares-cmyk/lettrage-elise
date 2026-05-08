@@ -57,7 +57,7 @@ export function parseNombre(v: unknown): number | null {
   if (typeof v === 'number') return isNaN(v) ? null : v
   const s = String(v ?? '')
     .replace(/\s/g, '')
-    .replace(/,(\d{2})$/, '.$1')  // virgule décimale française
+    .replace(/,(\d{1,2})$/, '.$1')  // virgule décimale française (1 ou 2 chiffres)
     .replace(/[^0-9.\-]/g, '')
   const n = parseFloat(s)
   return isNaN(n) ? null : n
