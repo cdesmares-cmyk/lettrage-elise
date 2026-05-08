@@ -10,13 +10,12 @@ interface Props { kpis: KpisCompteClient; chargement: boolean }
 export function BarreKpis({ kpis, chargement }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
   return (
-    <div className={`grid grid-cols-6 gap-3 mb-5 ${cls}`}>
+    <div className={`grid grid-cols-5 gap-3 mb-5 ${cls}`}>
       <Kpi label="Clients actifs" valeur={String(kpis.nbClientsActifs)} sous="avec encours > 0" />
       <Kpi label="Encours factures TTC" valeur={fmt(kpis.encoursTotalTtc)} couleur="warning" />
       <Kpi label="Avoirs non soldés" valeur={fmt(kpis.encoursTotalAvoirs)} sous="à déduire de l'encours" couleur="credit" />
       <Kpi label="Factures en attente" valeur={String(kpis.nbFacturesAttente)} sous="restant dû > 0" couleur="danger" />
       <Kpi label="Factures au total" valeur={String(kpis.nbFacturesTotal)} />
-      <Kpi label="Total HT importé" valeur={fmt(kpis.totalHtImporte)} sous="avoirs + factures" />
     </div>
   )
 }

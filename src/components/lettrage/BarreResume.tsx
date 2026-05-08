@@ -2,7 +2,6 @@
 interface Props {
   nbNonLettres: number
   montantRestant: number
-  totalCreditImporte: number
   onCorrection: () => void
 }
 
@@ -10,7 +9,7 @@ function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-export function BarreResume({ nbNonLettres, montantRestant, totalCreditImporte, onCorrection }: Props) {
+export function BarreResume({ nbNonLettres, montantRestant, onCorrection }: Props) {
   return (
     <div className="flex items-center gap-4 bg-white border border-gray-200 rounded-xl px-5 py-3 mb-5 shadow-sm">
       <div className="flex items-baseline gap-2">
@@ -23,13 +22,6 @@ export function BarreResume({ nbNonLettres, montantRestant, totalCreditImporte, 
       <div className="flex items-baseline gap-2">
         <span className="text-xl font-bold tabular-nums text-amber-600">{fmt(montantRestant)}</span>
         <span className="text-xs font-medium text-gray-500">restant à attribuer</span>
-      </div>
-
-      <div className="w-px h-7 bg-gray-200" />
-
-      <div className="flex items-baseline gap-2">
-        <span className="text-xl font-bold tabular-nums text-slate-700">{fmt(totalCreditImporte)}</span>
-        <span className="text-xs font-medium text-gray-500">total crédits importés</span>
       </div>
 
       <div className="ml-auto">

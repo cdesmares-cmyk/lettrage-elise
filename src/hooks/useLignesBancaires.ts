@@ -19,7 +19,6 @@ export function useLignesBancaires() {
   const [lignes, setLignes] = useState<LigneBancaireAvecStatut[]>([])
   const [nbNonLettres, setNbNonLettres] = useState(0)
   const [montantRestant, setMontantRestant] = useState(0)
-  const [totalCreditImporte, setTotalCreditImporte] = useState(0)
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
   const [filtre, setFiltre] = useState<FiltreStatut>('toutes')
@@ -98,26 +97,6 @@ export function useLignesBancaires() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtre, dateDebut, dateFin, version])
 
-  // Total crédit importé — chargé une fois, ne dépend pas des filtres
-  useEffect(() => {
-    async function chargerTotalCredit() {
-      let total = 0
-      let offset = 0
-      while (true) {
-        const { data } = await supabase
-          .from('lignes_bancaires')
-          .select('credit')
-          .range(offset, offset + 999)
-        if (!data?.length) break
-        total += (data as { credit: number | null }[]).reduce((s, r) => s + (r.credit ?? 0), 0)
-        if (data.length < 1000) break
-        offset += 1000
-      }
-      setTotalCreditImporte(total)
-    }
-    chargerTotalCredit()
-  }, [version])
-
   function rafraichir() { setVersion(v => v + 1) }
 
   return {
@@ -125,6 +104,6 @@ export function useLignesBancaires() {
     filtre, setFiltre,
     dateDebut, setDateDebut,
     dateFin, setDateFin,
-    rafraichir, nbNonLettres, montantRestant, totalCreditImporte,
+    rafraichir, nbNonLettres, montantRestant,
   }
 }
