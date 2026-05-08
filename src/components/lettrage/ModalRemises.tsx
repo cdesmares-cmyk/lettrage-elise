@@ -58,9 +58,14 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
       setTypeForm(remise.type)
       setNumeroForm(remise.numero)
       setMontantLcrForm(remise.montant_total != null ? String(remise.montant_total) : '')
-      setLignesForm(remise.lignes.length > 0
+      const lignesInit = remise.lignes.length > 0
         ? remise.lignes.map(l => ({ _key: cle(), numero_facture: l.numero_facture, montant: String(l.montant), info_facture: null, chargement: false }))
-        : [nouvelleLigne()])
+        : [nouvelleLigne()]
+      setLignesForm(lignesInit)
+      // Déclencher le lookup pour afficher le nom client sans écraser le montant
+      setTimeout(() => {
+        lignesInit.forEach(l => { if (l.numero_facture.length >= 4) chercherFacture(l._key, l.numero_facture, true) })
+      }, 50)
     } else {
       setRemiseEnEdition(null)
       setTypeForm('cheque')
@@ -86,7 +91,8 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   }
   function ajouterLigne() { setLignesForm(prev => [...prev, nouvelleLigne()]) }
 
-  async function chercherFacture(key: string, numero: string) {
+  // preserverMontant = true en mode édition : ne pas écraser le montant déjà saisi
+  async function chercherFacture(key: string, numero: string, preserverMontant = false) {
     if (numero.length < 4) { modifierLigne(key, { info_facture: null, chargement: false }); return }
     modifierLigne(key, { chargement: true })
     const { data } = await supabase
@@ -96,7 +102,11 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
     const row = data as unknown as RowFactureInfo | null
     if (row) {
       const resteDu = Math.max(0, row.reste_du)
-      modifierLigne(key, { chargement: false, info_facture: row as InfoFacture, montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '' })
+      modifierLigne(key, {
+        chargement: false,
+        info_facture: row as InfoFacture,
+        ...(preserverMontant ? {} : { montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '' }),
+      })
     } else {
       modifierLigne(key, { chargement: false, info_facture: null })
     }
@@ -114,8 +124,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   const ecartLcr = Math.abs(somme - montantLcr)
   const lcrValide = typeForm !== 'lcr' || ecartLcr <= 0.05
 
+  // info_facture non requise : le montant est librement modifiable tant que non encaissé
   const lignesValides = lignesForm.every(l => {
-    const m = parseFloat(l.montant); return !!l.info_facture && !!l.montant && !isNaN(m) && m > 0
+    const m = parseFloat(l.montant)
+    return !!l.numero_facture.trim() && !!l.montant && !isNaN(m) && m > 0
   })
   const peutValider = !!numeroForm.trim() && lignesValides && (typeForm !== 'lcr' || (montantLcr > 0 && lcrValide))
 
@@ -279,6 +291,13 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                                 <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                               </div>
                             ))}
+                            <div className="flex justify-end px-4 py-3">
+                              <button onClick={() => supprimer(remise.id)}
+                                disabled={chargement}
+                                className="text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                                ✕ Supprimer
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
