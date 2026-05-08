@@ -82,7 +82,7 @@ export function useLettrageForm(onSuccess: () => void) {
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
     if (attribue > disp + 0.005) return false // surcharge bloquée
     return lignesForme.every(l => {
-      if (l.classe === 'facture') {
+      if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
       }
@@ -104,6 +104,11 @@ export function useLettrageForm(onSuccess: () => void) {
       ) / 100
       const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
 
+      const modeDepuisClasse = (classe: string) => {
+        if (classe === 'cheque') return 'cheque'
+        if (classe === 'lcr') return 'lcr'
+        return 'manuel'
+      }
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
         numero_facture: l.numero_facture.trim(),
@@ -112,7 +117,7 @@ export function useLettrageForm(onSuccess: () => void) {
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
-        mode: 'manuel' as const,
+        mode: modeDepuisClasse(l.classe),
         commentaire: l.classe === 'autres' ? 'Hors-facture (Autres)' : null,
         cree_par: utilisateur?.id ?? null,
         nom_operateur: utilisateur?.email ?? null,

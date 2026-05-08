@@ -1,7 +1,7 @@
 // Types pour le module de lettrage (Sprint 2)
 
 export type StatutLettrage = 'debit' | 'non_lettre' | 'partiel' | 'lettre'
-export type ClasseLettrage = 'facture' | 'autres'
+export type ClasseLettrage = 'facture' | 'autres' | 'cheque' | 'lcr'
 
 export interface LigneBancaireAvecStatut {
   id_operation: string

@@ -202,6 +202,8 @@ export function PanneauLettrage(props: Props) {
                     className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
+                    <option value="cheque">CHQ</option>
+                    <option value="lcr">LCR</option>
                     <option value="autres">Autres</option>
                   </select>
                   <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
@@ -245,8 +247,8 @@ export function PanneauLettrage(props: Props) {
                 </button>
               </div>
 
-              {/* Info facture auto-remplie */}
-              {ligne.classe === 'facture' && ligne.info_facture && (
+              {/* Info facture auto-remplie (Facture, CHQ, LCR) */}
+              {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && ligne.info_facture && (
                 <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
                   {' · '}reste dû : {fmt(ligne.info_facture.reste_du)}
@@ -255,7 +257,7 @@ export function PanneauLettrage(props: Props) {
                   )}
                 </div>
               )}
-              {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
+              {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
                 <div className="mt-1 ml-[88px] text-[10px] text-red-400">
                   Facture introuvable
                 </div>
