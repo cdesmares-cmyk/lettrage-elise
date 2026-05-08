@@ -32,18 +32,17 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const rafraichir = useCallback(async () => {
     setChargement(true)
     try {
-      // Deux requêtes en parallèle — seules les factures avec balance impayée sont chargées
-      const [clientsRes, facturesRes] = await Promise.all([
-        supabase
-          .from('v_comptes_clients')
-          .select('*')
-          .order('encours_total', { ascending: false }),
-        supabase
-          .from('v_factures_avec_reste_du')
-          .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
-          .or('reste_du.gt.0.005,reste_du.lt.-0.005')   // impayées + avoirs non soldés (signe positif ou négatif)
+      const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir'
+      const PAGE = 1000
+
+      // Clients + première page de factures en parallèle
+      const [clientsRes, page0] = await Promise.all([
+        supabase.from('v_comptes_clients').select('*').order('encours_total', { ascending: false }),
+        supabase.from('v_factures_avec_reste_du').select(COLS)
+          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
           .order('code_client', { ascending: true })
-          .order('date_emission', { ascending: false }),
+          .order('date_emission', { ascending: false })
+          .range(0, PAGE - 1),
       ])
 
       if (clientsRes.error) { toast.error('Erreur chargement clients'); return }
@@ -51,7 +50,6 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const rows = clientsRes.data as unknown as RowCompteClient[]
       const maxEncours = Math.max(...rows.map(r => r.encours_total), 1)
       const maxImpayees = Math.max(...rows.map(r => r.nb_impayees), 1)
-
       setClients(rows.map(r => ({
         ...r,
         statut_juridique: r.statut_juridique as StatutJuridique | null,
@@ -60,9 +58,24 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         ),
       })))
 
-      if (!facturesRes.error) {
-        setFacturesActives((facturesRes.data as unknown as FactureDetail[]) ?? [])
+      if (page0.error) { return }
+
+      let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
+
+      // Charger les pages suivantes si la première était pleine (pagination automatique)
+      let offset = PAGE
+      while (toutes.length === offset) {
+        const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
+          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+          .order('code_client', { ascending: true })
+          .order('date_emission', { ascending: false })
+          .range(offset, offset + PAGE - 1)
+        if (error || !data?.length) break
+        toutes = [...toutes, ...(data as unknown as FactureDetail[])]
+        offset += PAGE
       }
+
+      setFacturesActives(toutes)
     } finally {
       setChargement(false)
     }
