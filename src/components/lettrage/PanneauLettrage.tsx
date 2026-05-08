@@ -116,9 +116,28 @@ export function PanneauLettrage(props: Props) {
         <p className="text-xl font-bold text-gray-900 mt-2 tabular-nums">{fmt(creditDisponible)}</p>
       </div>
 
+      {/* Attributions précédentes — visible pour les partiellement lettrés */}
+      {lettragesExistants.length > 0 && (
+        <div className="px-5 pt-4 pb-1">
+          <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-2">Attributions précédentes</p>
+          <div className="space-y-1 mb-2">
+            {lettragesExistants.map(l => (
+              <div key={l.id} className="flex items-center justify-between text-xs bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
+                <div>
+                  <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
+                  <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
+                  {l.commentaire && <span className="text-gray-400 ml-2 italic">{l.commentaire}</span>}
+                </div>
+                <span className="font-semibold text-amber-700">{fmt(l.montant)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Lignes de lettrage */}
       <div className="px-5 pt-4 pb-2">
-        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Lignes de lettrage</p>
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Nouvelles lignes</p>
 
         <div className="space-y-3 mb-3">
           {lignesForme.map(ligne => (

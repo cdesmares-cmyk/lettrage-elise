@@ -1,0 +1,204 @@
+// Modale d'extraction des lettrages : filtres date/client + tableau + export XLS
+import { useState } from 'react'
+import { supabase } from '../../lib/supabase'
+import { exporterExtractionXls } from '../../lib/exportXls'
+import type { LigneExtractionLettrage } from '../../lib/exportXls'
+
+interface Props {
+  ouvert: boolean
+  onFermer: () => void
+}
+
+interface RowLettrage {
+  id: string
+  date_lettrage: string
+  code_client: string
+  numero_facture: string
+  montant: number
+  commentaire: string | null
+  id_ligne_bancaire: string | null
+}
+
+function fmt(n: number) {
+  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR')
+}
+
+export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
+  const now = new Date()
+  const today = now.toISOString().split('T')[0]
+  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+
+  const [dateDebut, setDateDebut] = useState(debutMois)
+  const [dateFin, setDateFin] = useState(today)
+  const [filtreClient, setFiltreClient] = useState('')
+  const [lignes, setLignes] = useState<LigneExtractionLettrage[]>([])
+  const [chargement, setChargement] = useState(false)
+  const [execute, setExecute] = useState(false)
+
+  async function chercher() {
+    setChargement(true)
+    setExecute(true)
+
+    let query = supabase
+      .from('lettrages')
+      .select('id, date_lettrage, code_client, numero_facture, montant, commentaire, id_ligne_bancaire')
+      .gte('date_lettrage', dateDebut)
+      .lte('date_lettrage', dateFin)
+      .order('date_lettrage', { ascending: false })
+      .order('code_client', { ascending: true })
+
+    if (filtreClient.trim()) {
+      query = query.ilike('code_client', `%${filtreClient.trim()}%`)
+    }
+
+    const { data: lettrageData } = await query
+    const rows = (lettrageData as unknown as RowLettrage[]) ?? []
+
+    // Récupère les libellés bancaires pour les IDs uniques
+    const ids = [...new Set(rows.map(r => r.id_ligne_bancaire).filter(Boolean))] as string[]
+    let libelleMap: Record<string, string> = {}
+    if (ids.length) {
+      const { data: bancaireData } = await supabase
+        .from('lignes_bancaires')
+        .select('id_operation, libelle')
+        .in('id_operation', ids)
+      const bancaires = (bancaireData as unknown as { id_operation: string; libelle: string }[]) ?? []
+      libelleMap = Object.fromEntries(bancaires.map(b => [b.id_operation, b.libelle]))
+    }
+
+    setLignes(rows.map(r => ({
+      ...r,
+      libelle_bancaire: r.id_ligne_bancaire ? (libelleMap[r.id_ligne_bancaire] ?? null) : null,
+    })))
+    setChargement(false)
+  }
+
+  const total = lignes.reduce((s, l) => s + l.montant, 0)
+
+  if (!ouvert) return null
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+      onClick={e => { if (e.target === e.currentTarget) onFermer() }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* En-tête */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="text-base font-bold text-gray-900">Extraction Lettrage</h2>
+            <p className="text-xs text-gray-500 mt-0.5">Exportez vos lettrages par période et par client</p>
+          </div>
+          <button onClick={onFermer} className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">×</button>
+        </div>
+
+        {/* Filtres */}
+        <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
+          <div className="flex items-end gap-4 flex-wrap">
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Date de début</label>
+              <input
+                type="date"
+                value={dateDebut}
+                onChange={e => setDateDebut(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Date de fin</label>
+              <input
+                type="date"
+                value={dateFin}
+                onChange={e => setDateFin(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Code client (optionnel)</label>
+              <input
+                type="text"
+                value={filtreClient}
+                onChange={e => setFiltreClient(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && chercher()}
+                placeholder="Tous les clients"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white w-44"
+              />
+            </div>
+            <button
+              onClick={chercher}
+              disabled={chargement}
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
+            >
+              {chargement ? '⟳ Chargement…' : '🔍 Rechercher'}
+            </button>
+          </div>
+        </div>
+
+        {/* Résultats */}
+        <div className="flex-1 overflow-auto px-6 py-4">
+          {!execute && (
+            <div className="flex items-center justify-center h-32 text-sm text-gray-400">
+              Définissez vos filtres et cliquez sur Rechercher
+            </div>
+          )}
+          {execute && !chargement && !lignes.length && (
+            <div className="flex items-center justify-center h-32 text-sm text-gray-400">
+              Aucun lettrage trouvé pour cette période
+            </div>
+          )}
+          {lignes.length > 0 && (
+            <>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-gray-500">
+                  {lignes.length} lettrage{lignes.length > 1 ? 's' : ''} · Total : <span className="font-semibold text-gray-800">{fmt(total)}</span>
+                </p>
+                <button
+                  onClick={() => exporterExtractionXls(lignes)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  ⬇ Extraire XLS
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                      <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Ligne bancaire</th>
+                      <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Code client</th>
+                      <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">N° Facture</th>
+                      <th className="text-right px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant attribué</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lignes.map((l, i) => (
+                      <tr key={l.id} className={`border-b border-gray-100 ${i % 2 !== 0 ? 'bg-gray-50/50' : ''}`}>
+                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(l.date_lettrage)}</td>
+                        <td className="px-3 py-2 text-gray-700 max-w-[220px] truncate">{l.libelle_bancaire ?? <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-mono font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">{l.code_client}</span>
+                        </td>
+                        <td className="px-3 py-2 font-mono text-gray-700">{l.numero_facture}</td>
+                        <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{fmt(l.montant)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-gray-200 bg-gray-50">
+                      <td colSpan={4} className="px-3 py-2.5 text-xs font-semibold text-gray-500 text-right">Total :</td>
+                      <td className="px-3 py-2.5 text-right font-mono font-bold text-gray-900">{fmt(total)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

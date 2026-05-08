@@ -17,6 +17,57 @@ function numCell(val: number | null, style: string, color?: string): string {
   return `<td style="${style}${colorStyle}">${val.toFixed(2)}</td>`
 }
 
+export interface LigneExtractionLettrage {
+  id: string
+  date_lettrage: string
+  libelle_bancaire: string | null
+  code_client: string
+  numero_facture: string
+  montant: number
+  commentaire: string | null
+}
+
+export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFichier = 'extraction_lettrages') {
+  const thead = `<thead><tr>
+    <th style="${TH}">Date</th>
+    <th style="${TH}">Ligne bancaire</th>
+    <th style="${TH}">Code client</th>
+    <th style="${TH}">N° Facture</th>
+    <th style="${TH};text-align:right;${NUM_FMT}">Montant attribué</th>
+    <th style="${TH}">Commentaire</th>
+  </tr></thead>`
+
+  const tbody = `<tbody>${lignes.map((l, i) => {
+    const bg = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+    return `<tr style="background:${bg}">
+      <td style="${TD}">${fmtDate(l.date_lettrage)}</td>
+      <td style="${TD}">${l.libelle_bancaire ?? '—'}</td>
+      <td style="${TD};font-family:monospace;font-weight:700;color:#1D4ED8">${l.code_client}</td>
+      <td style="${TD};font-family:monospace">${l.numero_facture}</td>
+      ${numCell(l.montant, TD_R)}
+      <td style="${TD}">${l.commentaire ?? ''}</td>
+    </tr>`
+  }).join('')}</tbody>`
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"/>
+    <style>table{border-collapse:collapse;width:100%} td,th{white-space:nowrap}</style>
+    </head>
+    <body><table>${thead}${tbody}</table></body></html>`
+
+  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${nomFichier}.xls`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_compte_client') {
   const thead = `<thead><tr>
     <th style="${TH}">Code client</th>

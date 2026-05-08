@@ -84,7 +84,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 </td>
                 {!compact && (
                   <td className="px-3 py-2">
-                    <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{f.code_client}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{f.code_client}</span>
+                      {f.nom_client && <span className="text-xs text-gray-600">{f.nom_client}</span>}
+                    </div>
                   </td>
                 )}
                 <td className="px-3 py-2">

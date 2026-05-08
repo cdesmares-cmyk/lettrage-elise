@@ -77,6 +77,10 @@ export function useLettrageForm(onSuccess: () => void) {
 
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length) return false
+    // Calcul inline pour éviter toute ambiguïté sur les consts déclarées en bas
+    const disp = ligneActive.restant ?? 0
+    const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
+    if (attribue > disp + 0.005) return false // surcharge bloquée
     return lignesForme.every(l => {
       if (l.classe === 'facture') {
         const m = parseFloat(l.montant)
