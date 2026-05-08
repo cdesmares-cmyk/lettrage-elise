@@ -27,12 +27,12 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
-  const [chargement, setChargement] = useState(true)
+  const [chargement, setChargement] = useState(false)
 
   const rafraichir = useCallback(async () => {
     setChargement(true)
     try {
-      // Deux requêtes en parallèle — seules les factures avec balance active sont chargées
+      // Deux requêtes en parallèle — seules les factures avec balance impayée sont chargées
       const [clientsRes, facturesRes] = await Promise.all([
         supabase
           .from('v_comptes_clients')
@@ -41,7 +41,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         supabase
           .from('v_factures_avec_reste_du')
           .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
-          .or('reste_du.gt.0.005,est_avoir.eq.true')  // impayées + tous les avoirs
+          .gt('reste_du', 0.005)   // uniquement les factures avec un restant dû > 0
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false }),
       ])
@@ -68,9 +68,10 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Charge dès que l'utilisateur est authentifié
+  // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
     if (session) { rafraichir() }
+    else { setClients([]); setFacturesActives([]); setChargement(false) }
   }, [session, rafraichir])
 
   function mettreAJourStatutLocal(numeroPiece: string, statut: StatutFacture | null) {

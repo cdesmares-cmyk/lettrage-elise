@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
-import { FournisseurDonnees } from './contexts/AppDataContext'
+import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDepot } from './pages/PageDepot'
@@ -10,19 +10,33 @@ import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageExtraction } from './pages/PageExtraction'
 
-// Garde de route : redirige vers /connexion si l'utilisateur n'est pas authentifié
+// Garde de route : redirige vers /connexion si non authentifié,
+// affiche un écran de chargement pendant la récupération des données initiales
 function RoutePrivee({ children }: { children: React.ReactNode }) {
-  const { session, chargement } = useAuth()
+  const { session, chargement: chargementAuth } = useAuth()
+  const { chargement: chargementDonnees } = useAppData()
 
-  if (chargement) {
+  if (chargementAuth) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500 text-sm">Chargement…</p>
+        <p className="text-gray-500 text-sm">Authentification…</p>
       </div>
     )
   }
 
-  return session ? <>{children}</> : <Navigate to="/connexion" replace />
+  if (!session) return <Navigate to="/connexion" replace />
+
+  if (chargementDonnees) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <p className="text-gray-500 text-sm font-medium">Chargement des données…</p>
+        <p className="text-gray-400 text-xs">Clients et factures en cours de chargement</p>
+      </div>
+    )
+  }
+
+  return <>{children}</>
 }
 
 function AppRoutes() {

@@ -69,7 +69,8 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
             const estOuvert = ouvert === c.code_dso
             const sc = classeScore(c.note_risque)
             const factures = getFactures(c.code_dso)
-            const nbReglees = c.nb_factures_total - factures.length
+            // nb_factures_total - nb_impayees = factures entièrement réglées (stats SQL, indépendant du cache)
+            const nbReglees = c.nb_factures_total - c.nb_impayees
             return (
               <>
                 <tr
