@@ -57,6 +57,7 @@ export function PageLettrage() {
       <BarreResume
         nbNonLettres={liste.nbNonLettres}
         montantRestant={liste.montantRestant}
+        totalCreditImporte={liste.totalCreditImporte}
         onCorrection={() => setCorrectionOuverte(true)}
       />
 

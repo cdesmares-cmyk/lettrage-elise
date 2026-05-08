@@ -1,5 +1,5 @@
 // Données agrégées clients — lit depuis AppDataContext (chargé une fois au démarrage)
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppData } from '../contexts/AppDataContext'
 import toast from 'react-hot-toast'
@@ -8,6 +8,23 @@ import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique }
 export function useComptesClients() {
   const { clients: raw, facturesActives, chargement, rafraichir } = useAppData()
   const [recherche, setRecherche] = useState('')
+  const [totalHtImporte, setTotalHtImporte] = useState(0)
+
+  useEffect(() => {
+    async function chargerTotalHt() {
+      let total = 0
+      let offset = 0
+      while (true) {
+        const { data } = await supabase.from('factures').select('montant_ht').range(offset, offset + 999)
+        if (!data?.length) break
+        total += (data as { montant_ht: number | null }[]).reduce((s, r) => s + (r.montant_ht ?? 0), 0)
+        if (data.length < 1000) break
+        offset += 1000
+      }
+      setTotalHtImporte(total)
+    }
+    chargerTotalHt()
+  }, [])
 
   const clients = useMemo((): CompteClient[] => {
     if (!recherche.trim()) return raw
@@ -33,8 +50,9 @@ export function useComptesClients() {
         .reduce((s, f) => s + Math.abs(f.reste_du), 0),
       nbFacturesAttente: impayees.length,
       nbFacturesTotal: clients.reduce((s, c) => s + c.nb_factures_total, 0),
+      totalHtImporte,
     }
-  }, [clients, facturesActives])
+  }, [clients, facturesActives, totalHtImporte])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
     const groups = new Map<string, CompteClient[]>()
