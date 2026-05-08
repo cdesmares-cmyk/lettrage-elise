@@ -11,10 +11,14 @@ interface RowLigne {
   statut_lettrage: string; derniere_date_lettrage: string | null
 }
 
+interface RowTotaux { statut_lettrage: string; restant: number }
+
 export type FiltreStatut = 'toutes' | 'non_lettre' | 'partiel' | 'lettre'
 
 export function useLignesBancaires() {
   const [lignes, setLignes] = useState<LigneBancaireAvecStatut[]>([])
+  const [nbNonLettres, setNbNonLettres] = useState(0)
+  const [montantRestant, setMontantRestant] = useState(0)
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
   const [filtre, setFiltre] = useState<FiltreStatut>('toutes')
@@ -34,6 +38,8 @@ export function useLignesBancaires() {
 
     async function charger() {
       setChargement(true)
+
+      // Requête d'affichage : limitée à 300 lignes (table paginée)
       let q = supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('*')
@@ -44,16 +50,24 @@ export function useLignesBancaires() {
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
 
-      const { data } = await q
-      if (annule) return
-      const rows = data as unknown as RowLigne[] | null
+      // Requête KPI : toutes les lignes, seulement les colonnes nécessaires
+      let qTotaux = supabase
+        .from('v_lignes_bancaires_avec_statut')
+        .select('statut_lettrage, restant')
 
-      // Filtre libellé côté client pour éviter un ilike sur chaque frappe
+      if (dateDebut) qTotaux = qTotaux.gte('date_operation', dateDebut)
+      if (dateFin)   qTotaux = qTotaux.lte('date_operation', dateFin)
+
+      const [{ data }, { data: dataTotaux }] = await Promise.all([q, qTotaux])
+      if (annule) return
+
+      const rows = data as unknown as RowLigne[] | null
       let result = rows?.map(r => ({
         ...r,
         statut_lettrage: r.statut_lettrage as StatutLettrage,
       })) ?? []
 
+      // Filtre libellé côté client pour éviter un ilike sur chaque frappe
       const term = recherche.trim().toLowerCase()
       if (term) {
         result = result.filter(r =>
@@ -64,6 +78,17 @@ export function useLignesBancaires() {
       }
 
       setLignes(result)
+
+      // KPIs calculés sur la totalité des lignes (sans limite)
+      const totaux = (dataTotaux as unknown as RowTotaux[]) ?? []
+      setNbNonLettres(totaux.filter(
+        r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel'
+      ).length)
+      setMontantRestant(totaux
+        .filter(r => r.statut_lettrage !== 'debit')
+        .reduce((s, r) => s + Math.max(0, r.restant), 0)
+      )
+
       setChargement(false)
     }
 
@@ -73,14 +98,6 @@ export function useLignesBancaires() {
   }, [filtre, dateDebut, dateFin, version])
 
   function rafraichir() { setVersion(v => v + 1) }
-
-  const nbNonLettres = lignes.filter(
-    l => l.statut_lettrage === 'non_lettre' || l.statut_lettrage === 'partiel'
-  ).length
-
-  const montantRestant = lignes
-    .filter(l => l.statut_lettrage !== 'debit')
-    .reduce((s, l) => s + Math.max(0, l.restant), 0)
 
   return {
     lignes, chargement, recherche, setRecherche,
