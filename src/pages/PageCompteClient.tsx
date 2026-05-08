@@ -77,17 +77,19 @@ export function PageCompteClient() {
           )}
         </div>
 
-        {/* Indicateur de chargement mémoire */}
-        {!comptes.chargement && (
-          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium ${
-            facturesActives.length === comptes.kpis.nbFacturesAttente
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-amber-50 border-amber-200 text-amber-700'
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${facturesActives.length === comptes.kpis.nbFacturesAttente ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            {facturesActives.length} / {comptes.kpis.nbFacturesAttente} factures actives en mémoire
-          </div>
-        )}
+        {/* Indicateur de chargement mémoire — compare uniquement les impayées (hors avoirs / sur-lettrés) */}
+        {!comptes.chargement && (() => {
+          const nbImpayeesEnMemoire = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir).length
+          const ok = nbImpayeesEnMemoire === comptes.kpis.nbFacturesAttente
+          const nbAutres = facturesActives.length - nbImpayeesEnMemoire
+          return (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-medium ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${ok ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+              {nbImpayeesEnMemoire} / {comptes.kpis.nbFacturesAttente} impayées
+              {nbAutres > 0 && <span className="text-gray-400 ml-1">+ {nbAutres} avoirs/sur-lettrés</span>}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Contenu selon la vue */}
@@ -95,6 +97,7 @@ export function PageCompteClient() {
         <TableComptesClients
           clients={comptes.clients}
           chargement={comptes.chargement}
+          recherche={comptes.recherche}
           getFactures={code => factures.getFactures(code)}
           estChargement={code => factures.estChargement(code)}
           onExpand={() => {}}

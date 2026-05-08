@@ -6,6 +6,7 @@ import { LignesFactures } from './LignesFactures'
 interface Props {
   clients: CompteClient[]
   chargement: boolean
+  recherche: string
   getFactures: (code: string) => FactureDetail[]
   estChargement: (code: string) => boolean
   onExpand: (code: string) => void
@@ -39,12 +40,14 @@ const STATUT_CLASSES: Record<string, string> = {
   redressement: 'bg-orange-50 border-orange-300 text-orange-800',
 }
 
-export function TableComptesClients({ clients, chargement, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
 
-  // Réinitialiser la page et fermer le panneau ouvert quand la liste filtrée change
-  useEffect(() => { setPage(0); setOuvert(null) }, [clients])
+  // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
+  useEffect(() => { setPage(0) }, [recherche])
+  // Fermer le panneau ouvert uniquement si le client n'est plus dans la liste
+  useEffect(() => { if (ouvert && !clients.find(c => c.code_dso === ouvert)) setOuvert(null) }, [clients, ouvert])
 
   function toggle(code: string) {
     if (ouvert === code) { setOuvert(null) }

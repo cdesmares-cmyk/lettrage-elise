@@ -37,7 +37,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
 
       // Clients + première page de factures en parallèle
       const [clientsRes, page0] = await Promise.all([
-        supabase.from('v_comptes_clients').select('*').order('encours_total', { ascending: false }),
+        supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }),
         supabase.from('v_factures_avec_reste_du').select(COLS)
           .or('reste_du.gt.0.005,reste_du.lt.-0.005')
           .order('code_client', { ascending: true })
