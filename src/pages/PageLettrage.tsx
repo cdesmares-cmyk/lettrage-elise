@@ -45,12 +45,6 @@ export function PageLettrage() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
           </div>
           <button
-            onClick={historique.toggle}
-            className="flex items-center gap-2 text-sm font-semibold text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors"
-          >
-            📋 Historique
-          </button>
-          <button
             onClick={() => setExtractionOuverte(true)}
             className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors"
           >
@@ -81,6 +75,7 @@ export function PageLettrage() {
           onDateDebut={liste.setDateDebut}
           onDateFin={liste.setDateFin}
           onSelectLigne={handleSelectLigne}
+          onHistorique={historique.toggle}
         />
 
         <PanneauLettrage

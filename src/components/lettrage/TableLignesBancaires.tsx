@@ -15,6 +15,7 @@ interface Props {
   onDateDebut: (v: string) => void
   onDateFin: (v: string) => void
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
+  onHistorique: () => void
 }
 
 function fmt(n: number | null) {
@@ -44,7 +45,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,
   recherche, filtre, dateDebut, dateFin,
-  onRecherche, onFiltre, onDateDebut, onDateFin, onSelectLigne,
+  onRecherche, onFiltre, onDateDebut, onDateFin, onSelectLigne, onHistorique,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -66,6 +67,13 @@ export function TableLignesBancaires({
             </button>
           ))}
         </div>
+
+        <button
+          onClick={onHistorique}
+          className="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+        >
+          📋 Historique
+        </button>
 
         <div className="flex-1" />
 
