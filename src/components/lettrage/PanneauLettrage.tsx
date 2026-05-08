@@ -6,7 +6,7 @@ import type { Remise } from '../../types/remise'
 
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
-  remisesCorrespondantes: Remise[]
+  remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
 }
 
@@ -26,7 +26,7 @@ export function PanneauLettrage(props: Props) {
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
-    onOuvrirCorrection, remisesCorrespondantes, onEncaisser,
+    onOuvrirCorrection, remisesEnAttente, onEncaisser,
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -138,57 +138,67 @@ export function PanneauLettrage(props: Props) {
         </div>
       )}
 
-      {/* Remises correspondantes */}
-      {remisesCorrespondantes.length > 0 && (
-        <div className="px-5 pt-4 pb-2">
-          <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wide mb-2">
-            Remise{remisesCorrespondantes.length > 1 ? 's' : ''} correspondante{remisesCorrespondantes.length > 1 ? 's' : ''}
-          </p>
-          <div className="space-y-2 mb-3">
-            {remisesCorrespondantes.map(r => {
-              const total = r.montant_total ?? r.lignes.reduce((s, l) => s + l.montant, 0)
-              return (
-                <div key={r.id} className="border border-blue-200 bg-blue-50/60 rounded-lg px-3 py-2.5">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      {r.type === 'cheque'
-                        ? <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-white">CHQ</span>
-                        : <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-200 text-sky-800 border border-sky-300">LCR</span>
-                      }
-                      <span className="text-xs font-semibold text-gray-700">N°{r.numero}</span>
-                    </div>
-                    <span className="text-sm font-bold text-gray-900 tabular-nums">{fmt(total)}</span>
-                  </div>
-                  <div className="text-[10px] text-gray-500 mb-2 space-y-0.5">
-                    {r.lignes.map(l => (
-                      <div key={l.id} className="flex justify-between">
-                        <span className="font-mono">{l.numero_facture}</span>
-                        <span>{fmt(l.montant)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => onEncaisser(r.id)}
-                    disabled={chargement}
-                    className="w-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
-                  >
-                    ✓ Encaisser cette remise
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-2 mb-3">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-[10px] text-gray-400">ou saisir manuellement</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-        </div>
-      )}
-
       {/* Lignes de lettrage */}
       <div className="px-5 pt-4 pb-2">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Nouvelles lignes</p>
+
+        {/* Picker remises quand CHQ ou LCR sélectionné sur la première ligne */}
+        {(lignesForme[0]?.classe === 'cheque' || lignesForme[0]?.classe === 'lcr') && (() => {
+          const typeActif = lignesForme[0].classe
+          const remisesFiltrees = remisesEnAttente
+            .filter(r => r.type === typeActif)
+            .sort((a, b) => {
+              const ta = a.montant_total ?? a.lignes.reduce((s, l) => s + l.montant, 0)
+              const tb = b.montant_total ?? b.lignes.reduce((s, l) => s + l.montant, 0)
+              return Math.abs(ta - creditDisponible) - Math.abs(tb - creditDisponible)
+            })
+          return (
+            <div className="mb-3">
+              {remisesFiltrees.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">
+                  Aucune remise {typeActif === 'cheque' ? 'CHQ' : 'LCR'} en attente
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {remisesFiltrees.map(r => {
+                    const total = r.montant_total ?? r.lignes.reduce((s, l) => s + l.montant, 0)
+                    const exact = Math.abs(total - creditDisponible) <= 0.05
+                    return (
+                      <div key={r.id} className={`border rounded-lg px-3 py-2.5 ${exact ? 'border-emerald-300 bg-emerald-50/60' : 'border-gray-200 bg-gray-50'}`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            {r.type === 'cheque'
+                              ? <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-800 text-white">CHQ</span>
+                              : <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-200 text-sky-800 border border-sky-300">LCR</span>
+                            }
+                            <span className="text-xs font-semibold text-gray-700">N°{r.numero}</span>
+                            {exact && <span className="text-[10px] font-semibold text-emerald-600">✓ montant exact</span>}
+                          </div>
+                          <span className="text-sm font-bold text-gray-900 tabular-nums">{fmt(total)}</span>
+                        </div>
+                        <div className="text-[10px] text-gray-500 mb-2 space-y-0.5">
+                          {r.lignes.map(l => (
+                            <div key={l.id} className="flex justify-between">
+                              <span className="font-mono">{l.numero_facture}</span>
+                              <span>{fmt(l.montant)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => onEncaisser(r.id)}
+                          disabled={chargement}
+                          className="w-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
+                        >
+                          ✓ Encaisser cette remise
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )
+        })()}
 
         <div className="space-y-3 mb-3">
           {lignesForme.map(ligne => (
