@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
+import { FournisseurDonnees } from './contexts/AppDataContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDepot } from './pages/PageDepot'
@@ -54,6 +55,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <FournisseurAuth>
+      <FournisseurDonnees>
       <BrowserRouter>
         <AppRoutes />
         {/* Toaster pour les notifications (section 10 du CDC — pas d'alert() natif) */}
@@ -65,6 +67,7 @@ export default function App() {
           }}
         />
       </BrowserRouter>
+      </FournisseurDonnees>
     </FournisseurAuth>
   )
 }

@@ -1,43 +1,13 @@
-// Données agrégées clients avec filtres, KPIs et groupement nébuleuse
-import { useState, useEffect, useMemo } from 'react'
+// Données agrégées clients — lit depuis AppDataContext (chargé une fois au démarrage)
+import { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAppData } from '../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
-interface RowCompteClient {
-  code_dso: string; nom: string; statut: string | null; statut_juridique: string | null
-  plateforme: string | null; code_groupement: string | null; parent_code_dso: string | null
-  nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null
-}
-
 export function useComptesClients() {
-  const [raw, setRaw] = useState<CompteClient[]>([])
-  const [chargement, setChargement] = useState(true)
+  const { clients: raw, chargement, rafraichir } = useAppData()
   const [recherche, setRecherche] = useState('')
-
-  async function charger() {
-    setChargement(true)
-    const { data, error } = await supabase
-      .from('v_comptes_clients')
-      .select('*')
-      .order('encours_total', { ascending: false })
-    if (error) { toast.error('Erreur chargement clients'); setChargement(false); return }
-    const rows = data as unknown as RowCompteClient[]
-
-    const maxEncours = Math.max(...rows.map(r => r.encours_total), 1)
-    const maxImpayees = Math.max(...rows.map(r => r.nb_impayees), 1)
-
-    setRaw(rows.map(r => ({
-      ...r,
-      statut_juridique: r.statut_juridique as StatutJuridique | null,
-      note_risque: Math.round(
-        (0.4 * (r.encours_total / maxEncours) + 0.6 * (r.nb_impayees / maxImpayees)) * 100
-      ),
-    })))
-    setChargement(false)
-  }
-
-  useEffect(() => { charger() }, [])
 
   const clients = useMemo((): CompteClient[] => {
     if (!recherche.trim()) return raw
@@ -95,15 +65,14 @@ export function useComptesClients() {
       .eq('code_dso', codeDso)
     if (error) { toast.error(error.message); return false }
     toast.success('Informations enregistrées.')
-    await charger()
+    await rafraichir()
     return true
   }
 
-  // Plateformes déjà saisies (pour suggestions dans le panneau)
   const plateformesConnues = useMemo(
     () => [...new Set(raw.map(c => c.plateforme).filter(Boolean) as string[])].sort(),
     [raw]
   )
 
-  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse, rafraichir: charger, sauvegarderOptions, plateformesConnues }
+  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse, rafraichir, sauvegarderOptions, plateformesConnues }
 }

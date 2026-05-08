@@ -7,13 +7,16 @@ import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
+import { useAppData } from '../contexts/AppDataContext'
 
 export function PageLettrage() {
   const [correctionOuverte, setCorrectionOuverte] = useState(false)
   const [extractionOuverte, setExtractionOuverte] = useState(false)
 
+  const { rafraichir: rafraichirDonnees } = useAppData()
   const liste = useLignesBancaires()
-  const forme = useLettrageForm(liste.rafraichir)
+  // Après chaque lettrage validé : rafraîchit les lignes bancaires ET le cache factures/clients
+  const forme = useLettrageForm(() => { liste.rafraichir(); rafraichirDonnees() })
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     // Si on clique sur la ligne déjà active → désélectionner

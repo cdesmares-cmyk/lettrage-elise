@@ -9,6 +9,8 @@ interface Props {
   getFactures: (code: string) => FactureDetail[]
   estChargement: (code: string) => boolean
   onExpand: (code: string) => void
+  onChargerHistorique: (code: string) => void
+  estHistoriqueCharge: (code: string) => boolean
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
@@ -35,7 +37,7 @@ const STATUT_CLASSES: Record<string, string> = {
   redressement: 'bg-orange-50 border-orange-300 text-orange-800',
 }
 
-export function TableComptesClients({ clients, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onOptions }: Props) {
+export function TableComptesClients({ clients, chargement, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
 
   function toggle(code: string) {
@@ -67,6 +69,7 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
             const estOuvert = ouvert === c.code_dso
             const sc = classeScore(c.note_risque)
             const factures = getFactures(c.code_dso)
+            const nbReglees = c.nb_factures_total - factures.length
             return (
               <>
                 <tr
@@ -138,6 +141,17 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                           onHistorique={onHistorique}
                           compact
                         />
+                        {/* Bouton charger factures réglées — visible uniquement si l'historique n'est pas encore chargé */}
+                        {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (
+                          <div className="mt-2 text-center">
+                            <button
+                              onClick={e => { e.stopPropagation(); onChargerHistorique(c.code_dso) }}
+                              className="text-[11px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                            >
+                              + Charger {nbReglees} facture{nbReglees > 1 ? 's' : ''} réglée{nbReglees > 1 ? 's' : ''}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>

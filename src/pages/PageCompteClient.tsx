@@ -1,5 +1,5 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useFacturesClient } from '../hooks/useFacturesClient'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
@@ -26,16 +26,7 @@ export function PageCompteClient() {
   const comptes = useComptesClients()
   const factures = useFacturesClient()
 
-  // Précharge toutes les factures dès que la liste clients est disponible → expand instantané
-  useEffect(() => {
-    if (!comptes.chargement && comptes.clients.length > 0) {
-      factures.chargerFactures(comptes.clients.map(c => c.code_dso))
-    }
-  }, [comptes.chargement])
-
-  function handleExpand(codes: string | string[]) {
-    factures.chargerFactures(codes)
-  }
+  // Les factures actives sont déjà en mémoire via AppDataContext — pas de preload nécessaire
 
   return (
     <div>
@@ -94,7 +85,9 @@ export function PageCompteClient() {
           chargement={comptes.chargement}
           getFactures={code => factures.getFactures(code)}
           estChargement={code => factures.estChargement(code)}
-          onExpand={code => handleExpand(code)}
+          onExpand={() => {}}
+          onChargerHistorique={code => factures.chargerToutesFactures(code)}
+          estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
           onOptions={setClientOptions}
@@ -107,7 +100,7 @@ export function PageCompteClient() {
           chargement={comptes.chargement}
           getFactures={codes => factures.getFactures(codes)}
           estChargement={codes => factures.estChargement(codes)}
-          onExpand={codes => handleExpand(codes)}
+          onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
         />
@@ -118,7 +111,7 @@ export function PageCompteClient() {
           clients={comptes.clients}
           getFactures={codes => factures.getFactures(codes)}
           estChargement={codes => factures.estChargement(codes)}
-          onExpand={codes => handleExpand(codes)}
+          onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
         />
