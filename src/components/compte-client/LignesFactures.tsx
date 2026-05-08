@@ -73,9 +73,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
         <tbody>
           {factures.map(f => {
             const retard = estRetard(f.date_echeance) && f.reste_du > 0.005
-            const solde = f.reste_du <= 0.005
-            const impaye = !solde && Math.abs(f.reste_du) >= Math.abs(f.montant_ttc) - 0.005
-            const restantCls = solde ? 'text-emerald-600' : impaye ? 'text-red-600' : 'text-amber-600'
+            const estSolde     = Math.abs(f.reste_du) <= 0.005
+            const estNegatif   = f.reste_du < -0.005
+            const estImpayeTotal = !f.est_avoir && !estNegatif && !estSolde && f.montant_ttc > 0.005 && (f.reste_du / f.montant_ttc) >= 0.995
+            const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-emerald-600' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
             const isAvoir = f.est_avoir || f.montant_ttc < 0
             return (
               <tr key={f.numero_piece} className="border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">

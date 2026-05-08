@@ -96,6 +96,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
         mode: 'manuel' as const,
         commentaire: `Correction — ${parseFloat(l.montant) < 0 ? 'délettrage' : 'relettering'}`,
         cree_par: utilisateur?.id ?? null,
+        nom_operateur: utilisateur?.email ?? null,
       }))
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error

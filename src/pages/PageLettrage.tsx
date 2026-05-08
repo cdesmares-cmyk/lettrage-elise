@@ -5,8 +5,10 @@ import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaire
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
+import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
+import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useAppData } from '../contexts/AppDataContext'
 
 export function PageLettrage() {
@@ -15,8 +17,9 @@ export function PageLettrage() {
 
   const { rafraichir: rafraichirDonnees } = useAppData()
   const liste = useLignesBancaires()
-  // Après chaque lettrage validé : rafraîchit les lignes bancaires ET le cache factures/clients
-  const forme = useLettrageForm(() => { liste.rafraichir(); rafraichirDonnees() })
+  const historique = useHistoriqueLettrage()
+  // Après chaque lettrage validé : rafraîchit les lignes bancaires, le cache et l'historique
+  const forme = useLettrageForm(() => { liste.rafraichir(); rafraichirDonnees(); if (historique.visible) historique.charger() })
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     // Si on clique sur la ligne déjà active → désélectionner
@@ -80,11 +83,34 @@ export function PageLettrage() {
         />
       </div>
 
+      {/* Bloc historique */}
+      <div className="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <button
+          onClick={historique.toggle}
+          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="text-sm font-semibold text-gray-800">📋 Historique des lettrages</span>
+            {historique.lignes.length > 0 && (
+              <span className="text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                {historique.lignes.length} actions
+              </span>
+            )}
+          </div>
+          <span className={`text-gray-400 text-xs transition-transform ${historique.visible ? 'rotate-180' : ''}`}>▼</span>
+        </button>
+        {historique.visible && (
+          <div className="border-t border-gray-100">
+            <TableHistoriqueLettrage lignes={historique.lignes} chargement={historique.chargement} />
+          </div>
+        )}
+      </div>
+
       {/* Modal correction */}
       <ModalCorrection
         ouvert={correctionOuverte}
         onFermer={() => setCorrectionOuverte(false)}
-        onSuccess={liste.rafraichir}
+        onSuccess={() => { liste.rafraichir(); if (historique.visible) historique.charger() }}
       />
 
       {/* Modal extraction */}

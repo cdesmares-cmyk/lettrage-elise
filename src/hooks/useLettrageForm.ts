@@ -115,6 +115,7 @@ export function useLettrageForm(onSuccess: () => void) {
         mode: 'manuel' as const,
         commentaire: l.classe === 'autres' ? 'Hors-facture (Autres)' : null,
         cree_par: utilisateur?.id ?? null,
+        nom_operateur: utilisateur?.email ?? null,
       }))
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
