@@ -45,6 +45,12 @@ export function PageLettrage() {
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
           </div>
           <button
+            onClick={historique.toggle}
+            className="flex items-center gap-2 text-sm font-semibold text-gray-600 border border-gray-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg transition-colors"
+          >
+            📋 Historique
+          </button>
+          <button
             onClick={() => setExtractionOuverte(true)}
             className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors"
           >
@@ -83,28 +89,33 @@ export function PageLettrage() {
         />
       </div>
 
-      {/* Bloc historique */}
-      <div className="mt-6 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <button
-          onClick={historique.toggle}
-          className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors"
+      {/* Modal historique */}
+      {historique.visible && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) historique.toggle() }}
         >
-          <div className="flex items-center gap-2.5">
-            <span className="text-sm font-semibold text-gray-800">📋 Historique des lettrages</span>
-            {historique.lignes.length > 0 && (
-              <span className="text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                {historique.lignes.length} actions
-              </span>
-            )}
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-bold text-gray-900">📋 Historique des lettrages</h3>
+                {historique.lignes.length > 0 && (
+                  <span className="text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+                    {historique.lignes.length} actions
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={historique.toggle}
+                className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors"
+              >✕</button>
+            </div>
+            <div className="overflow-auto flex-1">
+              <TableHistoriqueLettrage lignes={historique.lignes} chargement={historique.chargement} />
+            </div>
           </div>
-          <span className={`text-gray-400 text-xs transition-transform ${historique.visible ? 'rotate-180' : ''}`}>▼</span>
-        </button>
-        {historique.visible && (
-          <div className="border-t border-gray-100">
-            <TableHistoriqueLettrage lignes={historique.lignes} chargement={historique.chargement} />
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Modal correction */}
       <ModalCorrection
