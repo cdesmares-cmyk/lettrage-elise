@@ -107,17 +107,29 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                 {ouvert && (
                   <tr key={`${g.groupe_key}-fac`}>
                     <td colSpan={7} className="px-0 py-0 border-b-2 border-emerald-100">
-                      <div className="bg-emerald-50/50 px-3 py-1.5 border-b border-emerald-100 text-[10px] font-semibold text-emerald-700">
-                        Factures consolidées : {g.codes_clients.join(' · ')}
-                      </div>
-                      <div className="px-4 py-3 bg-emerald-50/30">
-                        <LignesFactures
-                          factures={factures}
-                          chargement={estChargement(g.codes_clients)}
-                          onStatutChange={onStatutChange}
-                          onHistorique={onHistorique}
-                        />
-                      </div>
+                      {estChargement(g.codes_clients) ? (
+                        <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
+                      ) : g.clients.map(client => {
+                        const facsCli = factures.filter(f => f.code_client === client.code_dso)
+                        return (
+                          <div key={client.code_dso}>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border-b border-emerald-100 sticky top-0">
+                              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{client.code_dso}</span>
+                              <span className="text-xs font-semibold text-gray-700">{client.nom}</span>
+                              <span className="text-[10px] text-gray-400 ml-1">{facsCli.length} facture{facsCli.length > 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="px-4 py-2 bg-emerald-50/20">
+                              <LignesFactures
+                                factures={facsCli}
+                                chargement={false}
+                                onStatutChange={onStatutChange}
+                                onHistorique={onHistorique}
+                                compact
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
                     </td>
                   </tr>
                 )}

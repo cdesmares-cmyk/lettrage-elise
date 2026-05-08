@@ -34,6 +34,10 @@ function appliquerMapping(
   }
   if (res['est_avoir'] === undefined) res['est_avoir'] = false
   if (res['est_provisionnee'] === undefined) res['est_provisionnee'] = false
+  // Auto-détection avoir : montant TTC négatif → avoir même si colonne non mappée
+  if (!res['est_avoir'] && typeof res['montant_ttc'] === 'number' && res['montant_ttc'] < 0) {
+    res['est_avoir'] = true
+  }
   return res
 }
 

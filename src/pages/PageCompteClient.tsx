@@ -1,5 +1,5 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useFacturesClient } from '../hooks/useFacturesClient'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
@@ -25,6 +25,13 @@ export function PageCompteClient() {
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
+
+  // Précharge toutes les factures dès que la liste clients est disponible → expand instantané
+  useEffect(() => {
+    if (!comptes.chargement && comptes.clients.length > 0) {
+      factures.chargerFactures(comptes.clients.map(c => c.code_dso))
+    }
+  }, [comptes.chargement])
 
   function handleExpand(codes: string | string[]) {
     factures.chargerFactures(codes)

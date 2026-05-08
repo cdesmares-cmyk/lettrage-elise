@@ -74,6 +74,9 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
           {factures.map(f => {
             const retard = estRetard(f.date_echeance) && f.reste_du > 0.005
             const solde = f.reste_du <= 0.005
+            const impaye = !solde && Math.abs(f.reste_du) >= Math.abs(f.montant_ttc) - 0.005
+            const restantCls = solde ? 'text-emerald-600' : impaye ? 'text-red-600' : 'text-amber-600'
+            const isAvoir = f.est_avoir || f.montant_ttc < 0
             return (
               <tr key={f.numero_piece} className="border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors">
                 <td className="px-2 py-2 text-center">
@@ -85,14 +88,19 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   </td>
                 )}
                 <td className="px-3 py-2">
-                  <span className="font-mono font-semibold text-blue-700">{f.numero_piece}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-mono font-semibold text-blue-700">{f.numero_piece}</span>
+                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isAvoir ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-500'}`}>
+                      {isAvoir ? 'A' : 'F'}
+                    </span>
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-gray-600">
                   {f.montant_ht != null ? fmt(f.montant_ht) : '—'}
                 </td>
                 <td className="px-3 py-2 text-right font-mono text-gray-700">{fmt(f.montant_ttc)}</td>
                 <td className="px-3 py-2 text-right font-mono font-bold">
-                  <span className={solde ? 'text-emerald-600' : 'text-amber-600'}>{fmt(f.reste_du)}</span>
+                  <span className={restantCls}>{fmt(f.reste_du)}</span>
                 </td>
                 <td className="px-3 py-2 text-center text-gray-500">{fmtDate(f.date_emission)}</td>
                 <td className="px-3 py-2 text-center">

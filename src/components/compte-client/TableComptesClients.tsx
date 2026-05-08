@@ -36,14 +36,11 @@ const STATUT_CLASSES: Record<string, string> = {
 }
 
 export function TableComptesClients({ clients, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onOptions }: Props) {
-  const [ouverts, setOuverts] = useState<Set<string>>(new Set())
+  const [ouvert, setOuvert] = useState<string | null>(null)
 
   function toggle(code: string) {
-    setOuverts(prev => {
-      const next = new Set(prev)
-      if (next.has(code)) { next.delete(code) } else { next.add(code); onExpand(code) }
-      return next
-    })
+    if (ouvert === code) { setOuvert(null) }
+    else { setOuvert(code); onExpand(code) }
   }
 
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
@@ -67,7 +64,7 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
         </thead>
         <tbody>
           {clients.map(c => {
-            const ouvert = ouverts.has(c.code_dso)
+            const estOuvert = ouvert === c.code_dso
             const sc = classeScore(c.note_risque)
             const factures = getFactures(c.code_dso)
             return (
@@ -75,10 +72,10 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                 <tr
                   key={c.code_dso}
                   onClick={() => toggle(c.code_dso)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${ouvert ? 'bg-blue-50 border-b-0' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-blue-50 border-b-0' : 'hover:bg-gray-50'}`}
                 >
                   <td className="px-3 py-3 text-center">
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${ouvert ? 'bg-blue-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
@@ -130,7 +127,7 @@ export function TableComptesClients({ clients, chargement, getFactures, estCharg
                   </td>
                 </tr>
 
-                {ouvert && (
+                {estOuvert && (
                   <tr key={`${c.code_dso}-fac`}>
                     <td colSpan={9} className="px-0 py-0 border-b-2 border-blue-100">
                       <div className="px-4 py-3 bg-blue-50/60">

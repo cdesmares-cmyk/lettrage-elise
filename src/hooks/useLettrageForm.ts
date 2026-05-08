@@ -121,7 +121,8 @@ export function useLettrageForm(onSuccess: () => void) {
     }
   }
 
-  const creditDisponible = ligneActive?.credit ?? 0
+  // Utiliser le restant (après lettrages existants) et non le crédit brut
+  const creditDisponible = ligneActive?.restant ?? 0
   const montantAttribue = Math.round(
     lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
   ) / 100
