@@ -2,6 +2,8 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 
+const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
+
 const ONGLETS = [
   { chemin: '/depot', label: 'Dépôt' },
   { chemin: '/lettrage', label: 'Lettrage' },
@@ -58,6 +60,20 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* Lien admin — visible uniquement pour l'administrateur */}
+        {utilisateur?.email === ADMIN_EMAIL && (
+          <NavLink
+            to="/admin"
+            className={({ isActive }) =>
+              `flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
+                isActive ? 'bg-red-900 text-red-200' : 'text-slate-500 hover:bg-slate-800 hover:text-slate-300'
+              }`
+            }
+          >
+            ⚙️ Admin
+          </NavLink>
+        )}
 
         {/* Profil + déconnexion */}
         <div className="ml-auto flex items-center gap-2">

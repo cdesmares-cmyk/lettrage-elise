@@ -175,10 +175,13 @@ export function useImportFactures() {
       const importRec = d3 as unknown as RowImportId | null
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
-      // 3. Insertion des factures par lots de 500
+      // 3. Insertion des factures par lots de 500 (import_id tracé pour annulation)
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
-          const lot = resultat.lignes_a_inserer.slice(i, i + 500)
+          const lot = resultat.lignes_a_inserer.slice(i, i + 500).map((l: Record<string, unknown>) => ({
+            ...l,
+            import_id: importRec.id,
+          }))
           const { error } = await supabase.from('factures').insert(lot as never)
           if (error) throw error
         }

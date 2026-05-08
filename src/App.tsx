@@ -9,6 +9,7 @@ import { PageLettrage } from './pages/PageLettrage'
 import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageExtraction } from './pages/PageExtraction'
+import { PageAdmin } from './pages/PageAdmin'
 
 // Garde de route : redirige vers /connexion si non authentifié,
 // affiche un écran de chargement pendant la récupération des données initiales
@@ -61,6 +62,7 @@ function AppRoutes() {
         <Route path="/compte-client" element={<PageCompteClient />} />
         <Route path="/tableau-de-bord" element={<PageTableauDeBord />} />
         <Route path="/extraction" element={<PageExtraction />} />
+        <Route path="/admin" element={<PageAdmin />} />
       </Route>
     </Routes>
   )
