@@ -131,10 +131,29 @@ export function useImportFactures() {
     }
   }
 
-  // Étape 4→succès : insère l'enregistrement d'import puis les factures
+  // Étape 4→succès : upsert clients → enregistrement import → insertion factures
   async function executerImport(resultat: ResultatValidation): Promise<ResultatImport> {
     setChargement(true)
     try {
+      // 1. Créer les comptes clients manquants (ON CONFLICT DO NOTHING — préserve les données existantes)
+      const clientsUniques = [
+        ...new Map(
+          resultat.lignes_a_inserer
+            .filter(l => l['code_client'] && l['nom_client'])
+            .map(l => [
+              l['code_client'] as string,
+              { code_dso: l['code_client'] as string, nom: l['nom_client'] as string },
+            ])
+        ).values(),
+      ]
+      if (clientsUniques.length > 0) {
+        const { error: errClients } = await supabase
+          .from('clients')
+          .upsert(clientsUniques as never, { onConflict: 'code_dso', ignoreDuplicates: true })
+        if (errClients) throw errClients
+      }
+
+      // 2. Enregistrement de l'import
       const { data: d3, error: errImport } = await supabase
         .from('imports')
         .insert({
@@ -152,10 +171,10 @@ export function useImportFactures() {
       const importRec = d3 as unknown as RowImportId | null
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
+      // 3. Insertion des factures par lots de 500
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500)
-          // `as never` car les lignes sont validées par le mapping — TS6 ne peut pas inférer ici
           const { error } = await supabase.from('factures').insert(lot as never)
           if (error) throw error
         }
