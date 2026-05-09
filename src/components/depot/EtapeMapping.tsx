@@ -1,5 +1,5 @@
 // Étape 3 : correspondance des colonnes fichier → champs base de données
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_GROUPEMENTS, CHAMPS_LETTRAGES } from '../../lib/champsImport'
 import type { LigneMapping, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -16,7 +16,10 @@ interface Props {
 export function EtapeMapping({
   typeFichier, mapping, onChangerMapping, onSuivant, onRetour, chargement, nbLignes, nomFichier,
 }: Props) {
-  const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES : CHAMPS_FACTURES
+  const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
+    : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
+    : typeFichier === 'import_groupements' ? CHAMPS_GROUPEMENTS
+    : CHAMPS_LETTRAGES
   const champPivot = champs.find(c => c.est_pivot)
 
   const pivotMappe = mapping.some(m => m.champ_cible === champPivot?.cle)
