@@ -39,6 +39,14 @@ const OPTIONS: {
     formats: ['CSV', 'XLSX'],
     pivot: 'N° de facture',
   },
+  {
+    type: 'import_groupements',
+    icone: '🌐',
+    titre: 'Groupements clients',
+    description: 'Affectation en masse des codes groupement. Crée ou met à jour le rattachement de chaque client à un groupe.',
+    formats: ['CSV', 'XLSX'],
+    pivot: 'Code client',
+  },
 ]
 
 export function EtapeType({ valeur, onChange, onSuivant }: Props) {
@@ -46,7 +54,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-2 gap-4 mb-5">
         {OPTIONS.map(opt => (
           <button
             key={opt.type}
@@ -81,12 +89,14 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
         <span className="text-base flex-shrink-0">🔑</span>
         <span>
           {optionSelectionnee
-            ? <>Clé pivot (anti-doublon) : <strong>{optionSelectionnee.pivot}</strong>. {
+            ? <>Clé pivot : <strong>{optionSelectionnee.pivot}</strong>. {
                 optionSelectionnee.type === 'import_lettrage'
                   ? 'Les factures introuvables en base seront ignorées. Les factures déjà soldées déclencheront un avertissement.'
+                  : optionSelectionnee.type === 'import_groupements'
+                  ? 'Les codes clients introuvables en base seront ignorés. Les clients existants verront leur groupement mis à jour.'
                   : 'Toute ligne déjà présente en base sera ignorée automatiquement.'
               }</>
-            : <>Sélectionnez un type pour voir la clé anti-doublon utilisée.</>
+            : <>Sélectionnez un type pour voir la clé pivot utilisée.</>
           }
         </span>
       </div>

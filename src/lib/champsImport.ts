@@ -121,6 +121,26 @@ export const CHAMPS_LETTRAGES: ChampCible[] = [
   },
 ]
 
+export const CHAMPS_GROUPEMENTS: ChampCible[] = [
+  {
+    cle: 'code_client',
+    label: 'Code client (pivot)',
+    est_pivot: true,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['code client', 'codeclient', 'code dso', 'codedso', 'dso', 'code'],
+  },
+  {
+    cle: 'code_groupement',
+    label: 'Code groupement',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['code groupement', 'codegroupement', 'groupement', 'groupe', 'group', 'code groupe'],
+    hint: 'Identifiant commun à plusieurs clients du même groupe',
+  },
+]
+
 export const CHAMPS_FACTURES: ChampCible[] = [
   {
     cle: 'numero_piece',

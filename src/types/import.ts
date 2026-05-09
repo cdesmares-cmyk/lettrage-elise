@@ -1,6 +1,6 @@
 // Types partagés pour le flux d'import (onglet Dépôt, section 5.1 du CDC)
 
-export type TypeFichier = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage'
+export type TypeFichier = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage' | 'import_groupements'
 
 // Définition d'un champ cible en base de données
 export interface ChampCible {

@@ -10,6 +10,7 @@ import { HistoriqueImports } from '../components/depot/HistoriqueImports'
 import { useImportBancaire } from '../hooks/useImportBancaire'
 import { useImportFactures } from '../hooks/useImportFactures'
 import { useImportLettrage } from '../hooks/useImportLettrage'
+import { useImportGroupements } from '../hooks/useImportGroupements'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
 type Etape = 'type' | 'upload' | 'mapping' | 'validation' | 'succes'
@@ -39,8 +40,10 @@ export function PageDepot() {
   const hookBancaire = useImportBancaire()
   const hookFactures = useImportFactures()
   const hookLettrage = useImportLettrage()
+  const hookGroupements = useImportGroupements()
   const hook = typeFichier === 'csv_bancaire' ? hookBancaire
     : typeFichier === 'xlsx_factures' ? hookFactures
+    : typeFichier === 'import_groupements' ? hookGroupements
     : hookLettrage
 
   function reinitialiser() {
@@ -200,9 +203,9 @@ export function PageDepot() {
               <div className="text-4xl mb-4">✅</div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">Import terminé</h3>
               <p className="text-gray-500 text-sm mb-6">
-                {validation.nom_fichier} · {validation.nb_nouvelles.toLocaleString('fr-FR')} lignes importées
+                {validation.nom_fichier} · {validation.nb_nouvelles.toLocaleString('fr-FR')} {typeFichier === 'import_groupements' ? 'clients mis à jour' : 'lignes importées'}
                 {validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
-                {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} factures ignorées`}
+                {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} ${typeFichier === 'import_groupements' ? 'clients introuvables' : 'factures ignorées'}`}
                 {(validation.nb_avertissements ?? 0) > 0 && ` · ${validation.nb_avertissements} sur-paiements`}
               </p>
               <div className="flex gap-3 justify-center">
