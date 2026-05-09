@@ -1,5 +1,5 @@
 // Vue nébuleuse : regroupement par code_groupement avec expand factures consolidées
-import React, { useState } from 'react'
+import React, { useState, useTransition } from 'react'
 import type { GroupeNebuleuse, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 
@@ -25,13 +25,16 @@ function classeScore(note: number) {
 
 export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [, startTransition] = useTransition()
 
-  // Un seul groupe ouvert à la fois — ferme le précédent automatiquement
+  // Un seul groupe ouvert à la fois — startTransition pour ne pas bloquer l'UI pendant le rendu
   function toggle(key: string, codes: string[]) {
-    setOuvert(prev => {
-      if (prev === key) return null
-      onExpand(codes)
-      return key
+    startTransition(() => {
+      setOuvert(prev => {
+        if (prev === key) return null
+        onExpand(codes)
+        return key
+      })
     })
   }
 

@@ -10,16 +10,14 @@ interface Props {
   compact?: boolean
 }
 
-function fmt(n: number) {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
-}
-function fmtDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—'
-}
-function estRetard(iso: string | null) {
-  if (!iso) return false
-  return new Date(iso) < new Date()
-}
+// Instances créées une seule fois — toLocaleDateString recrée Intl.DateTimeFormat à chaque appel (lent)
+const _fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const _fmtDate = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+const _today = new Date()
+
+function fmt(n: number) { return _fmt.format(n) + ' €' }
+function fmtDate(iso: string | null) { return iso ? _fmtDate.format(new Date(iso)) : '—' }
+function estRetard(iso: string | null) { return !!iso && new Date(iso) < _today }
 
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
   { val: 'litige', label: '⚠ Litige' },
