@@ -1,5 +1,5 @@
 // Vue nébuleuse : regroupement par code_groupement avec expand factures consolidées
-import { useState } from 'react'
+import React, { useState } from 'react'
 import type { GroupeNebuleuse, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 
@@ -24,13 +24,14 @@ function classeScore(note: number) {
 }
 
 export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
-  const [ouverts, setOuverts] = useState<Set<string>>(new Set())
+  const [ouvert, setOuvert] = useState<string | null>(null)
 
+  // Un seul groupe ouvert à la fois — ferme le précédent automatiquement
   function toggle(key: string, codes: string[]) {
-    setOuverts(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) { next.delete(key) } else { next.add(key); onExpand(codes) }
-      return next
+    setOuvert(prev => {
+      if (prev === key) return null
+      onExpand(codes)
+      return key
     })
   }
 
@@ -53,19 +54,19 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
         </thead>
         <tbody>
           {groupes.map(g => {
-            const ouvert = ouverts.has(g.groupe_key)
+            const estOuvert = ouvert === g.groupe_key
             const sc = classeScore(g.note_risque)
             const estGroupe = g.nb_clients > 1
-            const factures = getFactures(g.codes_clients)
+            // getFactures uniquement pour le groupe ouvert — évite le filtre sur tous les groupes
+            const factures = estOuvert ? getFactures(g.codes_clients) : []
             return (
-              <>
+              <React.Fragment key={g.groupe_key}>
                 <tr
-                  key={g.groupe_key}
                   onClick={() => toggle(g.groupe_key, g.codes_clients)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${ouvert ? 'bg-emerald-50 border-b-0' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-emerald-50 border-b-0' : 'hover:bg-gray-50'}`}
                 >
                   <td className="px-3 py-3 text-center">
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${ouvert ? 'bg-emerald-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-emerald-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
@@ -104,8 +105,8 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                   </td>
                 </tr>
 
-                {ouvert && (
-                  <tr key={`${g.groupe_key}-fac`}>
+                {estOuvert && (
+                  <tr>
                     <td colSpan={7} className="px-0 py-0 border-b-2 border-emerald-100">
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
@@ -133,7 +134,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                     </td>
                   </tr>
                 )}
-              </>
+              </React.Fragment>
             )
           })}
         </tbody>
