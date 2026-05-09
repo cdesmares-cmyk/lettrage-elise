@@ -85,7 +85,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
                       {estGroupe ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700">🌐 GROUPE</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-700">🌐 {g.groupe_key}</span>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-500">CLIENT</span>
                       )}

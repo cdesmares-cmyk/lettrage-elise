@@ -10,6 +10,7 @@ import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
+import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: string }[] = [
@@ -23,6 +24,7 @@ export function PageCompteClient() {
   const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
+  const [exportNebOuvert, setExportNebOuvert] = useState(false)
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
@@ -37,7 +39,7 @@ export function PageCompteClient() {
           <p className="text-sm text-gray-500 mt-0.5">Vue consolidée des encours, factures et historique de lettrage</p>
         </div>
         <button
-          onClick={() => setExportOuvert(true)}
+          onClick={() => vue === 'nebuleuse' ? setExportNebOuvert(true) : setExportOuvert(true)}
           className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors"
         >
           ⬇ Extraction XLS
@@ -143,6 +145,15 @@ export function PageCompteClient() {
         facture={facHistorique}
         onFermer={() => setFacHistorique(null)}
         chargerHistorique={factures.chargerHistorique}
+      />
+
+      {/* Modal Export Nébuleuse */}
+      <ModalExportNebuleuse
+        ouvert={exportNebOuvert}
+        groupes={comptes.nebuleuse}
+        getFactures={codes => factures.getFactures(codes)}
+        chargerFactures={codes => factures.chargerFactures(codes)}
+        onFermer={() => setExportNebOuvert(false)}
       />
 
       {/* Modal Export */}

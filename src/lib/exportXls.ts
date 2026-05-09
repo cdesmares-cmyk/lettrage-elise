@@ -1,6 +1,6 @@
 // Export XLS (HTML-as-Excel) sans dépendance externe
 // Les montants sont écrits en valeur brute + mso-number-format pour que SUM() fonctionne dans Excel
-import type { FactureDetail } from '../types/client'
+import type { FactureDetail, GroupeNebuleuse } from '../types/client'
 
 function fmtDate(iso: string | null) {
   return iso ? new Date(iso).toLocaleDateString('fr-FR') : '—'
@@ -15,6 +15,79 @@ function numCell(val: number | null, style: string, color?: string): string {
   if (val == null) return `<td style="${TD};text-align:right">—</td>`
   const colorStyle = color ? `;color:${color};font-weight:700` : ''
   return `<td style="${style}${colorStyle}">${val.toFixed(2)}</td>`
+}
+
+// Construit un Map code_client → {groupe_key, nom_groupe} depuis la liste des groupes
+function buildGroupeMap(groupes: GroupeNebuleuse[]): Map<string, { cle: string; nom: string }> {
+  const map = new Map<string, { cle: string; nom: string }>()
+  for (const g of groupes) {
+    for (const code of g.codes_clients) {
+      map.set(code, { cle: g.groupe_key, nom: g.nom_groupe })
+    }
+  }
+  return map
+}
+
+export function exporterNebuleuseXls(
+  factures: FactureDetail[],
+  groupes: GroupeNebuleuse[],
+  nomFichier = 'extraction_nebuleuse'
+) {
+  const groupeMap = buildGroupeMap(groupes)
+
+  const thead = `<thead><tr>
+    <th style="${TH}">Groupe</th>
+    <th style="${TH}">Nom groupe</th>
+    <th style="${TH}">Code client</th>
+    <th style="${TH}">Type</th>
+    <th style="${TH}">N° Facture</th>
+    <th style="${TH};text-align:right;${NUM_FMT}">Montant HT</th>
+    <th style="${TH};text-align:right;${NUM_FMT}">Montant TTC</th>
+    <th style="${TH};text-align:right;${NUM_FMT}">Restant Dû</th>
+    <th style="${TH};text-align:center">Date émission</th>
+    <th style="${TH};text-align:center">Date échéance</th>
+    <th style="${TH}">Statut paiement</th>
+    <th style="${TH}">Statut facture</th>
+  </tr></thead>`
+
+  const tbody = `<tbody>${factures.map((f, i) => {
+    const bg = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
+    const restantColor = f.reste_du <= 0.005 ? '#059669' : f.reste_du >= f.montant_ttc - 0.005 ? '#DC2626' : '#D97706'
+    const isAvoir = f.est_avoir || f.montant_ttc < 0
+    const grp = groupeMap.get(f.code_client)
+    return `<tr style="background:${bg}">
+      <td style="${TD};font-family:monospace;font-weight:700;color:#059669">${grp?.cle ?? '—'}</td>
+      <td style="${TD};font-weight:600">${grp?.nom ?? '—'}</td>
+      <td style="${TD};font-family:monospace;font-weight:700;color:#1D4ED8">${f.code_client}</td>
+      <td style="${TD};text-align:center;font-weight:700;color:${isAvoir ? '#EA580C' : '#2563EB'}">${isAvoir ? 'A' : 'F'}</td>
+      <td style="${TD};font-family:monospace">${f.numero_piece}</td>
+      ${numCell(f.montant_ht, TD_R)}
+      ${numCell(f.montant_ttc, TD_R)}
+      ${numCell(f.reste_du, TD_R, restantColor)}
+      <td style="${TD};text-align:center">${fmtDate(f.date_emission)}</td>
+      <td style="${TD};text-align:center">${fmtDate(f.date_echeance)}</td>
+      <td style="${TD}">${f.statut_paiement}</td>
+      <td style="${TD}">${f.statut_facture ?? ''}</td>
+    </tr>`
+  }).join('')}</tbody>`
+
+  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"/>
+    <style>table{border-collapse:collapse;width:100%} td,th{white-space:nowrap}</style>
+    </head>
+    <body><table>${thead}${tbody}</table></body></html>`
+
+  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${nomFichier}.xls`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 export interface LigneExtractionLettrage {
