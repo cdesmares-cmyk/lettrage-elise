@@ -91,7 +91,7 @@ export function useImportGroupements() {
         await Promise.all(lot.map(l =>
           supabase
             .from('clients')
-            .update({ code_groupement: l.code_groupement as string | null })
+            .update({ code_groupement: l.code_groupement as string | null } as never)
             .eq('code_dso', l.code_client as string)
         ))
       }

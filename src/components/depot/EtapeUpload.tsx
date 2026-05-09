@@ -26,6 +26,11 @@ const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label:
     extensions: ['.csv', '.xlsx', '.xls'],
     label: 'Lettrage CSV ou XLSX',
   },
+  import_groupements: {
+    accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    extensions: ['.csv', '.xlsx', '.xls'],
+    label: 'Groupements clients CSV ou XLSX',
+  },
 }
 
 export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, chargement }: Props) {
