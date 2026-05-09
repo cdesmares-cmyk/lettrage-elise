@@ -131,6 +131,15 @@ export const CHAMPS_GROUPEMENTS: ChampCible[] = [
     aliases: ['code client', 'codeclient', 'code dso', 'codedso', 'dso', 'code'],
   },
   {
+    cle: 'nom_client',
+    label: 'Nom client',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['nom client', 'nomclient', 'nom', 'client', 'raison sociale', 'raisonsociale', 'societe'],
+    hint: 'Affiché dans l\'aperçu pour vérification — met à jour le nom si fourni',
+  },
+  {
     cle: 'code_groupement',
     label: 'Code groupement',
     est_pivot: false,
