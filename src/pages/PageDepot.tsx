@@ -92,10 +92,10 @@ export function PageDepot() {
     try {
       const resultat = await hook.executerImport(validation)
       setCompteurRafraichissement(c => c + 1)
+      // Attendre que le cache soit à jour avant d'afficher le succès
+      await rafraichirDonnees()
       setEtape('succes')
       toast.success(`Import réussi — ${resultat.nb_inserees.toLocaleString('fr-FR')} lignes ajoutées.`)
-      // Recharge le cache global pour que Compte Client et Nébuleuse voient les nouvelles données
-      rafraichirDonnees()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'import.')
     } finally {
