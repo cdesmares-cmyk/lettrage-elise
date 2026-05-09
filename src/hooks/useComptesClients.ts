@@ -37,11 +37,12 @@ export function useComptesClients() {
   }, [clients, facturesActives])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
+    // Uniquement les clients avec un code_groupement explicite
     const groups = new Map<string, CompteClient[]>()
-    for (const c of clients) {
-      const key = c.code_groupement ?? c.code_dso
-      if (!groups.has(key)) groups.set(key, [])
-      groups.get(key)!.push(c)
+    for (const c of raw) {
+      if (!c.code_groupement) continue
+      if (!groups.has(c.code_groupement)) groups.set(c.code_groupement, [])
+      groups.get(c.code_groupement)!.push(c)
     }
     return Array.from(groups.entries())
       .map(([key, cls]) => {
@@ -60,8 +61,9 @@ export function useComptesClients() {
           clients: cls,
         }
       })
+      .filter(g => g.nb_clients > 1)  // vrais groupes uniquement
       .sort((a, b) => b.encours_total - a.encours_total)
-  }, [clients])
+  }, [raw])
 
   async function sauvegarderOptions(codeDso: string, opts: {
     statut_juridique: StatutJuridique | null

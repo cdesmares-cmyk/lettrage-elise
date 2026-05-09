@@ -23,9 +23,15 @@ function classeScore(note: number) {
   return { bar: 'bg-red-500', txt: 'text-red-600' }
 }
 
+const PAGE_SIZE = 25
+
 export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
   const [, startTransition] = useTransition()
+
+  const totalPages = Math.ceil(groupes.length / PAGE_SIZE)
+  const groupesPage = groupes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   // Un seul groupe ouvert à la fois — startTransition pour ne pas bloquer l'UI pendant le rendu
   function toggle(key: string, codes: string[]) {
@@ -38,8 +44,13 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
     })
   }
 
+  function changerPage(p: number) {
+    setPage(p)
+    setOuvert(null)
+  }
+
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
-  if (!groupes.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun groupe trouvé.</div>
+  if (!groupes.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun groupe avec référence de regroupement trouvé.</div>
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -56,7 +67,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
           </tr>
         </thead>
         <tbody>
-          {groupes.map(g => {
+          {groupesPage.map(g => {
             const estOuvert = ouvert === g.groupe_key
             const sc = classeScore(g.note_risque)
             const estGroupe = g.nb_clients > 1
@@ -142,6 +153,42 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
           })}
         </tbody>
       </table>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+          <span className="text-xs text-gray-400">
+            {groupes.length} groupe{groupes.length > 1 ? 's' : ''} · page {page + 1} / {totalPages}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => changerPage(page - 1)}
+              disabled={page === 0}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Préc.
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button
+                key={i}
+                onClick={() => changerPage(i)}
+                className={`w-7 h-7 text-xs font-semibold rounded-lg transition-colors ${
+                  i === page ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-500 hover:bg-white'
+                }`}
+              >
+                {i + 1}
+              </button>
+            ))}
+            <button
+              onClick={() => changerPage(page + 1)}
+              disabled={page === totalPages - 1}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              Suiv. →
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
