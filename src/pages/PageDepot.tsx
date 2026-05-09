@@ -11,6 +11,7 @@ import { useImportBancaire } from '../hooks/useImportBancaire'
 import { useImportFactures } from '../hooks/useImportFactures'
 import { useImportLettrage } from '../hooks/useImportLettrage'
 import { useImportGroupements } from '../hooks/useImportGroupements'
+import { useAppData } from '../contexts/AppDataContext'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
 type Etape = 'type' | 'upload' | 'mapping' | 'validation' | 'succes'
@@ -37,6 +38,7 @@ export function PageDepot() {
   const [chargement, setChargement] = useState(false)
   const [compteurRafraichissement, setCompteurRafraichissement] = useState(0)
 
+  const { rafraichir: rafraichirDonnees } = useAppData()
   const hookBancaire = useImportBancaire()
   const hookFactures = useImportFactures()
   const hookLettrage = useImportLettrage()
@@ -92,6 +94,8 @@ export function PageDepot() {
       setCompteurRafraichissement(c => c + 1)
       setEtape('succes')
       toast.success(`Import réussi — ${resultat.nb_inserees.toLocaleString('fr-FR')} lignes ajoutées.`)
+      // Recharge le cache global pour que Compte Client et Nébuleuse voient les nouvelles données
+      rafraichirDonnees()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'import.')
     } finally {
