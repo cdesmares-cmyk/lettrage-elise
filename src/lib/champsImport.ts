@@ -261,11 +261,11 @@ export const CHAMPS_FACTURES: ChampCible[] = [
   },
   {
     cle: 'est_avoir',
-    label: 'Avoir ?',
+    label: 'Type document (Facture / Avoir)',
     est_pivot: false,
     requis: false,
     est_lettrable: false,
-    aliases: ['avoir', 'est avoir', 'estavoir', 'type', 'nature document'],
-    hint: 'Valeurs acceptées : AVOIR, OUI, 1, TRUE',
+    aliases: ['avoir', 'est avoir', 'estavoir', 'type', 'nature document', 'type document', 'type piece'],
+    hint: 'F = Facture, A = Avoir. Optionnel : auto-détecté si montant TTC négatif.',
   },
 ]

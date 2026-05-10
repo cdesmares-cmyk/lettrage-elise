@@ -66,7 +66,7 @@ export function parseNombre(v: unknown): number | null {
 // Convertit une valeur brute en booléen (pour le champ est_avoir)
 export function parseBoolean(v: unknown): boolean {
   if (typeof v === 'boolean') return v
-  return ['avoir', 'oui', 'yes', '1', 'true', 'x', 'vrai'].includes(
+  return ['avoir', 'a', 'oui', 'yes', '1', 'true', 'x', 'vrai'].includes(
     String(v ?? '').toLowerCase().trim()
   )
 }

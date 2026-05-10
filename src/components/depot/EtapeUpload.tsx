@@ -57,7 +57,7 @@ const EXEMPLES: Record<string, string> = {
   date_echeance:          '31/03/2025',
   montant_ht:             '1041.67',
   montant_ttc:            '1250.00',
-  est_avoir:              '',
+  est_avoir:              'F',
   numero_facture:         'FAC-2025-0456',
   montant:                '1250.00',
   date_lettrage:          '15/03/2025',
