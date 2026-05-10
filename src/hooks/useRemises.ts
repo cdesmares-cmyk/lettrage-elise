@@ -82,7 +82,7 @@ export function useRemises(onSuccessCallback?: () => void) {
         mode: type,
         commentaire: `Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero}`,
         cree_par: utilisateur?.id ?? null,
-        nom_operateur: utilisateur?.email ?? null,
+        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
       const { error: le } = await supabase.from('lettrages').insert(inserts as never)
       if (le) {
@@ -129,7 +129,7 @@ export function useRemises(onSuccessCallback?: () => void) {
         mode: type,
         commentaire: `Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero}`,
         cree_par: utilisateur?.id ?? null,
-        nom_operateur: utilisateur?.email ?? null,
+        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
       const { error: le } = await supabase.from('lettrages').insert(inserts as never)
       if (le) throw le
