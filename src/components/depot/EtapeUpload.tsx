@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { TypeFichier } from '../../types/import'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_GROUPEMENTS } from '../../lib/champsImport'
 
 interface Props {
   typeFichier: TypeFichier
@@ -10,27 +11,81 @@ interface Props {
   chargement: boolean
 }
 
-const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label: string }> = {
+const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label: string; nomModele: string }> = {
   csv_bancaire: {
     accept: '.csv,text/csv',
     extensions: ['.csv'],
     label: 'Relevé bancaire CSV',
+    nomModele: 'modele_releve_bancaire.csv',
   },
   xlsx_factures: {
     accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     extensions: ['.xlsx', '.xls'],
     label: 'Factures XLSX',
+    nomModele: 'modele_factures.csv',
   },
   import_lettrage: {
     accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     extensions: ['.csv', '.xlsx', '.xls'],
     label: 'Lettrage CSV ou XLSX',
+    nomModele: 'modele_lettrage.csv',
   },
   import_groupements: {
     accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     extensions: ['.csv', '.xlsx', '.xls'],
     label: 'Groupements clients CSV ou XLSX',
+    nomModele: 'modele_groupements_clients.csv',
   },
+}
+
+// Exemples indicatifs par clé de champ
+const EXEMPLES: Record<string, string> = {
+  id_operation:       'OP-2024-00123',
+  date_operation:     '15/03/2025',
+  libelle:            'VIR SEPA CLIENT MARTIN',
+  detail:             'REF-CLIENT-456',
+  infos_complementaires: 'Commentaire libre',
+  debit:              '',
+  credit:             '1250.00',
+  numero_piece:       'FAC-2025-0456',
+  code_client:        'CLI-001',
+  nom_client:         'SARL Martin',
+  date_emission:      '01/03/2025',
+  date_echeance:      '31/03/2025',
+  montant_ht:         '1041.67',
+  montant_ttc:        '1250.00',
+  est_avoir:          '',
+  numero_facture:     'FAC-2025-0456',
+  montant:            '1250.00',
+  date_lettrage:      '15/03/2025',
+  id_ligne_bancaire:  'OP-2024-00123',
+  commentaire:        '',
+  code_groupement:    'GRP-01',
+}
+
+const CHAMPS_PAR_TYPE = {
+  csv_bancaire:      CHAMPS_BANCAIRES,
+  xlsx_factures:     CHAMPS_FACTURES,
+  import_lettrage:   CHAMPS_LETTRAGES,
+  import_groupements: CHAMPS_GROUPEMENTS,
+}
+
+function genererCSV(typeFichier: TypeFichier): string {
+  const champs = CHAMPS_PAR_TYPE[typeFichier]
+  const enTetes = champs.map(c => c.label)
+  const exemples = champs.map(c => EXEMPLES[c.cle] ?? '')
+  return [enTetes, exemples].map(row => row.map(v => `"${v}"`).join(';')).join('\r\n')
+}
+
+function telechargerModele(typeFichier: TypeFichier) {
+  const csv = genererCSV(typeFichier)
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = CONFIG[typeFichier].nomModele
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, chargement }: Props) {
@@ -115,13 +170,19 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
         )}
       </div>
 
-      <div className="flex justify-between mt-5">
+      <div className="flex justify-between items-center mt-5">
         <button
           onClick={onRetour}
           disabled={chargement}
           className="text-sm font-medium text-gray-500 hover:text-gray-800 disabled:opacity-40 px-4 py-2 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
         >
           ← Retour
+        </button>
+        <button
+          onClick={() => telechargerModele(typeFichier)}
+          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors"
+        >
+          ⬇ Modèle CSV
         </button>
       </div>
     </div>

@@ -1,6 +1,13 @@
 -- Migration 012 : Restructuration schéma — Mai 2026
 -- Nettoyage table clients, renommage opérateur, ref_valeurs, contacts, truncate data
 
+-- ── 0. DROP vues dépendantes des colonnes à supprimer ───────────────────────
+-- v_stats_clients référence est_plateforme / est_groupement — on la supprime
+-- (elle n'est plus utilisée depuis la restructuration)
+
+DROP VIEW IF EXISTS v_stats_clients CASCADE;
+DROP VIEW IF EXISTS v_comptes_clients CASCADE;
+
 -- ── 1. TABLE CLIENTS : suppression anciens champs, ajout nouveaux ──────────
 
 ALTER TABLE clients
