@@ -7,45 +7,47 @@ interface Props {
   onSuivant: () => void
 }
 
+const FORMATS_TOUS = ['CSV', 'XLSX']
+
 const OPTIONS: {
   type: TypeFichier
   icone: string
   titre: string
   description: string
-  formats: string[]
   pivot: string
+  info: string
 }[] = [
   {
     type: 'csv_bancaire',
     icone: '🏦',
     titre: 'Relevé bancaire',
     description: 'Lignes de transactions exportées depuis votre banque.',
-    formats: ['CSV'],
     pivot: 'N° Opération',
+    info: 'Toute ligne déjà présente en base sera ignorée automatiquement.',
   },
   {
     type: 'xlsx_factures',
     icone: '🧾',
     titre: 'Factures',
     description: 'Export de votre logiciel comptable ou ERP (numéros de pièce, montants, échéances).',
-    formats: ['XLSX', 'XLS'],
     pivot: 'N° de pièce',
+    info: 'Toute ligne déjà présente en base sera ignorée automatiquement.',
   },
   {
     type: 'import_lettrage',
     icone: '🔗',
     titre: 'Lettrage / Associations',
     description: 'Import en masse d\'associations factures ↔ règlements. Utile pour la migration historique ou les prélèvements automatiques.',
-    formats: ['CSV', 'XLSX'],
     pivot: 'N° de facture',
+    info: 'Les factures introuvables en base seront ignorées. Les factures déjà soldées déclencheront un avertissement.',
   },
   {
-    type: 'import_groupements',
-    icone: '🌐',
-    titre: 'Groupements clients',
-    description: 'Affectation en masse des codes groupement. Crée ou met à jour le rattachement de chaque client à un groupe.',
-    formats: ['CSV', 'XLSX'],
+    type: 'import_clients',
+    icone: '👤',
+    titre: 'Comptes clients',
+    description: 'Création et mise à jour en masse des fiches clients (nom, commercial, opérateur, plateforme, groupement).',
     pivot: 'Code client',
+    info: 'Les clients existants seront mis à jour. Les nouveaux codes clients seront créés.',
   },
 ]
 
@@ -74,7 +76,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
             <p className="font-semibold text-sm text-gray-900 mb-1">{opt.titre}</p>
             <p className="text-xs text-gray-500 leading-relaxed mb-3">{opt.description}</p>
             <div className="flex gap-1.5 flex-wrap">
-              {opt.formats.map(f => (
+              {FORMATS_TOUS.map(f => (
                 <span key={f} className="bg-gray-100 text-gray-600 text-[11px] font-mono font-semibold px-2 py-0.5 rounded">
                   .{f.toLowerCase()}
                 </span>
@@ -89,13 +91,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
         <span className="text-base flex-shrink-0">🔑</span>
         <span>
           {optionSelectionnee
-            ? <>Clé pivot : <strong>{optionSelectionnee.pivot}</strong>. {
-                optionSelectionnee.type === 'import_lettrage'
-                  ? 'Les factures introuvables en base seront ignorées. Les factures déjà soldées déclencheront un avertissement.'
-                  : optionSelectionnee.type === 'import_groupements'
-                  ? 'Les codes clients introuvables en base seront ignorés. Les clients existants verront leur groupement mis à jour.'
-                  : 'Toute ligne déjà présente en base sera ignorée automatiquement.'
-              }</>
+            ? <>Clé pivot : <strong>{optionSelectionnee.pivot}</strong>. {optionSelectionnee.info}</>
             : <>Sélectionnez un type pour voir la clé pivot utilisée.</>
           }
         </span>

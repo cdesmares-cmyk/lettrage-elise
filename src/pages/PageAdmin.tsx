@@ -23,10 +23,10 @@ function BlocRefValeurs({ titre, categorie }: { titre: string; categorie: 'comme
   return (
     <div className="border border-gray-100 rounded-xl px-4 py-4">
       <p className="text-xs font-bold text-gray-700 mb-3">{titre}</p>
-      <div className="flex flex-wrap gap-1.5 mb-3 min-h-[28px]">
-        {valeurs.length === 0 && <span className="text-xs text-gray-400">Aucune valeur</span>}
+      <div className="flex flex-wrap gap-1 mb-2.5 min-h-[22px]">
+        {valeurs.length === 0 && <span className="text-[11px] text-gray-400">Aucune valeur</span>}
         {valeurs.map(v => (
-          <span key={v} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full border border-gray-200">
+          <span key={v} className="flex items-center gap-0.5 text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded border border-gray-200">
             {v}
             <button
               onClick={() => desactiver(v)}
@@ -37,19 +37,19 @@ function BlocRefValeurs({ titre, categorie }: { titre: string; categorie: 'comme
           </span>
         ))}
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-1.5">
         <input
           type="text"
           value={saisie}
           onChange={e => setSaisie(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAjouter()}
-          placeholder={`Nouvelle valeur…`}
-          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-blue-400 transition-colors"
+          placeholder="Nouvelle valeur…"
+          className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1 text-[11px] outline-none focus:border-blue-400 transition-colors"
         />
         <button
           onClick={handleAjouter}
           disabled={!saisie.trim() || chargement}
-          className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors"
+          className="flex-shrink-0 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 px-2.5 py-1 rounded transition-colors"
         >+ Ajouter</button>
       </div>
     </div>

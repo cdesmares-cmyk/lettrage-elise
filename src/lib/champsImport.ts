@@ -141,6 +141,59 @@ export const CHAMPS_GROUPEMENTS: ChampCible[] = [
   },
 ]
 
+export const CHAMPS_CLIENTS: ChampCible[] = [
+  {
+    cle: 'code_dso',
+    label: 'Code client (pivot)',
+    est_pivot: true,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['code client', 'codeclient', 'code dso', 'codedso', 'dso', 'code', 'code_client'],
+  },
+  {
+    cle: 'nom',
+    label: 'Nom du client',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['nom', 'nom client', 'nomclient', 'raison sociale', 'raisonsociale', 'societe', 'client'],
+  },
+  {
+    cle: 'commercial',
+    label: 'Commercial',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['commercial', 'responsable commercial', 'commercial responsable', 'vendeur'],
+  },
+  {
+    cle: 'operateur',
+    label: 'Opérateur',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['operateur', 'operateur dso', 'gestionnaire', 'charge de compte'],
+  },
+  {
+    cle: 'plateforme',
+    label: "Plateforme d'envoi",
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['plateforme', 'plateforme envoi', 'portail', 'chorus', 'cegedim', 'mode envoi'],
+    hint: 'Ex : Chorus, Cegedim, Tungsten…',
+  },
+  {
+    cle: 'code_groupement',
+    label: 'Code groupement',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['code groupement', 'codegroupement', 'groupement', 'groupe', 'group', 'code groupe'],
+    hint: 'Identifiant commun aux clients d\'un même groupe (vue Nébuleuse)',
+  },
+]
+
 export const CHAMPS_FACTURES: ChampCible[] = [
   {
     cle: 'numero_piece',

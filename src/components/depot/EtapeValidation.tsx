@@ -1,5 +1,5 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_GROUPEMENTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -40,9 +40,10 @@ export function EtapeValidation({
 }: Props) {
   const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
     : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
-    : typeFichier === 'import_groupements' ? CHAMPS_GROUPEMENTS
+    : typeFichier === 'import_clients' ? CHAMPS_CLIENTS
     : CHAMPS_LETTRAGES
   const estLettrage = typeFichier === 'import_lettrage'
+  const estClients = typeFichier === 'import_clients'
 
   // Colonnes mappées à afficher dans l'aperçu (max 6 pour éviter le débordement)
   const colonnesMappees = mapping
@@ -58,13 +59,20 @@ export function EtapeValidation({
       {/* Statistiques */}
       <div className={`grid gap-3 mb-6 ${estLettrage || (!resultat.total_credit_fichier && !resultat.total_ttc_fichier) ? 'grid-cols-4' : 'grid-cols-5'}`}>
         <StatCard valeur={resultat.nb_total} label="Lignes détectées" couleur="border-gray-200 text-blue-600" />
-        <StatCard valeur={resultat.nb_nouvelles} label="À importer" couleur="border-emerald-200 text-emerald-600" />
+        {estClients
+          ? <StatCard valeur={resultat.nb_nouvelles} label="À créer" couleur="border-emerald-200 text-emerald-600" />
+          : <StatCard valeur={resultat.nb_nouvelles} label="À importer" couleur="border-emerald-200 text-emerald-600" />
+        }
         {estLettrage
           ? <StatCard valeur={resultat.nb_avertissements ?? 0} label="Sur-paiements" couleur="border-amber-200 text-amber-600" />
+          : estClients
+          ? <StatCard valeur={resultat.nb_doublons} label="À mettre à jour" couleur="border-blue-200 text-blue-600" />
           : <StatCard valeur={resultat.nb_doublons} label="Doublons (ignorés)" couleur="border-amber-200 text-amber-600" />
         }
         {estLettrage
           ? <StatCard valeur={resultat.nb_invalides ?? 0} label="Factures introuvables" couleur="border-red-200 text-red-500" />
+          : estClients
+          ? <StatCard valeur={0} label="Ignorés" couleur="border-gray-200 text-gray-400" />
           : <StatCard valeur={0} label="Erreurs" couleur="border-gray-200 text-gray-400" />
         }
         {resultat.total_credit_fichier != null && (
@@ -118,10 +126,16 @@ export function EtapeValidation({
         </div>
       )}
 
-      {resultat.nb_nouvelles === 0 && (
+      {!estClients && resultat.nb_nouvelles === 0 && (
         <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-700">
           <span>⚠️</span>
           <span>Toutes les lignes sont déjà présentes en base. Aucune donnée ne sera importée.</span>
+        </div>
+      )}
+      {estClients && resultat.nb_total === 0 && (
+        <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-700">
+          <span>⚠️</span>
+          <span>Aucune ligne valide détectée dans le fichier.</span>
         </div>
       )}
 
@@ -182,11 +196,14 @@ export function EtapeValidation({
         </button>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-400">
-            {resultat.nb_nouvelles.toLocaleString('fr-FR')} ligne{resultat.nb_nouvelles > 1 ? 's' : ''} seront importées
+            {estClients
+              ? `${resultat.nb_total.toLocaleString('fr-FR')} client${resultat.nb_total > 1 ? 's' : ''} seront traités`
+              : `${resultat.nb_nouvelles.toLocaleString('fr-FR')} ligne${resultat.nb_nouvelles > 1 ? 's' : ''} seront importées`
+            }
           </span>
           <button
             onClick={onConfirmer}
-            disabled={chargement || resultat.nb_nouvelles === 0}
+            disabled={chargement || (estClients ? resultat.nb_total === 0 : resultat.nb_nouvelles === 0)}
             className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
           >
             {chargement ? (

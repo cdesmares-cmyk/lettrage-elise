@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import type { TypeFichier } from '../../types/import'
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_GROUPEMENTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
 
 interface Props {
   typeFichier: TypeFichier
@@ -11,63 +11,71 @@ interface Props {
   chargement: boolean
 }
 
+const ACCEPT_TOUS = '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+const EXT_TOUS = ['.csv', '.xlsx', '.xls']
+
 const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label: string; nomModele: string }> = {
   csv_bancaire: {
-    accept: '.csv,text/csv',
-    extensions: ['.csv'],
-    label: 'Relevé bancaire CSV',
+    accept: ACCEPT_TOUS,
+    extensions: EXT_TOUS,
+    label: 'Relevé bancaire',
     nomModele: 'modele_releve_bancaire.csv',
   },
   xlsx_factures: {
-    accept: '.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    extensions: ['.xlsx', '.xls'],
-    label: 'Factures XLSX',
+    accept: ACCEPT_TOUS,
+    extensions: EXT_TOUS,
+    label: 'Factures',
     nomModele: 'modele_factures.csv',
   },
   import_lettrage: {
-    accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    extensions: ['.csv', '.xlsx', '.xls'],
-    label: 'Lettrage CSV ou XLSX',
+    accept: ACCEPT_TOUS,
+    extensions: EXT_TOUS,
+    label: 'Lettrage / Associations',
     nomModele: 'modele_lettrage.csv',
   },
-  import_groupements: {
-    accept: '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    extensions: ['.csv', '.xlsx', '.xls'],
-    label: 'Groupements clients CSV ou XLSX',
-    nomModele: 'modele_groupements_clients.csv',
+  import_clients: {
+    accept: ACCEPT_TOUS,
+    extensions: EXT_TOUS,
+    label: 'Comptes clients',
+    nomModele: 'modele_comptes_clients.csv',
   },
 }
 
 // Exemples indicatifs par clé de champ
 const EXEMPLES: Record<string, string> = {
-  id_operation:       'OP-2024-00123',
-  date_operation:     '15/03/2025',
-  libelle:            'VIR SEPA CLIENT MARTIN',
-  detail:             'REF-CLIENT-456',
-  infos_complementaires: 'Commentaire libre',
-  debit:              '',
-  credit:             '1250.00',
-  numero_piece:       'FAC-2025-0456',
-  code_client:        'CLI-001',
-  nom_client:         'SARL Martin',
-  date_emission:      '01/03/2025',
-  date_echeance:      '31/03/2025',
-  montant_ht:         '1041.67',
-  montant_ttc:        '1250.00',
-  est_avoir:          '',
-  numero_facture:     'FAC-2025-0456',
-  montant:            '1250.00',
-  date_lettrage:      '15/03/2025',
-  id_ligne_bancaire:  'OP-2024-00123',
-  commentaire:        '',
-  code_groupement:    'GRP-01',
+  id_operation:           'OP-2024-00123',
+  date_operation:         '15/03/2025',
+  libelle:                'VIR SEPA CLIENT MARTIN',
+  detail:                 'REF-CLIENT-456',
+  infos_complementaires:  '',
+  debit:                  '',
+  credit:                 '1250.00',
+  numero_piece:           'FAC-2025-0456',
+  code_client:            'CLI-001',
+  nom_client:             'SARL Martin',
+  date_emission:          '01/03/2025',
+  date_echeance:          '31/03/2025',
+  montant_ht:             '1041.67',
+  montant_ttc:            '1250.00',
+  est_avoir:              '',
+  numero_facture:         'FAC-2025-0456',
+  montant:                '1250.00',
+  date_lettrage:          '15/03/2025',
+  id_ligne_bancaire:      'OP-2024-00123',
+  commentaire:            '',
+  code_dso:               'CLI-001',
+  nom:                    'SARL Martin',
+  commercial:             'Jean Dupont',
+  operateur:              'cdesmares',
+  plateforme:             'Chorus',
+  code_groupement:        'GRP-01',
 }
 
 const CHAMPS_PAR_TYPE = {
-  csv_bancaire:      CHAMPS_BANCAIRES,
-  xlsx_factures:     CHAMPS_FACTURES,
-  import_lettrage:   CHAMPS_LETTRAGES,
-  import_groupements: CHAMPS_GROUPEMENTS,
+  csv_bancaire:   CHAMPS_BANCAIRES,
+  xlsx_factures:  CHAMPS_FACTURES,
+  import_lettrage: CHAMPS_LETTRAGES,
+  import_clients: CHAMPS_CLIENTS,
 }
 
 function genererCSV(typeFichier: TypeFichier): string {
@@ -164,7 +172,7 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
               ou <span className="text-blue-600 font-semibold">parcourir vos fichiers</span>
             </p>
             <p className="text-gray-400 text-[11px] font-mono mt-3">
-              Formats acceptés : {config.extensions.join(' · ')} · Taille max : 10 Mo
+              Formats acceptés : .csv · .xlsx · .xls · Taille max : 10 Mo
             </p>
           </>
         )}
