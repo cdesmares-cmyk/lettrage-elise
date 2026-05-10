@@ -135,7 +135,6 @@ export function PageCompteClient() {
       {/* Panneau Options */}
       <PanneauOptions
         client={clientOptions}
-        plateformesConnues={comptes.plateformesConnues}
         onFermer={() => setClientOptions(null)}
         onSauvegarder={comptes.sauvegarderOptions}
       />

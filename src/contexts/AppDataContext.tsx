@@ -8,8 +8,9 @@ import toast from 'react-hot-toast'
 import type { CompteClient, FactureDetail, StatutFacture, StatutJuridique } from '../types/client'
 
 interface RowCompteClient {
-  code_dso: string; nom: string; statut: string | null; statut_juridique: string | null
-  plateforme: string | null; code_groupement: string | null; parent_code_dso: string | null
+  code_dso: string; nom: string; statut_juridique: string | null
+  commercial: string | null; operateur: string | null
+  plateforme: string | null; code_groupement: string | null
   nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null
 }
 

@@ -7,16 +7,24 @@ export type VueMode = 'clients' | 'nebuleuse' | 'factures'
 export interface CompteClient {
   code_dso: string
   nom: string
-  statut: string | null
   statut_juridique: StatutJuridique | null
+  commercial: string | null
+  operateur: string | null
   plateforme: string | null
   code_groupement: string | null
-  parent_code_dso: string | null
   nb_factures_total: number
   nb_impayees: number
   encours_total: number
   derniere_emission: string | null
   note_risque: number
+}
+
+export interface RefValeur {
+  id: string
+  categorie: 'commercial' | 'operateur' | 'plateforme'
+  valeur: string
+  actif: boolean
+  ordre: number
 }
 
 export interface FactureDetail {

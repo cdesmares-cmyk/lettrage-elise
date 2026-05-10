@@ -1,5 +1,5 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_GROUPEMENTS } from '../../lib/champsImport'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -40,6 +40,7 @@ export function EtapeValidation({
 }: Props) {
   const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
     : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
+    : typeFichier === 'import_groupements' ? CHAMPS_GROUPEMENTS
     : CHAMPS_LETTRAGES
   const estLettrage = typeFichier === 'import_lettrage'
 
@@ -93,6 +94,27 @@ export function EtapeValidation({
             <strong>{resultat.nb_invalides} ligne{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''} ignorée{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''}</strong> — numéro de facture introuvable en base.
             {' '}Ces lignes ne seront pas importées.
           </span>
+        </div>
+      )}
+
+      {/* Bannière noms différents (import factures — informatif, non bloquant) */}
+      {typeFichier === 'xlsx_factures' && (resultat.noms_differents?.length ?? 0) > 0 && (
+        <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-3 text-sm text-blue-800">
+          <span className="flex-shrink-0">ℹ️</span>
+          <div>
+            <strong>{resultat.noms_differents!.length} client{resultat.noms_differents!.length > 1 ? 's' : ''} avec un nom différent</strong> entre le fichier et la base.
+            {' '}Le nom en base est conservé — modifiable depuis Compte Client.
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {resultat.noms_differents!.slice(0, 8).map(d => (
+                <span key={d.code_client} className="font-mono text-[10px] bg-blue-100 px-1.5 py-0.5 rounded" title={`Fichier : ${d.nom_fichier}`}>
+                  {d.code_client}
+                </span>
+              ))}
+              {resultat.noms_differents!.length > 8 && (
+                <span className="text-[10px] text-blue-600">+{resultat.noms_differents!.length - 8} autres</span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

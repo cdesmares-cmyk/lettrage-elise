@@ -120,7 +120,7 @@ export function useLettrageForm(onSuccess: () => void) {
         mode: modeDepuisClasse(l.classe),
         commentaire: l.classe === 'autres' ? 'Hors-facture (Autres)' : null,
         cree_par: utilisateur?.id ?? null,
-        nom_operateur: utilisateur?.email ?? null,
+        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error

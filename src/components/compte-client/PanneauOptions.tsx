@@ -1,13 +1,15 @@
-// Volet latéral coulissant — édition des infos client (statut juridique, plateforme, groupement)
+// Volet latéral coulissant — édition des infos client
 import { useState, useEffect } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
+import { useRefValeurs } from '../../hooks/useRefValeurs'
 
 interface Props {
   client: CompteClient | null
-  plateformesConnues: string[]
   onFermer: () => void
   onSauvegarder: (codeDso: string, opts: {
     statut_juridique: StatutJuridique | null
+    commercial: string | null
+    operateur: string | null
     plateforme: string | null
     code_groupement: string | null
   }) => Promise<boolean>
@@ -25,8 +27,35 @@ function classeScore(note: number) {
   return { bar: 'bg-red-500', txt: 'text-red-600', label: 'Risque élevé' }
 }
 
-export function PanneauOptions({ client, plateformesConnues, onFermer, onSauvegarder }: Props) {
+function SelectRef({
+  label, valeur, setValeur, options,
+}: { label: string; valeur: string; setValeur: (v: string) => void; options: string[] }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</label>
+      <div className="relative">
+        <select
+          value={valeur}
+          onChange={e => setValeur(e.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 transition-colors appearance-none bg-white pr-8"
+        >
+          <option value="">— Aucun —</option>
+          {options.map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
+      </div>
+    </div>
+  )
+}
+
+export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
+  const { valeurs: commerciaux } = useRefValeurs('commercial')
+  const { valeurs: operateurs } = useRefValeurs('operateur')
+  const { valeurs: plateformes } = useRefValeurs('plateforme')
+
   const [statut, setStatut] = useState<StatutJuridique | ''>('')
+  const [commercial, setCommercial] = useState('')
+  const [operateur, setOperateur] = useState('')
   const [plateforme, setPlateforme] = useState('')
   const [groupement, setGroupement] = useState('')
   const [enregistrement, setEnregistrement] = useState(false)
@@ -34,6 +63,8 @@ export function PanneauOptions({ client, plateformesConnues, onFermer, onSauvega
   useEffect(() => {
     if (client) {
       setStatut(client.statut_juridique ?? '')
+      setCommercial(client.commercial ?? '')
+      setOperateur(client.operateur ?? '')
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
     }
@@ -45,6 +76,8 @@ export function PanneauOptions({ client, plateformesConnues, onFermer, onSauvega
     setEnregistrement(true)
     const ok = await onSauvegarder(client!.code_dso, {
       statut_juridique: statut || null,
+      commercial: commercial.trim() || null,
+      operateur: operateur.trim() || null,
       plateforme: plateforme.trim() || null,
       code_groupement: groupement.trim() || null,
     })
@@ -91,28 +124,14 @@ export function PanneauOptions({ client, plateformesConnues, onFermer, onSauvega
             </div>
           </div>
 
-          {/* Plateforme */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Plateforme d'envoi</label>
-            <input
-              type="text"
-              value={plateforme}
-              onChange={e => setPlateforme(e.target.value)}
-              placeholder="Ex : Chorus, Cegedim…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 transition-colors"
-            />
-            {plateformesConnues.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {plateformesConnues.map(p => (
-                  <button key={p} onClick={() => setPlateforme(p)}
-                    className={`text-[10px] px-2 py-0.5 rounded border font-medium transition-all ${
-                      plateforme === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-blue-300 hover:text-blue-600'
-                    }`}
-                  >{p}</button>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Commercial */}
+          <SelectRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} />
+
+          {/* Opérateur */}
+          <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
+
+          {/* Plateforme d'envoi */}
+          <SelectRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} />
 
           {/* Code groupement */}
           <div>

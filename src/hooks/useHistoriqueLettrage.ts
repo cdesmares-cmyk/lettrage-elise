@@ -12,7 +12,7 @@ export interface LigneHistorique {
   montant: number
   mode: string
   commentaire: string | null
-  nom_operateur: string | null
+  operateur: string | null
 }
 
 export function useHistoriqueLettrage() {
@@ -24,7 +24,7 @@ export function useHistoriqueLettrage() {
     setChargement(true)
     const { data, error } = await supabase
       .from('lettrages')
-      .select('id, created_at, date_lettrage, id_ligne_bancaire, code_client, numero_facture, montant, mode, commentaire, nom_operateur, lignes_bancaires(libelle)')
+      .select('id, created_at, date_lettrage, id_ligne_bancaire, code_client, numero_facture, montant, mode, commentaire, operateur, lignes_bancaires(libelle)')
       .order('created_at', { ascending: false })
       .limit(500)
 
@@ -40,7 +40,7 @@ export function useHistoriqueLettrage() {
         montant: r.montant as number,
         mode: r.mode as string,
         commentaire: r.commentaire as string | null,
-        nom_operateur: r.nom_operateur as string | null,
+        operateur: r.operateur as string | null,
       })))
     }
     setChargement(false)

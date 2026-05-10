@@ -9,7 +9,7 @@ interface RowRemise {
   id: string; type: 'cheque' | 'lcr'; numero: string; montant_total: number | null
   statut: 'en_attente' | 'encaisse'; id_ligne_bancaire: string | null
   date_encaissement: string | null; cree_par: string | null
-  nom_operateur: string | null; created_at: string
+  operateur: string | null; created_at: string
 }
 interface RowLettrage {
   id: string; remise_id: string; numero_facture: string
@@ -65,7 +65,7 @@ export function useRemises(onSuccessCallback?: () => void) {
           montant_total: type === 'lcr' ? montantLcr : null,
           statut: 'en_attente',
           cree_par: utilisateur?.id ?? null,
-          nom_operateur: utilisateur?.email ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
         } as never)
         .select('id').single()
       if (re) throw re

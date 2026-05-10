@@ -67,6 +67,8 @@ export function useComptesClients() {
 
   async function sauvegarderOptions(codeDso: string, opts: {
     statut_juridique: StatutJuridique | null
+    commercial: string | null
+    operateur: string | null
     plateforme: string | null
     code_groupement: string | null
   }) {
@@ -80,10 +82,5 @@ export function useComptesClients() {
     return true
   }
 
-  const plateformesConnues = useMemo(
-    () => [...new Set(raw.map(c => c.plateforme).filter(Boolean) as string[])].sort(),
-    [raw]
-  )
-
-  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse, rafraichir, sauvegarderOptions, plateformesConnues }
+  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse, rafraichir, sauvegarderOptions }
 }

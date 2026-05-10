@@ -12,6 +12,7 @@ import { useAuth } from '../contexts/AuthContext'
 interface RowImportRef { id: string; cree_le: string }
 interface RowNumeroPiece { numero_piece: string }
 interface RowImportId { id: string }
+interface RowClientNom { code_dso: string; nom: string }
 
 function appliquerMapping(
   ligne: Record<string, unknown>,
@@ -87,6 +88,24 @@ export function useImportFactures() {
       lignes.map(l => String(l[colPivot] ?? '')).filter(Boolean)
     )]
 
+    // Récupère les codes clients uniques du fichier pour vérifier les noms
+    const colCodeClient = mapping.find(m => m.champ_cible === 'code_client')?.colonne_source
+    const colNomClient  = mapping.find(m => m.champ_cible === 'nom_client')?.colonne_source
+    const codesClientsUniques = colCodeClient
+      ? [...new Set(lignes.map(l => String(l[colCodeClient] ?? '')).filter(Boolean))]
+      : []
+
+    // Charge les clients existants (nom de référence = source de vérité)
+    const clientsEnBase = new Map<string, string>() // code_dso → nom actuel
+    for (let i = 0; i < codesClientsUniques.length; i += 500) {
+      const { data } = await supabase
+        .from('clients')
+        .select('code_dso, nom')
+        .in('code_dso', codesClientsUniques.slice(i, i + 500))
+      const rows = data as unknown as RowClientNom[] | null
+      rows?.forEach(r => clientsEnBase.set(r.code_dso, r.nom))
+    }
+
     // Vérification par lots de 500
     const existantes = new Set<string>()
     for (let i = 0; i < toutesLesCles.length; i += 500) {
@@ -131,13 +150,40 @@ export function useImportFactures() {
       }, 0) * 100
     ) / 100
 
+    // Détecte les clients dont le nom dans le fichier diffère du nom en base
+    const noms_differents: { code_client: string; nom_fichier: string; nom_base: string }[] = []
+    if (colCodeClient && colNomClient) {
+      const vus = new Set<string>()
+      for (const l of lignes) {
+        const code = String(l[colCodeClient] ?? '').trim()
+        const nomF = String(l[colNomClient] ?? '').trim()
+        if (!code || !nomF || vus.has(code)) continue
+        vus.add(code)
+        const nomBase = clientsEnBase.get(code)
+        if (nomBase && nomBase.toLowerCase() !== nomF.toLowerCase()) {
+          noms_differents.push({ code_client: code, nom_fichier: nomF, nom_base: nomBase })
+        }
+      }
+    }
+
+    // Pour les nouvelles lignes : remplace nom_client par le nom de la base si le client existe
+    const lignes_a_inserer = nouvelles.map(l => {
+      const mapped = appliquerMapping(l, mapping)
+      const code = mapped['code_client'] as string | undefined
+      if (code && clientsEnBase.has(code)) {
+        mapped['nom_client'] = clientsEnBase.get(code)!
+      }
+      return mapped
+    })
+
     return {
-      lignes_a_inserer: nouvelles.map(l => appliquerMapping(l, mapping)),
+      lignes_a_inserer,
       apercu,
       nb_total: lignes.length,
       nb_nouvelles: nouvelles.length,
       nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
       total_ttc_fichier: totalTtcFichier,
+      noms_differents: noms_differents.length > 0 ? noms_differents : undefined,
       hash,
       nom_fichier: fichier.name,
     }

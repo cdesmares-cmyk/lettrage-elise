@@ -2,12 +2,58 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
 import { useAppData } from '../contexts/AppDataContext'
+import { useRefValeurs } from '../hooks/useRefValeurs'
 import type { ImportRecord } from '../hooks/useAdmin'
 
 const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+function BlocRefValeurs({ titre, categorie }: { titre: string; categorie: 'commercial' | 'operateur' | 'plateforme' }) {
+  const { valeurs, chargement, ajouter, desactiver } = useRefValeurs(categorie)
+  const [saisie, setSaisie] = useState('')
+
+  async function handleAjouter() {
+    const ok = await ajouter(saisie)
+    if (ok) setSaisie('')
+  }
+
+  return (
+    <div className="border border-gray-100 rounded-xl px-4 py-4">
+      <p className="text-xs font-bold text-gray-700 mb-3">{titre}</p>
+      <div className="flex flex-wrap gap-1.5 mb-3 min-h-[28px]">
+        {valeurs.length === 0 && <span className="text-xs text-gray-400">Aucune valeur</span>}
+        {valeurs.map(v => (
+          <span key={v} className="flex items-center gap-1 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full border border-gray-200">
+            {v}
+            <button
+              onClick={() => desactiver(v)}
+              disabled={chargement}
+              className="text-gray-400 hover:text-red-500 transition-colors ml-0.5 text-[10px] leading-none"
+              title="Désactiver"
+            >×</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={saisie}
+          onChange={e => setSaisie(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAjouter()}
+          placeholder={`Nouvelle valeur…`}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-blue-400 transition-colors"
+        />
+        <button
+          onClick={handleAjouter}
+          disabled={!saisie.trim() || chargement}
+          className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 px-3 py-1.5 rounded-lg transition-colors"
+        >+ Ajouter</button>
+      </div>
+    </div>
+  )
 }
 
 export function PageAdmin() {
@@ -114,7 +160,20 @@ export function PageAdmin() {
         )}
       </section>
 
-      {/* ── Section 2 : Supprimer des lettrages ─────────────────────────────── */}
+      {/* ── Section 2 : Listes de référence ────────────────────────────────── */}
+      <section className="bg-white border border-gray-200 rounded-xl shadow-sm mb-5 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="text-sm font-bold text-gray-800">Listes de référence</h2>
+          <p className="text-xs text-gray-400 mt-0.5">Valeurs disponibles dans les menus déroulants des fiches client</p>
+        </div>
+        <div className="px-5 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <BlocRefValeurs titre="Commerciaux" categorie="commercial" />
+          <BlocRefValeurs titre="Opérateurs" categorie="operateur" />
+          <BlocRefValeurs titre="Plateformes d'envoi" categorie="plateforme" />
+        </div>
+      </section>
+
+      {/* ── Section 3 : Supprimer des lettrages ─────────────────────────────── */}
       <section className="bg-white border border-amber-200 rounded-xl shadow-sm mb-5 overflow-hidden">
         <div className="px-5 py-4 border-b border-amber-100">
           <h2 className="text-sm font-bold text-gray-800">Supprimer des lettrages</h2>
@@ -143,7 +202,7 @@ export function PageAdmin() {
         </div>
       </section>
 
-      {/* ── Section 3 : Réinitialisation complète ───────────────────────────── */}
+      {/* ── Section 4 : Réinitialisation complète ───────────────────────────── */}
       <section className="bg-white border border-red-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-red-100">
           <h2 className="text-sm font-bold text-red-700">Réinitialisation complète</h2>

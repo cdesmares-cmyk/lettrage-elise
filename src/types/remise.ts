@@ -22,7 +22,7 @@ export interface Remise {
   id_ligne_bancaire: string | null
   date_encaissement: string | null
   cree_par: string | null
-  nom_operateur: string | null
+  operateur: string | null
   created_at: string
   // Factures liées (chargées par join côté hook)
   lignes: RemiseFacture[]

@@ -68,7 +68,7 @@ export function TableHistoriqueLettrage({ lignes, chargement }: Props) {
                   </span>
                 </td>
                 <td className="px-3 py-2.5 text-gray-500 text-[11px] max-w-[160px] truncate">
-                  {l.nom_operateur ?? <span className="text-gray-300">—</span>}
+                  {l.operateur ?? <span className="text-gray-300">—</span>}
                 </td>
               </tr>
             )
