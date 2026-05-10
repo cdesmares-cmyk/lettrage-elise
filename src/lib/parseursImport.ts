@@ -52,14 +52,39 @@ export function parseDate(v: unknown): string | null {
   return null
 }
 
-// Convertit une valeur brute en nombre (gère les formats français et anglais)
+// Convertit une valeur brute en nombre — gère tous les formats FR et EN
+// FR : 1 250,22 / 1.250,22 / 15,22 / -15,22
+// EN : 1,250.22 / 1250.22 / 15.22
 export function parseNombre(v: unknown): number | null {
   if (typeof v === 'number') return isNaN(v) ? null : v
-  const s = String(v ?? '')
-    .replace(/\s/g, '')
-    .replace(/,(\d{1,2})$/, '.$1')  // virgule décimale française (1 ou 2 chiffres)
-    .replace(/[^0-9.\-]/g, '')
-  const n = parseFloat(s)
+
+  // Supprime symboles monétaires, espaces insécables, espaces
+  let s = String(v ?? '').trim().replace(/[€$£ \s]/g, '')
+  if (!s) return null
+
+  const hasComma = s.includes(',')
+  const hasDot   = s.includes('.')
+
+  if (hasComma && hasDot) {
+    // Les deux séparateurs présents : le dernier est le décimal
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      // Format FR : 1.250,22 → supprimer les points, remplacer la virgule
+      s = s.replace(/\./g, '').replace(',', '.')
+    } else {
+      // Format EN : 1,250.22 → supprimer les virgules
+      s = s.replace(/,/g, '')
+    }
+  } else if (hasComma) {
+    // Virgule seule : décimal si ≤ 2 chiffres après (15,22), milliers sinon (1,250)
+    const apres = s.split(',')[1] ?? ''
+    s = apres.length <= 2 ? s.replace(',', '.') : s.replace(/,/g, '')
+  } else if (hasDot) {
+    // Point seul : si plusieurs points → séparateurs de milliers (1.250.000)
+    if ((s.match(/\./g) ?? []).length > 1) s = s.replace(/\./g, '')
+    // Sinon décimal standard → ne rien faire
+  }
+
+  const n = parseFloat(s.replace(/[^0-9.\-]/g, ''))
   return isNaN(n) ? null : n
 }
 

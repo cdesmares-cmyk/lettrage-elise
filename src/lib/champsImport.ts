@@ -83,7 +83,7 @@ export const CHAMPS_LETTRAGES: ChampCible[] = [
     requis: true,
     est_lettrable: false,
     aliases: ['montant', 'montant lettre', 'montant paye', 'montant regle', 'amount', 'total', 'reglement'],
-    hint: 'Arrondi à 2 décimales',
+    hint: 'Virgule ou point acceptés : 1250,00 ou 1250.00',
   },
   {
     cle: 'date_lettrage',
@@ -248,7 +248,7 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: false,
     est_lettrable: false,
     aliases: ['montant ht', 'montantht', 'total ht', 'totalht', 'ht', 'montant hors taxe'],
-    hint: 'Arrondi à 2 décimales',
+    hint: 'Virgule ou point acceptés : 1041,67 ou 1041.67',
   },
   {
     cle: 'montant_ttc',
@@ -257,7 +257,7 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     requis: true,
     est_lettrable: false,
     aliases: ['montant ttc', 'montantttc', 'total ttc', 'totalttc', 'montant', 'total', 'ttc', 'amount'],
-    hint: 'Arrondi à 2 décimales',
+    hint: 'Virgule ou point acceptés : 1250,00 ou 1250.00',
   },
   {
     cle: 'est_avoir',
