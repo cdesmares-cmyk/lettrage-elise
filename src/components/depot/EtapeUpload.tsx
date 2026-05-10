@@ -1,6 +1,7 @@
 // Étape 2 : dépôt du fichier par glisser-déposer ou sélection
 import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 import type { TypeFichier } from '../../types/import'
 import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
 
@@ -14,30 +15,34 @@ interface Props {
 const ACCEPT_TOUS = '.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const EXT_TOUS = ['.csv', '.xlsx', '.xls']
 
-const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label: string; nomModele: string }> = {
+const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label: string; nomModele: string; modeleXlsx: boolean }> = {
   csv_bancaire: {
     accept: ACCEPT_TOUS,
     extensions: EXT_TOUS,
     label: 'Relevé bancaire',
     nomModele: 'modele_releve_bancaire.csv',
+    modeleXlsx: false,
   },
   xlsx_factures: {
     accept: ACCEPT_TOUS,
     extensions: EXT_TOUS,
     label: 'Factures',
-    nomModele: 'modele_factures.csv',
+    nomModele: 'modele_factures.xlsx',
+    modeleXlsx: true,
   },
   import_lettrage: {
     accept: ACCEPT_TOUS,
     extensions: EXT_TOUS,
     label: 'Lettrage / Associations',
     nomModele: 'modele_lettrage.csv',
+    modeleXlsx: false,
   },
   import_clients: {
     accept: ACCEPT_TOUS,
     extensions: EXT_TOUS,
     label: 'Comptes clients',
     nomModele: 'modele_comptes_clients.csv',
+    modeleXlsx: false,
   },
 }
 
@@ -78,22 +83,42 @@ const CHAMPS_PAR_TYPE = {
   import_clients: CHAMPS_CLIENTS,
 }
 
-function genererCSV(typeFichier: TypeFichier): string {
-  const champs = CHAMPS_PAR_TYPE[typeFichier]
-  const enTetes = champs.map(c => c.label)
-  const exemples = champs.map(c => EXEMPLES[c.cle] ?? '')
-  return [enTetes, exemples].map(row => row.map(v => `"${v}"`).join(';')).join('\r\n')
-}
+// Valeurs numériques réelles pour le template XLSX (stockées comme numbers, pas strings)
+const EXEMPLES_XLSX_NOMBRES = new Set(['montant_ht', 'montant_ttc', 'credit', 'debit', 'montant'])
 
 function telechargerModele(typeFichier: TypeFichier) {
-  const csv = genererCSV(typeFichier)
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = CONFIG[typeFichier].nomModele
-  a.click()
-  URL.revokeObjectURL(url)
+  const config = CONFIG[typeFichier]
+  const champs = CHAMPS_PAR_TYPE[typeFichier]
+  const enTetes = champs.map(c => c.label)
+
+  if (config.modeleXlsx) {
+    // Template XLSX : nombres stockés en tant que nombres réels → zéro ambiguïté décimale
+    const exemples = champs.map(c => {
+      const raw = EXEMPLES[c.cle] ?? ''
+      if (EXEMPLES_XLSX_NOMBRES.has(c.cle) && raw) {
+        const n = parseFloat(raw.replace(',', '.'))
+        return isNaN(n) ? raw : n
+      }
+      return raw
+    })
+    const ws = XLSX.utils.aoa_to_sheet([enTetes, exemples])
+    // Largeur des colonnes
+    ws['!cols'] = enTetes.map(() => ({ wch: 20 }))
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Factures')
+    XLSX.writeFile(wb, config.nomModele)
+  } else {
+    // Template CSV pour les autres types
+    const exemples = champs.map(c => EXEMPLES[c.cle] ?? '')
+    const csv = [enTetes, exemples].map(row => row.map(v => `"${v}"`).join(';')).join('\r\n')
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = config.nomModele
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 }
 
 export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, chargement }: Props) {
@@ -190,7 +215,7 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
           onClick={() => telechargerModele(typeFichier)}
           className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors"
         >
-          ⬇ Modèle CSV
+          ⬇ Modèle {config.modeleXlsx ? 'XLSX' : 'CSV'}
         </button>
       </div>
     </div>
