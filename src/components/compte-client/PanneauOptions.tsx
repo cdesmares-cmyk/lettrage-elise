@@ -1,5 +1,5 @@
 // Volet latéral coulissant — édition des infos client
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
 
@@ -27,6 +27,30 @@ function classeScore(note: number) {
   return { bar: 'bg-red-500', txt: 'text-red-600', label: 'Risque élevé' }
 }
 
+// Combobox : saisie libre + suggestions depuis ref_valeurs
+function ComboRef({
+  label, valeur, setValeur, options, placeholder,
+}: { label: string; valeur: string; setValeur: (v: string) => void; options: string[]; placeholder?: string }) {
+  const listId = useId()
+  return (
+    <div>
+      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</label>
+      <input
+        type="text"
+        list={listId}
+        value={valeur}
+        onChange={e => setValeur(e.target.value)}
+        placeholder={placeholder ?? '— Aucun —'}
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 transition-colors bg-white"
+      />
+      <datalist id={listId}>
+        {options.map(o => <option key={o} value={o} />)}
+      </datalist>
+    </div>
+  )
+}
+
+// Dropdown strict pour les champs gérés uniquement par l'admin (opérateur)
 function SelectRef({
   label, valeur, setValeur, options,
 }: { label: string; valeur: string; setValeur: (v: string) => void; options: string[] }) {
@@ -49,9 +73,9 @@ function SelectRef({
 }
 
 export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
-  const { valeurs: commerciaux } = useRefValeurs('commercial')
+  const { valeurs: commerciaux, ajouter: ajouterCommercial } = useRefValeurs('commercial')
   const { valeurs: operateurs } = useRefValeurs('operateur')
-  const { valeurs: plateformes } = useRefValeurs('plateforme')
+  const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
   const [statut, setStatut] = useState<StatutJuridique | ''>('')
   const [commercial, setCommercial] = useState('')
@@ -74,11 +98,22 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
   async function handleSauvegarder() {
     setEnregistrement(true)
+
+    // Auto-création dans ref_valeurs si la valeur est nouvelle (sans doublon)
+    const valCommercial = commercial.trim()
+    const valPlateforme = plateforme.trim()
+    if (valCommercial && !commerciaux.includes(valCommercial)) {
+      await ajouterCommercial(valCommercial)
+    }
+    if (valPlateforme && !plateformes.includes(valPlateforme)) {
+      await ajouterPlateforme(valPlateforme)
+    }
+
     const ok = await onSauvegarder(client!.code_dso, {
       statut_juridique: statut || null,
-      commercial: commercial.trim() || null,
+      commercial: valCommercial || null,
       operateur: operateur.trim() || null,
-      plateforme: plateforme.trim() || null,
+      plateforme: valPlateforme || null,
       code_groupement: groupement.trim() || null,
     })
     setEnregistrement(false)
@@ -124,14 +159,26 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             </div>
           </div>
 
-          {/* Commercial */}
-          <SelectRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} />
+          {/* Commercial — combobox : saisie libre + auto-création dans ref_valeurs */}
+          <ComboRef
+            label="Commercial"
+            valeur={commercial}
+            setValeur={setCommercial}
+            options={commerciaux}
+            placeholder="Ex : Jean Dupont"
+          />
 
-          {/* Opérateur */}
+          {/* Opérateur — dropdown strict (géré par l'admin uniquement) */}
           <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
 
-          {/* Plateforme d'envoi */}
-          <SelectRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} />
+          {/* Plateforme — combobox : saisie libre + auto-création dans ref_valeurs */}
+          <ComboRef
+            label="Plateforme d'envoi"
+            valeur={plateforme}
+            setValeur={setPlateforme}
+            options={plateformes}
+            placeholder="Ex : Chorus, Cegedim…"
+          />
 
           {/* Code groupement */}
           <div>
