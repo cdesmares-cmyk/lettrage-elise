@@ -1,8 +1,18 @@
 // Hook d'import des relevés bancaires CSV (section 5.1 du CDC)
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { calculerHash, detecterMapping, parseDate, parseNombre, parserCSV } from '../lib/parseursImport'
+import { calculerHash, detecterMapping, parseDate, parseNombre, parserCSV, parserXLSX } from '../lib/parseursImport'
 import { CHAMPS_BANCAIRES } from '../lib/champsImport'
+
+async function parserFichier(fichier: File) {
+  const ext = fichier.name.split('.').pop()?.toLowerCase()
+  return ext === 'csv' ? parserCSV(fichier) : parserXLSX(fichier).then(r => ({
+    colonnes: r.colonnes,
+    lignes: r.lignes.map(l =>
+      Object.fromEntries(Object.entries(l).map(([k, v]) => [k, String(v ?? '')])),
+    ) as Record<string, string>[],
+  }))
+}
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -38,7 +48,7 @@ export function useImportBancaire() {
   async function analyserFichier(fichier: File): Promise<ResultatAnalyse> {
     const [hash, { colonnes, lignes }] = await Promise.all([
       calculerHash(fichier),
-      parserCSV(fichier),
+      parserFichier(fichier),
     ])
     const mapping = detecterMapping(colonnes, CHAMPS_BANCAIRES).map((m, i) => ({
       ...m,

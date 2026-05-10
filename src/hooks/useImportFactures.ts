@@ -2,8 +2,16 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import {
-  calculerHash, detecterMapping, parseDate, parseNombre, parseBoolean, parserXLSX
+  calculerHash, detecterMapping, parseDate, parseNombre, parseBoolean, parserCSV, parserXLSX
 } from '../lib/parseursImport'
+
+async function parserFichier(fichier: File) {
+  const ext = fichier.name.split('.').pop()?.toLowerCase()
+  return ext === 'csv' ? parserCSV(fichier).then(r => ({
+    colonnes: r.colonnes,
+    lignes: r.lignes as Record<string, unknown>[],
+  })) : parserXLSX(fichier)
+}
 import { CHAMPS_FACTURES } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
@@ -50,7 +58,7 @@ export function useImportFactures() {
   async function analyserFichier(fichier: File): Promise<ResultatAnalyse> {
     const [hash, { colonnes, lignes }] = await Promise.all([
       calculerHash(fichier),
-      parserXLSX(fichier),
+      parserFichier(fichier),
     ])
     const mapping = detecterMapping(colonnes, CHAMPS_FACTURES).map((m, i) => ({
       ...m,
