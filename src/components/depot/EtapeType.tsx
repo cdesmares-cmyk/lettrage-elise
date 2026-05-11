@@ -34,14 +34,6 @@ const OPTIONS: {
     info: 'Toute ligne déjà présente en base sera ignorée automatiquement.',
   },
   {
-    type: 'import_lettrage',
-    icone: '🔗',
-    titre: 'Lettrage / Associations',
-    description: 'Import en masse d\'associations factures ↔ règlements. Utile pour la migration historique ou les prélèvements automatiques.',
-    pivot: 'N° de facture',
-    info: 'Les factures introuvables en base seront ignorées. Les factures déjà soldées déclencheront un avertissement.',
-  },
-  {
     type: 'import_clients',
     icone: '👤',
     titre: 'Comptes clients',

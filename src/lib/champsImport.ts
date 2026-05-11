@@ -67,60 +67,6 @@ export const CHAMPS_BANCAIRES: ChampCible[] = [
   },
 ]
 
-export const CHAMPS_LETTRAGES: ChampCible[] = [
-  {
-    cle: 'numero_facture',
-    label: 'N° de facture (pivot)',
-    est_pivot: true,
-    requis: true,
-    est_lettrable: true,
-    aliases: ['numero facture', 'num facture', 'no facture', 'facture', 'piece', 'reference', 'ref', 'numerodepiece', 'n piece'],
-  },
-  {
-    cle: 'montant',
-    label: 'Montant lettré',
-    est_pivot: false,
-    requis: true,
-    est_lettrable: false,
-    aliases: ['montant', 'montant lettre', 'montant paye', 'montant regle', 'amount', 'total', 'reglement'],
-    hint: 'Virgule ou point acceptés : 1250,00 ou 1250.00',
-  },
-  {
-    cle: 'date_lettrage',
-    label: 'Date de lettrage',
-    est_pivot: false,
-    requis: true,
-    est_lettrable: false,
-    aliases: ['date lettrage', 'date paiement', 'date reglement', 'date', 'payment date', 'date prelevement'],
-    hint: 'Format attendu : jj/mm/aaaa',
-  },
-  {
-    cle: 'code_client',
-    label: 'Code client',
-    est_pivot: false,
-    requis: false,
-    est_lettrable: false,
-    aliases: ['code client', 'client', 'code dso', 'dso'],
-    hint: 'Déduit automatiquement depuis la facture si absent',
-  },
-  {
-    cle: 'id_ligne_bancaire',
-    label: 'N° Opération bancaire',
-    est_pivot: false,
-    requis: false,
-    est_lettrable: false,
-    aliases: ['id operation', 'ref operation', 'n operation', 'operation', 'virement', 'transaction'],
-  },
-  {
-    cle: 'commentaire',
-    label: 'Commentaire',
-    est_pivot: false,
-    requis: false,
-    est_lettrable: false,
-    aliases: ['commentaire', 'note', 'observation', 'remarque', 'motif'],
-  },
-]
-
 export const CHAMPS_GROUPEMENTS: ChampCible[] = [
   {
     cle: 'code_client',

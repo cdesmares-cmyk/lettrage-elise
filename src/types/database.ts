@@ -2,7 +2,7 @@
 
 export type StatutClient = 'actif' | 'resilié' | 'defaillant' | 'redressement' | 'liquidation'
 export type ModeLettrage = 'auto' | 'semi' | 'manuel'
-export type TypeImport = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage'
+export type TypeImport = 'csv_bancaire' | 'xlsx_factures'
 
 export interface Database {
   public: {

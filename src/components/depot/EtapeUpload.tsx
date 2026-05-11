@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import type { TypeFichier } from '../../types/import'
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_CLIENTS } from '../../lib/champsImport'
 
 interface Props {
   typeFichier: TypeFichier
@@ -29,13 +29,6 @@ const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label:
     label: 'Factures',
     nomModele: 'modele_factures.xlsx',
     modeleXlsx: true,
-  },
-  import_lettrage: {
-    accept: ACCEPT_TOUS,
-    extensions: EXT_TOUS,
-    label: 'Lettrage / Associations',
-    nomModele: 'modele_lettrage.csv',
-    modeleXlsx: false,
   },
   import_clients: {
     accept: ACCEPT_TOUS,
@@ -79,7 +72,6 @@ const EXEMPLES: Record<string, string> = {
 const CHAMPS_PAR_TYPE = {
   csv_bancaire:   CHAMPS_BANCAIRES,
   xlsx_factures:  CHAMPS_FACTURES,
-  import_lettrage: CHAMPS_LETTRAGES,
   import_clients: CHAMPS_CLIENTS,
 }
 

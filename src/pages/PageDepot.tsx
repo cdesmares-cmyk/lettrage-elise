@@ -9,7 +9,6 @@ import { EtapeValidation } from '../components/depot/EtapeValidation'
 import { HistoriqueImports } from '../components/depot/HistoriqueImports'
 import { useImportBancaire } from '../hooks/useImportBancaire'
 import { useImportFactures } from '../hooks/useImportFactures'
-import { useImportLettrage } from '../hooks/useImportLettrage'
 import { useImportClients } from '../hooks/useImportClients'
 import { useAppData } from '../contexts/AppDataContext'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
@@ -47,12 +46,10 @@ export function PageDepot() {
   const { rafraichir: rafraichirDonnees } = useAppData()
   const hookBancaire = useImportBancaire()
   const hookFactures = useImportFactures()
-  const hookLettrage = useImportLettrage()
   const hookClients = useImportClients()
   const hook = typeFichier === 'csv_bancaire' ? hookBancaire
     : typeFichier === 'xlsx_factures' ? hookFactures
-    : typeFichier === 'import_clients' ? hookClients
-    : hookLettrage
+    : hookClients
 
   function reinitialiser() {
     setEtape('type')
