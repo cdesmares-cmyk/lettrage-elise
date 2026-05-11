@@ -97,12 +97,15 @@ export function useImportLettrage() {
       const rows = d2 as unknown as RowFactureBase[] | null
       rows?.forEach(r => facturesBase.set(r.numero_piece, r.code_client))
     }
-    // Diagnostic RLS : si 0 facture trouvée alors que le fichier en contient, c'est probablement un problème de droits Supabase
-    if (facturesBase.size === 0 && toutesLesCles.length > 0) {
+    // Diagnostic : si très peu de factures trouvées, affiche un message précis avec exemples
+    if (facturesBase.size < toutesLesCles.length * 0.5 && toutesLesCles.length > 2) {
+      const exemplesCherches = toutesLesCles.slice(0, 3).map(k => `"${k}"`).join(', ')
+      const exemplesEnBase = [...facturesBase.keys()].slice(0, 3).map(k => `"${k}"`).join(', ') || 'aucun'
       throw new Error(
-        `Aucune facture trouvée en base pour ${toutesLesCles.length} numéro(s) cherché(s). ` +
-        `Exemple cherché : "${toutesLesCles[0]}". ` +
-        `Vérifiez que les factures sont importées et que les droits RLS permettent la lecture de la table factures.`
+        `Seulement ${facturesBase.size} facture(s) trouvée(s) sur ${toutesLesCles.length} dans le fichier.\n` +
+        `Numéros cherchés (fichier) : ${exemplesCherches}\n` +
+        `Numéros trouvés (base) : ${exemplesEnBase}\n` +
+        `Cause probable : les factures de ce fichier n'ont pas encore été importées, ou le format du numéro diffère entre le fichier et la base.`
       )
     }
 
