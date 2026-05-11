@@ -1,4 +1,5 @@
-// Hook d'import de lettrages en masse — migration historique et prélèvements auto (section 5.1 du CDC)
+// Import en masse de lettrages (migration historique + prélèvements auto)
+// Prérequis : les factures référencées doivent exister dans la table factures
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { calculerHash, detecterMapping, parseDate, parseNombre, parserCSV, parserXLSX } from '../lib/parseursImport'
@@ -6,45 +7,58 @@ import { CHAMPS_LETTRAGES } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
 
-// Types locaux pour l'inférence Supabase avec TS6
-interface RowFactureBase { numero_piece: string; code_client: string }
-interface RowFactureStatut { numero_piece: string; statut_paiement: string }
+interface RowFacture { numero_piece: string; code_client: string; reste_du: number | null }
 interface RowImportId { id: string }
 interface RowImportRef { id: string; cree_le: string }
 
-// Choisit le parser selon l'extension du fichier
-async function parserFichier(fichier: File) {
+async function parserFichier(fichier: File): Promise<{ colonnes: string[]; lignes: Record<string, string>[] }> {
   const ext = fichier.name.split('.').pop()?.toLowerCase()
-  return ext === 'csv' ? parserCSV(fichier) : parserXLSX(fichier).then(r => ({
-    colonnes: r.colonnes,
-    lignes: r.lignes.map(l =>
-      Object.fromEntries(Object.entries(l).map(([k, v]) => [k, String(v ?? '')])),
+  if (ext === 'csv') {
+    return parserCSV(fichier)
+  }
+  const { colonnes, lignes } = await parserXLSX(fichier)
+  return {
+    colonnes,
+    lignes: lignes.map(l =>
+      Object.fromEntries(Object.entries(l).map(([k, v]) => [k, String(v ?? '').trim()]))
     ) as Record<string, string>[],
-  }))
+  }
 }
 
-function appliquerMapping(
+function extraireValeurPivot(ligne: Record<string, string>, colPivot: string): string {
+  return (ligne[colPivot] ?? '').trim()
+}
+
+function construireLigneLettrage(
   ligne: Record<string, string>,
   mapping: LigneMapping[],
-  codeClientDeduit: string | null
-): Record<string, unknown> {
+  codeClientDeduit: string
+): Record<string, unknown> | null {
   const res: Record<string, unknown> = {}
+
   for (const m of mapping) {
     if (!m.champ_cible) continue
     const val = ligne[m.colonne_source]
     if (m.champ_cible === 'montant') {
       const n = parseNombre(val)
-      res[m.champ_cible] = n !== null ? Math.round(n * 100) / 100 : null
+      res.montant = n !== null ? Math.round(n * 100) / 100 : null
     } else if (m.champ_cible === 'date_lettrage') {
-      res[m.champ_cible] = parseDate(val)
+      res.date_lettrage = parseDate(val)
     } else {
       res[m.champ_cible] = val?.trim() || null
     }
   }
-  // code_client déduit depuis la facture si absent dans le fichier
-  if (!res['code_client'] && codeClientDeduit) res['code_client'] = codeClientDeduit
-  // mode toujours 'manuel' pour les imports en masse
-  res['mode'] = 'manuel'
+
+  // code_client : depuis le fichier ou déduit depuis la facture
+  if (!res.code_client) res.code_client = codeClientDeduit || null
+
+  res.mode = 'manuel'
+
+  // Champs obligatoires
+  if (!res.numero_facture || !res.code_client || !res.date_lettrage || res.montant == null) {
+    return null
+  }
+
   return res
 }
 
@@ -52,7 +66,6 @@ export function useImportLettrage() {
   const [chargement, setChargement] = useState(false)
   const { utilisateur } = useAuth()
 
-  // Étape 2→3 : analyse le fichier (CSV ou XLSX)
   async function analyserFichier(fichier: File): Promise<ResultatAnalyse> {
     const [hash, { colonnes, lignes }] = await Promise.all([
       calculerHash(fichier),
@@ -65,117 +78,155 @@ export function useImportLettrage() {
     return { colonnes, apercu: lignes.slice(0, 5), mapping, hash }
   }
 
-  // Étape 3→4 : vérifie les factures en base + détecte sur-paiements
   async function preparerImport(
     fichier: File,
     mapping: LigneMapping[],
     hash: string
   ): Promise<ResultatValidation> {
-    // Anti-replay au niveau fichier
-    const { data: d1 } = await supabase
-      .from('imports').select('id, cree_le').eq('hash_fichier', hash).maybeSingle()
-    const dejaimporte = d1 as unknown as RowImportRef | null
-    if (dejaimporte) {
-      const d = new Date(dejaimporte.cree_le).toLocaleDateString('fr-FR')
+    // Anti-replay : rejette si ce fichier a déjà été importé
+    const { data: importExistant } = await supabase
+      .from('imports')
+      .select('id, cree_le')
+      .eq('hash_fichier', hash)
+      .maybeSingle()
+    const existant = importExistant as unknown as RowImportRef | null
+    if (existant) {
+      const d = new Date(existant.cree_le).toLocaleDateString('fr-FR')
       throw new Error(`Ce fichier a déjà été importé le ${d}.`)
     }
 
-    const { lignes } = await parserFichier(fichier)
+    // Colonne pivot obligatoire
     const colPivot = mapping.find(m => m.champ_cible === 'numero_facture')?.colonne_source
-    if (!colPivot) throw new Error('La colonne N° de facture (pivot) doit être mappée.')
-
-    const toutesLesCles = [...new Set(lignes.map(l => (l[colPivot] ?? '').trim()).filter(Boolean))]
-
-    // 1. Vérifie l'existence des factures via la table source (plus fiable que la vue)
-    const facturesBase = new Map<string, string>() // numero_piece → code_client
-    for (let i = 0; i < toutesLesCles.length; i += 500) {
-      const { data: d2, error: errFact } = await supabase
-        .from('factures')
-        .select('numero_piece, code_client')
-        .in('numero_piece', toutesLesCles.slice(i, i + 500))
-      if (errFact) throw new Error(`Erreur vérification factures : ${errFact.message}`)
-      const rows = d2 as unknown as RowFactureBase[] | null
-      rows?.forEach(r => facturesBase.set(r.numero_piece, r.code_client))
-    }
-    // Diagnostic : si des factures ne sont pas trouvées, expose les numéros cherchés et trouvés
-    if (facturesBase.size < toutesLesCles.length) {
-      const nonTrouves = toutesLesCles.filter(k => !facturesBase.has(k))
-      const exemplesCherches = nonTrouves.slice(0, 3).map(k => `"${k}"`).join(', ')
-      const exemplesEnBase = [...facturesBase.keys()].slice(0, 3).map(k => `"${k}"`).join(', ') || 'aucune facture en base'
+    if (!colPivot) {
       throw new Error(
-        `${nonTrouves.length} numéro(s) de facture introuvable(s) sur ${toutesLesCles.length} dans le fichier.\n` +
-        `Exemples non trouvés : ${exemplesCherches}\n` +
-        `Exemples trouvés en base : ${exemplesEnBase}\n` +
-        `Vérifiez que les factures ont été importées via Dépôt → Factures avant d'importer les lettrages.`
+        'La colonne "N° de facture" n\'est pas mappée. ' +
+        'Revenez à l\'étape précédente et associez la bonne colonne.'
       )
     }
 
-    // 2. Récupère les statuts de paiement pour détecter les sur-paiements (facultatif — erreur non bloquante)
-    const surPaiementKeys = new Set<string>()
-    try {
-      for (let i = 0; i < toutesLesCles.length; i += 500) {
-        const { data: d3 } = await supabase
-          .from('v_factures_avec_reste_du')
-          .select('numero_piece, statut_paiement')
-          .in('numero_piece', toutesLesCles.slice(i, i + 500))
-        const rows = d3 as unknown as RowFactureStatut[] | null
-        rows?.filter(r => r.statut_paiement === 'paye').forEach(r => surPaiementKeys.add(r.numero_piece))
-      }
-    } catch {
-      // Sur-paiements non détectables si la vue est indisponible — import continue sans cette vérification
+    const { lignes } = await parserFichier(fichier)
+
+    // Numéros de facture uniques présents dans le fichier
+    const numerosUniques = [...new Set(
+      lignes.map(l => extraireValeurPivot(l, colPivot)).filter(Boolean)
+    )]
+
+    if (numerosUniques.length === 0) {
+      throw new Error('Aucun numéro de facture trouvé dans la colonne mappée. Vérifiez le fichier.')
     }
 
-    // Compat : reconstruire facturesInfo depuis facturesBase pour la suite
-    const facturesInfo = new Map<string, { code_client: string; statut: string }>()
-    facturesBase.forEach((code_client, numero_piece) => {
-      facturesInfo.set(numero_piece, {
-        code_client,
-        statut: surPaiementKeys.has(numero_piece) ? 'paye' : 'ouvert',
-      })
-    })
+    // Récupère les factures correspondantes depuis la table factures
+    const facturesMap = new Map<string, { code_client: string; reste_du: number | null }>()
+    for (let i = 0; i < numerosUniques.length; i += 500) {
+      const lot = numerosUniques.slice(i, i + 500)
+      const { data, error } = await supabase
+        .from('factures')
+        .select('numero_piece, code_client, reste_du')
+        .in('numero_piece', lot)
+      if (error) throw new Error(`Erreur lors de la vérification des factures : ${error.message}`)
+      const rows = data as unknown as RowFacture[] | null
+      rows?.forEach(r => facturesMap.set(r.numero_piece, {
+        code_client: r.code_client,
+        reste_du: r.reste_du,
+      }))
+    }
 
-    const valides = lignes.filter(l => facturesInfo.has((l[colPivot] ?? '').trim()))
-    const invalides = lignes.filter(l => !facturesInfo.has((l[colPivot] ?? '').trim()))
-    const nbAvertissements = valides.filter(l => surPaiementKeys.has((l[colPivot] ?? '').trim())).length
+    // Aucune facture trouvée = factures non importées
+    if (facturesMap.size === 0) {
+      const exemples = numerosUniques.slice(0, 3).map(n => `"${n}"`).join(', ')
+      throw new Error(
+        `Aucune des ${numerosUniques.length} factures du fichier n'existe en base de données.\n` +
+        `Exemples cherchés : ${exemples}\n\n` +
+        `Vous devez d'abord importer votre fichier de factures (onglet Dépôt → Factures) avant d'importer les lettrages.`
+      )
+    }
 
-    const lignes_mappees = valides.map(l => {
-      const cle = (l[colPivot] ?? '').trim()
-      const info = facturesInfo.get(cle)
-      return appliquerMapping(l, mapping, info?.code_client ?? null)
-    })
-    // Filtre les lignes dont les champs obligatoires sont vides
-    const lignes_a_inserer = lignes_mappees.filter(l =>
-      l['numero_facture'] && l['code_client'] && l['date_lettrage'] && l['montant'] != null
+    // Factures partiellement manquantes
+    if (facturesMap.size < numerosUniques.length) {
+      const manquantes = numerosUniques.filter(n => !facturesMap.has(n))
+      const exemples = manquantes.slice(0, 3).map(n => `"${n}"`).join(', ')
+      throw new Error(
+        `${manquantes.length} facture(s) sur ${numerosUniques.length} introuvables en base.\n` +
+        `Exemples introuvables : ${exemples}\n\n` +
+        `Importez d'abord ces factures via Dépôt → Factures, ou vérifiez que les numéros correspondent exactement à ceux de la base.`
+      )
+    }
+
+    // Toutes les factures sont trouvées : construire les lignes à insérer
+    const lignesValides: Record<string, unknown>[] = []
+    const lignesInvalides: { numero: string; raison: string }[] = []
+
+    for (const ligne of lignes) {
+      const numFact = extraireValeurPivot(ligne, colPivot)
+      const facture = facturesMap.get(numFact)
+      if (!facture) {
+        lignesInvalides.push({ numero: numFact, raison: 'Facture introuvable' })
+        continue
+      }
+      const l = construireLigneLettrage(ligne, mapping, facture.code_client)
+      if (!l) {
+        lignesInvalides.push({ numero: numFact, raison: 'Champ obligatoire manquant (date ou montant)' })
+        continue
+      }
+      lignesValides.push(l)
+    }
+
+    // Doublons intra-fichier (même numéro de facture en double)
+    const vusDansFichier = new Set<string>()
+    const aInserer: typeof lignesValides = []
+    const doublonsFichier: typeof lignesValides = []
+    for (const l of lignesValides) {
+      const cle = String(l.numero_facture)
+      if (vusDansFichier.has(cle)) {
+        doublonsFichier.push(l)
+      } else {
+        vusDansFichier.add(cle)
+        aInserer.push(l)
+      }
+    }
+
+    // Détection sur-paiements : factures dont reste_du <= 0
+    const surPaiementNums = new Set(
+      lignesValides
+        .map(l => String(l.numero_facture))
+        .filter(num => {
+          const f = facturesMap.get(num)
+          return f && f.reste_du !== null && f.reste_du <= 0
+        })
     )
-    const nbInvalidesChamps = lignes_mappees.length - lignes_a_inserer.length
+
+    const apercu = lignes.slice(0, 10).map(l => {
+      const num = extraireValeurPivot(l, colPivot)
+      const existe = facturesMap.has(num)
+      const surPaiement = surPaiementNums.has(num)
+      const invalide = lignesInvalides.some(i => i.numero === num)
+      return {
+        donnees: l,
+        statut: (!existe || invalide) ? 'invalide' as const
+               : surPaiement ? 'sur_paiement' as const
+               : 'nouveau' as const,
+        cle_pivot: num,
+      }
+    })
 
     return {
-      lignes_a_inserer,
-      apercu: lignes.slice(0, 10).map(l => {
-        const cle = (l[colPivot] ?? '').trim()
-        const existe = facturesInfo.has(cle)
-        const surPaiement = surPaiementKeys.has(cle)
-        return {
-          donnees: l,
-          statut: !existe ? 'invalide' : surPaiement ? 'sur_paiement' : 'nouveau',
-          cle_pivot: cle,
-        }
-      }),
+      lignes_a_inserer: aInserer,
+      apercu,
       nb_total: lignes.length,
-      nb_nouvelles: lignes_a_inserer.length,
-      nb_doublons: 0,
-      nb_avertissements: nbAvertissements,
-      nb_invalides: invalides.length + nbInvalidesChamps,
+      nb_nouvelles: aInserer.length,
+      nb_doublons: doublonsFichier.length,
+      nb_avertissements: surPaiementNums.size,
+      nb_invalides: lignesInvalides.length,
       hash,
       nom_fichier: fichier.name,
     }
   }
 
-  // Étape 4→succès : insère l'import puis les lettrages
   async function executerImport(resultat: ResultatValidation): Promise<ResultatImport> {
     setChargement(true)
     try {
-      const { data: d3, error: errImport } = await supabase
+      // Enregistrement de l'import
+      const { data: importData, error: errImport } = await supabase
         .from('imports')
         .insert({
           type: 'import_lettrage' as const,
@@ -188,10 +239,11 @@ export function useImportLettrage() {
         } as never)
         .select('id')
         .single()
-      if (errImport) throw errImport
-      const importRec = d3 as unknown as RowImportId | null
+      if (errImport) throw new Error(`Erreur création import : ${errImport.message}`)
+      const importRec = importData as unknown as RowImportId | null
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
+      // Insertion des lettrages par lots — le trigger sync_reste_du met à jour factures.reste_du automatiquement
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(l => ({
@@ -199,9 +251,10 @@ export function useImportLettrage() {
             cree_par: utilisateur?.id ?? null,
           }))
           const { error } = await supabase.from('lettrages').insert(lot as never)
-          if (error) throw error
+          if (error) throw new Error(`Erreur insertion lettrages : ${error.message}`)
         }
       } catch (err) {
+        // Rollback : supprime l'enregistrement import si l'insertion échoue
         await supabase.from('imports').delete().eq('id', importRec.id)
         throw err
       }
