@@ -1,4 +1,5 @@
 // Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
+// + onglet Remboursement : insère un lettrage négatif sur une facture
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -20,7 +21,7 @@ interface LigneCorr {
   chargement: boolean
 }
 
-interface RowFacture { reste_du: number; code_client: string; nom_client: string | null; statut_paiement: string }
+interface RowFacture { reste_du: number; montant_ttc: number; code_client: string; nom_client: string | null; statut_paiement: string }
 
 let _ck = 100
 function cle() { return String(++_ck) }
@@ -30,17 +31,12 @@ function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
+// ── Onglet Correction ──────────────────────────────────────────────────────────
+function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuccess: () => void }) {
   const { utilisateur } = useAuth()
   const [lignes, setLignes] = useState<LigneCorr[]>([nouvelleLigne(), nouvelleLigne()])
   const [chargement, setChargement] = useState(false)
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
-
-  useEffect(() => {
-    if (!ouvert) {
-      setLignes([nouvelleLigne(), nouvelleLigne()])
-    }
-  }, [ouvert])
 
   function modifier(key: string, champ: Partial<LigneCorr>) {
     setLignes(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
@@ -57,7 +53,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
     modifier(key, { chargement: true })
     const { data } = await supabase
       .from('v_factures_avec_reste_du')
-      .select('reste_du, code_client, nom_client, statut_paiement')
+      .select('reste_du, montant_ttc, code_client, nom_client, statut_paiement')
       .eq('numero_piece', numero)
       .maybeSingle()
     const row = data as unknown as RowFacture | null
@@ -70,9 +66,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
     debounceRefs.current[key] = setTimeout(() => chercherFacture(key, value), 400)
   }
 
-  const solde = Math.round(
-    lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
-  ) / 100
+  const solde = Math.round(lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
   const soldeNul = Math.abs(solde) < 0.01
 
   const peutValider = soldeNul && lignes.every(l => {
@@ -110,6 +104,246 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
     }
   }
 
+  return (
+    <div className="px-6 py-5">
+      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-xs text-amber-800">
+        <span className="flex-shrink-0 mt-0.5">⚠️</span>
+        <span>
+          Ajoutez une ligne <strong>négative</strong> (délettrage) puis une ligne <strong>positive</strong> (relettering).
+          Le solde total doit être nul pour pouvoir valider.
+        </span>
+      </div>
+
+      <div className="space-y-3 mb-3">
+        {lignes.map(ligne => {
+          const m = parseFloat(ligne.montant) || 0
+          const isNeg = m < 0
+          const isPos = m > 0
+          return (
+            <div key={ligne._key}>
+              <div className="grid grid-cols-[80px_1fr_80px_60px_24px] gap-2 items-center">
+                <div className="relative">
+                  <select
+                    value={ligne.classe}
+                    onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
+                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                  >
+                    <option value="facture">Facture</option>
+                    <option value="autres">Autres</option>
+                  </select>
+                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={ligne.numero_facture}
+                    onChange={e => handleNumeroChange(ligne._key, e.target.value)}
+                    placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-400 pr-5"
+                  />
+                  {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 animate-pulse">⟳</span>}
+                </div>
+                <input
+                  type="number"
+                  value={ligne.montant}
+                  onChange={e => modifier(ligne._key, { montant: e.target.value })}
+                  placeholder="0,00"
+                  step="0.01"
+                  className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-blue-400"
+                />
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center ${isNeg ? 'bg-red-100 text-red-600' : isPos ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {isNeg ? '−' : isPos ? '+' : '±'}
+                </span>
+                <button onClick={() => supprimer(ligne._key)} className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors">×</button>
+              </div>
+              {ligne.classe === 'facture' && ligne.info_facture && (
+                <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
+                  ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
+                </div>
+              )}
+              {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
+                <div className="mt-1 ml-[88px] text-[10px] text-red-400">Facture introuvable</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <button onClick={ajouter} className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
+        <span className="mx-auto">+ Ajouter une ligne</span>
+      </button>
+
+      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border mb-4 ${soldeNul ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+        <div>
+          <p className="text-xs text-gray-500">Solde de l'opération</p>
+          <p className={`text-[11px] font-medium mt-0.5 ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
+            {soldeNul ? '✓ Équilibré — prêt à valider' : 'Le solde doit être nul pour valider'}
+          </p>
+        </div>
+        <span className={`text-lg font-bold tabular-nums ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
+          {solde >= 0 ? '+' : ''}{fmt(solde)}
+        </span>
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={onFermer} disabled={chargement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 py-2.5 rounded-lg transition-colors disabled:opacity-40">
+          Annuler
+        </button>
+        <button
+          onClick={valider}
+          disabled={!peutValider || chargement}
+          className="flex-[2] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+        >
+          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider la correction'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Onglet Remboursement ───────────────────────────────────────────────────────
+function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; onSuccess: () => void }) {
+  const { utilisateur } = useAuth()
+  const [numeroFacture, setNumeroFacture] = useState('')
+  const [infoFacture, setInfoFacture] = useState<RowFacture | null>(null)
+  const [chargementFacture, setChargementFacture] = useState(false)
+  const [montant, setMontant] = useState('')
+  const [chargement, setChargement] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  async function chercherFacture(numero: string) {
+    if (numero.length < 4) { setInfoFacture(null); setChargementFacture(false); return }
+    setChargementFacture(true)
+    const { data } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select('reste_du, montant_ttc, code_client, nom_client, statut_paiement')
+      .eq('numero_piece', numero)
+      .maybeSingle()
+    const row = data as unknown as RowFacture | null
+    setInfoFacture(row)
+    if (row) setMontant(String(Math.abs(row.montant_ttc)))
+    setChargementFacture(false)
+  }
+
+  function handleNumeroChange(value: string) {
+    setNumeroFacture(value)
+    setInfoFacture(null)
+    setMontant('')
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => chercherFacture(value), 400)
+  }
+
+  const montantNum = parseFloat(montant) || 0
+  const peutValider = !!infoFacture && montantNum > 0 && !!numeroFacture.trim()
+
+  async function valider() {
+    if (!peutValider || !infoFacture) return
+    setChargement(true)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const { error } = await supabase.from('lettrages').insert({
+        id_ligne_bancaire: null,
+        numero_facture: numeroFacture.trim(),
+        code_client: infoFacture.code_client,
+        montant: -Math.round(montantNum * 100) / 100,
+        date_lettrage: today,
+        mode: 'remboursement',
+        commentaire: `Remboursement — ${fmt(montantNum)}`,
+        cree_par: utilisateur?.id ?? null,
+        operateur: utilisateur?.email?.split('@')[0] ?? null,
+      } as never)
+      if (error) throw error
+      toast.success('Remboursement enregistré.')
+      onSuccess()
+      onFermer()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du remboursement.')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  return (
+    <div className="px-6 py-5">
+      <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-5 text-xs text-blue-800">
+        <span className="flex-shrink-0 mt-0.5">💸</span>
+        <span>
+          Indiquez le numéro de facture remboursée. Le montant TTC est proposé automatiquement — ajustez si le remboursement est partiel.
+          L'opération <strong>délettrera</strong> la facture du montant saisi.
+        </span>
+      </div>
+
+      {/* N° facture */}
+      <div className="mb-4">
+        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">N° de facture</label>
+        <div className="relative">
+          <input
+            type="text"
+            value={numeroFacture}
+            onChange={e => handleNumeroChange(e.target.value)}
+            placeholder="ex : 2026021254"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400 pr-8"
+          />
+          {chargementFacture && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-blue-400 animate-pulse">⟳</span>}
+        </div>
+        {infoFacture && (
+          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-emerald-600 font-medium">
+            <span>✓ {infoFacture.nom_client ?? infoFacture.code_client}</span>
+            <span className="text-gray-400">·</span>
+            <span className="text-gray-500">TTC : <strong>{fmt(infoFacture.montant_ttc)}</strong></span>
+            <span className="text-gray-400">·</span>
+            <span className="text-gray-500">Restant : <strong className={infoFacture.reste_du > 0.005 ? 'text-amber-600' : 'text-gray-400'}>{fmt(infoFacture.reste_du)}</strong></span>
+          </div>
+        )}
+        {!infoFacture && !chargementFacture && numeroFacture.length >= 4 && (
+          <div className="mt-1 text-[11px] text-red-400">Facture introuvable</div>
+        )}
+      </div>
+
+      {/* Montant */}
+      <div className="mb-5">
+        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">Montant remboursé (€)</label>
+        <input
+          type="number"
+          value={montant}
+          onChange={e => setMontant(e.target.value)}
+          placeholder="0,00"
+          step="0.01"
+          min="0"
+          disabled={!infoFacture}
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-300"
+        />
+        {montantNum > 0 && (
+          <p className="text-[11px] text-red-500 font-medium mt-1">
+            − {fmt(montantNum)} sera déduit des lettrages de cette facture
+          </p>
+        )}
+      </div>
+
+      <div className="flex gap-3">
+        <button onClick={onFermer} disabled={chargement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 py-2.5 rounded-lg transition-colors disabled:opacity-40">
+          Annuler
+        </button>
+        <button
+          onClick={valider}
+          disabled={!peutValider || chargement}
+          className="flex-[2] flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+        >
+          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '💸 Valider le remboursement'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal principale ───────────────────────────────────────────────────────────
+export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
+  const [onglet, setOnglet] = useState<'correction' | 'remboursement'>('correction')
+
+  useEffect(() => {
+    if (!ouvert) setOnglet('correction')
+  }, [ouvert])
+
   if (!ouvert) return null
 
   return (
@@ -120,130 +354,30 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
         {/* En-tête */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100">
-          <div>
-            <h3 className="text-base font-bold text-gray-900">✏️ Correction de lettrage</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Sans ligne bancaire — le solde doit être nul</p>
-          </div>
+          <h3 className="text-base font-bold text-gray-900">Opération manuelle</h3>
           <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
 
-        {/* Corps */}
-        <div className="px-6 py-5">
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-xs text-amber-800">
-            <span className="flex-shrink-0 mt-0.5">⚠️</span>
-            <span>
-              Ajoutez une ligne <strong>négative</strong> (délettrage) puis une ligne <strong>positive</strong> (relettering).
-              Le solde total doit être nul pour pouvoir valider.
-            </span>
-          </div>
-
-          <div className="space-y-3 mb-3">
-            {lignes.map(ligne => {
-              const m = parseFloat(ligne.montant) || 0
-              const isNeg = m < 0
-              const isPos = m > 0
-
-              return (
-                <div key={ligne._key}>
-                  <div className="grid grid-cols-[80px_1fr_80px_60px_24px] gap-2 items-center">
-                    <div className="relative">
-                      <select
-                        value={ligne.classe}
-                        onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
-                        className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
-                      >
-                        <option value="facture">Facture</option>
-                        <option value="autres">Autres</option>
-                      </select>
-                      <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="text"
-                        value={ligne.numero_facture}
-                        onChange={e => handleNumeroChange(ligne._key, e.target.value)}
-                        placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
-                        className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-400 pr-5"
-                      />
-                      {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 animate-pulse">⟳</span>}
-                    </div>
-
-                    <input
-                      type="number"
-                      value={ligne.montant}
-                      onChange={e => modifier(ligne._key, { montant: e.target.value })}
-                      placeholder="0,00"
-                      step="0.01"
-                      className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-blue-400"
-                    />
-
-                    {/* Badge auto selon signe */}
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center ${
-                      isNeg ? 'bg-red-100 text-red-600' :
-                      isPos ? 'bg-emerald-100 text-emerald-600' :
-                      'bg-gray-100 text-gray-400'
-                    }`}>
-                      {isNeg ? '−' : isPos ? '+' : '±'}
-                    </span>
-
-                    <button
-                      onClick={() => supprimer(ligne._key)}
-                      className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors"
-                    >
-                      ×
-                    </button>
-                  </div>
-
-                  {ligne.classe === 'facture' && ligne.info_facture && (
-                    <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
-                      ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
-                    </div>
-                  )}
-                  {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                    <div className="mt-1 ml-[88px] text-[10px] text-red-400">Facture introuvable</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
+        {/* Onglets */}
+        <div className="flex border-b border-gray-100">
           <button
-            onClick={ajouter}
-            className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4"
+            onClick={() => setOnglet('correction')}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'correction' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            <span className="mx-auto">+ Ajouter une ligne</span>
-          </button>
-
-          {/* Solde */}
-          <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${
-            soldeNul ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
-          }`}>
-            <div>
-              <p className="text-xs text-gray-500">Solde de l'opération</p>
-              <p className={`text-[11px] font-medium mt-0.5 ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
-                {soldeNul ? '✓ Équilibré — prêt à valider' : 'Le solde doit être nul pour valider'}
-              </p>
-            </div>
-            <span className={`text-lg font-bold tabular-nums ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
-              {solde >= 0 ? '+' : ''}{fmt(solde)}
-            </span>
-          </div>
-        </div>
-
-        {/* Pied */}
-        <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onFermer} disabled={chargement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 py-2.5 rounded-lg transition-colors disabled:opacity-40">
-            Annuler
+            ✏️ Correction
           </button>
           <button
-            onClick={valider}
-            disabled={!peutValider || chargement}
-            className="flex-[2] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+            onClick={() => setOnglet('remboursement')}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'remboursement' ? 'text-red-600 border-b-2 border-red-600 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider la correction'}
+            💸 Remboursement
           </button>
         </div>
+
+        {onglet === 'correction'
+          ? <OngletCorrection onFermer={onFermer} onSuccess={onSuccess} />
+          : <OngletRemboursement onFermer={onFermer} onSuccess={onSuccess} />
+        }
       </div>
     </div>
   )

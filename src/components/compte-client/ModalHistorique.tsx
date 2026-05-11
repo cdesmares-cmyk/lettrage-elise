@@ -60,18 +60,24 @@ export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props)
           )}
           {!chargement && lignes.length > 0 && (
             <div className="space-y-2">
-              {lignes.map(l => (
-                <div key={l.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-mono font-semibold text-gray-700">{fmtDate(l.date_lettrage)}</span>
-                      <span className="text-[10px] bg-slate-700 text-white px-1.5 py-0.5 rounded font-semibold">{l.mode}</span>
+              {lignes.map(l => {
+                // Import avec label texte dans le commentaire → affiche le texte à la place de la date
+                const estLabelImport = l.mode === 'import' && !!l.commentaire
+                const dateOuLabel = estLabelImport ? l.commentaire! : fmtDate(l.date_lettrage)
+                const modeColor = l.mode === 'remboursement' ? 'bg-red-700' : l.mode === 'import' ? 'bg-violet-700' : 'bg-slate-700'
+                return (
+                  <div key={l.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono font-semibold text-gray-700">{dateOuLabel}</span>
+                        <span className={`text-[10px] ${modeColor} text-white px-1.5 py-0.5 rounded font-semibold`}>{l.mode}</span>
+                      </div>
+                      {!estLabelImport && l.commentaire && <p className="text-[10px] text-gray-400 mt-0.5">{l.commentaire}</p>}
                     </div>
-                    {l.commentaire && <p className="text-[10px] text-gray-400 mt-0.5">{l.commentaire}</p>}
+                    <span className={`text-sm font-bold tabular-nums ${l.montant < 0 ? 'text-red-500' : 'text-emerald-600'}`}>{fmt(l.montant)}</span>
                   </div>
-                  <span className="text-sm font-bold text-emerald-600 tabular-nums">{fmt(l.montant)}</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </div>

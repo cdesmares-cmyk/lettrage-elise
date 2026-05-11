@@ -99,15 +99,19 @@ export function useImportLettrage() {
     const lignesAInserer: Record<string, unknown>[] = []
     let nbInvalides = 0
 
+    const today = new Date().toISOString().split('T')[0]
+
     for (const ligne of lignes) {
       const numFact = normaliserNumero(ligne[colPivot] ?? '')
       const codeClientFichier = colCodeClient ? (ligne[colCodeClient] ?? '').trim() : null
       const codeClientFacture = facturesMap.get(numFact)
       const montant = parseNombre(ligne[colMontant])
-      const date = parseDate(ligne[colDate])
+      const dateRaw = (ligne[colDate] ?? '').trim()
+      const dateParsee = parseDate(dateRaw)
+      const labelTexte = !dateParsee && dateRaw ? dateRaw : null
 
-      // Facture introuvable ou champs obligatoires manquants
-      if (!codeClientFacture || !montant || !date) {
+      // Facture introuvable, montant manquant, ou colonne date vide
+      if (!codeClientFacture || !montant || (!dateParsee && !labelTexte)) {
         nbInvalides++
         continue
       }
@@ -116,7 +120,8 @@ export function useImportLettrage() {
         numero_facture: numFact,
         code_client: codeClientFichier || codeClientFacture,
         montant: Math.round(montant * 100) / 100,
-        date_lettrage: date,
+        date_lettrage: dateParsee ?? today,
+        commentaire: labelTexte,
         mode: 'import',
       })
     }
@@ -126,10 +131,12 @@ export function useImportLettrage() {
       const num = normaliserNumero(l[colPivot] ?? '')
       const existe = facturesMap.has(num)
       const montant = parseNombre(l[colMontant])
-      const date = parseDate(l[colDate])
+      const dateRaw = (l[colDate] ?? '').trim()
+      const dateParsee = parseDate(dateRaw)
+      const hasLabel = !dateParsee && !!dateRaw
       return {
         donnees: l,
-        statut: (!existe || !montant || !date) ? 'invalide' as const : 'nouveau' as const,
+        statut: (!existe || !montant || (!dateParsee && !hasLabel)) ? 'invalide' as const : 'nouveau' as const,
         cle_pivot: num,
       }
     })

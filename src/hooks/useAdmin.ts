@@ -106,12 +106,13 @@ export function useAdmin() {
   async function resetComplet(): Promise<boolean> {
     setChargement(true)
     try {
-      // Ordre strict : lettrages → factures → lignes_bancaires → imports
+      // Ordre strict : lettrages → factures → lignes_bancaires → imports → clients
       for (const { table, col } of [
         { table: 'lettrages', col: 'created_at' },
         { table: 'factures', col: 'created_at' },
         { table: 'lignes_bancaires', col: 'created_at' },
         { table: 'imports', col: 'created_at' },
+        { table: 'clients', col: 'created_at' },
       ]) {
         const { error } = await supabase.from(table).delete().gte(col, '2000-01-01')
         if (error) throw error

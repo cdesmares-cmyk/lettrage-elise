@@ -206,7 +206,7 @@ export function PageAdmin() {
       <section className="bg-white border border-red-200 rounded-xl shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-red-100">
           <h2 className="text-sm font-bold text-red-700">Réinitialisation complète</h2>
-          <p className="text-xs text-gray-400 mt-0.5">Supprime : lettrages, factures, lignes bancaires, imports. Conserve : clients, dictionnaire SEPA.</p>
+          <p className="text-xs text-gray-400 mt-0.5">Supprime : lettrages, factures, lignes bancaires, imports, <strong>comptes clients</strong>.</p>
         </div>
         <div className="px-5 py-5">
           {!confirmResetEtape ? (
