@@ -34,6 +34,14 @@ const OPTIONS: {
     info: 'Toute ligne déjà présente en base sera ignorée automatiquement.',
   },
   {
+    type: 'import_lettrage',
+    icone: '🔗',
+    titre: 'Lettrage',
+    description: 'Import en masse de lettrages pour la migration historique. Chaque ligne associe un montant à une facture existante.',
+    pivot: 'N° de facture',
+    info: 'Les factures absentes de la base seront ignorées. Aucun contrôle doublon — import réalisé en conscience.',
+  },
+  {
     type: 'import_clients',
     icone: '👤',
     titre: 'Comptes clients',

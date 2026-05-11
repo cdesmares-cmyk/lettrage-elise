@@ -1,5 +1,5 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_CLIENTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -40,8 +40,9 @@ export function EtapeValidation({
 }: Props) {
   const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
     : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
+    : typeFichier === 'import_lettrage' ? CHAMPS_LETTRAGES
     : CHAMPS_CLIENTS
-  const estLettrage = false
+  const estLettrage = typeFichier === 'import_lettrage'
   const estClients = typeFichier === 'import_clients'
 
   // Colonnes mappées à afficher dans l'aperçu (max 6 pour éviter le débordement)

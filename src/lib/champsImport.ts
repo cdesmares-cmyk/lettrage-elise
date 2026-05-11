@@ -67,6 +67,56 @@ export const CHAMPS_BANCAIRES: ChampCible[] = [
   },
 ]
 
+export const CHAMPS_LETTRAGES: ChampCible[] = [
+  {
+    cle: 'numero_facture',
+    label: 'N° de facture (pivot)',
+    est_pivot: true,
+    requis: true,
+    est_lettrable: true,
+    aliases: [
+      'numero facture', 'num facture', 'no facture', 'n facture',
+      'facture', 'numero de piece', 'num piece', 'no piece', 'piece', 'reference',
+    ],
+  },
+  {
+    cle: 'montant',
+    label: 'Montant TTC',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['montant ttc', 'montant', 'montant lettre', 'montant paye', 'ttc', 'amount', 'total'],
+    hint: 'Virgule ou point acceptés : 1 250,00 ou 1250.00',
+  },
+  {
+    cle: 'date_lettrage',
+    label: 'Date de lettrage',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['date lettrage', 'date paiement', 'date reglement', 'date', 'payment date', 'date prelevement'],
+    hint: 'Format attendu : jj/mm/aaaa',
+  },
+  {
+    cle: 'code_client',
+    label: 'Code client',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['code client', 'codeclient', 'code dso', 'dso', 'client code'],
+    hint: 'Déduit automatiquement depuis la facture si absent',
+  },
+  {
+    cle: 'nom_client',
+    label: 'Nom client',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['nom client', 'nom', 'raison sociale', 'societe', 'client'],
+    hint: 'Affiché dans l\'aperçu uniquement — non stocké en base',
+  },
+]
+
 export const CHAMPS_GROUPEMENTS: ChampCible[] = [
   {
     cle: 'code_client',
