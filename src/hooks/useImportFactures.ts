@@ -175,7 +175,8 @@ export function useImportFactures() {
     }
 
     // Pour les nouvelles lignes : remplace nom_client par le nom de la base si le client existe
-    const lignes_a_inserer = nouvelles.map(l => {
+    // Filtre les lignes dont les champs obligatoires sont vides (code_client, numero_piece, date_emission, montant_ttc)
+    const lignes_mappees = nouvelles.map(l => {
       const mapped = appliquerMapping(l, mapping)
       const code = mapped['code_client'] as string | undefined
       if (code && clientsEnBase.has(code)) {
@@ -183,13 +184,18 @@ export function useImportFactures() {
       }
       return mapped
     })
+    const lignes_a_inserer = lignes_mappees.filter(l =>
+      l['code_client'] && l['numero_piece'] && l['date_emission'] && l['montant_ttc'] != null
+    )
+    const nb_invalides = lignes_mappees.length - lignes_a_inserer.length
 
     return {
       lignes_a_inserer,
       apercu,
       nb_total: lignes.length,
-      nb_nouvelles: nouvelles.length,
+      nb_nouvelles: lignes_a_inserer.length,
       nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
+      nb_invalides: nb_invalides > 0 ? nb_invalides : undefined,
       total_ttc_fichier: totalTtcFichier,
       noms_differents: noms_differents.length > 0 ? noms_differents : undefined,
       hash,
