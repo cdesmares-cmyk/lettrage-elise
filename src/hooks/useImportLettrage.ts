@@ -75,18 +75,20 @@ export function useImportLettrage() {
 
     if (numerosUniques.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
 
-    // === MODE DIAGNOSTIC — À RETIRER APRÈS DEBUG ===
-    // Affiche les 5 premiers numéros cherchés + leur représentation brute avant normalisation
-    const exempleBrut = lignes.slice(0, 5).map(l => {
-      const brut = l[colPivot] ?? ''
-      const normalise = normaliserNumero(brut)
-      return `"${brut}" → "${normalise}"`
-    })
-    throw new Error(
-      `[DIAGNOSTIC] Colonne pivot: "${colPivot}" | ` +
-      `${numerosUniques.length} numéros uniques | ` +
-      `5 premiers (brut→normalisé): ${exempleBrut.join(', ')}`
-    )
+    // === MODE DIAGNOSTIC — mettre DIAGNOSTIC=false pour désactiver ===
+    const DIAGNOSTIC = true
+    if (DIAGNOSTIC) {
+      const exempleBrut = lignes.slice(0, 5).map(l => {
+        const brut = l[colPivot] ?? ''
+        const normalise = normaliserNumero(brut)
+        return `"${brut}" → "${normalise}"`
+      })
+      throw new Error(
+        `[DIAGNOSTIC] Colonne pivot: "${colPivot}" | ` +
+        `${numerosUniques.length} numéros uniques | ` +
+        `5 premiers (brut→normalisé): ${exempleBrut.join(', ')}`
+      )
+    }
     // === FIN MODE DIAGNOSTIC ===
 
     // Vérifie les factures directement dans la table factures
