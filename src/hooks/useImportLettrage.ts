@@ -75,22 +75,6 @@ export function useImportLettrage() {
 
     if (numerosUniques.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
 
-    // === MODE DIAGNOSTIC — mettre DIAGNOSTIC=false pour désactiver ===
-    const DIAGNOSTIC = true
-    if (DIAGNOSTIC) {
-      const exempleBrut = lignes.slice(0, 5).map(l => {
-        const brut = l[colPivot] ?? ''
-        const normalise = normaliserNumero(brut)
-        return `"${brut}" → "${normalise}"`
-      })
-      throw new Error(
-        `[DIAGNOSTIC] Colonne pivot: "${colPivot}" | ` +
-        `${numerosUniques.length} numéros uniques | ` +
-        `5 premiers (brut→normalisé): ${exempleBrut.join(', ')}`
-      )
-    }
-    // === FIN MODE DIAGNOSTIC ===
-
     // Vérifie les factures directement dans la table factures
     const facturesMap = new Map<string, string>() // numero_piece → code_client
     for (let i = 0; i < numerosUniques.length; i += 500) {
@@ -102,6 +86,25 @@ export function useImportLettrage() {
       const rows = data as unknown as RowFacture[] | null
       rows?.forEach(r => facturesMap.set(r.numero_piece, r.code_client))
     }
+
+    // === MODE DIAGNOSTIC — mettre DIAGNOSTIC=false pour désactiver ===
+    const DIAGNOSTIC = true
+    if (DIAGNOSTIC) {
+      const premiereLigne = lignes[0]
+      const premierNum = numerosUniques[0]
+      const montantBrut = premiereLigne ? premiereLigne[colMontant] : 'N/A'
+      const dateBrute = premiereLigne ? premiereLigne[colDate] : 'N/A'
+      const montantParse = premiereLigne ? parseNombre(premiereLigne[colMontant]) : null
+      const dateParsee = premiereLigne ? parseDate(premiereLigne[colDate]) : null
+      throw new Error(
+        `[DIAGNOSTIC v2] ` +
+        `Facture "${premierNum}" trouvée en base: ${facturesMap.has(premierNum ?? '') ? 'OUI → ' + facturesMap.get(premierNum ?? '') : 'NON'} | ` +
+        `Montant brut: "${montantBrut}" → parsé: ${montantParse} | ` +
+        `Date brute: "${dateBrute}" → parsée: "${dateParsee}" | ` +
+        `Colonne montant: "${colMontant}" | Colonne date: "${colDate}"`
+      )
+    }
+    // === FIN MODE DIAGNOSTIC ===
 
     const colCodeClient = mapping.find(m => m.champ_cible === 'code_client')?.colonne_source
 
