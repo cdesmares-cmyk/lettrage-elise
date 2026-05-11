@@ -132,7 +132,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                         const actifs = sorted.filter(c => c.encours_total > 0.005)
                         const zeros = sorted.filter(c => c.encours_total <= 0.005)
                         const zerosOuverts = zerosVisibles.has(g.groupe_key)
-                        const clientsAffiches = zerosOuverts ? g.clients : actifs
+                        const clientsAffiches = zerosOuverts ? sorted : actifs
                         return (
                           <>
                             {clientsAffiches.map(client => {
