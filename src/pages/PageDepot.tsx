@@ -14,6 +14,12 @@ import { useImportClients } from '../hooks/useImportClients'
 import { useAppData } from '../contexts/AppDataContext'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
+function msgErr(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message)
+  return fallback
+}
+
 type Etape = 'type' | 'upload' | 'mapping' | 'validation' | 'succes'
 
 const TITRES: Record<Etape, string> = {
@@ -66,7 +72,7 @@ export function PageDepot() {
       setMapping(resultatAnalyse.mapping)
       setEtape('mapping')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'analyse du fichier.')
+      toast.error(msgErr(err, 'Erreur lors de l\'analyse du fichier.'))
     } finally {
       setChargement(false)
     }
@@ -80,7 +86,7 @@ export function PageDepot() {
       setValidation(resultatValidation)
       setEtape('validation')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de la préparation.')
+      toast.error(msgErr(err, 'Erreur lors de la préparation.'))
     } finally {
       setChargement(false)
     }
@@ -97,7 +103,7 @@ export function PageDepot() {
       setEtape('succes')
       toast.success(`Import réussi — ${resultat.nb_inserees.toLocaleString('fr-FR')} lignes ajoutées.`)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'import.')
+      toast.error(msgErr(err, 'Erreur lors de l\'import.'))
     } finally {
       setChargement(false)
     }

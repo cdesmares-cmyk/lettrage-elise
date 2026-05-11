@@ -88,7 +88,7 @@ export function useImportFactures() {
       throw new Error(`Ce fichier a déjà été importé le ${d}.`)
     }
 
-    const { lignes } = await parserXLSX(fichier)
+    const { lignes } = await parserFichier(fichier)
     const colPivot = mapping.find(m => m.champ_cible === 'numero_piece')?.colonne_source
     if (!colPivot) throw new Error('La colonne N° de pièce (pivot) doit être mappée.')
 
