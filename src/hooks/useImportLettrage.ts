@@ -37,7 +37,7 @@ function appliquerMapping(
     } else if (m.champ_cible === 'date_lettrage') {
       res[m.champ_cible] = parseDate(val)
     } else {
-      res[m.champ_cible] = val || null
+      res[m.champ_cible] = val?.trim() || null
     }
   }
   // code_client déduit depuis la facture si absent dans le fichier
@@ -83,7 +83,7 @@ export function useImportLettrage() {
     const colPivot = mapping.find(m => m.champ_cible === 'numero_facture')?.colonne_source
     if (!colPivot) throw new Error('La colonne N° de facture (pivot) doit être mappée.')
 
-    const toutesLesCles = [...new Set(lignes.map(l => l[colPivot]).filter(Boolean))]
+    const toutesLesCles = [...new Set(lignes.map(l => (l[colPivot] ?? '').trim()).filter(Boolean))]
 
     // Récupère l'existence ET le statut de chaque facture en une seule requête (par lots)
     const facturesInfo = new Map<string, { code_client: string; statut: string }>()
@@ -105,12 +105,12 @@ export function useImportLettrage() {
         .map(([key]) => key)
     )
 
-    const valides = lignes.filter(l => facturesInfo.has(l[colPivot]))
-    const invalides = lignes.filter(l => !facturesInfo.has(l[colPivot]))
-    const nbAvertissements = valides.filter(l => surPaiementKeys.has(l[colPivot])).length
+    const valides = lignes.filter(l => facturesInfo.has((l[colPivot] ?? '').trim()))
+    const invalides = lignes.filter(l => !facturesInfo.has((l[colPivot] ?? '').trim()))
+    const nbAvertissements = valides.filter(l => surPaiementKeys.has((l[colPivot] ?? '').trim())).length
 
     const lignes_mappees = valides.map(l => {
-      const cle = l[colPivot]
+      const cle = (l[colPivot] ?? '').trim()
       const info = facturesInfo.get(cle)
       return appliquerMapping(l, mapping, info?.code_client ?? null)
     })
@@ -123,7 +123,7 @@ export function useImportLettrage() {
     return {
       lignes_a_inserer,
       apercu: lignes.slice(0, 10).map(l => {
-        const cle = l[colPivot]
+        const cle = (l[colPivot] ?? '').trim()
         const existe = facturesInfo.has(cle)
         const surPaiement = surPaiementKeys.has(cle)
         return {
