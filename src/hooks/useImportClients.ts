@@ -149,6 +149,27 @@ export function useImportClients() {
             .upsert(lot as never, { onConflict: 'code_dso', ignoreDuplicates: false })
           if (error) throw error
         }
+
+        // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
+        const today = new Date().toISOString().split('T')[0]
+        const facturesTampon = resultat.lignes_a_inserer
+          .filter(l => l['code_dso'] && l['nom'])
+          .map(l => ({
+            numero_piece: `${l['code_dso']}_compte`,
+            code_client: l['code_dso'] as string,
+            nom_client: l['nom'] as string,
+            date_emission: today,
+            montant_ttc: 0,
+            montant_ht: 0,
+            est_avoir: false,
+            est_provisionnee: false,
+          }))
+        for (let i = 0; i < facturesTampon.length; i += 500) {
+          const { error } = await supabase
+            .from('factures')
+            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'numero_piece', ignoreDuplicates: true })
+          if (error) throw error
+        }
       } catch (err) {
         await supabase.from('imports').delete().eq('id', importRec.id)
         throw err

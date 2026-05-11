@@ -234,6 +234,25 @@ export function useImportFactures() {
           .from('clients')
           .upsert(clientsUniques as never, { onConflict: 'code_dso', ignoreDuplicates: true })
         if (errClients) throw errClients
+
+        // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
+        const today = new Date().toISOString().split('T')[0]
+        const facturesTampon = clientsUniques.map(c => ({
+          numero_piece: `${c.code_dso}_compte`,
+          code_client: c.code_dso,
+          nom_client: c.nom,
+          date_emission: today,
+          montant_ttc: 0,
+          montant_ht: 0,
+          est_avoir: false,
+          est_provisionnee: false,
+        }))
+        for (let i = 0; i < facturesTampon.length; i += 500) {
+          const { error } = await supabase
+            .from('factures')
+            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'numero_piece', ignoreDuplicates: true })
+          if (error) throw error
+        }
       }
 
       // 2. Enregistrement de l'import
