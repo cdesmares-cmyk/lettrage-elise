@@ -109,11 +109,16 @@ export function useImportLettrage() {
     const invalides = lignes.filter(l => !facturesInfo.has(l[colPivot]))
     const nbAvertissements = valides.filter(l => surPaiementKeys.has(l[colPivot])).length
 
-    const lignes_a_inserer = valides.map(l => {
+    const lignes_mappees = valides.map(l => {
       const cle = l[colPivot]
       const info = facturesInfo.get(cle)
       return appliquerMapping(l, mapping, info?.code_client ?? null)
     })
+    // Filtre les lignes dont les champs obligatoires sont vides
+    const lignes_a_inserer = lignes_mappees.filter(l =>
+      l['numero_facture'] && l['code_client'] && l['date_lettrage'] && l['montant'] != null
+    )
+    const nbInvalidesChamps = lignes_mappees.length - lignes_a_inserer.length
 
     return {
       lignes_a_inserer,
@@ -128,10 +133,10 @@ export function useImportLettrage() {
         }
       }),
       nb_total: lignes.length,
-      nb_nouvelles: valides.length,
+      nb_nouvelles: lignes_a_inserer.length,
       nb_doublons: 0,
       nb_avertissements: nbAvertissements,
-      nb_invalides: invalides.length,
+      nb_invalides: invalides.length + nbInvalidesChamps,
       hash,
       nom_fichier: fichier.name,
     }
