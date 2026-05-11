@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import type { CompteClient, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
+import { Pagination } from '../Pagination'
 
 interface Props {
   clients: CompteClient[]
@@ -189,51 +190,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         </tbody>
       </table>
 
-      {/* Pagination */}
-      {nbPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <span className="text-xs text-gray-400">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, clients.length)} sur {clients.length} clients
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-2.5 py-1 text-xs font-medium rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              ← Préc.
-            </button>
-            {(() => {
-              // Affiche au max 5 boutons : début, fenêtre autour de la page courante, fin
-              const btn = (i: number) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i)}
-                  className={`w-7 h-7 text-xs font-medium rounded border transition-colors ${
-                    i === page ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
-                  }`}
-                >{i + 1}</button>
-              )
-              const sep = (k: string) => <span key={k} className="text-xs text-gray-300 px-0.5">…</span>
-              if (nbPages <= 7) return Array.from({ length: nbPages }, (_, i) => btn(i))
-              const pages: React.ReactNode[] = []
-              pages.push(btn(0))
-              if (page > 2) pages.push(sep('s1'))
-              for (let i = Math.max(1, page - 1); i <= Math.min(nbPages - 2, page + 1); i++) pages.push(btn(i))
-              if (page < nbPages - 3) pages.push(sep('s2'))
-              pages.push(btn(nbPages - 1))
-              return pages
-            })()}
-            <button
-              onClick={() => setPage(p => Math.min(nbPages - 1, p + 1))}
-              disabled={page === nbPages - 1}
-              className="px-2.5 py-1 text-xs font-medium rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Suiv. →
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} total={nbPages} onChange={setPage} />
     </div>
   )
 }

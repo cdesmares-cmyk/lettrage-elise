@@ -2,6 +2,7 @@
 import React, { useState, useTransition } from 'react'
 import type { GroupeNebuleuse, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
+import { Pagination } from '../Pagination'
 
 interface Props {
   groupes: GroupeNebuleuse[]
@@ -33,7 +34,6 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
   const totalPages = Math.ceil(groupes.length / PAGE_SIZE)
   const groupesPage = groupes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-  // Un seul groupe ouvert à la fois — startTransition pour ne pas bloquer l'UI pendant le rendu
   function toggle(key: string, codes: string[]) {
     startTransition(() => {
       setOuvert(prev => {
@@ -57,13 +57,12 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="w-10 px-3 py-2.5" />
-            <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Groupe · Nom</th>
-            <th className="text-right px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Encours consolidé</th>
-            <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Clients</th>
-            <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Fac. impayées</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Score risque max</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Codes clients</th>
+            <th className="w-10 px-3 py-2" />
+            <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Groupe · Nom</th>
+            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Encours consolidé</th>
+            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Clients</th>
+            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Fac. impayées</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Score risque max</th>
           </tr>
         </thead>
         <tbody>
@@ -71,7 +70,6 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
             const estOuvert = ouvert === g.groupe_key
             const sc = classeScore(g.note_risque)
             const estGroupe = g.nb_clients > 1
-            // getFactures uniquement pour le groupe ouvert — évite le filtre sur tous les groupes
             const factures = estOuvert ? getFactures(g.codes_clients) : []
             return (
               <React.Fragment key={g.groupe_key}>
@@ -79,30 +77,35 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                   onClick={() => toggle(g.groupe_key, g.codes_clients)}
                   className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-blue-50 border-b-0' : 'hover:bg-gray-50'}`}
                 >
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-2 text-center">
                     <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-800 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       {estGroupe ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 border border-blue-300 text-blue-800">🌐 {g.groupe_key}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 border border-blue-300 text-blue-800">
+                          🌐 {g.groupe_key}
+                          <span className="ml-1.5 text-blue-500 font-normal">
+                            {g.codes_clients.join(' · ')}
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-500">CLIENT</span>
                       )}
                       <span className="text-sm font-semibold text-gray-800">{g.nom_groupe}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-3 py-2 text-right">
                     <span className="font-mono font-bold text-sm tabular-nums text-gray-900">{fmt(g.encours_total)}</span>
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-2 text-center">
                     <span className="text-sm font-bold text-blue-600 tabular-nums">{g.nb_clients}</span>
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-2 text-center">
                     <span className={`text-sm font-bold tabular-nums ${g.nb_impayees > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{g.nb_impayees}</span>
                     <span className="text-gray-300 text-xs"> / {g.nb_factures}</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${g.note_risque}%` }} />
@@ -110,18 +113,11 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                       <span className={`text-xs font-bold tabular-nums ${sc.txt}`}>{g.note_risque}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {g.codes_clients.map(code => (
-                        <span key={code} className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{code}</span>
-                      ))}
-                    </div>
-                  </td>
                 </tr>
 
                 {estOuvert && (
                   <tr>
-                    <td colSpan={7} className="px-0 py-0 border-b-2 border-blue-100">
+                    <td colSpan={6} className="px-0 py-0 border-b-2 border-blue-100">
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
                       ) : g.clients.map(client => {
@@ -154,41 +150,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
         </tbody>
       </table>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-          <span className="text-xs text-gray-400">
-            {groupes.length} groupe{groupes.length > 1 ? 's' : ''} · page {page + 1} / {totalPages}
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => changerPage(page - 1)}
-              disabled={page === 0}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              ← Préc.
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <button
-                key={i}
-                onClick={() => changerPage(i)}
-                className={`w-7 h-7 text-xs font-semibold rounded-lg transition-colors ${
-                  i === page ? 'bg-blue-600 text-white' : 'border border-gray-200 text-gray-500 hover:bg-white'
-                }`}
-              >
-                {i + 1}
-              </button>
-            ))}
-            <button
-              onClick={() => changerPage(page + 1)}
-              disabled={page === totalPages - 1}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              Suiv. →
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination page={page} total={totalPages} onChange={changerPage} />
     </div>
   )
 }
