@@ -97,15 +97,16 @@ export function useImportLettrage() {
       const rows = d2 as unknown as RowFactureBase[] | null
       rows?.forEach(r => facturesBase.set(r.numero_piece, r.code_client))
     }
-    // Diagnostic : si très peu de factures trouvées, affiche un message précis avec exemples
-    if (facturesBase.size < toutesLesCles.length * 0.5 && toutesLesCles.length > 2) {
-      const exemplesCherches = toutesLesCles.slice(0, 3).map(k => `"${k}"`).join(', ')
-      const exemplesEnBase = [...facturesBase.keys()].slice(0, 3).map(k => `"${k}"`).join(', ') || 'aucun'
+    // Diagnostic : si des factures ne sont pas trouvées, expose les numéros cherchés et trouvés
+    if (facturesBase.size < toutesLesCles.length) {
+      const nonTrouves = toutesLesCles.filter(k => !facturesBase.has(k))
+      const exemplesCherches = nonTrouves.slice(0, 3).map(k => `"${k}"`).join(', ')
+      const exemplesEnBase = [...facturesBase.keys()].slice(0, 3).map(k => `"${k}"`).join(', ') || 'aucune facture en base'
       throw new Error(
-        `Seulement ${facturesBase.size} facture(s) trouvée(s) sur ${toutesLesCles.length} dans le fichier.\n` +
-        `Numéros cherchés (fichier) : ${exemplesCherches}\n` +
-        `Numéros trouvés (base) : ${exemplesEnBase}\n` +
-        `Cause probable : les factures de ce fichier n'ont pas encore été importées, ou le format du numéro diffère entre le fichier et la base.`
+        `${nonTrouves.length} numéro(s) de facture introuvable(s) sur ${toutesLesCles.length} dans le fichier.\n` +
+        `Exemples non trouvés : ${exemplesCherches}\n` +
+        `Exemples trouvés en base : ${exemplesEnBase}\n` +
+        `Vérifiez que les factures ont été importées via Dépôt → Factures avant d'importer les lettrages.`
       )
     }
 
