@@ -38,7 +38,7 @@ function appliquerMapping(
     } else if (m.champ_cible === 'est_avoir') {
       res[m.champ_cible] = parseBoolean(val)
     } else {
-      res[m.champ_cible] = val != null ? String(val) : null
+      res[m.champ_cible] = val != null ? String(val).trim() : null
     }
   }
   if (res['est_avoir'] === undefined) res['est_avoir'] = false

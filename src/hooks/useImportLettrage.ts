@@ -7,7 +7,7 @@ import { CHAMPS_LETTRAGES } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
 
-interface RowFacture { numero_piece: string; code_client: string }
+interface RowFacture { numero_piece: string; code_client: string; reste_du: number | null }
 interface RowImportId { id: string }
 
 async function parserFichier(fichier: File): Promise<{ colonnes: string[]; lignes: Record<string, string>[] }> {
@@ -63,11 +63,11 @@ export function useImportLettrage() {
 
     if (numerosUniques.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
 
-    // Vérifie les factures en base (par lots de 500)
+    // Vérifie les factures via la vue (identique à ce que montre Supabase Table Editor)
     const facturesMap = new Map<string, string>() // numero_piece → code_client
     for (let i = 0; i < numerosUniques.length; i += 500) {
       const { data, error } = await supabase
-        .from('factures')
+        .from('v_factures_avec_reste_du')
         .select('numero_piece, code_client')
         .in('numero_piece', numerosUniques.slice(i, i + 500))
       if (error) throw new Error(`Erreur vérification factures : ${error.message}`)
