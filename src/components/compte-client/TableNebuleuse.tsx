@@ -128,8 +128,9 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
                       ) : (() => {
-                        const actifs = g.clients.filter(c => c.encours_total > 0.005)
-                        const zeros = g.clients.filter(c => c.encours_total <= 0.005)
+                        const sorted = [...g.clients].sort((a, b) => b.encours_total - a.encours_total)
+                        const actifs = sorted.filter(c => c.encours_total > 0.005)
+                        const zeros = sorted.filter(c => c.encours_total <= 0.005)
                         const zerosOuverts = zerosVisibles.has(g.groupe_key)
                         const clientsAffiches = zerosOuverts ? g.clients : actifs
                         return (
