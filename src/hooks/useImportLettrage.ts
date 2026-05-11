@@ -97,6 +97,14 @@ export function useImportLettrage() {
       const rows = d2 as unknown as RowFactureBase[] | null
       rows?.forEach(r => facturesBase.set(r.numero_piece, r.code_client))
     }
+    // Diagnostic RLS : si 0 facture trouvée alors que le fichier en contient, c'est probablement un problème de droits Supabase
+    if (facturesBase.size === 0 && toutesLesCles.length > 0) {
+      throw new Error(
+        `Aucune facture trouvée en base pour ${toutesLesCles.length} numéro(s) cherché(s). ` +
+        `Exemple cherché : "${toutesLesCles[0]}". ` +
+        `Vérifiez que les factures sont importées et que les droits RLS permettent la lecture de la table factures.`
+      )
+    }
 
     // 2. Récupère les statuts de paiement pour détecter les sur-paiements (facultatif — erreur non bloquante)
     const surPaiementKeys = new Set<string>()

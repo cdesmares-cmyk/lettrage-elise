@@ -138,7 +138,12 @@ export function EtapeValidation({
       {!estClients && resultat.nb_nouvelles === 0 && (
         <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-700">
           <span>⚠️</span>
-          <span>Toutes les lignes sont déjà présentes en base. Aucune donnée ne sera importée.</span>
+          <span>
+            {(resultat.nb_invalides ?? 0) > 0
+              ? 'Aucune ligne importable — toutes les lignes valides ont été ignorées (voir les erreurs ci-dessus).'
+              : 'Toutes les lignes sont déjà présentes en base. Aucune donnée ne sera importée.'
+            }
+          </span>
         </div>
       )}
       {estClients && resultat.nb_total === 0 && (
