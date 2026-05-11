@@ -98,10 +98,19 @@ export function EtapeValidation({
       {estLettrage && (resultat.nb_invalides ?? 0) > 0 && (
         <div className="flex gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3 text-sm text-red-800">
           <span className="flex-shrink-0">🚫</span>
-          <span>
+          <div>
             <strong>{resultat.nb_invalides} ligne{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''} ignorée{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''}</strong> — numéro de facture introuvable en base.
             {' '}Ces lignes ne seront pas importées.
-          </span>
+            {resultat.apercu.filter(l => l.statut === 'invalide').length > 0 && (
+              <div className="mt-2">
+                <span className="text-[11px] font-semibold text-red-700">Numéros cherchés (aperçu) : </span>
+                <span className="font-mono text-[11px] text-red-700">
+                  {resultat.apercu.filter(l => l.statut === 'invalide').slice(0, 5).map(l => `"${l.cle_pivot}"`).join(' · ')}
+                </span>
+                <div className="mt-1 text-[10px] text-red-500">Vérifiez que ces numéros correspondent exactement aux <code>numero_piece</code> dans la table factures Supabase.</div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
