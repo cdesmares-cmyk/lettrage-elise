@@ -7,8 +7,20 @@ import { CHAMPS_LETTRAGES } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
 
-interface RowFacture { numero_piece: string; code_client: string; reste_du: number | null }
+interface RowFacture { numero_piece: string; code_client: string }
 interface RowImportId { id: string }
+
+// Normalise un numéro de pièce :
+// - purement numérique (ex: "2026021254" ou "2026021254.0") → entier String sans décimale
+// - alphanumérique (ex: "FAC-2026-001") → texte trimé tel quel
+function normaliserNumero(val: string): string {
+  const s = val.trim()
+  if (/^\d+(\.\d*)?$/.test(s)) {
+    const n = Math.round(parseFloat(s))
+    return Number.isFinite(n) ? String(n) : s
+  }
+  return s
+}
 
 async function parserFichier(fichier: File): Promise<{ colonnes: string[]; lignes: Record<string, string>[] }> {
   const ext = fichier.name.split('.').pop()?.toLowerCase()
@@ -56,18 +68,18 @@ export function useImportLettrage() {
 
     if (lignes.length === 0) throw new Error('Le fichier ne contient aucune ligne.')
 
-    // Numéros de facture uniques dans le fichier
+    // Numéros de facture uniques dans le fichier — normalisés (supprime .0 sur les numériques)
     const numerosUniques = [...new Set(
-      lignes.map(l => (l[colPivot] ?? '').trim()).filter(Boolean)
+      lignes.map(l => normaliserNumero(l[colPivot] ?? '')).filter(Boolean)
     )]
 
     if (numerosUniques.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
 
-    // Vérifie les factures via la vue (identique à ce que montre Supabase Table Editor)
+    // Vérifie les factures directement dans la table factures
     const facturesMap = new Map<string, string>() // numero_piece → code_client
     for (let i = 0; i < numerosUniques.length; i += 500) {
       const { data, error } = await supabase
-        .from('v_factures_avec_reste_du')
+        .from('factures')
         .select('numero_piece, code_client')
         .in('numero_piece', numerosUniques.slice(i, i + 500))
       if (error) throw new Error(`Erreur vérification factures : ${error.message}`)
@@ -82,7 +94,7 @@ export function useImportLettrage() {
     let nbInvalides = 0
 
     for (const ligne of lignes) {
-      const numFact = (ligne[colPivot] ?? '').trim()
+      const numFact = normaliserNumero(ligne[colPivot] ?? '')
       const codeClientFichier = colCodeClient ? (ligne[colCodeClient] ?? '').trim() : null
       const codeClientFacture = facturesMap.get(numFact)
       const montant = parseNombre(ligne[colMontant])
@@ -105,7 +117,7 @@ export function useImportLettrage() {
 
     // Aperçu des 10 premières lignes avec statut
     const apercu = lignes.slice(0, 10).map(l => {
-      const num = (l[colPivot] ?? '').trim()
+      const num = normaliserNumero(l[colPivot] ?? '')
       const existe = facturesMap.has(num)
       const montant = parseNombre(l[colMontant])
       const date = parseDate(l[colDate])

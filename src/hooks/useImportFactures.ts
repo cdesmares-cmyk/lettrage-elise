@@ -22,6 +22,15 @@ interface RowNumeroPiece { numero_piece: string }
 interface RowImportId { id: string }
 interface RowClientNom { code_dso: string; nom: string }
 
+function normaliserNumero(val: string): string {
+  const s = val.trim()
+  if (/^\d+(\.\d*)?$/.test(s)) {
+    const n = Math.round(parseFloat(s))
+    return Number.isFinite(n) ? String(n) : s
+  }
+  return s
+}
+
 function appliquerMapping(
   ligne: Record<string, unknown>,
   mapping: LigneMapping[]
@@ -37,6 +46,8 @@ function appliquerMapping(
       res[m.champ_cible] = parseDate(val)
     } else if (m.champ_cible === 'est_avoir') {
       res[m.champ_cible] = parseBoolean(val)
+    } else if (m.champ_cible === 'numero_piece') {
+      res[m.champ_cible] = val != null ? normaliserNumero(String(val)) : null
     } else {
       res[m.champ_cible] = val != null ? String(val).trim() : null
     }
