@@ -28,6 +28,7 @@ const PAGE_SIZE = 25
 
 export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
+  const [zerosVisibles, setZerosVisibles] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
   const [, startTransition] = useTransition()
 
@@ -47,6 +48,15 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
   function changerPage(p: number) {
     setPage(p)
     setOuvert(null)
+    setZerosVisibles(new Set())
+  }
+
+  function toggleZeros(key: string) {
+    setZerosVisibles(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
   }
 
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
@@ -117,27 +127,48 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                     <td colSpan={6} className="px-0 py-0 border-b-2 border-blue-100">
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
-                      ) : g.clients.map(client => {
-                        const facsCli = factures.filter(f => f.code_client === client.code_dso)
+                      ) : (() => {
+                        const actifs = g.clients.filter(c => c.encours_total > 0.005)
+                        const zeros = g.clients.filter(c => c.encours_total <= 0.005)
+                        const zerosOuverts = zerosVisibles.has(g.groupe_key)
+                        const clientsAffiches = zerosOuverts ? g.clients : actifs
                         return (
-                          <div key={client.code_dso}>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100 sticky top-0">
-                              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{client.code_dso}</span>
-                              <span className="text-xs font-semibold text-gray-700">{client.nom}</span>
-                              <span className="text-[10px] text-gray-400 ml-1">{facsCli.length} facture{facsCli.length > 1 ? 's' : ''}</span>
-                            </div>
-                            <div className="px-4 py-2 bg-blue-50/20">
-                              <LignesFactures
-                                factures={facsCli}
-                                chargement={false}
-                                onStatutChange={onStatutChange}
-                                onHistorique={onHistorique}
-                                compact
-                              />
-                            </div>
-                          </div>
+                          <>
+                            {clientsAffiches.map(client => {
+                              const facsCli = factures.filter(f => f.code_client === client.code_dso)
+                              return (
+                                <div key={client.code_dso}>
+                                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100 sticky top-0">
+                                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{client.code_dso}</span>
+                                    <span className="text-xs font-semibold text-gray-700">{client.nom}</span>
+                                    <span className="text-[10px] text-gray-400 ml-1">{facsCli.length} facture{facsCli.length > 1 ? 's' : ''}</span>
+                                  </div>
+                                  <div className="px-4 py-2 bg-blue-50/20">
+                                    <LignesFactures
+                                      factures={facsCli}
+                                      chargement={false}
+                                      onStatutChange={onStatutChange}
+                                      onHistorique={onHistorique}
+                                      compact
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                            {zeros.length > 0 && (
+                              <button
+                                onClick={() => toggleZeros(g.groupe_key)}
+                                className="w-full py-2 text-[11px] text-gray-400 hover:text-blue-600 hover:bg-blue-50/40 transition-colors border-t border-gray-100"
+                              >
+                                {zerosOuverts
+                                  ? `↑ Masquer les ${zeros.length} client${zeros.length > 1 ? 's' : ''} sans encours`
+                                  : `↓ Afficher ${zeros.length} client${zeros.length > 1 ? 's' : ''} associé${zeros.length > 1 ? 's' : ''} — aucun encours`
+                                }
+                              </button>
+                            )}
+                          </>
                         )
-                      })}
+                      })()}
                     </td>
                   </tr>
                 )}
