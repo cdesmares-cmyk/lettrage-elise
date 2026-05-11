@@ -29,7 +29,12 @@ async function parserFichier(fichier: File): Promise<{ colonnes: string[]; ligne
   return {
     colonnes,
     lignes: lignes.map(l =>
-      Object.fromEntries(Object.entries(l).map(([k, v]) => [k, String(v ?? '').trim()]))
+      Object.fromEntries(Object.entries(l).map(([k, v]) => [
+        k,
+        v instanceof Date
+          ? (isNaN(v.getTime()) ? '' : v.toISOString().split('T')[0])
+          : String(v ?? '').trim(),
+      ]))
     ) as Record<string, string>[],
   }
 }
@@ -87,24 +92,6 @@ export function useImportLettrage() {
       rows?.forEach(r => facturesMap.set(r.numero_piece, r.code_client))
     }
 
-    // === MODE DIAGNOSTIC — mettre DIAGNOSTIC=false pour désactiver ===
-    const DIAGNOSTIC = true
-    if (DIAGNOSTIC) {
-      const premiereLigne = lignes[0]
-      const premierNum = numerosUniques[0]
-      const montantBrut = premiereLigne ? premiereLigne[colMontant] : 'N/A'
-      const dateBrute = premiereLigne ? premiereLigne[colDate] : 'N/A'
-      const montantParse = premiereLigne ? parseNombre(premiereLigne[colMontant]) : null
-      const dateParsee = premiereLigne ? parseDate(premiereLigne[colDate]) : null
-      throw new Error(
-        `[DIAGNOSTIC v2] ` +
-        `Facture "${premierNum}" trouvée en base: ${facturesMap.has(premierNum ?? '') ? 'OUI → ' + facturesMap.get(premierNum ?? '') : 'NON'} | ` +
-        `Montant brut: "${montantBrut}" → parsé: ${montantParse} | ` +
-        `Date brute: "${dateBrute}" → parsée: "${dateParsee}" | ` +
-        `Colonne montant: "${colMontant}" | Colonne date: "${colDate}"`
-      )
-    }
-    // === FIN MODE DIAGNOSTIC ===
 
     const colCodeClient = mapping.find(m => m.champ_cible === 'code_client')?.colonne_source
 
