@@ -7,7 +7,8 @@ import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport 
 import { useAuth } from '../contexts/AuthContext'
 
 // Types locaux pour l'inférence Supabase avec TS6
-interface RowFactureInfo { numero_piece: string; code_client: string; statut_paiement: string }
+interface RowFactureBase { numero_piece: string; code_client: string }
+interface RowFactureStatut { numero_piece: string; statut_paiement: string }
 interface RowImportId { id: string }
 interface RowImportRef { id: string; cree_le: string }
 
@@ -85,25 +86,41 @@ export function useImportLettrage() {
 
     const toutesLesCles = [...new Set(lignes.map(l => (l[colPivot] ?? '').trim()).filter(Boolean))]
 
-    // Récupère l'existence ET le statut de chaque facture en une seule requête (par lots)
-    const facturesInfo = new Map<string, { code_client: string; statut: string }>()
+    // 1. Vérifie l'existence des factures via la table source (plus fiable que la vue)
+    const facturesBase = new Map<string, string>() // numero_piece → code_client
     for (let i = 0; i < toutesLesCles.length; i += 500) {
-      const { data: d2 } = await supabase
-        .from('v_factures_avec_reste_du')
-        .select('numero_piece, code_client, statut_paiement')
+      const { data: d2, error: errFact } = await supabase
+        .from('factures')
+        .select('numero_piece, code_client')
         .in('numero_piece', toutesLesCles.slice(i, i + 500))
-      const rows = d2 as unknown as RowFactureInfo[] | null
-      rows?.forEach(r => facturesInfo.set(r.numero_piece, {
-        code_client: r.code_client,
-        statut: r.statut_paiement,
-      }))
+      if (errFact) throw new Error(`Erreur vérification factures : ${errFact.message}`)
+      const rows = d2 as unknown as RowFactureBase[] | null
+      rows?.forEach(r => facturesBase.set(r.numero_piece, r.code_client))
     }
 
-    const surPaiementKeys = new Set(
-      [...facturesInfo.entries()]
-        .filter(([, info]) => info.statut === 'paye')
-        .map(([key]) => key)
-    )
+    // 2. Récupère les statuts de paiement pour détecter les sur-paiements (facultatif — erreur non bloquante)
+    const surPaiementKeys = new Set<string>()
+    try {
+      for (let i = 0; i < toutesLesCles.length; i += 500) {
+        const { data: d3 } = await supabase
+          .from('v_factures_avec_reste_du')
+          .select('numero_piece, statut_paiement')
+          .in('numero_piece', toutesLesCles.slice(i, i + 500))
+        const rows = d3 as unknown as RowFactureStatut[] | null
+        rows?.filter(r => r.statut_paiement === 'paye').forEach(r => surPaiementKeys.add(r.numero_piece))
+      }
+    } catch {
+      // Sur-paiements non détectables si la vue est indisponible — import continue sans cette vérification
+    }
+
+    // Compat : reconstruire facturesInfo depuis facturesBase pour la suite
+    const facturesInfo = new Map<string, { code_client: string; statut: string }>()
+    facturesBase.forEach((code_client, numero_piece) => {
+      facturesInfo.set(numero_piece, {
+        code_client,
+        statut: surPaiementKeys.has(numero_piece) ? 'paye' : 'ouvert',
+      })
+    })
 
     const valides = lignes.filter(l => facturesInfo.has((l[colPivot] ?? '').trim()))
     const invalides = lignes.filter(l => !facturesInfo.has((l[colPivot] ?? '').trim()))
