@@ -2,16 +2,7 @@
 -- Rôles : admin | responsable_poste_client | commercial
 -- À exécuter dans Supabase Studio > SQL Editor
 
--- Fonction utilitaire anti-récursion pour les policies RLS
-create or replace function get_my_role()
-returns text
-language sql
-security definer
-stable
-as $$
-  select role from utilisateurs where id = auth.uid();
-$$;
-
+-- Table en premier — get_my_role() la référence, donc elle doit exister avant
 create table if not exists utilisateurs (
   id                    uuid primary key references auth.users(id) on delete cascade,
   email                 text not null,
@@ -22,6 +13,16 @@ create table if not exists utilisateurs (
   cree_le               timestamptz default now(),
   mis_a_jour_le         timestamptz default now()
 );
+
+-- Fonction utilitaire anti-récursion pour les policies RLS
+create or replace function get_my_role()
+returns text
+language sql
+security definer
+stable
+as $$
+  select role from utilisateurs where id = auth.uid();
+$$;
 
 -- Trigger : mise à jour automatique de mis_a_jour_le
 create or replace function maj_timestamp()
