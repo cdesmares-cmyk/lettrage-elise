@@ -18,6 +18,15 @@ const _today = new Date()
 function fmt(n: number) { return _fmt.format(n) + ' €' }
 function fmtDate(iso: string | null) { return iso ? _fmtDate.format(new Date(iso)) : '—' }
 function estRetard(iso: string | null) { return !!iso && new Date(iso) < _today }
+function anciennete(iso: string | null): number {
+  if (!iso) return 0
+  return Math.floor((_today.getTime() - new Date(iso).getTime()) / 86_400_000)
+}
+function badgeAnc(j: number) {
+  if (j <= 60) return 'bg-gray-100 text-gray-500'
+  if (j <= 90) return 'bg-amber-100 text-amber-700'
+  return 'bg-red-100 text-red-700'
+}
 
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
   { val: 'litige', label: '⚠ Litige' },
@@ -25,7 +34,9 @@ const STATUTS: { val: StatutFacture | null; label: string }[] = [
   { val: null, label: '✕ Effacer' },
 ]
 
-function StatutBadge({ statut, onClick }: { statut: StatutFacture | null; onClick: (e: React.MouseEvent) => void }) {
+function StatutBadge({ statut, estSolde, onClick }: { statut: StatutFacture | null; estSolde: boolean; onClick: (e: React.MouseEvent) => void }) {
+  if (estSolde)
+    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">✓ Payée</span>
   if (statut === 'litige')
     return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">⚠ Litige</span>
   if (statut === 'provisionne')
@@ -71,7 +82,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
 export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact }: Props) {
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
-  const [sortCol, setSortCol] = useState<string>('date_emission')
+  const [sortCol, setSortCol] = useState<string>('date_echeance')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   function handleSort(col: string) {
@@ -130,8 +141,8 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               : <ColTh label="Restant Dû" col="reste_du" {...thProps} align="right" />
             }
             {compact
-              ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Émission</th>
-              : <ColTh label="Émission" col="date_emission" {...thProps} align="center" />
+              ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Ancienneté</th>
+              : <ColTh label="Ancienneté" col="date_emission" {...thProps} align="center" />
             }
             {compact
               ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Échéance</th>
@@ -187,12 +198,17 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 <td className="px-3 py-2 text-right font-mono font-bold">
                   <span className={restantCls}>{fmt(f.reste_du)}</span>
                 </td>
-                <td className="px-3 py-2 text-center text-gray-500">{fmtDate(f.date_emission)}</td>
+                <td className="px-3 py-2 text-center">
+                  {f.date_emission
+                    ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${badgeAnc(anciennete(f.date_emission))}`}>{anciennete(f.date_emission)}j</span>
+                    : <span className="text-gray-300">—</span>
+                  }
+                </td>
                 <td className="px-3 py-2 text-center">
                   <span className={retard ? 'text-red-600 font-semibold' : 'text-gray-500'}>{fmtDate(f.date_echeance)}</span>
                 </td>
                 <td className="px-3 py-2">
-                  <StatutBadge statut={f.statut_facture} onClick={e => handleStatutClick(e, f.numero_piece)} />
+                  <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
                 <td className="px-3 py-2">
                   <button
