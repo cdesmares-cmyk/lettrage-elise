@@ -26,14 +26,64 @@ function classeScore(note: number) {
 
 const PAGE_SIZE = 25
 
+type SortDir = 'asc' | 'desc'
+
+function sortRows<T extends Record<string, unknown>>(data: T[], col: keyof T, dir: SortDir): T[] {
+  return [...data].sort((a, b) => {
+    const av = a[col] ?? '', bv = b[col] ?? ''
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv), 'fr-FR', { numeric: true })
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
+function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
+  label: string; col: string
+  sort: string; dir: SortDir
+  onSort: (col: string) => void
+  align?: 'left' | 'right' | 'center'
+}) {
+  const active = sort === col
+  const alignCls = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+    >
+      <span className={`flex items-center gap-1 ${alignCls}`}>
+        {label}
+        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+          {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
+        </span>
+      </span>
+    </th>
+  )
+}
+
 export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [zerosVisibles, setZerosVisibles] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
   const [, startTransition] = useTransition()
+  const [sortCol, setSortCol] = useState<string>('encours_total')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
-  const totalPages = Math.ceil(groupes.length / PAGE_SIZE)
-  const groupesPage = groupes.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  function handleSort(col: string) {
+    setSortCol(prev => {
+      if (prev === col) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+        return col
+      }
+      setSortDir('desc')
+      return col
+    })
+    setPage(0)
+  }
+
+  const groupesTries = sortRows(groupes as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as GroupeNebuleuse[]
+  const totalPages = Math.ceil(groupesTries.length / PAGE_SIZE)
+  const groupesPage = groupesTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   function toggle(key: string, codes: string[]) {
     startTransition(() => {
@@ -62,17 +112,20 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
   if (!groupes.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun groupe avec référence de regroupement trouvé.</div>
 
+  const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
             <th className="w-10 px-3 py-2" />
-            <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Groupe · Nom</th>
-            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Encours consolidé</th>
-            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Clients</th>
-            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Fac. impayées</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Score risque max</th>
+            <ColTh label="Code" col="groupe_key" {...thProps} align="left" />
+            <ColTh label="Nom" col="nom_groupe" {...thProps} align="left" />
+            <ColTh label="Encours consolidé" col="encours_total" {...thProps} align="right" />
+            <ColTh label="Clients" col="nb_clients" {...thProps} align="center" />
+            <ColTh label="Fac. impayées" col="nb_impayees" {...thProps} align="center" />
+            <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
           </tr>
         </thead>
         <tbody>
@@ -91,16 +144,16 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                     <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-800 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      {estGroupe ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 border border-blue-300 text-blue-800">
-                          🌐 {g.groupe_key}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-500">CLIENT</span>
-                      )}
-                      <span className="text-sm font-semibold text-gray-800">{g.nom_groupe}</span>
-                    </div>
+                    {estGroupe ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 border border-blue-300 text-blue-800">
+                        🌐 {g.groupe_key}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 border border-gray-300 text-gray-500">CLIENT</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    <span className="text-sm font-semibold text-gray-800">{g.nom_groupe}</span>
                   </td>
                   <td className="px-3 py-2 text-right">
                     <span className="font-mono font-bold text-sm tabular-nums text-gray-900">{fmt(g.encours_total)}</span>
@@ -124,7 +177,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
 
                 {estOuvert && (
                   <tr>
-                    <td colSpan={6} className="px-0 py-0 border-b-2 border-blue-100">
+                    <td colSpan={7} className="px-0 py-0 border-b-2 border-blue-100">
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
                       ) : (() => {

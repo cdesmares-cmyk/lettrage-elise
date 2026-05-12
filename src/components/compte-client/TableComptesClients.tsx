@@ -41,9 +41,46 @@ const STATUT_CLASSES: Record<string, string> = {
   redressement: 'bg-orange-50 border-orange-300 text-orange-800',
 }
 
+type SortDir = 'asc' | 'desc'
+
+function sortRows<T extends Record<string, unknown>>(data: T[], col: keyof T, dir: SortDir): T[] {
+  return [...data].sort((a, b) => {
+    const av = a[col] ?? '', bv = b[col] ?? ''
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv), 'fr-FR', { numeric: true })
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
+function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
+  label: string; col: string
+  sort: string; dir: SortDir
+  onSort: (col: string) => void
+  align?: 'left' | 'right' | 'center'
+}) {
+  const active = sort === col
+  const alignCls = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+    >
+      <span className={`flex items-center gap-1 ${alignCls}`}>
+        {label}
+        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+          {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
+        </span>
+      </span>
+    </th>
+  )
+}
+
 export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
+  const [sortCol, setSortCol] = useState<string>('encours_total')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
   useEffect(() => { setPage(0) }, [recherche])
@@ -55,11 +92,25 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     else { setOuvert(code); onExpand(code) }
   }
 
+  function handleSort(col: string) {
+    setSortCol(prev => {
+      if (prev === col) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+        return col
+      }
+      setSortDir('desc')
+      return col
+    })
+    setPage(0)
+  }
+
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
-  const nbPages = Math.ceil(clients.length / PAGE_SIZE)
-  const clientsPage = clients.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const clientsTries = sortRows(clients as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
+  const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
+  const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+  const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -67,13 +118,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
             <th className="w-10 px-3 py-2.5" />
-            <th className="text-left px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Code · Client</th>
-            <th className="text-right px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Encours TTC</th>
-            <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Fac. impayées</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut juridique</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Note risque</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Plateforme</th>
-            <th className="px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Groupement</th>
+            <ColTh label="Code" col="code_dso" {...thProps} align="left" />
+            <ColTh label="Nom" col="nom" {...thProps} align="left" />
+            <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
+            <ColTh label="Fac. impayées" col="nb_impayees" {...thProps} align="center" />
+            <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
+            <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
+            <ColTh label="Plateforme" col="plateforme" {...thProps} align="left" />
+            <ColTh label="Groupement" col="code_groupement" {...thProps} align="left" />
             <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Options</th>
           </tr>
         </thead>
@@ -95,10 +147,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.code_dso}</span>
-                      <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
-                    </div>
+                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.code_dso}</span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums ${c.encours_total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(c.encours_total)}</span>
@@ -146,7 +198,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
                 {estOuvert && (
                   <tr key={`${c.code_dso}-fac`}>
-                    <td colSpan={9} className="px-0 py-0 border-b-2 border-blue-100">
+                    <td colSpan={10} className="px-0 py-0 border-b-2 border-blue-100">
                       <div className="px-4 py-3 bg-blue-50/60">
                         {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
                           // Toutes les factures sont réglées — pas d'impayée en mémoire

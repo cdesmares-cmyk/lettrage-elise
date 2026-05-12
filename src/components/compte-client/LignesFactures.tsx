@@ -33,9 +33,57 @@ function StatutBadge({ statut, onClick }: { statut: StatutFacture | null; onClic
   return <span onClick={onClick} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600">— statut</span>
 }
 
+type SortDir = 'asc' | 'desc'
+
+function sortRows<T extends Record<string, unknown>>(data: T[], col: keyof T, dir: SortDir): T[] {
+  return [...data].sort((a, b) => {
+    const av = a[col] ?? '', bv = b[col] ?? ''
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv), 'fr-FR', { numeric: true })
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
+
+function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
+  label: string; col: string
+  sort: string; dir: SortDir
+  onSort: (col: string) => void
+  align?: 'left' | 'right' | 'center'
+}) {
+  const active = sort === col
+  const alignCls = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+    >
+      <span className={`flex items-center gap-1 ${alignCls}`}>
+        {label}
+        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+          {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
+        </span>
+      </span>
+    </th>
+  )
+}
+
 export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact }: Props) {
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [sortCol, setSortCol] = useState<string>('date_emission')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  function handleSort(col: string) {
+    setSortCol(prev => {
+      if (prev === col) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+        return col
+      }
+      setSortDir('desc')
+      return col
+    })
+  }
 
   function handleStatutClick(e: React.MouseEvent, numero: string) {
     e.stopPropagation()
@@ -51,25 +99,53 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
     return <div className="py-6 text-center text-xs text-gray-400">Aucune facture trouvée.</div>
   }
 
+  const facturesTries = compact
+    ? factures
+    : sortRows(factures as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as FactureDetail[]
+
+  const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
+
   return (
     <>
       <table className="w-full text-xs">
         <thead>
           <tr className={`border-b border-gray-100 ${compact ? 'bg-blue-50' : 'bg-gray-50'}`}>
             <th className="w-5 px-2 py-2" />
-            {!compact && <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Client</th>}
-            <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">N° Facture</th>
-            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant HT</th>
-            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant TTC</th>
-            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Restant Dû</th>
-            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Émission</th>
-            <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Échéance</th>
-            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
+            {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
+            {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
+            {compact
+              ? <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">N° Facture</th>
+              : <ColTh label="N° Facture" col="numero_piece" {...thProps} align="left" />
+            }
+            {compact
+              ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant HT</th>
+              : <ColTh label="Montant HT" col="montant_ht" {...thProps} align="right" />
+            }
+            {compact
+              ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant TTC</th>
+              : <ColTh label="Montant TTC" col="montant_ttc" {...thProps} align="right" />
+            }
+            {compact
+              ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Restant Dû</th>
+              : <ColTh label="Restant Dû" col="reste_du" {...thProps} align="right" />
+            }
+            {compact
+              ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Émission</th>
+              : <ColTh label="Émission" col="date_emission" {...thProps} align="center" />
+            }
+            {compact
+              ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Échéance</th>
+              : <ColTh label="Échéance" col="date_echeance" {...thProps} align="center" />
+            }
+            {compact
+              ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
+              : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
+            }
             <th className="px-3 py-2" />
           </tr>
         </thead>
         <tbody>
-          {factures.map(f => {
+          {facturesTries.map(f => {
             const estCompte = f.numero_piece.endsWith('_compte')
             const retard = !estCompte && estRetard(f.date_echeance) && f.reste_du > 0.005
             const estSolde     = Math.abs(f.reste_du) <= 0.005
@@ -84,10 +160,12 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 </td>
                 {!compact && (
                   <td className="px-3 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{f.code_client}</span>
-                      {f.nom_client && <span className="text-xs text-gray-600">{f.nom_client}</span>}
-                    </div>
+                    <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{f.code_client}</span>
+                  </td>
+                )}
+                {!compact && (
+                  <td className="px-3 py-2">
+                    {f.nom_client && <span className="text-xs text-gray-600">{f.nom_client}</span>}
                   </td>
                 )}
                 <td className="px-3 py-2">
