@@ -26,7 +26,7 @@ function readPrefs(): WidgetId[] {
   return ['surveiller', 'concentration', 'annotees']
 }
 
-function WidgetSurveiller({ factures, clients }: Props) {
+function WidgetSurveiller({ factures }: Props) {
   const alertes = useMemo(() => {
     const map = new Map<string, { code: string; nom: string; nb: number; total: number }>()
     factures

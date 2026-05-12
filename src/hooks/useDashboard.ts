@@ -148,7 +148,7 @@ export function useDashboard() {
           .gte('date_lettrage', il24Mois.toISOString().slice(0, 10))
           .gt('montant', 0).order('date_lettrage').limit(20000),
       ])
-      if (resCA.data) setCa12Mois(resCA.data.reduce((s, r) => s + (r.montant_ttc ?? 0), 0))
+      if (resCA.data) setCa12Mois((resCA.data as { montant_ttc: number | null }[]).reduce((s, r) => s + (r.montant_ttc ?? 0), 0))
       if (resLett.data) setLettragesRaw(resLett.data as { date_lettrage: string; montant: number }[])
       setChargement(false)
     }
