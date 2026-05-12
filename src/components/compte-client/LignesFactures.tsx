@@ -12,12 +12,10 @@ interface Props {
 
 // Instances créées une seule fois — toLocaleDateString recrée Intl.DateTimeFormat à chaque appel (lent)
 const _fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const _fmtDate = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
+
 const _today = new Date()
 
 function fmt(n: number) { return _fmt.format(n) + ' €' }
-function fmtDate(iso: string | null) { return iso ? _fmtDate.format(new Date(iso)) : '—' }
-function estRetard(iso: string | null) { return !!iso && new Date(iso) < _today }
 function anciennete(iso: string | null): number {
   if (!iso) return 0
   return Math.floor((_today.getTime() - new Date(iso).getTime()) / 86_400_000)
@@ -129,10 +127,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               : <ColTh label="N° Facture" col="numero_piece" {...thProps} align="left" />
             }
             {compact
-              ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant HT</th>
-              : <ColTh label="Montant HT" col="montant_ht" {...thProps} align="right" />
-            }
-            {compact
               ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant TTC</th>
               : <ColTh label="Montant TTC" col="montant_ttc" {...thProps} align="right" />
             }
@@ -145,10 +139,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               : <ColTh label="Ancienneté" col="date_emission" {...thProps} align="center" />
             }
             {compact
-              ? <th className="text-center px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Échéance</th>
-              : <ColTh label="Échéance" col="date_echeance" {...thProps} align="center" />
-            }
-            {compact
               ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
@@ -158,7 +148,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
         <tbody>
           {facturesTries.map(f => {
             const estCompte = f.numero_piece.endsWith('_compte')
-            const retard = !estCompte && estRetard(f.date_echeance) && f.reste_du > 0.005
             const estSolde     = Math.abs(f.reste_du) <= 0.005
             const estNegatif   = f.reste_du < -0.005
             const estImpayeTotal = !f.est_avoir && !estCompte && !estNegatif && !estSolde && f.montant_ttc > 0.005 && (f.reste_du / f.montant_ttc) >= 0.995
@@ -191,9 +180,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right font-mono text-gray-600">
-                  {f.montant_ht != null ? fmt(f.montant_ht) : '—'}
-                </td>
                 <td className="px-3 py-2 text-right font-mono text-gray-700">{fmt(f.montant_ttc)}</td>
                 <td className="px-3 py-2 text-right font-mono font-bold">
                   <span className={restantCls}>{fmt(f.reste_du)}</span>
@@ -203,9 +189,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${badgeAnc(anciennete(f.date_emission))}`}>{anciennete(f.date_emission)}j</span>
                     : <span className="text-gray-300">—</span>
                   }
-                </td>
-                <td className="px-3 py-2 text-center">
-                  <span className={retard ? 'text-red-600 font-semibold' : 'text-gray-500'}>{fmtDate(f.date_echeance)}</span>
                 </td>
                 <td className="px-3 py-2">
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
