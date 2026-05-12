@@ -38,7 +38,7 @@ export function useContacts(codeClient: string | null) {
     if (!codeClient) return false
     const { data: row, error } = await supabase
       .from('contacts_client')
-      .insert({ ...data, code_client: codeClient, actif: true })
+      .insert({ ...data, code_client: codeClient, actif: true } as never)
       .select('id, code_client, prenom, nom, email, telephone, role_contact, actif')
       .single()
     if (error || !row) { toast.error('Erreur ajout contact'); return false }

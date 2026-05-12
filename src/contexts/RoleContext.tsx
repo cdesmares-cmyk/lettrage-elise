@@ -44,13 +44,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           // On l'insère avec le rôle par défaut et on recharge.
           supabase
             .from('utilisateurs')
-            .insert({ id: utilisateur.id, email: utilisateur.email ?? '', nom_affiche: utilisateur.email?.split('@')[0] ?? '' })
+            .insert({ id: utilisateur.id, email: utilisateur.email ?? '', nom_affiche: utilisateur.email?.split('@')[0] ?? '' } as never)
             .then(() => {
               setRole('responsable_poste_client')
               setChargement(false)
             })
         } else {
-          setRole(data.role as Role)
+          setRole((data as { role: Role }).role)
           setChargement(false)
         }
       })
