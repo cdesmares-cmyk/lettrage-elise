@@ -1,16 +1,15 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
+import { useRole } from '../contexts/RoleContext'
 import { supabase } from '../lib/supabase'
 
-const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
-
-const ONGLETS = [
-  { chemin: '/tableau-de-bord', label: 'Tableau de bord' },
-  { chemin: '/depot', label: 'Dépôt' },
-  { chemin: '/lettrage', label: 'Lettrage' },
-  { chemin: '/compte-client', label: 'Compte client' },
-  { chemin: '/extraction', label: 'Extraction' },
+const ONGLETS_TOUS = [
+  { chemin: '/tableau-de-bord', label: 'Tableau de bord', commercial: true },
+  { chemin: '/depot',           label: 'Dépôt',           commercial: false },
+  { chemin: '/lettrage',        label: 'Lettrage',         commercial: false },
+  { chemin: '/compte-client',   label: 'Compte client',    commercial: true },
+  { chemin: '/extraction',      label: 'Extraction',       commercial: true },
 ]
 
 function getInitiales(email: string): string {
@@ -23,7 +22,9 @@ function getInitiales(email: string): string {
 export function Layout() {
   const { utilisateur } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { isAdmin, isCommercial } = useRole()
   const initiales = utilisateur?.email ? getInitiales(utilisateur.email) : '?'
+  const onglets = ONGLETS_TOUS.filter(o => !isCommercial || o.commercial)
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col">
@@ -41,7 +42,7 @@ export function Layout() {
 
         {/* Navigation */}
         <nav className="flex gap-1">
-          {ONGLETS.map(({ chemin, label }) => (
+          {onglets.map(({ chemin, label }) => (
             <NavLink
               key={chemin}
               to={chemin}
@@ -63,8 +64,15 @@ export function Layout() {
           ))}
         </nav>
 
+        {/* Badge lecture seule — visible uniquement pour les commerciaux */}
+        {isCommercial && (
+          <span className="flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold text-amber-400 bg-amber-900/30 border border-amber-700/40 ml-1">
+            Lecture seule
+          </span>
+        )}
+
         {/* Lien admin — visible uniquement pour l'administrateur */}
-        {utilisateur?.email === ADMIN_EMAIL && (
+        {isAdmin && (
           <NavLink
             to="/admin"
             className={({ isActive }) =>

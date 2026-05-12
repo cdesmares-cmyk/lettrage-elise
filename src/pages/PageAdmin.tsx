@@ -1,12 +1,10 @@
 import { useState } from 'react'
-import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
 import { useAppData } from '../contexts/AppDataContext'
 import { useRefValeurs } from '../hooks/useRefValeurs'
 import { useTheme } from '../contexts/ThemeContext'
+import { useRole } from '../contexts/RoleContext'
 import type { ImportRecord } from '../hooks/useAdmin'
-
-const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -58,10 +56,10 @@ function BlocRefValeurs({ titre, categorie }: { titre: string; categorie: 'comme
 }
 
 export function PageAdmin() {
-  const { utilisateur } = useAuth()
   const { rafraichir } = useAppData()
   const admin = useAdmin()
   const { theme, toggleTheme } = useTheme()
+  const { isAdmin } = useRole()
 
   const [confirmImport, setConfirmImport] = useState<string | null>(null)
   const [debutLettrages, setDebutLettrages] = useState('')
@@ -69,7 +67,7 @@ export function PageAdmin() {
   const [confirmReset, setConfirmReset] = useState('')
   const [confirmResetEtape, setConfirmResetEtape] = useState(false)
 
-  if (utilisateur?.email !== ADMIN_EMAIL) {
+  if (!isAdmin) {
     return (
       <div className="flex items-center justify-center py-32">
         <div className="text-center">

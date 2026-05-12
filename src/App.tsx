@@ -3,6 +3,7 @@ import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { ThemeProvider } from './contexts/ThemeContext'
+import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDepot } from './pages/PageDepot'
@@ -73,6 +74,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <FournisseurAuth>
+      <RoleProvider>
       <FournisseurDonnees>
       <BrowserRouter>
         <AppRoutes />
@@ -86,6 +88,7 @@ export default function App() {
         />
       </BrowserRouter>
       </FournisseurDonnees>
+      </RoleProvider>
     </FournisseurAuth>
     </ThemeProvider>
   )

@@ -1,6 +1,7 @@
 // Sous-tableau factures partagé entre la vue clients (expand) et la vue factures flat
 import { useState, useRef } from 'react'
 import type { FactureDetail, StatutFacture } from '../../types/client'
+import { useRole } from '../../contexts/RoleContext'
 
 interface Props {
   factures: FactureDetail[]
@@ -78,6 +79,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
 }
 
 export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact }: Props) {
+  const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [sortCol, setSortCol] = useState<string>('date_echeance')
@@ -96,6 +98,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
 
   function handleStatutClick(e: React.MouseEvent, numero: string) {
     e.stopPropagation()
+    if (!peutModifier) return
     const rect = (e.target as HTMLElement).getBoundingClientRect()
     popupPos.current = { top: rect.bottom + 6, left: rect.left }
     setPopupOpen(open => open === numero ? null : numero)
