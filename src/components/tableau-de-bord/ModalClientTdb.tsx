@@ -23,7 +23,7 @@ export function ModalClientTdb({ code, nom, onClose }: Props) {
   }, [onClose])
 
   async function handleStatutChange(numero: string, statut: StatutFacture | null) {
-    const { error } = await supabase.from('factures').update({ statut_facture: statut }).eq('numero_piece', numero)
+    const { error } = await supabase.from('factures').update({ statut_facture: statut } as never).eq('numero_piece', numero)
     if (error) { toast.error('Erreur mise à jour statut'); return }
     mettreAJourStatutLocal(numero, statut)
   }
