@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { supabase } from '../lib/supabase'
 
 const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
@@ -21,10 +22,11 @@ function getInitiales(email: string): string {
 
 export function Layout() {
   const { utilisateur } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const initiales = utilisateur?.email ? getInitiales(utilisateur.email) : '?'
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col">
       <header className="bg-slate-900 flex items-center px-6 h-14 gap-8 sticky top-0 z-50">
         {/* Logo */}
         <div className="flex items-center gap-2.5 mr-4 flex-shrink-0">
@@ -86,6 +88,13 @@ export function Layout() {
             </span>
           </div>
           <button
+            onClick={toggleTheme}
+            className="text-slate-500 hover:text-slate-300 text-xs px-2 py-1.5 rounded transition-colors"
+            title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
+          >
+            {theme === 'dark' ? '☀' : '◐'}
+          </button>
+          <button
             onClick={() => supabase.auth.signOut()}
             className="text-slate-500 hover:text-slate-300 text-xs px-2 py-1.5 rounded transition-colors"
             title="Se déconnecter"
@@ -95,7 +104,7 @@ export function Layout() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6">
+      <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6 dark:bg-slate-950 min-h-screen">
         <Outlet />
       </main>
     </div>

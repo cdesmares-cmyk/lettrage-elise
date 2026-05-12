@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useAdmin } from '../hooks/useAdmin'
 import { useAppData } from '../contexts/AppDataContext'
 import { useRefValeurs } from '../hooks/useRefValeurs'
+import { useTheme } from '../contexts/ThemeContext'
 import type { ImportRecord } from '../hooks/useAdmin'
 
 const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
@@ -60,6 +61,7 @@ export function PageAdmin() {
   const { utilisateur } = useAuth()
   const { rafraichir } = useAppData()
   const admin = useAdmin()
+  const { theme, toggleTheme } = useTheme()
 
   const [confirmImport, setConfirmImport] = useState<string | null>(null)
   const [debutLettrages, setDebutLettrages] = useState('')
@@ -105,6 +107,31 @@ export function PageAdmin() {
           <p className="text-sm text-gray-400">Zone réservée — actions irréversibles</p>
         </div>
       </div>
+
+      {/* ── Section 0 : Apparence ───────────────────────────────────────────── */}
+      <section className="bg-white border border-gray-200 rounded-xl shadow-sm mb-5 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-gray-800">Apparence</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Préférence sauvegardée localement dans le navigateur</p>
+          </div>
+        </div>
+        <div className="px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{theme === 'dark' ? '🌙' : '☀️'}</span>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">{theme === 'dark' ? 'Mode sombre actif' : 'Mode clair actif'}</p>
+              <p className="text-xs text-gray-400">{theme === 'dark' ? 'Interface en dark mode' : 'Interface en light mode'}</p>
+            </div>
+          </div>
+          <button
+            onClick={toggleTheme}
+            className={`relative w-12 h-6 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-200'}`}
+          >
+            <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`} />
+          </button>
+        </div>
+      </section>
 
       {/* ── Section 1 : Imports récents ─────────────────────────────────────── */}
       <section className="bg-white border border-gray-200 rounded-xl shadow-sm mb-5 overflow-hidden">

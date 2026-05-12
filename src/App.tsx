@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
+import { ThemeProvider } from './contexts/ThemeContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDepot } from './pages/PageDepot'
@@ -70,6 +71,7 @@ function AppRoutes() {
 
 export default function App() {
   return (
+    <ThemeProvider>
     <FournisseurAuth>
       <FournisseurDonnees>
       <BrowserRouter>
@@ -85,5 +87,6 @@ export default function App() {
       </BrowserRouter>
       </FournisseurDonnees>
     </FournisseurAuth>
+    </ThemeProvider>
   )
 }

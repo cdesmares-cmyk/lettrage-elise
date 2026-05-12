@@ -5,6 +5,7 @@ import type { FactureDetail } from '../types/client'
 
 export type PeriodeEncaissement = 'semaine' | 'mois' | 'trimestre' | 'annee'
 export type TopNb = 5 | 10 | 15
+export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
 export interface TopClient { code: string; nom: string; montant: number }
 export interface TopFacture {
@@ -132,6 +133,7 @@ export function useDashboard() {
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
   const [afficherNm1, setAfficherNm1] = useState(false)
+  const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [ca12Mois, setCa12Mois] = useState(0)
   const [lettragesRaw, setLettragesRaw] = useState<{ date_lettrage: string; montant: number }[]>([])
   const [chargement, setChargement] = useState(true)
@@ -159,10 +161,21 @@ export function useDashboard() {
     () => facturesActives.filter(f => !f.numero_piece.endsWith('_compte') && !f.est_avoir),
     [facturesActives]
   )
+
+  // moisMax = mois de la facture la plus récente → référence "mois en cours"
   const moisMax = useMemo(
     () => factures.reduce((mx, f) => { const m = f.date_emission?.slice(0, 7) ?? ''; return m > mx ? m : mx }, ''),
     [factures]
   )
+
+  // M-1 et N-1 calculés par rapport à moisMax, pas au calendrier
+  const moisRefYear = moisMax ? parseInt(moisMax.slice(0, 4)) : TODAY.getFullYear()
+  const moisRefMonth = moisMax ? parseInt(moisMax.slice(5, 7)) : TODAY.getMonth() + 1  // 1-indexed
+  const moisPrecDate = new Date(moisRefYear, moisRefMonth - 2, 1)   // mois avant moisMax
+  const moisAnPrecDate = new Date(moisRefYear - 1, moisRefMonth - 1, 1)  // même mois, an-1
+  const moisPrecStr = isoMois(moisPrecDate)
+  const moisAnPrecStr = isoMois(moisAnPrecDate)
+
   const facsFiltrees = useMemo(
     () => exclureDernierMois ? factures.filter(f => (f.date_emission?.slice(0, 7) ?? '') < moisMax) : factures,
     [factures, exclureDernierMois, moisMax]
@@ -173,13 +186,8 @@ export function useDashboard() {
   const nbClientsEchus = useMemo(() => new Set(impayeesEchues.map(f => f.code_client)).size, [impayeesEchues])
 
   const encoursCourant = useMemo(() => clients.reduce((s, c) => s + c.encours_total, 0), [clients])
+  // DSO roulant = (Encours TTC / CA TTC 12 mois) × 365 — méthode standard
   const dsoRoulant = ca12Mois > 0 ? Math.round(encoursCourant / ca12Mois * 365) : null
-
-  const moisPrecDate = new Date(TODAY.getFullYear(), TODAY.getMonth() - 1, 1)
-  const moisAnPrecDate = new Date(TODAY.getFullYear() - 1, TODAY.getMonth(), 1)
-  const date18MoisAvant = new Date(TODAY.getFullYear(), TODAY.getMonth() - 18, 1)
-  const moisPrecStr = isoMois(moisPrecDate)
-  const moisAnPrecStr = isoMois(moisAnPrecDate)
 
   const montantMoisPrec = useMemo(
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisPrecStr).reduce((s, f) => s + f.reste_du, 0),
@@ -189,11 +197,10 @@ export function useDashboard() {
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisAnPrecStr).reduce((s, f) => s + f.reste_du, 0),
     [factures, moisAnPrecStr]
   )
-  const montantPlus18Mois = useMemo(
-    () => factures.filter(f => f.reste_du > 0.005 && f.date_emission && new Date(f.date_emission) < date18MoisAvant).reduce((s, f) => s + f.reste_du, 0),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [factures]
-  )
+  const montantSeuilMois = useMemo(() => {
+    const dateRef = new Date(TODAY.getFullYear(), TODAY.getMonth() - seuilAnciennete, 1)
+    return factures.filter(f => f.reste_du > 0.005 && f.date_emission && new Date(f.date_emission) < dateRef).reduce((s, f) => s + f.reste_du, 0)
+  }, [factures, seuilAnciennete])
 
   const topClients = useMemo(() => computeTopClients(facsFiltrees, topNbClients), [facsFiltrees, topNbClients])
   const topFactures = useMemo(() => computeTopFactures(facsFiltrees), [facsFiltrees])
@@ -207,7 +214,8 @@ export function useDashboard() {
   return {
     nbImpayeesEchues, nbClientsEchus, dsoRoulant,
     exclureDernierMois, setExclureDernierMois, moisExclusLabel,
-    montantMoisPrec, montantAnPrec, montantPlus18Mois,
+    montantMoisPrec, montantAnPrec,
+    montantSeuilMois, seuilAnciennete, setSeuilAnciennete,
     libelleMoisPrec: moisPrecDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
     libelleMoisAnPrec: moisAnPrecDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
     topClients, topNbClients, setTopNbClients,

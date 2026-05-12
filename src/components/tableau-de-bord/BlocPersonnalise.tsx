@@ -41,16 +41,16 @@ function WidgetSurveiller({ factures }: Props) {
     return [...map.values()].filter(c => c.nb >= 3).sort((a, b) => b.total - a.total).slice(0, 8)
   }, [factures])
 
-  if (!alertes.length) return <p className="text-xs text-gray-400 py-4 text-center">Aucun client avec 3+ factures échues</p>
+  if (!alertes.length) return <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">Aucun client avec 3+ factures échues</p>
   return (
-    <ul className="divide-y divide-gray-50 -mx-4">
+    <ul className="divide-y divide-gray-50 dark:divide-slate-700 -mx-4">
       {alertes.map(c => (
         <li key={c.code} className="px-4 py-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-gray-800 truncate">{c.nom}</p>
-            <p className="text-[10px] text-gray-400">{c.nb} factures échues</p>
+            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 truncate">{c.nom}</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500">{c.nb} factures échues</p>
           </div>
-          <span className="text-xs font-mono font-bold text-red-600 tabular-nums flex-shrink-0">{fmtEuro(c.total)}</span>
+          <span className="text-xs font-mono font-bold text-red-600 dark:text-red-400 tabular-nums flex-shrink-0">{fmtEuro(c.total)}</span>
         </li>
       ))}
     </ul>
@@ -59,22 +59,19 @@ function WidgetSurveiller({ factures }: Props) {
 
 function WidgetAvoirs({ factures }: Props) {
   const avoirs = useMemo(() =>
-    factures
-      .filter(f => f.est_avoir || f.reste_du < -0.005)
-      .sort((a, b) => a.reste_du - b.reste_du)
-      .slice(0, 8),
+    factures.filter(f => f.est_avoir || f.reste_du < -0.005).sort((a, b) => a.reste_du - b.reste_du).slice(0, 8),
     [factures]
   )
-  if (!avoirs.length) return <p className="text-xs text-gray-400 py-4 text-center">Aucun avoir non soldé</p>
+  if (!avoirs.length) return <p className="text-xs text-gray-400 dark:text-gray-500 py-4 text-center">Aucun avoir non soldé</p>
   return (
-    <ul className="divide-y divide-gray-50 -mx-4">
+    <ul className="divide-y divide-gray-50 dark:divide-slate-700 -mx-4">
       {avoirs.map(f => (
         <li key={f.numero_piece} className="px-4 py-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] font-semibold text-blue-700 truncate">{f.numero_piece}</p>
-            <p className="text-[10px] text-gray-400 truncate">{f.nom_client ?? f.code_client}</p>
+            <p className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-400 truncate">{f.numero_piece}</p>
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{f.nom_client ?? f.code_client}</p>
           </div>
-          <span className="text-xs font-mono font-bold text-blue-600 tabular-nums flex-shrink-0">{fmtEuro(f.reste_du)}</span>
+          <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 tabular-nums flex-shrink-0">{fmtEuro(f.reste_du)}</span>
         </li>
       ))}
     </ul>
@@ -89,22 +86,22 @@ function WidgetConcentration({ clients }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-end gap-3">
-        <span className={`text-3xl font-bold tabular-nums ${pct > 60 ? 'text-red-600' : pct > 40 ? 'text-amber-600' : 'text-emerald-600'}`}>
+        <span className={`text-3xl font-bold tabular-nums ${pct > 60 ? 'text-red-600 dark:text-red-400' : pct > 40 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
           {pct.toFixed(1)}%
         </span>
-        <span className="text-xs text-gray-500 pb-1">du total encours détenu par les 3 premiers clients</span>
+        <span className="text-xs text-gray-500 dark:text-gray-400 pb-1">du total encours (top 3 clients)</span>
       </div>
       <ul className="space-y-2">
         {top3.map((c, i) => (
           <li key={c.code_dso} className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-gray-300 w-3">{i + 1}</span>
+            <span className="text-[10px] font-bold text-gray-300 dark:text-slate-600 w-3">{i + 1}</span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[11px] font-semibold text-gray-700 truncate">{c.nom}</span>
-                <span className="text-[11px] font-mono text-gray-600 flex-shrink-0 ml-2">{fmtEuro(c.encours_total)}</span>
+                <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 truncate">{c.nom}</span>
+                <span className="text-[11px] font-mono text-gray-600 dark:text-gray-400 flex-shrink-0 ml-2">{fmtEuro(c.encours_total)}</span>
               </div>
-              <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-400 rounded-full" style={{ width: `${encoursCourant > 0 ? (c.encours_total / encoursCourant) * 100 : 0}%` }} />
+              <div className="h-1 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-700 rounded-full" style={{ width: `${encoursCourant > 0 ? (c.encours_total / encoursCourant) * 100 : 0}%` }} />
               </div>
             </div>
           </li>
@@ -122,21 +119,21 @@ function WidgetAnnotees({ factures }: Props) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-          <p className="text-[10px] font-semibold text-red-700 uppercase tracking-wider mb-1">⚠ Litige</p>
-          <p className="text-lg font-bold text-red-700 tabular-nums">{litiges.length}</p>
-          <p className="text-[10px] text-red-500 font-mono">{fmtEuro(totalLitige)}</p>
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40 rounded-lg p-3">
+          <p className="text-[10px] font-semibold text-red-700 dark:text-red-400 uppercase tracking-wider mb-1">⚠ Litige</p>
+          <p className="text-lg font-bold text-red-700 dark:text-red-400 tabular-nums">{litiges.length}</p>
+          <p className="text-[10px] text-red-500 dark:text-red-500 font-mono">{fmtEuro(totalLitige)}</p>
         </div>
-        <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
-          <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wider mb-1">📦 Provisionné</p>
-          <p className="text-lg font-bold text-orange-700 tabular-nums">{provisions.length}</p>
-          <p className="text-[10px] text-orange-500 font-mono">{fmtEuro(totalProv)}</p>
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-900/40 rounded-lg p-3">
+          <p className="text-[10px] font-semibold text-orange-700 dark:text-orange-400 uppercase tracking-wider mb-1">📦 Provisionné</p>
+          <p className="text-lg font-bold text-orange-700 dark:text-orange-400 tabular-nums">{provisions.length}</p>
+          <p className="text-[10px] text-orange-500 dark:text-orange-500 font-mono">{fmtEuro(totalProv)}</p>
         </div>
       </div>
       {litiges.slice(0, 4).map(f => (
         <div key={f.numero_piece} className="flex items-center justify-between text-xs">
-          <span className="font-mono text-blue-700 truncate">{f.numero_piece}</span>
-          <span className="font-mono text-red-600 font-semibold">{fmtEuro(f.reste_du)}</span>
+          <span className="font-mono text-blue-700 dark:text-blue-400 truncate">{f.numero_piece}</span>
+          <span className="font-mono text-red-600 dark:text-red-400 font-semibold">{fmtEuro(f.reste_du)}</span>
         </div>
       ))}
     </div>
@@ -163,24 +160,24 @@ export function BlocPersonnalise(props: Props) {
   }
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-700">Vue personnalisée</h3>
+    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
+      <div className="border-b border-gray-100 dark:border-slate-700 px-5 py-3 flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-300">Vue personnalisée</h3>
         <button
           onClick={() => setEditMode(e => !e)}
-          className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${editMode ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}
+          className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${editMode ? 'bg-blue-700 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
         >
           ⊕ Personnaliser
         </button>
       </div>
 
       {editMode && (
-        <div className="px-5 py-3 bg-gray-50 border-b border-gray-100 flex flex-wrap gap-2">
+        <div className="px-5 py-3 bg-gray-50 dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 flex flex-wrap gap-2">
           {TOUS_WIDGETS.map(id => (
             <button
               key={id}
               onClick={() => toggle(id)}
-              className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${actifs.includes(id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
+              className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${actifs.includes(id) ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-600 hover:border-gray-400'}`}
             >
               {actifs.includes(id) ? '✓ ' : '+ '}
               {WIDGET_META[id].label}
@@ -191,14 +188,14 @@ export function BlocPersonnalise(props: Props) {
       )}
 
       {actifs.length === 0 ? (
-        <div className="px-5 py-10 text-center text-xs text-gray-400">
+        <div className="px-5 py-10 text-center text-xs text-gray-400 dark:text-gray-500">
           Aucun widget actif — cliquez sur "Personnaliser" pour en ajouter.
         </div>
       ) : (
-        <div className={`grid gap-px bg-gray-100 ${actifs.length === 1 ? 'grid-cols-1' : actifs.length === 2 ? 'grid-cols-2' : actifs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+        <div className={`grid gap-px bg-gray-100 dark:bg-slate-700 ${actifs.length === 1 ? 'grid-cols-1' : actifs.length === 2 ? 'grid-cols-2' : actifs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {actifs.map(id => (
-            <div key={id} className="bg-white p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">{WIDGET_META[id].label}</p>
+            <div key={id} className="bg-white dark:bg-slate-800 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-3">{WIDGET_META[id].label}</p>
               {WIDGET_CONTENT[id]}
             </div>
           ))}
