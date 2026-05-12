@@ -16,7 +16,7 @@ function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-function buildCorps(nomClient: string, factures: { numero: string; montant: number; echeance: string | null }[]) {
+function buildCorps(factures: { numero: string; montant: number; echeance: string | null }[]) {
   const lignes = factures.map(f =>
     `  • Facture ${f.numero} — ${fmtEuros(f.montant)}${f.echeance ? ` — échéance le ${fmtDate(f.echeance)}` : ''}`
   ).join('\n')
@@ -51,24 +51,24 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
     setFacturesSel(toutesIds)
     setContactsSel(contacts.filter(c => c.email).map(c => c.id))
     setObjet(`Relance factures impayées — ${client.nom}`)
-    setCorps(buildCorps(client.nom, impayees.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
+    setCorps(buildCorps(impayees.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
   }, [client?.code_dso, contacts.length, impayees.length])
 
   if (!client) return null
 
   const contactsAvecEmail = contacts.filter(c => c.email)
   const sanContacts = contactsAvecEmail.length === 0
-  const facturesPourEnvoi = impayees.filter(f => facturesSel.includes(f.numero_piece))
+  const nomClient = client.nom
+  const codeClient = client.code_dso
 
   function toggleContact(id: string) {
     setContactsSel(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
   function toggleFacture(num: string) {
     setFacturesSel(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
-    // Re-génère le corps quand la sélection change
     const newSel = facturesSel.includes(num) ? facturesSel.filter(x => x !== num) : [...facturesSel, num]
     const sel = impayees.filter(f => newSel.includes(f.numero_piece))
-    setCorps(buildCorps(client.nom, sel.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
+    setCorps(buildCorps(sel.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
   }
 
   const peutEnvoyer = !envoi && objet.trim() && corps.trim() && facturesSel.length > 0 &&
@@ -87,7 +87,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
     }
 
     const { error } = await supabase.from('relances').insert({
-      code_client: client.code_dso,
+      code_client: codeClient,
       operateur_id: utilisateur.id,
       contacts_ids: cIds,
       factures_ids: facturesSel,
@@ -116,8 +116,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div>
-              <p className="text-sm font-bold text-gray-900">Nouvelle relance — <span className="text-blue-600">{client.nom}</span></p>
-              <p className="text-xs text-gray-400 mt-0.5 font-mono">{client.code_dso} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
+              <p className="text-sm font-bold text-gray-900">Nouvelle relance — <span className="text-blue-600">{nomClient}</span></p>
+              <p className="text-xs text-gray-400 mt-0.5 font-mono">{codeClient} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
             </div>
             <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 text-gray-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-sm flex items-center justify-center transition-colors">✕</button>
           </div>
