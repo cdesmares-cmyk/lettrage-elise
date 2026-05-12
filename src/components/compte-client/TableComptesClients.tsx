@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import type { CompteClient, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
+import { useRole } from '../../contexts/RoleContext'
 
 interface Props {
   clients: CompteClient[]
@@ -16,6 +17,7 @@ interface Props {
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
+  onRelancer: (client: CompteClient) => void
 }
 
 const PAGE_SIZE = 25
@@ -76,7 +78,8 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer }: Props) {
+  const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState<string>('encours_total')
@@ -187,12 +190,22 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     ) : <span className="text-[10px] text-gray-300">—</span>}
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <button
-                      onClick={e => { e.stopPropagation(); onOptions(c) }}
-                      className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
-                    >
-                      ⚙ Options
-                    </button>
+                    <div className="flex items-center justify-center gap-1.5">
+                      {peutModifier && c.nb_impayees > 0 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                          className="text-[10px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 px-2.5 py-1 rounded-md hover:bg-blue-100 hover:border-blue-400 transition-all"
+                        >
+                          ✉ Relancer
+                        </button>
+                      )}
+                      <button
+                        onClick={e => { e.stopPropagation(); onOptions(c) }}
+                        className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                      >
+                        ⚙ Options
+                      </button>
+                    </div>
                   </td>
                 </tr>
 

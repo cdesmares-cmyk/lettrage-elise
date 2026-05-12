@@ -11,6 +11,7 @@ import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
+import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: string }[] = [
@@ -22,6 +23,7 @@ const VUES: { val: VueMode; label: string; icon: string }[] = [
 export function PageCompteClient() {
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
+  const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
@@ -106,6 +108,7 @@ export function PageCompteClient() {
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
           onOptions={setClientOptions}
+          onRelancer={setClientRelance}
         />
       )}
 
@@ -153,6 +156,13 @@ export function PageCompteClient() {
         getFactures={codes => factures.getFactures(codes)}
         chargerFactures={codes => factures.chargerFactures(codes)}
         onFermer={() => setExportNebOuvert(false)}
+      />
+
+      {/* Modal Composition Relance */}
+      <ModalCompositionRelance
+        client={clientRelance}
+        onFermer={() => setClientRelance(null)}
+        onSent={() => setClientRelance(null)}
       />
 
       {/* Modal Export */}
