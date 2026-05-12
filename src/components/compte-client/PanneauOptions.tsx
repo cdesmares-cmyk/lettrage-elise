@@ -1,7 +1,10 @@
-// Volet latéral coulissant — édition des infos client
+// Volet latéral coulissant — édition des infos client + contacts
 import { useState, useEffect, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
+import { SectionContacts } from './SectionContacts'
+
+type Onglet = 'infos' | 'contacts'
 
 interface Props {
   client: CompteClient | null
@@ -83,6 +86,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [plateforme, setPlateforme] = useState('')
   const [groupement, setGroupement] = useState('')
   const [enregistrement, setEnregistrement] = useState(false)
+  const [onglet, setOnglet] = useState<Onglet>('infos')
 
   useEffect(() => {
     if (client) {
@@ -95,6 +99,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   }, [client])
 
   if (!client) return null
+
+  function fermerEtReset() { setOnglet('infos'); onFermer() }
 
   async function handleSauvegarder() {
     setEnregistrement(true)
@@ -124,17 +130,36 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onFermer} />
-      <div className="fixed top-0 right-0 bottom-0 w-[360px] bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={fermerEtReset} />
+      <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
         <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <p className="text-sm font-bold text-gray-900">{client.nom}</p>
             <p className="text-xs text-gray-400 mt-0.5 font-mono">{client.code_dso}</p>
           </div>
-          <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
+          <button onClick={fermerEtReset} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
+        </div>
+
+        {/* Onglets */}
+        <div className="flex border-b border-gray-100 flex-shrink-0">
+          {(['infos', 'contacts'] as Onglet[]).map(o => (
+            <button
+              key={o}
+              onClick={() => setOnglet(o)}
+              className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+                onglet === o
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {o === 'infos' ? 'Informations' : 'Contacts'}
+            </button>
+          ))}
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {onglet === 'contacts' && <SectionContacts codeClient={client.code_dso} />}
+          {onglet === 'infos' && <>
           {/* Statut juridique */}
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut juridique</label>
@@ -207,16 +232,26 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               </div>
             </div>
           </div>
+          </>}
         </div>
 
-        <div className="flex gap-2 px-5 py-4 border-t border-gray-100">
-          <button onClick={onFermer} disabled={enregistrement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
-            Annuler
-          </button>
-          <button onClick={handleSauvegarder} disabled={enregistrement} className="flex-[2] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-            {enregistrement ? '…' : '✓ Enregistrer'}
-          </button>
-        </div>
+        {onglet === 'infos' && (
+          <div className="flex gap-2 px-5 py-4 border-t border-gray-100">
+            <button onClick={fermerEtReset} disabled={enregistrement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
+              Annuler
+            </button>
+            <button onClick={handleSauvegarder} disabled={enregistrement} className="flex-[2] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+              {enregistrement ? '…' : '✓ Enregistrer'}
+            </button>
+          </div>
+        )}
+        {onglet === 'contacts' && (
+          <div className="px-5 py-4 border-t border-gray-100">
+            <button onClick={fermerEtReset} className="w-full text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">
+              Fermer
+            </button>
+          </div>
+        )}
       </div>
     </>
   )
