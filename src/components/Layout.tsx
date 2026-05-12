@@ -5,10 +5,10 @@ import { supabase } from '../lib/supabase'
 const ADMIN_EMAIL = 'cdesmares@elise.com.fr'
 
 const ONGLETS = [
+  { chemin: '/tableau-de-bord', label: 'Tableau de bord' },
   { chemin: '/depot', label: 'Dépôt' },
   { chemin: '/lettrage', label: 'Lettrage' },
   { chemin: '/compte-client', label: 'Compte client' },
-  { chemin: '/tableau-de-bord', label: 'Tableau de bord' },
   { chemin: '/extraction', label: 'Extraction' },
 ]
 

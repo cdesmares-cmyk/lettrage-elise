@@ -47,7 +47,7 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/connexion"
-        element={session ? <Navigate to="/depot" replace /> : <PageConnexion />}
+        element={session ? <Navigate to="/tableau-de-bord" replace /> : <PageConnexion />}
       />
       <Route
         element={
@@ -56,7 +56,7 @@ function AppRoutes() {
           </RoutePrivee>
         }
       >
-        <Route index element={<Navigate to="/depot" replace />} />
+        <Route index element={<Navigate to="/tableau-de-bord" replace />} />
         <Route path="/depot" element={<PageDepot />} />
         <Route path="/lettrage" element={<PageLettrage />} />
         <Route path="/compte-client" element={<PageCompteClient />} />
