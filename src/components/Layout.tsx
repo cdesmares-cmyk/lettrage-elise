@@ -9,6 +9,7 @@ const ONGLETS_TOUS = [
   { chemin: '/depot',           label: 'Dépôt',           commercial: false },
   { chemin: '/lettrage',        label: 'Lettrage',         commercial: false },
   { chemin: '/compte-client',   label: 'Compte client',    commercial: true },
+  { chemin: '/relances',        label: 'Relances',         commercial: false },
   { chemin: '/extraction',      label: 'Extraction',       commercial: true },
 ]
 
