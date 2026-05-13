@@ -12,6 +12,7 @@ import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
+import { useGmailAuth } from '../hooks/useGmailAuth'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: string }[] = [
@@ -24,6 +25,7 @@ export function PageCompteClient() {
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
+  const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
@@ -163,6 +165,7 @@ export function PageCompteClient() {
         client={clientRelance}
         onFermer={() => setClientRelance(null)}
         onSent={() => setClientRelance(null)}
+        gmailAuth={gmailAuth}
       />
 
       {/* Modal Export */}

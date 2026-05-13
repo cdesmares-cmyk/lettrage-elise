@@ -29,6 +29,8 @@ Deno.serve(async (req: Request) => {
     return Response.redirect(`${returnUrl}?gmail=error`, 302)
   }
 
+  console.log('oauth-callback: userId=', userId, 'returnUrl=', returnUrl)
+
   // Échange du code contre les tokens Google
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method:  'POST',
@@ -42,7 +44,11 @@ Deno.serve(async (req: Request) => {
     }),
   })
 
+  console.log('token exchange status:', tokenRes.status)
+
   if (!tokenRes.ok) {
+    const errBody = await tokenRes.text()
+    console.error('token exchange failed:', errBody)
     return Response.redirect(`${returnUrl}?gmail=error`, 302)
   }
 
@@ -57,7 +63,7 @@ Deno.serve(async (req: Request) => {
 
   // Sauvegarde des tokens (upsert — un seul enregistrement par opérateur)
   const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
-  await supabase.from('gmail_tokens').upsert({
+  const { error: upsertError } = await supabase.from('gmail_tokens').upsert({
     user_id:       userId,
     access_token:  tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
@@ -66,5 +72,11 @@ Deno.serve(async (req: Request) => {
     mis_a_jour_le: new Date().toISOString(),
   })
 
+  if (upsertError) {
+    console.error('upsert error:', upsertError.message)
+    return Response.redirect(`${returnUrl}?gmail=error`, 302)
+  }
+
+  console.log('gmail_tokens upsert OK pour', profile.email)
   return Response.redirect(`${returnUrl}?gmail=connected`, 302)
 })

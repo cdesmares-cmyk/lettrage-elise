@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
-import { useGmailAuth } from '../../hooks/useGmailAuth'
+import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient } from '../../types/client'
 
 function fmtEuros(n: number) {
@@ -24,17 +24,25 @@ function buildCorps(factures: { numero: string; montant: number; echeance: strin
   return `Bonjour,\n\nNous nous permettons de vous contacter au sujet des factures suivantes en attente de règlement :\n\n${lignes}\n\nNous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter en cas de question ou de litige.\n\nCordialement`
 }
 
+interface GmailAuthProps {
+  estConnecte: boolean
+  token: GmailToken | null
+  connecterGmail: () => void
+  envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string }) => Promise<{ threadId: string } | null>
+}
+
 interface Props {
   client: CompteClient | null
   onFermer: () => void
   onSent: () => void
+  gmailAuth: GmailAuthProps
 }
 
-export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
+export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }: Props) {
   const { utilisateur } = useAuth()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives } = useAppData()
-  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail } = useGmailAuth()
+  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail } = gmailAuth
 
   const impayees = facturesActives.filter(f => f.code_client === client?.code_dso && f.reste_du > 0.005)
 

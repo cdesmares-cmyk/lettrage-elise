@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useRelances } from '../hooks/useRelances'
+import { useGmailAuth } from '../hooks/useGmailAuth'
 import { KpisRelances } from '../components/relances/KpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
@@ -11,6 +12,8 @@ export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut } = useRelances()
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
+  // Chargé au niveau page pour éviter les problèmes de timing OAuth
+  const gmailAuth = useGmailAuth()
 
   return (
     <div className="space-y-6">
@@ -48,6 +51,7 @@ export function PageRelances() {
         client={clientRelance}
         onFermer={() => setClientRelance(null)}
         onSent={() => setClientRelance(null)}
+        gmailAuth={gmailAuth}
       />
     </div>
   )
