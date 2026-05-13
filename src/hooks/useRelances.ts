@@ -104,6 +104,12 @@ export function useRelances() {
     const { error } = await supabase.from('relances').update(patch as never).eq('id', id)
     if (error) { toast.error('Erreur mise à jour statut'); return false }
     setRelances(prev => prev.map(r => r.id === id ? { ...r, ...patch } as Relance : r))
+    const messages: Partial<Record<StatutRelance, string>> = {
+      repondue:     '✓ Répondue · +20 pts',
+      payee:        '🎉 Payée · +30 pts',
+      sans_reponse: 'Marquée sans réponse',
+    }
+    if (messages[statut]) toast.success(messages[statut]!)
     return true
   }
 

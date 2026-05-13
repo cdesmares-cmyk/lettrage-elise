@@ -2,6 +2,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { useRole } from '../contexts/RoleContext'
+import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { supabase } from '../lib/supabase'
 
 const ONGLETS_TOUS = [
@@ -24,6 +25,7 @@ export function Layout() {
   const { utilisateur } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { isAdmin, isCommercial } = useRole()
+  const nbRelancesEnAttente = useCompteurRelances()
   const initiales = utilisateur?.email ? getInitiales(utilisateur.email) : '?'
   const onglets = ONGLETS_TOUS.filter(o => !isCommercial || o.commercial)
 
@@ -59,6 +61,11 @@ export function Layout() {
                 <>
                   <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-700'}`} />
                   {label}
+                  {chemin === '/relances' && nbRelancesEnAttente > 0 && (
+                    <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                      {nbRelancesEnAttente}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>
