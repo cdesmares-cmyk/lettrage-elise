@@ -35,11 +35,11 @@ export function Layout() {
         {/* Logo */}
         <div className="flex items-center gap-2.5 mr-4 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
-            E
+            O
           </div>
           <div className="leading-none">
-            <p className="text-white font-semibold text-[13px] tracking-tight">Lettrage Élise</p>
-            <p className="text-slate-500 text-[10px]">Finance · Comptabilité</p>
+            <p className="text-white font-semibold text-[13px] tracking-tight">OCKHAM</p>
+            <p className="text-slate-500 text-[10px]">Efficacité · Fiabilité · Simplicité</p>
           </div>
         </div>
 

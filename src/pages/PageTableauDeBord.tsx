@@ -13,7 +13,7 @@ export function PageTableauDeBord() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Tableau de bord</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Vue temps réel — données issues du cache applicatif</p>
+          <p className="text-sm text-gray-500 mt-0.5">OCKHAM · Efficacité · Fiabilité · Simplicité</p>
         </div>
         {data.chargement && (
           <div className="flex items-center gap-2 text-xs text-gray-400">
