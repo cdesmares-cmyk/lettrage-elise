@@ -1,13 +1,17 @@
 import { useMemo } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { Relance } from '../../hooks/useRelances'
+import type { CompteClient } from '../../types/client'
 
 function joursDepuis(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-function scorePriorite(encours: number, ancMax: number, joursSansRelance: number): number {
-  return (ancMax / 30) * 2 + encours / 1000 + joursSansRelance / 7
+// Plafond 365j pour "jamais relancé" — évite les scores astronomiques
+function scorePriorite(encours: number, ancMax: number, joursSansRelance: number, hasSansReponse: boolean): number {
+  const jsr = Math.min(joursSansRelance, 365)
+  const base = (ancMax / 30) * 2 + encours / 1000 + jsr / 7
+  return hasSansReponse ? base * 1.3 : base
 }
 
 function fmtEuros(n: number): string {
@@ -20,15 +24,20 @@ function badgeAnc(j: number) {
   return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{j}j</span>
 }
 
-interface Props { relances: Relance[] }
+interface Props {
+  relances: Relance[]
+  onRelancer: (client: CompteClient) => void
+}
 
-export function ListePriorites({ relances }: Props) {
+export function ListePriorites({ relances, onRelancer }: Props) {
   const { clients, facturesActives } = useAppData()
 
   const priorites = useMemo(() => {
-    // Index de la dernière relance par client
     const derniereRelance: Record<string, string> = {}
+    const clientsAvecSansReponse = new Set<string>()
+
     for (const r of relances) {
+      if (r.statut === 'sans_reponse') clientsAvecSansReponse.add(r.code_client)
       if (r.statut !== 'brouillon' && r.envoyee_le) {
         if (!derniereRelance[r.code_client] || r.envoyee_le > derniereRelance[r.code_client]) {
           derniereRelance[r.code_client] = r.envoyee_le
@@ -37,7 +46,11 @@ export function ListePriorites({ relances }: Props) {
     }
 
     return clients
-      .filter(c => c.nb_impayees > 0 && c.encours_total > 0)
+      .filter(c =>
+        c.nb_impayees > 0 &&
+        c.encours_total > 0 &&
+        c.statut_juridique !== 'liquidation'   // pas de relance sur liquidation judiciaire
+      )
       .map(c => {
         const factures = facturesActives.filter(f => f.code_client === c.code_dso && f.reste_du > 0)
         const ancMax = factures.length > 0
@@ -45,16 +58,19 @@ export function ListePriorites({ relances }: Props) {
           : 0
         const joursSansRelance = derniereRelance[c.code_dso]
           ? joursDepuis(derniereRelance[c.code_dso])
-          : 999
+          : 365
+        const hasSansReponse = clientsAvecSansReponse.has(c.code_dso)
         return {
           ...c,
           ancMax: Math.max(0, ancMax),
           joursSansRelance,
-          score: scorePriorite(c.encours_total, Math.max(0, ancMax), joursSansRelance),
+          jamsRelance: !derniereRelance[c.code_dso],
+          hasSansReponse,
+          score: scorePriorite(c.encours_total, Math.max(0, ancMax), joursSansRelance, hasSansReponse),
         }
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
+      .slice(0, 10)
   }, [clients, facturesActives, relances])
 
   if (priorites.length === 0) {
@@ -67,28 +83,53 @@ export function ListePriorites({ relances }: Props) {
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
         <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">À relancer en priorité</p>
+        <p className="text-[10px] text-gray-300">Top {priorites.length}</p>
       </div>
-      <div className="divide-y divide-gray-50">
+      <div className="divide-y divide-gray-50 max-h-[520px] overflow-y-auto">
         {priorites.map((c, i) => (
-          <div key={c.code_dso} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/40 transition-colors">
-            <span className="w-5 h-5 rounded-full bg-gray-100 text-[10px] font-bold text-gray-500 flex items-center justify-center flex-shrink-0">
+          <div
+            key={c.code_dso}
+            className={`flex items-center gap-3 px-4 py-2.5 transition-colors group ${
+              c.hasSansReponse ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-gray-50/40'
+            }`}
+          >
+            {/* Rang */}
+            <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
+              i === 0 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+            }`}>
               {i + 1}
             </span>
+
+            {/* Nom + code */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-800 truncate">{c.nom}</p>
-              <p className="text-[10px] font-mono text-gray-400">{c.code_dso}</p>
+              <p className="text-xs font-semibold text-gray-800 truncate">{c.nom}</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-[10px] font-mono text-gray-400">{c.code_dso}</p>
+                {c.hasSansReponse && (
+                  <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 rounded">sans réponse</span>
+                )}
+                {c.jamsRelance && (
+                  <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded">jamais relancé</span>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+
+            {/* Métriques */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {badgeAnc(c.ancMax)}
-              <span className="text-xs font-semibold text-gray-600 tabular-nums">{fmtEuros(c.encours_total)}</span>
+              <span className="text-[11px] font-semibold text-gray-600 tabular-nums">{fmtEuros(c.encours_total)}</span>
             </div>
-            <div className="text-right flex-shrink-0 w-20">
-              <p className="text-[10px] text-gray-400">
-                {c.joursSansRelance >= 999 ? 'Jamais relancé' : `${c.joursSansRelance}j sans relance`}
-              </p>
-            </div>
+
+            {/* Bouton Relancer */}
+            <button
+              onClick={() => onRelancer(c)}
+              className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-blue-200 text-blue-600 bg-white hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all opacity-0 group-hover:opacity-100"
+              title="Ouvrir la composition de relance"
+            >
+              ✉
+            </button>
           </div>
         ))}
       </div>

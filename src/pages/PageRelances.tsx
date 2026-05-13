@@ -1,12 +1,16 @@
+import { useState } from 'react'
 import { useRelances } from '../hooks/useRelances'
 import { KpisRelances } from '../components/relances/KpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
+import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { useRole } from '../contexts/RoleContext'
+import type { CompteClient } from '../types/client'
 
 export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut } = useRelances()
   const { isCommercial } = useRole()
+  const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
 
   return (
     <div className="space-y-6">
@@ -32,12 +36,19 @@ export function PageRelances() {
           />
         </div>
 
-        {/* Top 5 priorités */}
+        {/* Priorités */}
         <div className="space-y-3">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priorités</p>
-          <ListePriorites relances={relances} />
+          <ListePriorites relances={relances} onRelancer={setClientRelance} />
         </div>
       </div>
+
+      {/* Modal composition relance (depuis liste priorités) */}
+      <ModalCompositionRelance
+        client={clientRelance}
+        onFermer={() => setClientRelance(null)}
+        onSent={() => setClientRelance(null)}
+      />
     </div>
   )
 }
