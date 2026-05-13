@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
+import { useGmailAuth } from '../../hooks/useGmailAuth'
 import type { CompteClient } from '../../types/client'
 
 function fmtEuros(n: number) {
@@ -33,6 +34,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
   const { utilisateur } = useAuth()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives } = useAppData()
+  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail } = useGmailAuth()
 
   const impayees = facturesActives.filter(f => f.code_client === client?.code_dso && f.reste_du > 0.005)
 
@@ -82,25 +84,42 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
     if (sanContacts && emailFallback.trim()) {
       const ok = await ajouterContact({ nom: nomFallback.trim(), prenom: null, email: emailFallback.trim(), telephone: null, role_contact: 'relance' })
       if (!ok) { setEnvoi(false); return }
-      // Récupère l'id du contact fraîchement créé (useContacts l'a ajouté en local)
       cIds = []
     }
 
-    const { error } = await supabase.from('relances').insert({
-      code_client: codeClient,
-      operateur_id: utilisateur.id,
-      contacts_ids: cIds,
-      factures_ids: facturesSel,
-      objet: objet.trim(),
-      corps_html: corps.replace(/\n/g, '<br>'),
-      statut: 'envoyee',
-      envoyee_le: new Date().toISOString(),
+    // Envoi Gmail si l'opérateur a connecté sa boîte
+    let gmailThreadId: string | undefined
+    if (estConnecte) {
+      const destinataires = sanContacts
+        ? [emailFallback.trim()]
+        : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email!).filter(Boolean)
+      const res = await envoyerEmail({
+        destinataires,
+        objet:     objet.trim(),
+        corpsHtml: corps.replace(/\n/g, '<br>'),
+      })
+      if (!res) { toast.error('Échec de l\'envoi Gmail'); setEnvoi(false); return }
+      gmailThreadId = res.threadId
+    }
+
+    const payload: Record<string, unknown> = {
+      code_client:      codeClient,
+      operateur_id:     utilisateur.id,
+      contacts_ids:     cIds,
+      factures_ids:     facturesSel,
+      objet:            objet.trim(),
+      corps_html:       corps.replace(/\n/g, '<br>'),
+      statut:           'envoyee',
+      envoyee_le:       new Date().toISOString(),
       points_attribues: 10,
-    } as never)
+    }
+    if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
+
+    const { error } = await supabase.from('relances').insert(payload as never)
 
     setEnvoi(false)
     if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
-    toast.success('+10 pts · Relance enregistrée')
+    toast.success(estConnecte ? '✉ Envoyé · +10 pts' : '+10 pts · Relance enregistrée')
     onSent()
     onFermer()
   }
@@ -127,6 +146,21 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
 
             {/* Colonne gauche : formulaire */}
             <div className="w-1/2 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
+
+              {/* Statut connexion Gmail */}
+              {estConnecte ? (
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  <span className="text-emerald-600 text-sm">✓</span>
+                  <p className="text-xs text-emerald-700">Envoi depuis <span className="font-semibold">{gmailToken?.gmail_email}</span></p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-amber-700">Gmail non connecté — la relance sera enregistrée sans envoi</p>
+                  <button onClick={connecterGmail} className="text-xs font-semibold text-blue-600 hover:underline ml-3 flex-shrink-0">
+                    Connecter Gmail →
+                  </button>
+                </div>
+              )}
 
               {/* Contacts */}
               <div>
@@ -190,6 +224,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Aperçu email</p>
               <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
+                  {estConnecte && (
+                    <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span></p>
+                  )}
                   <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
                   <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Obj :</span> <span className="font-semibold text-gray-800">{objet || '—'}</span></p>
                 </div>
@@ -198,7 +235,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
                   dangerouslySetInnerHTML={{ __html: previewHtml }}
                 />
               </div>
-              <p className="text-[10px] text-gray-300 mt-3 text-center">Phase 4 : envoi Gmail automatique · V1 : enregistrement uniquement</p>
+              <p className="text-[10px] text-gray-300 mt-3 text-center">{estConnecte ? `Envoyé depuis ${gmailToken?.gmail_email}` : 'Connectez Gmail pour envoyer automatiquement'}</p>
             </div>
           </div>
 
@@ -206,7 +243,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent }: Props) {
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={onFermer} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">Annuler</button>
             <button onClick={handleEnvoyer} disabled={!peutEnvoyer} className="flex-[2] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-              {envoi ? '…' : '✉ Enregistrer la relance (+10 pts)'}
+              {envoi ? '…' : estConnecte ? '✉ Envoyer via Gmail (+10 pts)' : '✉ Enregistrer la relance (+10 pts)'}
             </button>
           </div>
         </div>
