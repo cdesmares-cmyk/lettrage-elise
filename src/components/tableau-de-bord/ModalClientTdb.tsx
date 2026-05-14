@@ -48,9 +48,9 @@ export function ModalClientTdb({ code, nom, onClose }: Props) {
         {/* En-tête */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div>
-            <h2 className="text-base font-bold text-blue-900 dark:text-blue-200">{nom}</h2>
+            <h2 className="text-base font-bold text-ockham-teal-dark dark:text-ockham-teal-light">{nom}</h2>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              <span className="font-mono text-blue-600 dark:text-blue-400 mr-2">{code}</span>
+              <span className="font-mono text-ockham-teal dark:text-ockham-teal-light mr-2">{code}</span>
               {nbImpayees} facture{nbImpayees > 1 ? 's' : ''} impayée{nbImpayees > 1 ? 's' : ''}
               {' · '}
               <span className="font-semibold text-red-600 dark:text-red-400">

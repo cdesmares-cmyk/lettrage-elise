@@ -29,7 +29,7 @@ export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, 
       <div className="ml-auto flex items-center gap-2">
         <button
           onClick={onOuvrirRemises}
-          className="relative flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+          className="relative flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
         >
           🏦 Chèque / LCR
           {nbRemisesEnAttente > 0 && (
@@ -40,7 +40,7 @@ export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, 
         </button>
         <button
           onClick={onCorrection}
-          className="flex items-center gap-2 border-2 border-gray-200 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+          className="flex items-center gap-2 border-2 border-gray-200 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
         >
           ✏️ Correction
         </button>

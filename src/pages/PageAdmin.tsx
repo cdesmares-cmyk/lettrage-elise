@@ -43,12 +43,12 @@ function BlocRefValeurs({ titre, categorie }: { titre: string; categorie: 'comme
           onChange={e => setSaisie(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleAjouter()}
           placeholder="Nouvelle valeur…"
-          className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1 text-[11px] outline-none focus:border-blue-400 transition-colors"
+          className="flex-1 min-w-0 border border-gray-200 rounded px-2 py-1 text-[11px] outline-none focus:border-ockham-teal transition-colors"
         />
         <button
           onClick={handleAjouter}
           disabled={!saisie.trim() || chargement}
-          className="flex-shrink-0 text-[11px] font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 px-2.5 py-1 rounded transition-colors"
+          className="flex-shrink-0 text-[11px] font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 px-2.5 py-1 rounded transition-colors"
         >+ Ajouter</button>
       </div>
     </div>
@@ -124,7 +124,7 @@ export function PageAdmin() {
           </div>
           <button
             onClick={toggleTheme}
-            className={`relative w-12 h-6 rounded-full transition-colors ${theme === 'dark' ? 'bg-blue-600' : 'bg-gray-200'}`}
+            className={`relative w-12 h-6 rounded-full transition-colors ${theme === 'dark' ? 'bg-ockham-teal' : 'bg-gray-200'}`}
           >
             <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${theme === 'dark' ? 'translate-x-7' : 'translate-x-1'}`} />
           </button>
@@ -158,7 +158,7 @@ export function PageAdmin() {
               {admin.imports.map(imp => (
                 <tr key={imp.id} className="border-b border-gray-50 hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${imp.type === 'csv_bancaire' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-violet-50 border-violet-200 text-violet-700'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${imp.type === 'csv_bancaire' ? 'bg-ockham-teal-muted border-ockham-teal/40 text-ockham-teal-dark' : 'bg-violet-50 border-violet-200 text-violet-700'}`}>
                       {imp.type === 'csv_bancaire' ? 'Bancaire' : 'Factures'}
                     </span>
                   </td>

@@ -28,8 +28,8 @@ function StatCard({
 
 function StatCardMontant({ valeur, label }: { valeur: number; label: string }) {
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-xl px-5 py-4">
-      <p className="text-2xl font-bold tabular-nums text-blue-700">{fmt(valeur)}</p>
+    <div className="bg-ockham-teal-muted border border-ockham-teal/40 rounded-xl px-5 py-4">
+      <p className="text-2xl font-bold tabular-nums text-ockham-teal-dark">{fmt(valeur)}</p>
       <p className="text-xs font-medium text-gray-500 mt-0.5">{label}</p>
     </div>
   )
@@ -58,7 +58,7 @@ export function EtapeValidation({
     <div>
       {/* Statistiques */}
       <div className={`grid gap-3 mb-6 ${estLettrage || (!resultat.total_credit_fichier && !resultat.total_ttc_fichier) ? 'grid-cols-4' : 'grid-cols-5'}`}>
-        <StatCard valeur={resultat.nb_total} label="Lignes détectées" couleur="border-gray-200 text-blue-600" />
+        <StatCard valeur={resultat.nb_total} label="Lignes détectées" couleur="border-gray-200 text-ockham-teal" />
         {estClients
           ? <StatCard valeur={resultat.nb_nouvelles} label="À créer" couleur="border-emerald-200 text-emerald-600" />
           : <StatCard valeur={resultat.nb_nouvelles} label="À importer" couleur="border-emerald-200 text-emerald-600" />
@@ -66,7 +66,7 @@ export function EtapeValidation({
         {estLettrage
           ? <StatCard valeur={resultat.nb_avertissements ?? 0} label="Sur-paiements" couleur="border-amber-200 text-amber-600" />
           : estClients
-          ? <StatCard valeur={resultat.nb_doublons} label="À mettre à jour" couleur="border-blue-200 text-blue-600" />
+          ? <StatCard valeur={resultat.nb_doublons} label="À mettre à jour" couleur="border-ockham-teal/40 text-ockham-teal" />
           : <StatCard valeur={resultat.nb_doublons} label="Doublons (ignorés)" couleur="border-amber-200 text-amber-600" />
         }
         {estLettrage
@@ -116,19 +116,19 @@ export function EtapeValidation({
 
       {/* Bannière noms différents (import factures — informatif, non bloquant) */}
       {typeFichier === 'xlsx_factures' && (resultat.noms_differents?.length ?? 0) > 0 && (
-        <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-3 text-sm text-blue-800">
+        <div className="flex gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-3 text-sm text-ockham-teal-dark">
           <span className="flex-shrink-0">ℹ️</span>
           <div>
             <strong>{resultat.noms_differents!.length} client{resultat.noms_differents!.length > 1 ? 's' : ''} avec un nom différent</strong> entre le fichier et la base.
             {' '}Le nom en base est conservé — modifiable depuis Compte Client.
             <div className="mt-2 flex flex-wrap gap-1.5">
               {resultat.noms_differents!.slice(0, 8).map(d => (
-                <span key={d.code_client} className="font-mono text-[10px] bg-blue-100 px-1.5 py-0.5 rounded" title={`Fichier : ${d.nom_fichier}`}>
+                <span key={d.code_client} className="font-mono text-[10px] bg-ockham-teal/10 px-1.5 py-0.5 rounded" title={`Fichier : ${d.nom_fichier}`}>
                   {d.code_client}
                 </span>
               ))}
               {resultat.noms_differents!.length > 8 && (
-                <span className="text-[10px] text-blue-600">+{resultat.noms_differents!.length - 8} autres</span>
+                <span className="text-[10px] text-ockham-teal">+{resultat.noms_differents!.length - 8} autres</span>
               )}
             </div>
           </div>

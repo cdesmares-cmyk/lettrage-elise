@@ -46,7 +46,7 @@ export function BlocEncaissements({
     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
       <div className="border-b border-gray-100 dark:border-slate-700 px-5 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-300">Encaissements</h3>
+          <h3 className="text-xs font-semibold text-ockham-teal-dark dark:text-ockham-teal-light">Encaissements</h3>
           {totalCourant > 0 && (
             <span className="text-[11px] font-mono font-bold text-gray-600 dark:text-gray-300">{fmtEuro(totalCourant)}</span>
           )}
@@ -73,7 +73,7 @@ export function BlocEncaissements({
             <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">{labelPeriodePrec}</span>
             <button
               onClick={() => setAfficherNm1(!afficherNm1)}
-              className={`relative w-7 h-4 rounded-full transition-colors ${afficherNm1 ? 'bg-blue-600' : 'bg-gray-200 dark:bg-slate-600'}`}
+              className={`relative w-7 h-4 rounded-full transition-colors ${afficherNm1 ? 'bg-ockham-teal' : 'bg-gray-200 dark:bg-slate-600'}`}
             >
               <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${afficherNm1 ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
             </button>
@@ -97,9 +97,9 @@ export function BlocEncaissements({
                 <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
               )}
               {afficherNm1 && (
-                <Bar dataKey="precedent" name={labelPeriodePrec} fill="#bfdbfe" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
+                <Bar dataKey="precedent" name={labelPeriodePrec} fill="#5BA0BA" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
               )}
-              <Bar dataKey="courant" name="Encaissements" fill="#1d4ed8" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
+              <Bar dataKey="courant" name="Encaissements" fill="#4A8EA6" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

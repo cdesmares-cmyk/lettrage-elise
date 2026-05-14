@@ -66,11 +66,11 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   return (
     <th
       onClick={() => onSort(col)}
-      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
       <span className={`flex items-center gap-1 ${alignCls}`}>
         {label}
-        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+        <span className={`text-[9px] ${active ? 'text-ockham-teal' : 'text-gray-300'}`}>
           {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
         </span>
       </span>
@@ -144,13 +144,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 <tr
                   key={c.code_dso}
                   onClick={() => toggle(c.code_dso)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-blue-50 border-b-0' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'}`}
                 >
                   <td className="px-3 py-3 text-center">
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-600 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{c.code_dso}</span>
+                    <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
                   </td>
                   <td className="px-3 py-3">
                     <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
@@ -194,14 +194,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       {peutModifier && c.nb_impayees > 0 && (
                         <button
                           onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                          className="text-[10px] font-semibold text-blue-600 border border-blue-200 bg-blue-50 px-2.5 py-1 rounded-md hover:bg-blue-100 hover:border-blue-400 transition-all"
+                          className="text-[10px] font-semibold text-ockham-teal border border-ockham-teal/40 bg-ockham-teal-muted px-2.5 py-1 rounded-md hover:bg-ockham-teal/10 hover:border-ockham-teal transition-all"
                         >
                           ✉ Relancer
                         </button>
                       )}
                       <button
                         onClick={e => { e.stopPropagation(); onOptions(c) }}
-                        className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                        className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-all"
                       >
                         ⚙ Options
                       </button>
@@ -211,15 +211,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
                 {estOuvert && (
                   <tr key={`${c.code_dso}-fac`}>
-                    <td colSpan={10} className="px-0 py-0 border-b-2 border-blue-100">
-                      <div className="px-4 py-3 bg-blue-50/60">
+                    <td colSpan={10} className="px-0 py-0 border-b-2 border-ockham-teal/20">
+                      <div className="px-4 py-3 bg-ockham-teal-muted/60">
                         {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
                           // Toutes les factures sont réglées — pas d'impayée en mémoire
                           <div className="py-3 text-center">
                             <p className="text-xs text-emerald-600 font-medium mb-2">✓ Toutes les factures sont réglées</p>
                             <button
                               onClick={e => { e.stopPropagation(); onChargerHistorique(c.code_dso) }}
-                              className="text-[11px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                              className="text-[11px] font-medium text-ockham-teal hover:text-ockham-teal-dark hover:underline transition-colors"
                             >
                               + Charger {nbReglees} facture{nbReglees > 1 ? 's' : ''} réglée{nbReglees > 1 ? 's' : ''}
                             </button>
@@ -237,7 +237,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               <div className="mt-2 text-center">
                                 <button
                                   onClick={e => { e.stopPropagation(); onChargerHistorique(c.code_dso) }}
-                                  className="text-[11px] font-medium text-blue-500 hover:text-blue-700 hover:underline transition-colors"
+                                  className="text-[11px] font-medium text-ockham-teal hover:text-ockham-teal-dark hover:underline transition-colors"
                                 >
                                   + Charger {nbReglees} facture{nbReglees > 1 ? 's' : ''} réglée{nbReglees > 1 ? 's' : ''}
                                 </button>

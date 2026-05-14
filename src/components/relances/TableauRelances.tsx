@@ -116,7 +116,7 @@ export function TableauRelances({ relances, chargement, onMajStatut }: Props) {
                               onClick={() => onMajStatut(r.id, a)}
                               className={`text-[10px] font-semibold px-2 py-1 rounded border transition-colors ${
                                 isPrimary
-                                  ? 'border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-400'
+                                  ? 'border-ockham-teal/40 text-ockham-teal hover:bg-ockham-teal-muted hover:border-ockham-teal'
                                   : 'border-gray-200 text-gray-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50'
                               }`}
                             >

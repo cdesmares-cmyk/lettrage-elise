@@ -44,7 +44,7 @@ function ComboRef({
         value={valeur}
         onChange={e => setValeur(e.target.value)}
         placeholder={placeholder ?? '— Aucun —'}
-        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 transition-colors bg-white"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors bg-white"
       />
       <datalist id={listId}>
         {options.map(o => <option key={o} value={o} />)}
@@ -64,7 +64,7 @@ function SelectRef({
         <select
           value={valeur}
           onChange={e => setValeur(e.target.value)}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-blue-400 transition-colors appearance-none bg-white pr-8"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors appearance-none bg-white pr-8"
         >
           <option value="">— Aucun —</option>
           {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -148,7 +148,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               onClick={() => setOnglet(o)}
               className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
                 onglet === o
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-ockham-teal border-b-2 border-ockham-teal'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
             >
@@ -213,7 +213,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               value={groupement}
               onChange={e => setGroupement(e.target.value)}
               placeholder="Ex : GRP-01, HOLDING-A…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-blue-400 transition-colors"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
             />
             <p className="text-[10px] text-gray-400 mt-1.5">Texte ou chiffre libre. Les clients partageant ce code seront regroupés dans la vue Nébuleuse.</p>
           </div>
@@ -240,7 +240,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             <button onClick={fermerEtReset} disabled={enregistrement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
               Annuler
             </button>
-            <button onClick={handleSauvegarder} disabled={enregistrement} className="flex-[2] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+            <button onClick={handleSauvegarder} disabled={enregistrement} className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
               {enregistrement ? '…' : '✓ Enregistrer'}
             </button>
           </div>

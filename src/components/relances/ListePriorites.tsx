@@ -97,7 +97,7 @@ export function ListePriorites({ relances, onRelancer }: Props) {
           >
             {/* Rang */}
             <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${
-              i === 0 ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-500'
+              i === 0 ? 'bg-ockham-teal text-white' : 'bg-gray-100 text-gray-500'
             }`}>
               {i + 1}
             </span>
@@ -125,7 +125,7 @@ export function ListePriorites({ relances, onRelancer }: Props) {
             {/* Bouton Relancer */}
             <button
               onClick={() => onRelancer(c)}
-              className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-blue-200 text-blue-600 bg-white hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all opacity-0 group-hover:opacity-100"
+              className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-ockham-teal/40 text-ockham-teal bg-white hover:bg-ockham-teal hover:text-white hover:border-ockham-teal transition-all opacity-0 group-hover:opacity-100"
               title="Ouvrir la composition de relance"
             >
               ✉

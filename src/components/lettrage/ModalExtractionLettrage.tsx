@@ -104,7 +104,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                 type="date"
                 value={dateDebut}
                 onChange={e => setDateDebut(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-ockham-teal bg-white"
               />
             </div>
             <div>
@@ -113,7 +113,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                 type="date"
                 value={dateFin}
                 onChange={e => setDateFin(e.target.value)}
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-ockham-teal bg-white"
               />
             </div>
             <div>
@@ -124,7 +124,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                 onChange={e => setFiltreClient(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && chercher()}
                 placeholder="Tous les clients"
-                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-blue-400 bg-white w-44"
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-ockham-teal bg-white w-44"
               />
             </div>
             <button
@@ -180,7 +180,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                         <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{fmtDate(l.date_lettrage)}</td>
                         <td className="px-3 py-2 text-gray-700 max-w-[220px] truncate">{l.libelle_bancaire ?? <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2">
-                          <span className="font-mono font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded text-[10px]">{l.code_client}</span>
+                          <span className="font-mono font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded text-[10px]">{l.code_client}</span>
                         </td>
                         <td className="px-3 py-2 font-mono text-gray-700">{l.numero_facture}</td>
                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{fmt(l.montant)}</td>

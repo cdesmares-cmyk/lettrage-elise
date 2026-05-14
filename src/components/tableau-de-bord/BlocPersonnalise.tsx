@@ -68,10 +68,10 @@ function WidgetAvoirs({ factures }: Props) {
       {avoirs.map(f => (
         <li key={f.numero_piece} className="px-4 py-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] font-semibold text-blue-700 dark:text-blue-400 truncate">{f.numero_piece}</p>
+            <p className="font-mono text-[11px] font-semibold text-ockham-teal dark:text-ockham-teal-light truncate">{f.numero_piece}</p>
             <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{f.nom_client ?? f.code_client}</p>
           </div>
-          <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 tabular-nums flex-shrink-0">{fmtEuro(f.reste_du)}</span>
+          <span className="text-xs font-mono font-bold text-ockham-teal dark:text-ockham-teal-light tabular-nums flex-shrink-0">{fmtEuro(f.reste_du)}</span>
         </li>
       ))}
     </ul>
@@ -101,7 +101,7 @@ function WidgetConcentration({ clients }: Props) {
                 <span className="text-[11px] font-mono text-gray-600 dark:text-gray-400 flex-shrink-0 ml-2">{fmtEuro(c.encours_total)}</span>
               </div>
               <div className="h-1 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div className="h-full bg-blue-700 rounded-full" style={{ width: `${encoursCourant > 0 ? (c.encours_total / encoursCourant) * 100 : 0}%` }} />
+                <div className="h-full bg-ockham-teal rounded-full" style={{ width: `${encoursCourant > 0 ? (c.encours_total / encoursCourant) * 100 : 0}%` }} />
               </div>
             </div>
           </li>
@@ -132,7 +132,7 @@ function WidgetAnnotees({ factures }: Props) {
       </div>
       {litiges.slice(0, 4).map(f => (
         <div key={f.numero_piece} className="flex items-center justify-between text-xs">
-          <span className="font-mono text-blue-700 dark:text-blue-400 truncate">{f.numero_piece}</span>
+          <span className="font-mono text-ockham-teal dark:text-ockham-teal-light truncate">{f.numero_piece}</span>
           <span className="font-mono text-red-600 dark:text-red-400 font-semibold">{fmtEuro(f.reste_du)}</span>
         </div>
       ))}
@@ -162,10 +162,10 @@ export function BlocPersonnalise(props: Props) {
   return (
     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden">
       <div className="border-b border-gray-100 dark:border-slate-700 px-5 py-3 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-300">Vue personnalisée</h3>
+        <h3 className="text-xs font-semibold text-ockham-teal-dark dark:text-ockham-teal-light">Vue personnalisée</h3>
         <button
           onClick={() => setEditMode(e => !e)}
-          className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${editMode ? 'bg-blue-700 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
+          className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${editMode ? 'bg-ockham-teal text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
         >
           ⊕ Personnaliser
         </button>
@@ -177,7 +177,7 @@ export function BlocPersonnalise(props: Props) {
             <button
               key={id}
               onClick={() => toggle(id)}
-              className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${actifs.includes(id) ? 'bg-blue-700 text-white border-blue-700' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-600 hover:border-gray-400'}`}
+              className={`text-[10px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${actifs.includes(id) ? 'bg-ockham-teal text-white border-ockham-teal' : 'bg-white dark:bg-slate-800 text-gray-500 dark:text-gray-400 border-gray-200 dark:border-slate-600 hover:border-gray-400'}`}
             >
               {actifs.includes(id) ? '✓ ' : '+ '}
               {WIDGET_META[id].label}
@@ -195,7 +195,7 @@ export function BlocPersonnalise(props: Props) {
         <div className={`grid gap-px bg-gray-100 dark:bg-slate-700 ${actifs.length === 1 ? 'grid-cols-1' : actifs.length === 2 ? 'grid-cols-2' : actifs.length === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
           {actifs.map(id => (
             <div key={id} className="bg-white dark:bg-slate-800 p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-blue-900 dark:text-blue-300 mb-3">{WIDGET_META[id].label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-ockham-teal-dark dark:text-ockham-teal-light mb-3">{WIDGET_META[id].label}</p>
               {WIDGET_CONTENT[id]}
             </div>
           ))}

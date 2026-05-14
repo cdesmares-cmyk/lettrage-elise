@@ -57,11 +57,11 @@ export function TableHistoriqueLettrage({ lignes, chargement }: Props) {
                   )}
                 </td>
                 <td className="px-3 py-2.5">
-                  <span className="font-mono text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                  <span className="font-mono text-[11px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">
                     {l.code_client}
                   </span>
                 </td>
-                <td className="px-3 py-2.5 font-mono text-blue-700 font-semibold">{l.numero_facture}</td>
+                <td className="px-3 py-2.5 font-mono text-ockham-teal-dark font-semibold">{l.numero_facture}</td>
                 <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">
                   <span className={isNegatif ? 'text-red-600' : 'text-emerald-600'}>
                     {l.montant >= 0 ? '+' : ''}{fmt(l.montant)}

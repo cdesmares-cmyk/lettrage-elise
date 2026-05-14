@@ -49,11 +49,11 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   return (
     <th
       onClick={() => onSort(col)}
-      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
       <span className={`flex items-center gap-1 ${alignCls}`}>
         {label}
-        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+        <span className={`text-[9px] ${active ? 'text-ockham-teal' : 'text-gray-300'}`}>
           {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
         </span>
       </span>
@@ -138,14 +138,14 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
               <React.Fragment key={g.groupe_key}>
                 <tr
                   onClick={() => toggle(g.groupe_key, g.codes_clients)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-blue-50 border-b-0' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'}`}
                 >
                   <td className="px-3 py-2 text-center">
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-blue-800 text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal-dark text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                   </td>
                   <td className="px-3 py-2">
                     {estGroupe ? (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 border border-blue-300 text-blue-800">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-ockham-teal/10 border border-ockham-teal/40 text-ockham-teal-dark">
                         🌐 {g.groupe_key}
                       </span>
                     ) : (
@@ -159,7 +159,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                     <span className="font-mono font-bold text-sm tabular-nums text-gray-900">{fmt(g.encours_total)}</span>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <span className="text-sm font-bold text-blue-600 tabular-nums">{g.nb_clients}</span>
+                    <span className="text-sm font-bold text-ockham-teal tabular-nums">{g.nb_clients}</span>
                   </td>
                   <td className="px-3 py-2 text-center">
                     <span className={`text-sm font-bold tabular-nums ${g.nb_impayees > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{g.nb_impayees}</span>
@@ -177,7 +177,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
 
                 {estOuvert && (
                   <tr>
-                    <td colSpan={7} className="px-0 py-0 border-b-2 border-blue-100">
+                    <td colSpan={7} className="px-0 py-0 border-b-2 border-ockham-teal/20">
                       {estChargement(g.codes_clients) ? (
                         <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
                       ) : (() => {
@@ -192,12 +192,12 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                               const facsCli = factures.filter(f => f.code_client === client.code_dso)
                               return (
                                 <div key={client.code_dso}>
-                                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 border-b border-blue-100 sticky top-0">
-                                    <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{client.code_dso}</span>
+                                  <div className="flex items-center gap-2 px-4 py-2 bg-ockham-teal-muted border-b border-ockham-teal/20 sticky top-0">
+                                    <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{client.code_dso}</span>
                                     <span className="text-xs font-semibold text-gray-700">{client.nom}</span>
                                     <span className="text-[10px] text-gray-400 ml-1">{facsCli.length} facture{facsCli.length > 1 ? 's' : ''}</span>
                                   </div>
-                                  <div className="px-4 py-2 bg-blue-50/20">
+                                  <div className="px-4 py-2 bg-ockham-teal-muted/20">
                                     <LignesFactures
                                       factures={facsCli}
                                       chargement={false}
@@ -212,7 +212,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                             {zeros.length > 0 && (
                               <button
                                 onClick={() => toggleZeros(g.groupe_key)}
-                                className="w-full py-2 text-[11px] text-gray-400 hover:text-blue-600 hover:bg-blue-50/40 transition-colors border-t border-gray-100"
+                                className="w-full py-2 text-[11px] text-gray-400 hover:text-ockham-teal hover:bg-ockham-teal-muted/40 transition-colors border-t border-gray-100"
                               >
                                 {zerosOuverts
                                   ? `↑ Masquer les ${zeros.length} client${zeros.length > 1 ? 's' : ''} sans encours`

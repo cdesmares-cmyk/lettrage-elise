@@ -63,12 +63,12 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
             onClick={() => onChange(opt.type)}
             className={`relative text-left border-2 rounded-xl p-5 transition-all ${
               valeur === opt.type
-                ? 'border-blue-600 bg-blue-50'
-                : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/30'
+                ? 'border-ockham-teal bg-ockham-teal-muted'
+                : 'border-gray-200 bg-white hover:border-ockham-teal/40 hover:bg-ockham-teal-muted/30'
             }`}
           >
             {valeur === opt.type && (
-              <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-bold">
+              <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-ockham-teal text-white text-[10px] font-bold">
                 ✓
               </span>
             )}
@@ -87,7 +87,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
       </div>
 
       {/* Info clé pivot */}
-      <div className="flex gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800">
+      <div className="flex gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-6 text-sm text-ockham-teal-dark">
         <span className="text-base flex-shrink-0">🔑</span>
         <span>
           {optionSelectionnee
@@ -101,7 +101,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
         <button
           onClick={onSuivant}
           disabled={!valeur}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+          className="bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
         >
           Continuer →
         </button>

@@ -12,7 +12,7 @@ function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 function fmtK(n: number) { return n >= 1000 ? _fmtK.format(n / 1000) + 'k€' : _fmtK.format(n) + '€' }
 
 const AGE_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444', '#991b1b']
-const BLUE_700 = '#1d4ed8'
+const BLUE_700 = '#4A8EA6'
 
 function TooltipEuro({ active, payload, label }: { active?: boolean; payload?: { value: number }[]; label?: string }) {
   if (!active || !payload?.length) return null
@@ -27,7 +27,7 @@ function TooltipEuro({ active, payload, label }: { active?: boolean; payload?: {
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="border-b border-gray-100 dark:border-slate-700 px-5 py-3">
-      <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-300">{children}</h3>
+      <h3 className="text-xs font-semibold text-ockham-teal-dark dark:text-ockham-teal-light">{children}</h3>
     </div>
   )
 }
@@ -43,13 +43,13 @@ export function BlocAnalyse({ topClients, topNbClients, setTopNbClients, topFact
         {/* Top clients */}
         <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[400px]">
           <div className="border-b border-gray-100 dark:border-slate-700 px-5 py-3 flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-blue-900 dark:text-blue-300">Top clients — impayés</h3>
+            <h3 className="text-xs font-semibold text-ockham-teal-dark dark:text-ockham-teal-light">Top clients — impayés</h3>
             <div className="flex gap-1">
               {([5, 10, 15] as TopNb[]).map(n => (
                 <button
                   key={n}
                   onClick={() => setTopNbClients(n)}
-                  className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-colors ${topNbClients === n ? 'bg-blue-700 text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-colors ${topNbClients === n ? 'bg-ockham-teal text-white' : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-slate-600'}`}
                 >
                   {n}
                 </button>
@@ -67,7 +67,7 @@ export function BlocAnalyse({ topClients, topNbClients, setTopNbClients, topFact
                     <div className="flex-1 min-w-0">
                       <button
                         onClick={() => setClientModal({ code: c.code, nom: c.nom })}
-                        className="text-xs font-semibold text-blue-700 dark:text-blue-400 hover:underline truncate block text-left w-full"
+                        className="text-xs font-semibold text-ockham-teal dark:text-ockham-teal-light hover:underline truncate block text-left w-full"
                       >
                         {c.nom}
                       </button>

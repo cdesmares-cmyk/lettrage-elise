@@ -61,7 +61,7 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Périmètre</p>
 
           <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50">
-            <input type="radio" name="scope-neb" value="tous" checked={selection === 'tous'} onChange={() => setSelection('tous')} className="accent-blue-600" />
+            <input type="radio" name="scope-neb" value="tous" checked={selection === 'tous'} onChange={() => setSelection('tous')} className="accent-ockham-teal" />
             <div>
               <p className="text-sm font-semibold text-gray-800">Tous les groupements</p>
               <p className="text-xs text-gray-400">{groupes.length} groupes · {totalFac} factures</p>
@@ -73,7 +73,7 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
             <div className="max-h-52 overflow-y-auto divide-y divide-gray-50">
               {groupes.map(g => (
                 <label key={g.groupe_key} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input type="radio" name="scope-neb" value={g.groupe_key} checked={selection === g.groupe_key} onChange={() => setSelection(g.groupe_key)} className="accent-blue-600 flex-shrink-0" />
+                  <input type="radio" name="scope-neb" value={g.groupe_key} checked={selection === g.groupe_key} onChange={() => setSelection(g.groupe_key)} className="accent-ockham-teal flex-shrink-0" />
                   <div className="flex-1 flex items-center justify-between">
                     <div>
                       <span className="font-mono text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">{g.groupe_key}</span>

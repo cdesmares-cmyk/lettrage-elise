@@ -3,7 +3,7 @@ import { useContacts, type Contact, type RoleContact } from '../../hooks/useCont
 import { useRole } from '../../contexts/RoleContext'
 
 const ROLES: { val: RoleContact; label: string; cls: string }[] = [
-  { val: 'comptabilite', label: 'Comptabilité', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  { val: 'comptabilite', label: 'Comptabilité', cls: 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40' },
   { val: 'relance',      label: 'Relance',       cls: 'bg-violet-50 text-violet-700 border-violet-200' },
   { val: 'direction',    label: 'Direction',     cls: 'bg-slate-100 text-slate-600 border-slate-200' },
   { val: 'terrain',      label: 'Terrain',       cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -63,7 +63,7 @@ export function SectionContacts({ codeClient }: Props) {
         <div className="py-8 text-center">
           <p className="text-xs text-gray-400 mb-3">Aucun contact pour ce client</p>
           {peutModifier && (
-            <button onClick={() => setMode('ajouter')} className="text-xs font-semibold text-blue-600 border border-blue-200 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors">
+            <button onClick={() => setMode('ajouter')} className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 bg-ockham-teal-muted hover:bg-ockham-teal/10 px-3 py-1.5 rounded-lg transition-colors">
               + Ajouter le premier contact
             </button>
           )}
@@ -83,12 +83,12 @@ export function SectionContacts({ codeClient }: Props) {
                   </p>
                   {badgeRole(c.role_contact)}
                 </div>
-                <p className="text-xs text-blue-600 truncate">{c.email}</p>
+                <p className="text-xs text-ockham-teal truncate">{c.email}</p>
                 {c.telephone && <p className="text-xs text-gray-400 mt-0.5">{c.telephone}</p>}
               </div>
               {peutModifier && !enEdition && (
                 <div className="flex gap-1 flex-shrink-0">
-                  <button onClick={() => ouvrirEdition(c)} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors text-xs" title="Modifier">✏</button>
+                  <button onClick={() => ouvrirEdition(c)} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors text-xs" title="Modifier">✏</button>
                   <button onClick={() => desactiver(c.id)} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-xs" title="Supprimer">✕</button>
                 </div>
               )}
@@ -104,7 +104,7 @@ export function SectionContacts({ codeClient }: Props) {
 
       {/* Bouton ajouter (si liste non vide et pas de formulaire ouvert) */}
       {peutModifier && contacts.length > 0 && mode === 'liste' && (
-        <button onClick={() => setMode('ajouter')} className="w-full text-xs font-semibold text-gray-400 border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-600 py-2.5 rounded-xl transition-colors">
+        <button onClick={() => setMode('ajouter')} className="w-full text-xs font-semibold text-gray-400 border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal py-2.5 rounded-xl transition-colors">
           + Ajouter un contact
         </button>
       )}
@@ -122,30 +122,30 @@ function FormulaireContact({ form, f, sauvegarde, onSoumettre, onAnnuler, titre 
 }) {
   const valide = form.nom.trim() && form.email.trim()
   return (
-    <div className="border border-blue-100 bg-blue-50/40 rounded-xl px-3.5 py-3 space-y-2.5">
-      <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">{titre}</p>
+    <div className="border border-ockham-teal/20 bg-ockham-teal-muted/40 rounded-xl px-3.5 py-3 space-y-2.5">
+      <p className="text-[10px] font-bold text-ockham-teal-dark uppercase tracking-wider">{titre}</p>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">Prénom</label>
-          <input value={form.prenom} onChange={f('prenom')} placeholder="Julie" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 bg-white" />
+          <input value={form.prenom} onChange={f('prenom')} placeholder="Julie" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white" />
         </div>
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">Nom *</label>
-          <input value={form.nom} onChange={f('nom')} placeholder="Marchand" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 bg-white" />
+          <input value={form.nom} onChange={f('nom')} placeholder="Marchand" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white" />
         </div>
       </div>
       <div>
         <label className="block text-[10px] text-gray-400 mb-1">Email *</label>
-        <input type="email" value={form.email} onChange={f('email')} placeholder="julie@entreprise.fr" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 bg-white" />
+        <input type="email" value={form.email} onChange={f('email')} placeholder="julie@entreprise.fr" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white" />
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">Téléphone</label>
-          <input value={form.telephone} onChange={f('telephone')} placeholder="06 00 00 00 00" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 bg-white" />
+          <input value={form.telephone} onChange={f('telephone')} placeholder="06 00 00 00 00" className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white" />
         </div>
         <div>
           <label className="block text-[10px] text-gray-400 mb-1">Rôle</label>
-          <select value={form.role_contact} onChange={f('role_contact')} className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-blue-400 bg-white">
+          <select value={form.role_contact} onChange={f('role_contact')} className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white">
             <option value="comptabilite">Comptabilité</option>
             <option value="relance">Relance</option>
             <option value="direction">Direction</option>
@@ -156,7 +156,7 @@ function FormulaireContact({ form, f, sauvegarde, onSoumettre, onAnnuler, titre 
       </div>
       <div className="flex gap-2 pt-1">
         <button onClick={onAnnuler} className="flex-1 text-xs text-gray-500 border border-gray-200 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
-        <button onClick={onSoumettre} disabled={!valide || sauvegarde} className="flex-[2] text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 py-1.5 rounded-lg transition-colors">
+        <button onClick={onSoumettre} disabled={!valide || sauvegarde} className="flex-[2] text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 py-1.5 rounded-lg transition-colors">
           {sauvegarde ? '…' : '✓ Enregistrer'}
         </button>
       </div>

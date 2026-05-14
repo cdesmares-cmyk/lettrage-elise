@@ -90,7 +90,7 @@ export function PanneauLettrage(props: Props) {
 
           <button
             onClick={onOuvrirCorrection}
-            className="w-full text-sm font-semibold text-blue-600 border-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 px-4 py-2.5 rounded-lg transition-all"
+            className="w-full text-sm font-semibold text-ockham-teal border-2 border-ockham-teal/40 hover:border-ockham-teal hover:bg-ockham-teal-muted px-4 py-2.5 rounded-lg transition-all"
           >
             ✏️ Corriger via le module de correction
           </button>
@@ -109,8 +109,8 @@ export function PanneauLettrage(props: Props) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
       {/* En-tête */}
-      <div className="px-5 py-4 border-b border-gray-100 bg-blue-50/60">
-        <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider mb-1">Lettrage en cours</p>
+      <div className="px-5 py-4 border-b border-gray-100 bg-ockham-teal-muted/60">
+        <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-wider mb-1">Lettrage en cours</p>
         <p className="text-sm font-semibold text-gray-800 truncate">{ligneActive.libelle}</p>
         <p className="text-xs text-gray-500 mt-0.5">
           {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}
@@ -187,7 +187,7 @@ export function PanneauLettrage(props: Props) {
                         <button
                           onClick={() => onEncaisser(r.id)}
                           disabled={chargement}
-                          className="w-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
+                          className="w-full text-xs font-semibold bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
                         >
                           ✓ Encaisser cette remise
                         </button>
@@ -209,7 +209,7 @@ export function PanneauLettrage(props: Props) {
                   <select
                     value={ligne.classe}
                     onChange={e => modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, montant: '', info_facture: null })}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
                     <option value="cheque">CHQ</option>
@@ -226,10 +226,10 @@ export function PanneauLettrage(props: Props) {
                     value={ligne.numero_facture}
                     onChange={e => handleNumeroChange(ligne._key, e.target.value)}
                     placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-400 pr-6"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
                   />
                   {ligne.chargement && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 animate-pulse">⟳</span>
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
                   )}
                 </div>
 
@@ -244,7 +244,7 @@ export function PanneauLettrage(props: Props) {
                   className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
                     ligne.classe === 'autres'
                       ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                      : 'border-gray-200 focus:border-blue-400'
+                      : 'border-gray-200 focus:border-ockham-teal'
                   }`}
                 />
 
@@ -278,7 +278,7 @@ export function PanneauLettrage(props: Props) {
 
         <button
           onClick={ajouterLigne}
-          className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
+          className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
         >
           <span className="mx-auto">+ Ajouter une ligne</span>
         </button>

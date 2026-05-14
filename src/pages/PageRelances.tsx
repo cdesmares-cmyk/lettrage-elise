@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useRelances } from '../hooks/useRelances'
 import { useGmailAuth } from '../hooks/useGmailAuth'
+import { useLeaderboard } from '../hooks/useLeaderboard'
 import { KpisRelances } from '../components/relances/KpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
+import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { useRole } from '../contexts/RoleContext'
 import type { CompteClient } from '../types/client'
@@ -12,8 +14,8 @@ export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut } = useRelances()
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
-  // Chargé au niveau page pour éviter les problèmes de timing OAuth
   const gmailAuth = useGmailAuth()
+  const classement = useLeaderboard(relances)
 
   return (
     <div className="space-y-6">
@@ -39,10 +41,18 @@ export function PageRelances() {
           />
         </div>
 
-        {/* Priorités */}
-        <div className="space-y-3">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priorités</p>
-          <ListePriorites relances={relances} onRelancer={setClientRelance} />
+        {/* Priorités + Leaderboard */}
+        <div className="space-y-4">
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priorités</p>
+            <ListePriorites relances={relances} onRelancer={setClientRelance} />
+          </div>
+          {!isCommercial && classement.length > 0 && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Classement équipe</p>
+              <LeaderboardEquipe classement={classement} />
+            </div>
+          )}
         </div>
       </div>
 

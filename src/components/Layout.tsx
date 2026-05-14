@@ -34,7 +34,7 @@ export function Layout() {
       <header className="bg-slate-900 flex items-center px-6 h-14 gap-8 sticky top-0 z-50">
         {/* Logo */}
         <div className="flex items-center gap-2.5 mr-4 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-ockham-teal to-ockham-navy flex items-center justify-center text-white font-bold text-sm">
             O
           </div>
           <div className="leading-none">
@@ -59,7 +59,7 @@ export function Layout() {
             >
               {({ isActive }) => (
                 <>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-sky-400' : 'bg-slate-700'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-ockham-teal' : 'bg-slate-700'}`} />
                   {label}
                   {chemin === '/relances' && nbRelancesEnAttente > 0 && (
                     <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
@@ -96,7 +96,7 @@ export function Layout() {
         {/* Profil + déconnexion */}
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-2 bg-slate-800 rounded-lg px-3 py-1.5">
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-sky-400 to-blue-600 flex items-center justify-center text-white text-[10px] font-bold">
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-ockham-teal to-ockham-navy flex items-center justify-center text-white text-[10px] font-bold">
               {initiales}
             </div>
             <span className="text-slate-300 text-xs font-medium">

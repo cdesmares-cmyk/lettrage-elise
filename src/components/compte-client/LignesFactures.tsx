@@ -66,11 +66,11 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   return (
     <th
       onClick={() => onSort(col)}
-      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-blue-500' : 'text-gray-400'}`}
+      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
       <span className={`flex items-center gap-1 ${alignCls}`}>
         {label}
-        <span className={`text-[9px] ${active ? 'text-blue-400' : 'text-gray-300'}`}>
+        <span className={`text-[9px] ${active ? 'text-ockham-teal' : 'text-gray-300'}`}>
           {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
         </span>
       </span>
@@ -121,7 +121,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
     <>
       <table className="w-full text-xs">
         <thead>
-          <tr className={`border-b border-gray-100 ${compact ? 'bg-blue-50' : 'bg-gray-50'}`}>
+          <tr className={`border-b border-gray-100 ${compact ? 'bg-ockham-teal-muted' : 'bg-gray-50'}`}>
             <th className="w-5 px-2 py-2" />
             {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
             {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
@@ -154,16 +154,16 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             const estSolde     = Math.abs(f.reste_du) <= 0.005
             const estNegatif   = f.reste_du < -0.005
             const estImpayeTotal = !f.est_avoir && !estCompte && !estNegatif && !estSolde && f.montant_ttc > 0.005 && (f.reste_du / f.montant_ttc) >= 0.995
-            const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-blue-600 font-bold' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
+            const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-ockham-teal font-bold' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
             const isAvoir = f.est_avoir || f.montant_ttc < 0
             return (
-              <tr key={f.numero_piece} className={`border border-gray-100 rounded-lg transition-colors ${estCompte ? 'bg-blue-50/60 hover:bg-blue-50' : 'hover:bg-gray-50'}`}>
+              <tr key={f.numero_piece} className={`border border-gray-100 rounded-lg transition-colors ${estCompte ? 'bg-ockham-teal-muted/60 hover:bg-ockham-teal-muted' : 'hover:bg-gray-50'}`}>
                 <td className="px-2 py-2 text-center">
                   {f.statut_facture && !estCompte && <span className="text-amber-500 text-[11px]">⚠</span>}
                 </td>
                 {!compact && (
                   <td className="px-3 py-2">
-                    <span className="font-mono text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">{f.code_client}</span>
+                    <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>
                   </td>
                 )}
                 {!compact && (
@@ -173,11 +173,11 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 )}
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-semibold text-blue-700">{f.numero_piece}</span>
+                    <span className="font-mono font-semibold text-ockham-teal-dark">{f.numero_piece}</span>
                     {estCompte ? (
-                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-700 text-white">COMPTE</span>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-dark text-white">COMPTE</span>
                     ) : (
-                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isAvoir ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-500'}`}>
+                      <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isAvoir ? 'bg-orange-100 text-orange-700' : 'bg-ockham-teal-muted text-ockham-teal'}`}>
                         {isAvoir ? 'A' : 'F'}
                       </span>
                     )}
@@ -199,7 +199,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 <td className="px-3 py-2">
                   <button
                     onClick={e => { e.stopPropagation(); onHistorique(f) }}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded hover:bg-blue-100 transition-colors whitespace-nowrap"
+                    className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
                   >
                     📋 Historique
                   </button>

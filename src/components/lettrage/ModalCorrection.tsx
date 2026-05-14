@@ -126,7 +126,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                   <select
                     value={ligne.classe}
                     onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-blue-400 appearance-none cursor-pointer"
+                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
                     <option value="autres">Autres</option>
@@ -139,9 +139,9 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                     value={ligne.numero_facture}
                     onChange={e => handleNumeroChange(ligne._key, e.target.value)}
                     placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-400 pr-5"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5"
                   />
-                  {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 animate-pulse">⟳</span>}
+                  {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
                 </div>
                 <input
                   type="number"
@@ -149,7 +149,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                   onChange={e => modifier(ligne._key, { montant: e.target.value })}
                   placeholder="0,00"
                   step="0.01"
-                  className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-blue-400"
+                  className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal"
                 />
                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center ${isNeg ? 'bg-red-100 text-red-600' : isPos ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
                   {isNeg ? '−' : isPos ? '+' : '±'}
@@ -169,7 +169,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
         })}
       </div>
 
-      <button onClick={ajouter} className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
+      <button onClick={ajouter} className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
         <span className="mx-auto">+ Ajouter une ligne</span>
       </button>
 
@@ -265,7 +265,7 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
 
   return (
     <div className="px-6 py-5">
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-5 text-xs text-blue-800">
+      <div className="flex items-start gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-5 text-xs text-ockham-teal-dark">
         <span className="flex-shrink-0 mt-0.5">💸</span>
         <span>
           Indiquez le numéro de facture remboursée. Le montant TTC est proposé automatiquement — ajustez si le remboursement est partiel.
@@ -282,9 +282,9 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
             value={numeroFacture}
             onChange={e => handleNumeroChange(e.target.value)}
             placeholder="ex : 2026021254"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-blue-400 pr-8"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-ockham-teal pr-8"
           />
-          {chargementFacture && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-blue-400 animate-pulse">⟳</span>}
+          {chargementFacture && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ockham-teal animate-pulse">⟳</span>}
         </div>
         {infoFacture && (
           <div className="mt-1.5 flex items-center gap-2 text-[11px] text-emerald-600 font-medium">
@@ -311,7 +311,7 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
           step="0.01"
           min="0"
           disabled={!infoFacture}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-blue-400 disabled:bg-gray-50 disabled:text-gray-300"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-ockham-teal disabled:bg-gray-50 disabled:text-gray-300"
         />
         {montantNum > 0 && (
           <p className="text-[11px] text-red-500 font-medium mt-1">
@@ -362,7 +362,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
         <div className="flex border-b border-gray-100">
           <button
             onClick={() => setOnglet('correction')}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'correction' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:text-gray-600'}`}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'correction' ? 'text-ockham-teal border-b-2 border-ockham-teal bg-ockham-teal-muted/30' : 'text-gray-400 hover:text-gray-600'}`}
           >
             ✏️ Correction
           </button>

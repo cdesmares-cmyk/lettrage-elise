@@ -23,13 +23,13 @@ export function Pagination({ page, total, onChange }: Props) {
       <button
         onClick={() => onChange(page - 1)}
         disabled={page === 0}
-        className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         ‹
       </button>
       {pages[0] > 0 && (
         <>
-          <button onClick={() => onChange(0)} className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors">1</button>
+          <button onClick={() => onChange(0)} className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors">1</button>
           {pages[0] > 1 && <span className="text-xs text-gray-300 px-0.5">…</span>}
         </>
       )}
@@ -38,7 +38,7 @@ export function Pagination({ page, total, onChange }: Props) {
           key={i}
           onClick={() => onChange(i)}
           className={`w-7 h-7 flex items-center justify-center text-xs font-medium rounded border transition-colors ${
-            i === page ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
+            i === page ? 'bg-ockham-teal border-ockham-teal text-white' : 'border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal'
           }`}
         >
           {i + 1}
@@ -47,13 +47,13 @@ export function Pagination({ page, total, onChange }: Props) {
       {pages[pages.length - 1] < total - 1 && (
         <>
           {pages[pages.length - 1] < total - 2 && <span className="text-xs text-gray-300 px-0.5">…</span>}
-          <button onClick={() => onChange(total - 1)} className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors">{total}</button>
+          <button onClick={() => onChange(total - 1)} className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors">{total}</button>
         </>
       )}
       <button
         onClick={() => onChange(page + 1)}
         disabled={page === total - 1}
-        className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+        className="w-7 h-7 flex items-center justify-center text-xs rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         ›
       </button>

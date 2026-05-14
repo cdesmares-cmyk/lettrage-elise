@@ -55,7 +55,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Périmètre</p>
 
           <label className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50">
-            <input type="radio" name="scope" value="toutes" checked={selection === 'toutes'} onChange={() => setSelection('toutes')} className="accent-blue-600" />
+            <input type="radio" name="scope" value="toutes" checked={selection === 'toutes'} onChange={() => setSelection('toutes')} className="accent-ockham-teal" />
             <div>
               <p className="text-sm font-semibold text-gray-800">Toutes les factures</p>
               <p className="text-xs text-gray-400">{clients.reduce((s, c) => s + c.nb_factures_total, 0)} factures — vue filtrée actuelle</p>
@@ -67,10 +67,10 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
             <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
               {clients.map(c => (
                 <label key={c.code_dso} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input type="radio" name="scope" value={c.code_dso} checked={selection === c.code_dso} onChange={() => setSelection(c.code_dso)} className="accent-blue-600 flex-shrink-0" />
+                  <input type="radio" name="scope" value={c.code_dso} checked={selection === c.code_dso} onChange={() => setSelection(c.code_dso)} className="accent-ockham-teal flex-shrink-0" />
                   <div className="flex-1 flex items-center justify-between">
                     <div>
-                      <span className="font-mono text-xs font-bold text-blue-600">{c.code_dso}</span>
+                      <span className="font-mono text-xs font-bold text-ockham-teal">{c.code_dso}</span>
                       <span className="ml-2 text-xs text-gray-700">{c.nom}</span>
                     </div>
                     <span className="text-[10px] text-gray-400">{c.nb_factures_total} fac.</span>

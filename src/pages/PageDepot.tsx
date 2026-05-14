@@ -143,13 +143,13 @@ export function PageDepot() {
                 <div className="flex items-center gap-2">
                   <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                     etat === 'fait' ? 'bg-emerald-500 text-white' :
-                    etat === 'actif' ? 'bg-blue-600 text-white ring-4 ring-blue-100' :
+                    etat === 'actif' ? 'bg-ockham-teal text-white ring-4 ring-ockham-teal/20' :
                     'bg-gray-200 text-gray-400'
                   }`}>
                     {etat === 'fait' ? '✓' : n}
                   </div>
                   <span className={`text-xs font-medium whitespace-nowrap ${
-                    etat === 'actif' ? 'text-blue-600' : etat === 'fait' ? 'text-emerald-600' : 'text-gray-400'
+                    etat === 'actif' ? 'text-ockham-teal' : etat === 'fait' ? 'text-emerald-600' : 'text-gray-400'
                   }`}>
                     {TITRES[ETAPES_ORDONNEES[i]]}
                   </span>
@@ -229,7 +229,7 @@ export function PageDepot() {
                 </button>
                 <a
                   href="/lettrage"
-                  className="px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-semibold bg-ockham-teal hover:bg-ockham-teal-dark text-white rounded-lg transition-colors"
                 >
                   → Aller au Lettrage
                 </a>

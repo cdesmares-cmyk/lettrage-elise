@@ -61,7 +61,7 @@ export function PageCompteClient() {
               key={v.val}
               onClick={() => setVue(v.val)}
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                vue === v.val ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                vue === v.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               {v.icon} {v.label}

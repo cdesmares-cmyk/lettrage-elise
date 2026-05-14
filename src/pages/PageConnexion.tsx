@@ -29,7 +29,7 @@ export function PageConnexion() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
         <h1 className="text-xl font-semibold text-gray-800 mb-1">
-          Lettrage <span className="text-blue-600">Elise</span>
+          <span className="text-ockham-navy font-bold">OCKHAM</span>
         </h1>
         <p className="text-sm text-gray-500 mb-6">Connectez-vous pour accéder à l'application.</p>
 
@@ -41,7 +41,7 @@ export function PageConnexion() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ockham-teal"
               placeholder="vous@elise.com"
             />
           </div>
@@ -53,7 +53,7 @@ export function PageConnexion() {
               required
               value={motDePasse}
               onChange={(e) => setMotDePasse(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ockham-teal"
             />
           </div>
 
@@ -66,7 +66,7 @@ export function PageConnexion() {
           <button
             type="submit"
             disabled={chargement}
-            className="bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="bg-ockham-teal text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
           >
             {chargement ? 'Connexion...' : 'Se connecter'}
           </button>

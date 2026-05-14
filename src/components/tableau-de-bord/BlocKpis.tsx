@@ -10,7 +10,7 @@ function fmtNb(n: number) { return _fmtNb.format(n) }
 
 function classeDso(dso: number): string {
   if (dso <= 30) return 'text-emerald-600'
-  if (dso <= 45) return 'text-blue-600'
+  if (dso <= 45) return 'text-ockham-teal'
   if (dso <= 60) return 'text-amber-600'
   return 'text-red-600'
 }
@@ -34,7 +34,7 @@ interface KpiCardProps {
 function KpiCard({ titre, valeur, sous, footer, accent = 'border-gray-100 dark:border-slate-700' }: KpiCardProps) {
   return (
     <div className={`bg-white dark:bg-slate-800 border ${accent} rounded-xl shadow-sm px-5 py-4 flex flex-col gap-1`}>
-      <span className="text-[10px] font-semibold uppercase tracking-widest text-blue-900 dark:text-blue-300">{titre}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-widest text-ockham-navy dark:text-ockham-teal-light">{titre}</span>
       <div className="text-2xl font-bold tabular-nums text-gray-900 dark:text-gray-100 leading-tight">{valeur}</div>
       {sous && <div className="text-xs text-gray-500 dark:text-gray-400 leading-snug">{sous}</div>}
       {footer && <div className="mt-1">{footer}</div>}
@@ -70,7 +70,7 @@ export function BlocKpis({
                   type="checkbox"
                   checked={exclureDernierMois}
                   onChange={e => setExclureDernierMois(e.target.checked)}
-                  className="w-3.5 h-3.5 rounded accent-blue-600"
+                  className="w-3.5 h-3.5 rounded accent-ockham-teal"
                 />
                 <span className="text-[10px] text-gray-500 dark:text-gray-400">
                   Exclure <span className="font-semibold text-gray-700 dark:text-gray-300">{moisExclusLabel}</span>

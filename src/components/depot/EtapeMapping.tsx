@@ -91,7 +91,7 @@ export function EtapeMapping({
                     <select
                       value={m.champ_cible ?? ''}
                       onChange={e => onChangerMapping(i, e.target.value || null)}
-                      className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs text-gray-800 bg-white w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="border border-gray-200 rounded-md px-2.5 py-1.5 text-xs text-gray-800 bg-white w-52 focus:outline-none focus:ring-2 focus:ring-ockham-teal"
                     >
                       <option value="">— Ignorer cette colonne —</option>
                       {champs.map(c => (
@@ -122,7 +122,7 @@ export function EtapeMapping({
                       </span>
                     )}
                     {champInfo?.est_pivot && (
-                      <span className="ml-1 bg-blue-100 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                      <span className="ml-1 bg-ockham-teal/10 text-ockham-teal-dark text-[10px] font-semibold px-2 py-0.5 rounded-full">
                         Pivot
                       </span>
                     )}
@@ -145,7 +145,7 @@ export function EtapeMapping({
         <button
           onClick={onSuivant}
           disabled={!pivotMappe || chargement}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
         >
           {chargement ? (
             <><span className="animate-spin">⏳</span> Vérification en cours…</>

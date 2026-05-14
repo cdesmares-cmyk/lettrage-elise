@@ -143,7 +143,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
             <div>
-              <p className="text-sm font-bold text-gray-900">Nouvelle relance — <span className="text-blue-600">{nomClient}</span></p>
+              <p className="text-sm font-bold text-gray-900">Nouvelle relance — <span className="text-ockham-teal">{nomClient}</span></p>
               <p className="text-xs text-gray-400 mt-0.5 font-mono">{codeClient} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
             </div>
             <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 text-gray-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-sm flex items-center justify-center transition-colors">✕</button>
@@ -164,7 +164,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
               ) : (
                 <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-xs text-amber-700">Gmail non connecté — la relance sera enregistrée sans envoi</p>
-                  <button onClick={connecterGmail} className="text-xs font-semibold text-blue-600 hover:underline ml-3 flex-shrink-0">
+                  <button onClick={connecterGmail} className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0">
                     Connecter Gmail →
                   </button>
                 </div>
@@ -176,17 +176,17 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
                 {sanContacts ? (
                   <div className="space-y-2">
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
-                    <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom du contact *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" />
-                    <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" />
+                    <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom du contact *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                    <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
                   </div>
                 ) : (
                   <div className="space-y-1.5">
                     {contactsAvecEmail.map(c => (
-                      <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-blue-600" />
+                      <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-ockham-teal" />
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-semibold text-gray-800">{[c.prenom, c.nom].filter(Boolean).join(' ')}</p>
-                          <p className="text-[10px] text-blue-500 truncate">{c.email}</p>
+                          <p className="text-[10px] text-ockham-teal truncate">{c.email}</p>
                         </div>
                       </label>
                     ))}
@@ -203,8 +203,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
                   ) : impayees.map(f => {
                     const j = f.date_echeance ? joursDepuis(f.date_echeance) : 0
                     return (
-                      <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-blue-300 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-blue-600" />
+                      <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
                         <span className="font-mono text-[11px] text-gray-600 flex-1">{f.numero_piece}</span>
                         <span className="text-[11px] font-bold text-gray-700 tabular-nums">{fmtEuros(f.reste_du)}</span>
                         <span className={`text-[10px] font-bold px-1.5 rounded ${j > 90 ? 'bg-red-100 text-red-700' : j > 60 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{j}j</span>
@@ -217,13 +217,13 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
               {/* Objet */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Objet</label>
-                <input value={objet} onChange={e => setObjet(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" />
+                <input value={objet} onChange={e => setObjet(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
               </div>
 
               {/* Corps */}
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Message</label>
-                <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={10} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400 resize-none font-sans" />
+                <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={10} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal resize-none font-sans" />
               </div>
             </div>
 
@@ -250,7 +250,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
           {/* Footer */}
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={onFermer} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">Annuler</button>
-            <button onClick={handleEnvoyer} disabled={!peutEnvoyer} className="flex-[2] flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+            <button onClick={handleEnvoyer} disabled={!peutEnvoyer} className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
               {envoi ? '…' : estConnecte ? '✉ Envoyer via Gmail (+10 pts)' : '✉ Enregistrer la relance (+10 pts)'}
             </button>
           </div>

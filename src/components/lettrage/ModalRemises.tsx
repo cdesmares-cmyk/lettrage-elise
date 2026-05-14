@@ -177,7 +177,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
             <div className="flex border-b border-gray-100 px-7">
               {(['attente', 'encaisse'] as const).map(t => (
                 <button key={t} onClick={() => setOnglet(t)}
-                  className={`py-3 px-4 text-sm font-semibold border-b-2 transition-colors ${onglet === t ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+                  className={`py-3 px-4 text-sm font-semibold border-b-2 transition-colors ${onglet === t ? 'border-ockham-teal text-ockham-teal' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
                   {t === 'attente' ? `À encaisser · ${enAttente.length}` : `Encaissé · ${encaisses.length}`}
                 </button>
               ))}
@@ -189,7 +189,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-xs text-gray-400">{enAttente.length} remise(s) en attente d'encaissement</p>
                     <button onClick={() => ouvrirFormulaire()}
-                      className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
+                      className="flex items-center gap-1.5 bg-ockham-teal hover:bg-ockham-teal-dark text-white text-xs font-semibold px-4 py-2 rounded-lg transition-colors">
                       + Saisir une remise
                     </button>
                   </div>
@@ -231,14 +231,14 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                               </div>
                               {remise.lignes.map(l => (
                                 <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                  <span className="font-mono text-xs font-semibold text-blue-600">{l.numero_facture}</span>
+                                  <span className="font-mono text-xs font-semibold text-ockham-teal">{l.numero_facture}</span>
                                   <span className="text-xs text-gray-500 truncate">{l.code_client}</span>
                                   <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                                 </div>
                               ))}
                               <div className="flex justify-end gap-2 px-4 py-3">
                                 <button onClick={() => ouvrirFormulaire(remise)}
-                                  className="text-xs font-semibold text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-colors">
+                                  className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-3 py-1.5 rounded-lg transition-colors">
                                   ✏️ Modifier
                                 </button>
                                 <button onClick={() => supprimer(remise.id)}
@@ -286,7 +286,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                           <div className="border-t border-gray-100 bg-white">
                             {remise.lignes.map(l => (
                               <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                <span className="font-mono text-xs font-semibold text-blue-600">{l.numero_facture}</span>
+                                <span className="font-mono text-xs font-semibold text-ockham-teal">{l.numero_facture}</span>
                                 <span className="text-xs text-gray-500">{l.code_client}</span>
                                 <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                               </div>
@@ -345,7 +345,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">N° de remise</p>
                   <input type="text" value={numeroForm} onChange={e => setNumeroForm(e.target.value)}
                     placeholder="Ex : REM-2026-005"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
                 </div>
               </div>
 
@@ -355,7 +355,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Montant total LCR</p>
                   <input type="text" value={montantLcrForm} onChange={e => setMontantLcrForm(e.target.value)}
                     placeholder="Ex : 1 125,50"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-blue-400" />
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-ockham-teal" />
                   <p className="text-[10px] text-gray-400 mt-1">Montant du titre LCR — contrôlé contre la somme des factures (tolérance ±5 ct)</p>
                 </div>
               )}
@@ -374,12 +374,12 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                       <div className="relative">
                         <input type="text" value={ligne.numero_facture} onChange={e => handleNumeroChange(ligne._key, e.target.value)}
                           placeholder="N° facture…"
-                          className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-blue-400 pr-5" />
-                        {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-blue-400 animate-pulse">⟳</span>}
+                          className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5" />
+                        {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
                       </div>
                       <input type="text" value={ligne.montant} onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
                         placeholder="0,00"
-                        className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-blue-400" />
+                        className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal" />
                       <button onClick={() => supprimerLigne(ligne._key)}
                         className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors">
                         ×
@@ -397,7 +397,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                 ))}
               </div>
               <button onClick={ajouterLigne}
-                className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-blue-300 hover:text-blue-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
+                className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
                 <span className="mx-auto">+ Ajouter une facture</span>
               </button>
 

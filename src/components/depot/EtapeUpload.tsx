@@ -166,10 +166,10 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
         onClick={() => !chargement && inputRef.current?.click()}
         className={`border-2 border-dashed rounded-xl p-12 text-center transition-all cursor-pointer select-none ${
           chargement
-            ? 'border-blue-300 bg-blue-50 cursor-wait'
+            ? 'border-ockham-teal/40 bg-ockham-teal-muted cursor-wait'
             : survol
-              ? 'border-blue-500 bg-blue-50'
-              : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50/40'
+              ? 'border-ockham-teal bg-ockham-teal-muted'
+              : 'border-gray-200 hover:border-ockham-teal hover:bg-ockham-teal-muted/40'
         }`}
       >
         <input
@@ -194,7 +194,7 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
               Glissez votre fichier {config.label} ici
             </p>
             <p className="text-gray-500 text-sm">
-              ou <span className="text-blue-600 font-semibold">parcourir vos fichiers</span>
+              ou <span className="text-ockham-teal font-semibold">parcourir vos fichiers</span>
             </p>
             <p className="text-gray-400 text-[11px] font-mono mt-3">
               Formats acceptés : .csv · .xlsx · .xls · Taille max : 10 Mo
@@ -213,7 +213,7 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
         </button>
         <button
           onClick={() => telechargerModele(typeFichier)}
-          className="flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 border border-blue-200 hover:border-blue-400 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-1.5 text-xs font-medium text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/40 hover:border-ockham-teal bg-ockham-teal-muted hover:bg-ockham-teal/10 px-3 py-2 rounded-lg transition-colors"
         >
           ⬇ Modèle {config.modeleXlsx ? 'XLSX' : 'CSV'}
         </button>

@@ -60,7 +60,7 @@ export function TableLignesBancaires({
               key={f.val}
               onClick={() => onFiltre(f.val)}
               className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                filtre === f.val ? 'bg-blue-600 text-white' : 'text-gray-500 hover:bg-gray-100'
+                filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               {f.label}
@@ -70,7 +70,7 @@ export function TableLignesBancaires({
 
         <button
           onClick={onHistorique}
-          className="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors whitespace-nowrap"
+          className="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors whitespace-nowrap"
         >
           📋 Historique
         </button>
@@ -84,14 +84,14 @@ export function TableLignesBancaires({
             type="date"
             value={dateDebut}
             onChange={e => onDateDebut(e.target.value)}
-            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-blue-400 bg-white"
+            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
           />
           <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">au</span>
           <input
             type="date"
             value={dateFin}
             onChange={e => onDateFin(e.target.value)}
-            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-blue-400 bg-white"
+            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
           />
           {(dateDebut || dateFin) && (
             <button
@@ -151,7 +151,7 @@ export function TableLignesBancaires({
                     onClick={() => !isDebit && onSelectLigne(ligne)}
                     className={`transition-all ${
                       isDebit ? 'bg-gray-50/60 cursor-default' :
-                      isActive ? 'bg-blue-50 border-l-[3px] border-blue-500 cursor-pointer' :
+                      isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal cursor-pointer' :
                       isDimmed ? 'opacity-30 cursor-pointer' :
                       'hover:bg-gray-50 cursor-pointer'
                     }`}
