@@ -31,9 +31,12 @@ export function useComptesClients() {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     let encours12 = 0
     if (moisMaxFactures) {
-      const moisMaxDate = new Date(moisMaxFactures + '-01')
-      const il12MoisStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1).toISOString().slice(0, 10)
-      const moisMaxEndStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0).toISOString().slice(0, 10)
+      const yr = parseInt(moisMaxFactures.slice(0, 4)), mo = parseInt(moisMaxFactures.slice(5, 7))
+      let startMo = mo - 11; let startYr = yr
+      if (startMo <= 0) { startMo += 12; startYr -= 1 }
+      const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
+      const lastDay = new Date(yr, mo, 0).getDate()
+      const moisMaxEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
       encours12 = impayees
         .filter(f => (f.date_emission ?? '') >= il12MoisStr && (f.date_emission ?? '') <= moisMaxEndStr)
         .reduce((s, f) => s + f.reste_du, 0)

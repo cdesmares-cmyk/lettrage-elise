@@ -181,9 +181,12 @@ export function useDashboard() {
   // Numérateur DSO : Σ reste_dû des factures dans la fenêtre moisMaxFactures-11 → moisMaxFactures
   const encours12Mois = useMemo(() => {
     if (!moisMaxFactures) return 0
-    const moisMaxDate = new Date(moisMaxFactures + '-01')
-    const il12MoisStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1).toISOString().slice(0, 10)
-    const moisMaxEndStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0).toISOString().slice(0, 10)
+    const yr = parseInt(moisMaxFactures.slice(0, 4)), mo = parseInt(moisMaxFactures.slice(5, 7))
+    let startMo = mo - 11; let startYr = yr
+    if (startMo <= 0) { startMo += 12; startYr -= 1 }
+    const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
+    const lastDay = new Date(yr, mo, 0).getDate()
+    const moisMaxEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     return factures
       .filter(f => f.reste_du > 0.005
         && (f.date_emission ?? '') >= il12MoisStr

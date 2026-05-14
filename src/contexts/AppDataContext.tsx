@@ -102,10 +102,14 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const moisMax = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
       if (moisMax) {
         setMoisMaxFactures(moisMax)
-        const moisMaxDate = new Date(moisMax + '-01')
-        const dateDebut = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1).toISOString().slice(0, 10)
-        const dateFin = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0).toISOString().slice(0, 10)
-        let ca = 0; let caOffset = 0; const CA_PAGE = 5000
+        // Calcul pure string — évite le décalage UTC/heure locale
+        const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
+        let startMo = mo - 11; let startYr = yr
+        if (startMo <= 0) { startMo += 12; startYr -= 1 }
+        const lastDay = new Date(yr, mo, 0).getDate()
+        const dateDebut = `${startYr}-${String(startMo).padStart(2, '0')}-01`
+        const dateFin = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+        let ca = 0; let caOffset = 0; const CA_PAGE = 1000
         while (true) {
           const { data: caData } = await supabase.from('factures').select('montant_ttc')
             .gte('date_emission', dateDebut).lte('date_emission', dateFin)
