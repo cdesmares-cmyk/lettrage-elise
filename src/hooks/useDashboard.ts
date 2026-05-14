@@ -186,8 +186,17 @@ export function useDashboard() {
   const nbClientsEchus = useMemo(() => new Set(impayeesEchues.map(f => f.code_client)).size, [impayeesEchues])
 
   const encoursCourant = useMemo(() => clients.reduce((s, c) => s + c.encours_total, 0), [clients])
-  // DSO roulant = (Encours TTC / CA TTC 12 mois) × 365 — méthode standard
-  const dsoRoulant = ca12Mois > 0 ? Math.round(encoursCourant / ca12Mois * 365) : null
+  // DSO roulant = (Encours factures < 12 mois / CA TTC 12 mois) × 365
+  // On exclut les factures antérieures à 12 mois pour éviter d'inflater le DSO avec de l'irrécupérable
+  const encours12Mois = useMemo(() => {
+    const cutoff = new Date(TODAY)
+    cutoff.setFullYear(cutoff.getFullYear() - 1)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    return factures
+      .filter(f => f.reste_du > 0.005 && (f.date_emission ?? '') >= cutoffStr)
+      .reduce((s, f) => s + f.reste_du, 0)
+  }, [factures])
+  const dsoRoulant = ca12Mois > 0 ? Math.round(encours12Mois / ca12Mois * 365) : null
 
   const montantMoisPrec = useMemo(
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisPrecStr).reduce((s, f) => s + f.reste_du, 0),

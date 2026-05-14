@@ -67,5 +67,5 @@ export interface KpisCompteClient {
   encoursTotalTtc: number
   encoursTotalAvoirs: number
   nbFacturesAttente: number
-  nbFacturesTotal: number
+  dsoRoulant: number | null
 }

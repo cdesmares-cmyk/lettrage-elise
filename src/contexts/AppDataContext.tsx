@@ -59,16 +59,6 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offsetClients += PAGE
       }
 
-      const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
-      const maxImpayees = Math.max(...tousClients.map(r => r.nb_impayees), 1)
-      setClients(tousClients.map(r => ({
-        ...r,
-        statut_juridique: r.statut_juridique as StatutJuridique | null,
-        note_risque: Math.round(
-          (0.4 * (r.encours_total / maxEncours) + 0.6 * (r.nb_impayees / maxImpayees)) * 100
-        ),
-      })))
-
       if (page0.error) { return }
 
       let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
@@ -86,6 +76,34 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offset += PAGE
       }
 
+      // Ancienneté moyenne des impayés par client (score risque = 40% ancienneté + 35% encours + 25% nb)
+      const aggrAge = new Map<string, number[]>()
+      const now = Date.now()
+      for (const f of toutes) {
+        if (f.reste_du > 0.005 && !f.est_avoir && f.date_emission) {
+          const jours = Math.floor((now - new Date(f.date_emission).getTime()) / 86400000)
+          if (!aggrAge.has(f.code_client)) aggrAge.set(f.code_client, [])
+          aggrAge.get(f.code_client)!.push(jours)
+        }
+      }
+      const ancienneteMoy = new Map<string, number>()
+      aggrAge.forEach((jours, code) => {
+        ancienneteMoy.set(code, jours.reduce((a, b) => a + b, 0) / jours.length)
+      })
+
+      const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
+      const maxImpayees = Math.max(...tousClients.map(r => r.nb_impayees), 1)
+      setClients(tousClients.map(r => {
+        const ageMoy = ancienneteMoy.get(r.code_dso) ?? 0
+        const sAge = Math.min(ageMoy / 365, 1)
+        const sEncours = r.encours_total / maxEncours
+        const sNb = r.nb_impayees / maxImpayees
+        return {
+          ...r,
+          statut_juridique: r.statut_juridique as StatutJuridique | null,
+          note_risque: Math.round((0.40 * sAge + 0.35 * sEncours + 0.25 * sNb) * 100),
+        }
+      }))
       setFacturesActives(toutes)
     } finally {
       setChargement(false)

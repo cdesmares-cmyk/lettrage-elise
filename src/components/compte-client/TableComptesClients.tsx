@@ -125,9 +125,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Nom" col="nom" {...thProps} align="left" />
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Fac. impayées" col="nb_impayees" {...thProps} align="center" />
-            <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
             <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
             <ColTh label="Plateforme" col="plateforme" {...thProps} align="left" />
+            <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
             <ColTh label="Groupement" col="code_groupement" {...thProps} align="left" />
             <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Options</th>
           </tr>
@@ -156,20 +156,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <span className={`font-mono font-bold text-sm tabular-nums ${c.encours_total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(c.encours_total)}</span>
+                    <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${c.encours_total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(c.encours_total)}</span>
                   </td>
                   <td className="px-3 py-3 text-center">
                     <span className={`text-sm font-bold tabular-nums ${c.nb_impayees > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{c.nb_impayees}</span>
-                    <span className="text-gray-300 text-xs"> / {c.nb_factures_total}</span>
-                  </td>
-                  <td className="px-3 py-3">
-                    {c.statut_juridique ? (
-                      <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border ${STATUT_CLASSES[c.statut_juridique]}`}>
-                        {STATUT_LABELS[c.statut_juridique]}
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-gray-300">—</span>
-                    )}
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
@@ -183,6 +173,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     {c.plateforme ? (
                       <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">{c.plateforme}</span>
                     ) : <span className="text-[10px] text-gray-300">—</span>}
+                  </td>
+                  <td className="px-3 py-3">
+                    {c.statut_juridique ? (
+                      <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border ${STATUT_CLASSES[c.statut_juridique]}`}>
+                        {STATUT_LABELS[c.statut_juridique]}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-300">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     {c.code_groupement ? (

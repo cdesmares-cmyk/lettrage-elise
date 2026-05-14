@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useFacturesClient } from '../hooks/useFacturesClient'
-import { useAppData } from '../contexts/AppDataContext'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
 import { TableComptesClients } from '../components/compte-client/TableComptesClients'
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
@@ -32,7 +31,6 @@ export function PageCompteClient() {
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
-  const { facturesActives } = useAppData()
 
   return (
     <div>
@@ -75,7 +73,7 @@ export function PageCompteClient() {
             type="text"
             value={comptes.recherche}
             onChange={e => comptes.setRecherche(e.target.value)}
-            placeholder="Code, client, plateforme…"
+            placeholder="Code, client, n° facture…"
             className="text-xs text-gray-700 placeholder-gray-400 outline-none w-full bg-transparent"
           />
           {comptes.recherche && (
@@ -83,17 +81,6 @@ export function PageCompteClient() {
           )}
         </div>
 
-        {/* Indicateur mémoire : nombre de pièces actives chargées */}
-        {!comptes.chargement && (() => {
-          const nbAvoirs = facturesActives.filter(f => f.est_avoir && f.reste_du < -0.005).length
-          return (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border bg-emerald-50 border-emerald-200 text-emerald-700 text-[11px] font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              {comptes.kpis.nbFacturesAttente} impayées chargées
-              {nbAvoirs > 0 && <span className="text-gray-400 ml-1">+ {nbAvoirs} avoir{nbAvoirs > 1 ? 's' : ''}</span>}
-            </div>
-          )
-        })()}
       </div>
 
       {/* Contenu selon la vue */}

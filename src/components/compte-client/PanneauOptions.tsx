@@ -132,24 +132,24 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={fermerEtReset} />
       <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
-        <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-start justify-between px-5 py-4 bg-ockham-copper-dark">
           <div>
-            <p className="text-sm font-bold text-gray-900">{client.nom}</p>
-            <p className="text-xs text-gray-400 mt-0.5 font-mono">{client.code_dso}</p>
+            <p className="text-sm font-bold text-white">{client.nom}</p>
+            <p className="text-xs text-ockham-copper-light mt-0.5 font-mono">{client.code_dso}</p>
           </div>
-          <button onClick={fermerEtReset} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
+          <button onClick={fermerEtReset} className="w-7 h-7 rounded-full border border-ockham-copper/40 bg-ockham-copper/20 hover:bg-ockham-copper/40 text-ockham-copper-light text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
 
         {/* Onglets */}
-        <div className="flex border-b border-gray-100 flex-shrink-0">
+        <div className="flex border-b border-ockham-copper/30 bg-ockham-copper-dark flex-shrink-0">
           {(['infos', 'contacts'] as Onglet[]).map(o => (
             <button
               key={o}
               onClick={() => setOnglet(o)}
               className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
                 onglet === o
-                  ? 'text-ockham-teal border-b-2 border-ockham-teal'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'text-white border-b-2 border-white'
+                  : 'text-ockham-copper-light hover:text-white'
               }`}
             >
               {o === 'infos' ? 'Informations' : 'Contacts'}
@@ -228,7 +228,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
                 <div className="w-full h-2 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
                   <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${client.note_risque}%` }} />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">0,4 × encours + 0,6 × impayés (normalisés)</p>
+                <p className="text-[10px] text-gray-400 mt-1">0,40 × ancienneté + 0,35 × encours + 0,25 × nb impayées (normalisés)</p>
               </div>
             </div>
           </div>
