@@ -191,6 +191,7 @@ export function useDashboard() {
       .reduce((s, f) => s + f.reste_du, 0)
   }, [factures, moisMaxFactures])
   const dsoRoulant = ca12Mois > 0 ? encours12Mois / ca12Mois * 365 : null
+  console.log('[DSO-DB] moisMaxFactures:', moisMaxFactures, '| ca12Mois:', ca12Mois, '| encours12Mois:', encours12Mois, '| dso:', dsoRoulant)
 
   const montantMoisPrec = useMemo(
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisPrecStr).reduce((s, f) => s + f.reste_du, 0),

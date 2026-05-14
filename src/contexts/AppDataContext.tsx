@@ -116,6 +116,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           caOffset += CA_PAGE
         }
         setCa12Mois(ca)
+        console.log('[DSO-CTX] moisMax:', moisMax, '| dateDebut:', dateDebut, '| dateFin:', dateFin, '| ca12Mois:', ca)
       }
 
       const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
