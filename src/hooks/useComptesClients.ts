@@ -10,16 +10,28 @@ export function useComptesClients() {
   const [recherche, setRecherche] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
 
+  // moisMax = mois de la facture la plus récente dans facturesActives
+  const moisMax = useMemo(
+    () => facturesActives
+      .filter(f => !f.est_avoir)
+      .reduce((mx, f) => { const m = f.date_emission?.slice(0, 7) ?? ''; return m > mx ? m : mx }, ''),
+    [facturesActives]
+  )
+
+  // CA 12 mois calé sur moisMax (même fenêtre que le tableau de bord)
   useEffect(() => {
-    const il12Mois = new Date()
-    il12Mois.setFullYear(il12Mois.getFullYear() - 1)
+    if (!moisMax) return
+    const moisMaxDate = new Date(moisMax + '-01')
+    const il12Mois = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
+    const moisMaxEnd = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
     supabase.from('factures').select('montant_ttc')
       .gte('date_emission', il12Mois.toISOString().slice(0, 10))
+      .lte('date_emission', moisMaxEnd.toISOString().slice(0, 10))
       .eq('est_avoir', false).limit(10000)
       .then(({ data }) => {
         if (data) setCa12Mois((data as { montant_ttc: number | null }[]).reduce((s, r) => s + (r.montant_ttc ?? 0), 0))
       })
-  }, [])
+  }, [moisMax])
 
   const clients = useMemo((): CompteClient[] => {
     if (!recherche.trim()) return raw
@@ -41,12 +53,17 @@ export function useComptesClients() {
 
   const kpis = useMemo((): KpisCompteClient => {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
-    const cutoff = new Date()
-    cutoff.setFullYear(cutoff.getFullYear() - 1)
-    const cutoffStr = cutoff.toISOString().slice(0, 10)
-    const encours12 = impayees
-      .filter(f => (f.date_emission ?? '') >= cutoffStr)
-      .reduce((s, f) => s + f.reste_du, 0)
+    let encours12 = 0
+    if (moisMax) {
+      const moisMaxDate = new Date(moisMax + '-01')
+      const il12MoisDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
+      const moisMaxEndDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
+      const il12MoisStr = il12MoisDate.toISOString().slice(0, 10)
+      const moisMaxEndStr = moisMaxEndDate.toISOString().slice(0, 10)
+      encours12 = impayees
+        .filter(f => (f.date_emission ?? '') >= il12MoisStr && (f.date_emission ?? '') <= moisMaxEndStr)
+        .reduce((s, f) => s + f.reste_du, 0)
+    }
     return {
       nbClientsActifs: clients.filter(c => c.encours_total > 0).length,
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
@@ -56,7 +73,7 @@ export function useComptesClients() {
       nbFacturesAttente: impayees.length,
       dsoRoulant: ca12Mois > 0 ? Math.round(encours12 / ca12Mois * 365) : null,
     }
-  }, [clients, facturesActives, ca12Mois])
+  }, [clients, facturesActives, ca12Mois, moisMax])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
     // Uniquement les clients avec un code_groupement explicite

@@ -138,23 +138,16 @@ export function useDashboard() {
   const [lettragesRaw, setLettragesRaw] = useState<{ date_lettrage: string; montant: number }[]>([])
   const [chargement, setChargement] = useState(true)
 
+  // Encaissements 24 mois — indépendant de moisMax
   useEffect(() => {
-    async function charger() {
-      const il12Mois = new Date(TODAY); il12Mois.setFullYear(il12Mois.getFullYear() - 1)
-      const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
-      const [resCA, resLett] = await Promise.all([
-        supabase.from('factures').select('montant_ttc')
-          .gte('date_emission', il12Mois.toISOString().slice(0, 10))
-          .eq('est_avoir', false).limit(10000),
-        supabase.from('lettrages').select('date_lettrage, montant')
-          .gte('date_lettrage', il24Mois.toISOString().slice(0, 10))
-          .gt('montant', 0).order('date_lettrage').limit(20000),
-      ])
-      if (resCA.data) setCa12Mois((resCA.data as { montant_ttc: number | null }[]).reduce((s, r) => s + (r.montant_ttc ?? 0), 0))
-      if (resLett.data) setLettragesRaw(resLett.data as { date_lettrage: string; montant: number }[])
-      setChargement(false)
-    }
-    charger()
+    const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
+    supabase.from('lettrages').select('date_lettrage, montant')
+      .gte('date_lettrage', il24Mois.toISOString().slice(0, 10))
+      .gt('montant', 0).order('date_lettrage').limit(20000)
+      .then(({ data }) => {
+        if (data) setLettragesRaw(data as { date_lettrage: string; montant: number }[])
+        setChargement(false)
+      })
   }, [])
 
   const factures = useMemo(
@@ -167,6 +160,21 @@ export function useDashboard() {
     () => factures.reduce((mx, f) => { const m = f.date_emission?.slice(0, 7) ?? ''; return m > mx ? m : mx }, ''),
     [factures]
   )
+
+  // CA 12 mois — fenêtre calée sur moisMax (ex : avr 2025 → mars 2026 si moisMax = 2026-03)
+  useEffect(() => {
+    if (!moisMax) return
+    const moisMaxDate = new Date(moisMax + '-01')
+    const il12Mois = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
+    const moisMaxEnd = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
+    supabase.from('factures').select('montant_ttc')
+      .gte('date_emission', il12Mois.toISOString().slice(0, 10))
+      .lte('date_emission', moisMaxEnd.toISOString().slice(0, 10))
+      .eq('est_avoir', false).limit(10000)
+      .then(({ data }) => {
+        if (data) setCa12Mois((data as { montant_ttc: number | null }[]).reduce((s, r) => s + (r.montant_ttc ?? 0), 0))
+      })
+  }, [moisMax])
 
   // M-1 et N-1 calculés par rapport à moisMax, pas au calendrier
   const moisRefYear = moisMax ? parseInt(moisMax.slice(0, 4)) : TODAY.getFullYear()
@@ -186,16 +194,20 @@ export function useDashboard() {
   const nbClientsEchus = useMemo(() => new Set(impayeesEchues.map(f => f.code_client)).size, [impayeesEchues])
 
   const encoursCourant = useMemo(() => clients.reduce((s, c) => s + c.encours_total, 0), [clients])
-  // DSO roulant = (Encours factures < 12 mois / CA TTC 12 mois) × 365
-  // On exclut les factures antérieures à 12 mois pour éviter d'inflater le DSO avec de l'irrécupérable
+  // DSO = Σ reste_dû (fenêtre 12 mois calée sur moisMax) / CA 12 mois × 365
   const encours12Mois = useMemo(() => {
-    const cutoff = new Date(TODAY)
-    cutoff.setFullYear(cutoff.getFullYear() - 1)
-    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    if (!moisMax) return 0
+    const moisMaxDate = new Date(moisMax + '-01')
+    const il12MoisDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
+    const moisMaxEndDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
+    const il12MoisStr = il12MoisDate.toISOString().slice(0, 10)
+    const moisMaxEndStr = moisMaxEndDate.toISOString().slice(0, 10)
     return factures
-      .filter(f => f.reste_du > 0.005 && (f.date_emission ?? '') >= cutoffStr)
+      .filter(f => f.reste_du > 0.005
+        && (f.date_emission ?? '') >= il12MoisStr
+        && (f.date_emission ?? '') <= moisMaxEndStr)
       .reduce((s, f) => s + f.reste_du, 0)
-  }, [factures])
+  }, [factures, moisMax])
   const dsoRoulant = ca12Mois > 0 ? Math.round(encours12Mois / ca12Mois * 365) : null
 
   const montantMoisPrec = useMemo(

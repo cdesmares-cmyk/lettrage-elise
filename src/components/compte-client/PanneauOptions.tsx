@@ -132,24 +132,24 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={fermerEtReset} />
       <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
-        <div className="flex items-start justify-between px-5 py-4 bg-ockham-copper-dark">
+        <div className="flex items-start justify-between px-5 py-4 bg-ockham-navy">
           <div>
-            <p className="text-sm font-bold text-white">{client.nom}</p>
-            <p className="text-xs text-ockham-copper-light mt-0.5 font-mono">{client.code_dso}</p>
+            <p className="text-sm font-bold text-slate-100">{client.nom}</p>
+            <p className="text-xs text-slate-400 mt-0.5 font-mono">{client.code_dso}</p>
           </div>
-          <button onClick={fermerEtReset} className="w-7 h-7 rounded-full border border-ockham-copper/40 bg-ockham-copper/20 hover:bg-ockham-copper/40 text-ockham-copper-light text-sm flex items-center justify-center transition-colors">✕</button>
+          <button onClick={fermerEtReset} className="w-7 h-7 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-slate-300 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
 
         {/* Onglets */}
-        <div className="flex border-b border-ockham-copper/30 bg-ockham-copper-dark flex-shrink-0">
+        <div className="flex gap-2 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
           {(['infos', 'contacts'] as Onglet[]).map(o => (
             <button
               key={o}
               onClick={() => setOnglet(o)}
-              className={`flex-1 py-2.5 text-xs font-semibold transition-colors ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-md border transition-colors ${
                 onglet === o
-                  ? 'text-white border-b-2 border-white'
-                  : 'text-ockham-copper-light hover:text-white'
+                  ? 'bg-white/15 border-white/50 text-white'
+                  : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
               }`}
             >
               {o === 'infos' ? 'Informations' : 'Contacts'}
