@@ -34,7 +34,7 @@ function KpiDso({ dso }: { dso: number | null }) {
       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">DSO roulant — 12 mois</p>
       {dso !== null && cls ? (
         <>
-          <p className={`text-xl font-bold tabular-nums tracking-tight ${cls.txt}`}>{dso}j</p>
+          <p className={`text-xl font-bold tabular-nums tracking-tight ${cls.txt}`}>{dso.toFixed(1)}j</p>
           <p className={`text-[11px] font-semibold mt-0.5 ${cls.txt}`}>{cls.label}</p>
         </>
       ) : (

@@ -95,7 +95,7 @@ export function BlocKpis({
           titre="DSO roulant — 12 mois"
           valeur={
             dsoRoulant !== null ? (
-              <span className={classeDso(dsoRoulant)}>{dsoRoulant}j</span>
+              <span className={classeDso(dsoRoulant)}>{dsoRoulant.toFixed(1)}j</span>
             ) : <span className="text-gray-400 dark:text-gray-600">—</span>
           }
           sous={
@@ -105,7 +105,7 @@ export function BlocKpis({
           }
           footer={
             <span className="text-[10px] text-gray-400 dark:text-gray-500">
-              (Encours TTC ÷ CA TTC 12 mois) × 365
+              (Σ reste_dû 12 mois ÷ Σ CA TTC 12 mois) × 365
             </span>
           }
         />

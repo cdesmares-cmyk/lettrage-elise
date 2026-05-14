@@ -20,6 +20,8 @@ interface AppDataContextType {
   chargement: boolean
   rafraichir: () => Promise<void>
   mettreAJourStatutLocal: (numeroPiece: string, statut: StatutFacture | null) => void
+  moisMaxFactures: string   // YYYY-MM, mois de la facture la plus récente en base
+  ca12Mois: number          // Σ montant_ttc sur la fenêtre moisMax-11 → moisMax
 }
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
@@ -29,6 +31,8 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [chargement, setChargement] = useState(false)
+  const [moisMaxFactures, setMoisMaxFactures] = useState('')
+  const [ca12Mois, setCa12Mois] = useState(0)
 
   const rafraichir = useCallback(async () => {
     setChargement(true)
@@ -91,6 +95,29 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         ancienneteMoy.set(code, jours.reduce((a, b) => a + b, 0) / jours.length)
       })
 
+      // moisMax + CA 12 mois paginé — référence DSO, recalculé à chaque import
+      const { data: maxData } = await supabase.from('factures')
+        .select('date_emission').eq('est_avoir', false)
+        .order('date_emission', { ascending: false }).limit(1)
+      const moisMax = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
+      if (moisMax) {
+        setMoisMaxFactures(moisMax)
+        const moisMaxDate = new Date(moisMax + '-01')
+        const dateDebut = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1).toISOString().slice(0, 10)
+        const dateFin = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0).toISOString().slice(0, 10)
+        let ca = 0; let caOffset = 0; const CA_PAGE = 5000
+        while (true) {
+          const { data: caData } = await supabase.from('factures').select('montant_ttc')
+            .gte('date_emission', dateDebut).lte('date_emission', dateFin)
+            .eq('est_avoir', false).range(caOffset, caOffset + CA_PAGE - 1)
+          if (!caData?.length) break
+          ca += (caData as { montant_ttc: number | null }[]).reduce((s, r) => s + (Number(r.montant_ttc) || 0), 0)
+          if (caData.length < CA_PAGE) break
+          caOffset += CA_PAGE
+        }
+        setCa12Mois(ca)
+      }
+
       const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
       const maxImpayees = Math.max(...tousClients.map(r => r.nb_impayees), 1)
       setClients(tousClients.map(r => {
@@ -113,7 +140,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
     if (session) { rafraichir() }
-    else { setClients([]); setFacturesActives([]); setChargement(false) }
+    else { setClients([]); setFacturesActives([]); setMoisMaxFactures(''); setCa12Mois(0); setChargement(false) }
   }, [session, rafraichir])
 
   function mettreAJourStatutLocal(numeroPiece: string, statut: StatutFacture | null) {
@@ -123,7 +150,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, moisMaxFactures, ca12Mois }}>
       {children}
     </AppDataContext.Provider>
   )

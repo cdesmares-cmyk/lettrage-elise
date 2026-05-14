@@ -1,46 +1,13 @@
 // Données agrégées clients — lit depuis AppDataContext (chargé une fois au démarrage)
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppData } from '../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
 export function useComptesClients() {
-  const { clients: raw, facturesActives, chargement, rafraichir } = useAppData()
+  const { clients: raw, facturesActives, chargement, rafraichir, moisMaxFactures, ca12Mois } = useAppData()
   const [recherche, setRecherche] = useState('')
-  const [ca12Mois, setCa12Mois] = useState(0)
-  const [moisMaxDso, setMoisMaxDso] = useState('')
-
-  // DSO — étape 1 : moisMax DB, étape 2 : CA 12 mois paginé (même logique que le tableau de bord)
-  useEffect(() => {
-    async function chargerDso() {
-      const { data: maxData } = await supabase.from('factures')
-        .select('date_emission').eq('est_avoir', false)
-        .order('date_emission', { ascending: false }).limit(1)
-      const moisMaxDb = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7)
-      if (!moisMaxDb) return
-      setMoisMaxDso(moisMaxDb)
-
-      const moisMaxDate = new Date(moisMaxDb + '-01')
-      const il12Mois = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
-      const moisMaxEnd = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
-      const dateDebut = il12Mois.toISOString().slice(0, 10)
-      const dateFin = moisMaxEnd.toISOString().slice(0, 10)
-
-      let ca = 0; let offset = 0; const PAGE = 5000
-      while (true) {
-        const { data } = await supabase.from('factures').select('montant_ttc')
-          .gte('date_emission', dateDebut).lte('date_emission', dateFin)
-          .eq('est_avoir', false).range(offset, offset + PAGE - 1)
-        if (!data?.length) break
-        ca += (data as { montant_ttc: number | null }[]).reduce((s, r) => s + (Number(r.montant_ttc) || 0), 0)
-        if (data.length < PAGE) break
-        offset += PAGE
-      }
-      setCa12Mois(ca)
-    }
-    chargerDso()
-  }, [])
 
   const clients = useMemo((): CompteClient[] => {
     if (!recherche.trim()) return raw
@@ -63,12 +30,10 @@ export function useComptesClients() {
   const kpis = useMemo((): KpisCompteClient => {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     let encours12 = 0
-    if (moisMaxDso) {
-      const moisMaxDate = new Date(moisMaxDso + '-01')
-      const il12MoisDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1)
-      const moisMaxEndDate = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0)
-      const il12MoisStr = il12MoisDate.toISOString().slice(0, 10)
-      const moisMaxEndStr = moisMaxEndDate.toISOString().slice(0, 10)
+    if (moisMaxFactures) {
+      const moisMaxDate = new Date(moisMaxFactures + '-01')
+      const il12MoisStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() - 11, 1).toISOString().slice(0, 10)
+      const moisMaxEndStr = new Date(moisMaxDate.getFullYear(), moisMaxDate.getMonth() + 1, 0).toISOString().slice(0, 10)
       encours12 = impayees
         .filter(f => (f.date_emission ?? '') >= il12MoisStr && (f.date_emission ?? '') <= moisMaxEndStr)
         .reduce((s, f) => s + f.reste_du, 0)
@@ -80,9 +45,9 @@ export function useComptesClients() {
         .filter(f => f.est_avoir && f.reste_du < -0.005)
         .reduce((s, f) => s + Math.abs(f.reste_du), 0),
       nbFacturesAttente: impayees.length,
-      dsoRoulant: ca12Mois > 0 ? Math.round(encours12 / ca12Mois * 365) : null,
+      dsoRoulant: ca12Mois > 0 ? encours12 / ca12Mois * 365 : null,
     }
-  }, [clients, facturesActives, ca12Mois, moisMaxDso])
+  }, [clients, facturesActives, ca12Mois, moisMaxFactures])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
     // Uniquement les clients avec un code_groupement explicite
