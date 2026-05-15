@@ -1,6 +1,7 @@
 // Bloc 3 — Widgets personnalisables (préférences en localStorage)
 import { useState, useMemo } from 'react'
 import type { useDashboard } from '../../hooks/useDashboard'
+import { NumeroPiece } from '../NumeroPiece'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -68,7 +69,7 @@ function WidgetAvoirs({ factures }: Props) {
       {avoirs.map(f => (
         <li key={f.numero_piece} className="px-4 py-2 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-mono text-[11px] font-semibold text-ockham-teal dark:text-ockham-teal-light truncate">{f.numero_piece}</p>
+            <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] font-semibold text-ockham-teal dark:text-ockham-teal-light truncate" />
             <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{f.nom_client ?? f.code_client}</p>
           </div>
           <span className="text-xs font-mono font-bold text-ockham-teal dark:text-ockham-teal-light tabular-nums flex-shrink-0">{fmtEuro(f.reste_du)}</span>
@@ -132,7 +133,7 @@ function WidgetAnnotees({ factures }: Props) {
       </div>
       {litiges.slice(0, 4).map(f => (
         <div key={f.numero_piece} className="flex items-center justify-between text-xs">
-          <span className="font-mono text-ockham-teal dark:text-ockham-teal-light truncate">{f.numero_piece}</span>
+          <NumeroPiece numero={f.numero_piece} className="font-mono text-ockham-teal dark:text-ockham-teal-light truncate" />
           <span className="font-mono text-red-600 dark:text-red-400 font-semibold">{fmtEuro(f.reste_du)}</span>
         </div>
       ))}

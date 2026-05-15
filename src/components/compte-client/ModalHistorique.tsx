@@ -1,6 +1,7 @@
 // Modal lecture seule — historique des lettrages d'une facture
 import { useState, useEffect } from 'react'
 import type { FactureDetail, HistoriqueLettrage } from '../../types/client'
+import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   facture: FactureDetail | null
@@ -41,7 +42,7 @@ export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props)
         <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-sm font-bold text-gray-900">📋 Historique de lettrage</h3>
-            <p className="text-xs text-gray-400 mt-0.5 font-mono">{facture.numero_piece}</p>
+            <NumeroPiece numero={facture.numero_piece} className="text-xs text-gray-400 mt-0.5 font-mono" />
           </div>
           <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>

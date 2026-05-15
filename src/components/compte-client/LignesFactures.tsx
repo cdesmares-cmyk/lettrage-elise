@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import type { FactureDetail, StatutFacture } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
+import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   factures: FactureDetail[]
@@ -9,6 +10,8 @@ interface Props {
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onHistorique: (fac: FactureDetail) => void
   compact?: boolean
+  // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
+  controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
 
 // Instances créées une seule fois — toLocaleDateString recrée Intl.DateTimeFormat à chaque appel (lent)
@@ -78,22 +81,26 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
-  const [sortCol, setSortCol] = useState<string>('date_echeance')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [sortColInt, setSortColInt] = useState<string>('date_echeance')
+  const [sortDirInt, setSortDirInt] = useState<SortDir>('desc')
+
+  const sortCol = controlSort?.col ?? sortColInt
+  const sortDir = controlSort?.dir ?? sortDirInt
 
   function handleSort(col: string) {
-    setSortCol(prev => {
-      if (prev === col) {
-        setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    if (controlSort) {
+      controlSort.onChange(col)
+    } else {
+      setSortColInt(prev => {
+        if (prev === col) { setSortDirInt(d => d === 'asc' ? 'desc' : 'asc'); return col }
+        setSortDirInt('desc')
         return col
-      }
-      setSortDir('desc')
-      return col
-    })
+      })
+    }
   }
 
   function handleStatutClick(e: React.MouseEvent, numero: string) {
@@ -111,9 +118,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
     return <div className="py-6 text-center text-xs text-gray-400">Aucune facture trouvée.</div>
   }
 
-  const facturesTries = compact
+  // Pas de tri interne si controlSort fourni (données déjà triées par le parent sur l'ensemble)
+  const facturesTries = (compact || controlSort)
     ? factures
-    : sortRows(factures as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as FactureDetail[]
+    : sortRows(factures as unknown as Record<string, unknown>[], sortColInt, sortDirInt) as unknown as FactureDetail[]
 
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
 
@@ -173,7 +181,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 )}
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-mono font-semibold text-ockham-teal-dark">{f.numero_piece}</span>
+                    <NumeroPiece numero={f.numero_piece} className="font-mono font-semibold text-ockham-teal-dark" />
                     {estCompte ? (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-dark text-white">COMPTE</span>
                     ) : (

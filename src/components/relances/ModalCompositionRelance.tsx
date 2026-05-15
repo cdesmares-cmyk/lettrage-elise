@@ -6,6 +6,7 @@ import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient } from '../../types/client'
+import { NumeroPiece } from '../NumeroPiece'
 
 function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -205,7 +206,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth }:
                     return (
                       <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                         <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
-                        <span className="font-mono text-[11px] text-gray-600 flex-1">{f.numero_piece}</span>
+                        <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
                         <span className="text-[11px] font-bold text-gray-700 tabular-nums">{fmtEuros(f.reste_du)}</span>
                         <span className={`text-[10px] font-bold px-1.5 rounded ${j > 90 ? 'bg-red-100 text-red-700' : j > 60 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{j}j</span>
                       </label>

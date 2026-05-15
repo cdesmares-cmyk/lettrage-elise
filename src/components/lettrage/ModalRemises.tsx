@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useRemises } from '../../hooks/useRemises'
 import type { Remise, LigneFormRemise, TypeRemise } from '../../types/remise'
 import type { InfoFacture } from '../../types/lettrage'
+import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   ouvert: boolean
@@ -231,7 +232,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                               </div>
                               {remise.lignes.map(l => (
                                 <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                  <span className="font-mono text-xs font-semibold text-ockham-teal">{l.numero_facture}</span>
+                                  <NumeroPiece numero={l.numero_facture} className="font-mono text-xs font-semibold text-ockham-teal" />
                                   <span className="text-xs text-gray-500 truncate">{l.code_client}</span>
                                   <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                                 </div>
@@ -286,7 +287,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                           <div className="border-t border-gray-100 bg-white">
                             {remise.lignes.map(l => (
                               <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                <span className="font-mono text-xs font-semibold text-ockham-teal">{l.numero_facture}</span>
+                                <NumeroPiece numero={l.numero_facture} className="font-mono text-xs font-semibold text-ockham-teal" />
                                 <span className="text-xs text-gray-500">{l.code_client}</span>
                                 <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                               </div>

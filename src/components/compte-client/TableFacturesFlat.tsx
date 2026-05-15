@@ -1,9 +1,22 @@
-// Vue factures : liste plate avec filtres date, préfiltres années, pagination 50/50
+// Vue factures : liste plate avec filtres date, préfiltres années, tri global, pagination 50/50
 import { useState, useMemo, useEffect } from 'react'
 import type { CompteClient, FactureDetail, StatutFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { exporterXls } from '../../lib/exportXls'
 import { Pagination } from '../Pagination'
+
+type SortDir = 'asc' | 'desc'
+
+function sortRows(data: FactureDetail[], col: string, dir: SortDir): FactureDetail[] {
+  return [...data].sort((a, b) => {
+    const av = (a as unknown as Record<string, unknown>)[col] ?? ''
+    const bv = (b as unknown as Record<string, unknown>)[col] ?? ''
+    const cmp = typeof av === 'number' && typeof bv === 'number'
+      ? av - bv
+      : String(av).localeCompare(String(bv), 'fr-FR', { numeric: true })
+    return dir === 'asc' ? cmp : -cmp
+  })
+}
 
 const ITEMS_PER_PAGE = 50
 
@@ -21,6 +34,18 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [page, setPage] = useState(0)
+  const [sortCol, setSortCol] = useState('date_emission')
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+
+  function handleSort(col: string) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('desc')
+    }
+    setPage(0)
+  }
 
   useEffect(() => {
     if (codes.length > 0) onExpand(codes)
@@ -64,8 +89,13 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     return result
   }, [factures, dateDebut, dateFin])
 
-  const nbPages = Math.ceil(facturesFiltrees.length / ITEMS_PER_PAGE)
-  const facturesPage = facturesFiltrees.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
+  const facturesTries = useMemo(
+    () => sortRows(facturesFiltrees, sortCol, sortDir),
+    [facturesFiltrees, sortCol, sortDir]
+  )
+
+  const nbPages = Math.ceil(facturesTries.length / ITEMS_PER_PAGE)
+  const facturesPage = facturesTries.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
 
   function handleExport() {
     if (!facturesFiltrees.length) return
@@ -146,6 +176,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         chargement={chargement}
         onStatutChange={onStatutChange}
         onHistorique={onHistorique}
+        controlSort={{ col: sortCol, dir: sortDir, onChange: handleSort }}
       />
 
       <Pagination page={page} total={nbPages} onChange={setPage} />
