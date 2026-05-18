@@ -157,7 +157,11 @@ export function PageLettrage() {
       <ModalRemises
         ouvert={remisesOuverte}
         onFermer={() => setRemisesOuverte(false)}
-        onSuccess={() => { liste.rafraichir(); rafraichirDonnees(); remisesHook.charger() }}
+        onSuccess={(data) => {
+          if (data?.numerosLettres) mettreAJourResteDuLocal(data.numerosLettres)
+          liste.rafraichirSilencieux()
+          remisesHook.charger()
+        }}
       />
     </div>
   )

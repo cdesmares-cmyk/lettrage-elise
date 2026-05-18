@@ -13,7 +13,7 @@ interface RowLettrage {
   id: string
   date_lettrage: string
   code_client: string
-  numero_facture: string
+  numero_facture: string | null
   montant: number
   commentaire: string | null
   id_ligne_bancaire: string | null
@@ -182,7 +182,9 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                         <td className="px-3 py-2">
                           <span className="font-mono font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded text-[10px]">{l.code_client}</span>
                         </td>
-                        <td className="px-3 py-2 font-mono text-gray-700">{l.numero_facture}</td>
+                        <td className="px-3 py-2 font-mono text-gray-700">
+                          {l.numero_facture ?? <span className="text-amber-600 font-semibold not-italic text-[10px]">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>}
+                        </td>
                         <td className="px-3 py-2 text-right font-mono font-semibold text-gray-900">{fmt(l.montant)}</td>
                       </tr>
                     ))}

@@ -8,7 +8,7 @@ export interface LigneHistorique {
   id_ligne_bancaire: string | null
   libelle_bancaire: string | null
   code_client: string
-  numero_facture: string
+  numero_facture: string | null
   montant: number
   mode: string
   commentaire: string | null
@@ -36,7 +36,7 @@ export function useHistoriqueLettrage() {
         id_ligne_bancaire: r.id_ligne_bancaire as string | null,
         libelle_bancaire: (r.lignes_bancaires as { libelle: string } | null)?.libelle ?? null,
         code_client: r.code_client as string,
-        numero_facture: r.numero_facture as string,
+        numero_facture: r.numero_facture as string | null,
         montant: r.montant as number,
         mode: r.mode as string,
         commentaire: r.commentaire as string | null,

@@ -78,7 +78,10 @@ export function PanneauLettrage(props: Props) {
                 {lettragesExistants.map(l => (
                   <div key={l.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
                     <div>
-                      <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
+                      {l.numero_facture
+                        ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
+                        : <span className="text-amber-600 font-semibold">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>
+                      }
                       <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
                     </div>
                     <span className="font-semibold text-gray-700">{fmt(l.montant)}</span>
@@ -127,7 +130,10 @@ export function PanneauLettrage(props: Props) {
             {lettragesExistants.map(l => (
               <div key={l.id} className="flex items-center justify-between text-xs bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                 <div>
-                  <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
+                  {l.numero_facture
+                    ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
+                    : <span className="text-amber-600 font-semibold">Autres</span>
+                  }
                   <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
                   {l.commentaire && <span className="text-gray-400 ml-2 italic">{l.commentaire}</span>}
                 </div>
@@ -208,7 +214,10 @@ export function PanneauLettrage(props: Props) {
                 <div className="relative">
                   <select
                     value={ligne.classe}
-                    onChange={e => modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, montant: '', info_facture: null })}
+                    onChange={e => {
+                      clearTimeout(debounceRefs.current[ligne._key])
+                      modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', montant: '', info_facture: null, chargement: false })
+                    }}
                     className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
@@ -219,16 +228,22 @@ export function PanneauLettrage(props: Props) {
                   <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
 
-                {/* N° Facture */}
+                {/* N° Facture ou Commentaire (Autres) */}
                 <div className="relative">
                   <input
                     type="text"
                     value={ligne.numero_facture}
-                    onChange={e => handleNumeroChange(ligne._key, e.target.value)}
-                    placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
+                    onChange={e => {
+                      if (ligne.classe === 'autres') {
+                        modifierLigne(ligne._key, { numero_facture: e.target.value })
+                      } else {
+                        handleNumeroChange(ligne._key, e.target.value)
+                      }
+                    }}
+                    placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
                     className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
                   />
-                  {ligne.chargement && (
+                  {ligne.chargement && ligne.classe !== 'autres' && (
                     <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
                   )}
                 </div>

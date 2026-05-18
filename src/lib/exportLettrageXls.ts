@@ -8,7 +8,7 @@ interface RowLettrage {
   id: string
   id_ligne_bancaire: string
   code_client: string
-  numero_facture: string
+  numero_facture: string | null
   montant: number
   commentaire: string | null
   operateur: string | null
@@ -90,7 +90,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
       fmtDate(info?.date_operation ?? ''),
       info?.libelle ?? '',
       l.code_client,
-      l.numero_facture,
+      l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
       l.montant,
       l.commentaire ?? '',
       l.operateur ?? '',
@@ -119,7 +119,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
       : 'Facture'
     const commentairesAutres = letts
       .filter(l => l.code_client === 'AUTRES')
-      .map(l => l.numero_facture.trim() || (l.commentaire ?? ''))
+      .map(l => (l.commentaire ?? '').trim() || (l.numero_facture ?? '').trim())
       .filter(Boolean)
       .join(' / ')
     aoa2.push([

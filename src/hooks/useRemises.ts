@@ -1,9 +1,13 @@
 // Hook CRUD pour les remises Chèque / LCR (Sprint 4)
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import type { Remise, LigneFormRemise } from '../types/remise'
+
+export interface RemiseSuccessData {
+  numerosLettres: { numeroPiece: string; montant: number }[]
+}
 
 function errMsg(err: unknown, fallback: string): string {
   if (err instanceof Error) return err.message
@@ -22,13 +26,15 @@ interface RowLettrage {
   code_client: string; montant: number
 }
 
-export function useRemises(onSuccessCallback?: () => void) {
+export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => void) {
   const { utilisateur } = useAuth()
   const [remises, setRemises] = useState<Remise[]>([])
   const [chargement, setChargement] = useState(false)
+  const silentRef = useRef(false)
 
   async function charger() {
-    setChargement(true)
+    if (!silentRef.current) setChargement(true)
+    silentRef.current = false
     try {
       const { data: rd, error: re } = await supabase
         .from('remises').select('*').order('created_at', { ascending: false })
@@ -97,15 +103,26 @@ export function useRemises(onSuccessCallback?: () => void) {
         throw le
       }
 
+      const newRemise: Remise = {
+        id: remise.id, type, numero,
+        montant_total: type === 'lcr' ? montantLcr : null,
+        statut: 'en_attente', id_ligne_bancaire: null, date_encaissement: null,
+        cree_par: utilisateur?.id ?? null,
+        operateur: utilisateur?.email?.split('@')[0] ?? null,
+        created_at: new Date().toISOString(),
+        lignes: inserts.map(i => ({ id: '', numero_facture: i.numero_facture, code_client: i.code_client, montant: i.montant })),
+      }
+      setRemises(prev => [newRemise, ...prev])
       toast.success(`Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero} créée.`)
-      await charger()
-      onSuccessCallback?.()
+      onSuccessCallback?.({ numerosLettres: inserts.map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })) })
     } catch (err) {
       console.error('[useRemises]', err)
       toast.error(errMsg(err, 'Erreur lors de la création.'))
     } finally {
       setChargement(false)
     }
+    silentRef.current = true
+    charger()
   }
 
   async function modifier(

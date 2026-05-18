@@ -19,7 +19,7 @@ export interface LigneBancaireAvecStatut {
 
 export interface LettrageExistant {
   id: string
-  numero_facture: string
+  numero_facture: string | null
   code_client: string
   montant: number
   date_lettrage: string

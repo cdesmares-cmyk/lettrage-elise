@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useRemises } from '../../hooks/useRemises'
+import type { RemiseSuccessData } from '../../hooks/useRemises'
 import type { Remise, LigneFormRemise, TypeRemise } from '../../types/remise'
 import type { InfoFacture } from '../../types/lettrage'
 import { NumeroPiece } from '../NumeroPiece'
@@ -9,7 +10,7 @@ import { NumeroPiece } from '../NumeroPiece'
 interface Props {
   ouvert: boolean
   onFermer: () => void
-  onSuccess: () => void
+  onSuccess: (data?: RemiseSuccessData) => void
 }
 
 function fmt(n: number) {

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import toast from 'react-hot-toast'
 import type { LigneBancaireAvecStatut, LettrageExistant, LigneForme, InfoFacture } from '../types/lettrage'
 
 interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null }
@@ -117,14 +118,14 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
       }
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
-        numero_facture: l.numero_facture.trim(),
+        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
         code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
         mode: modeDepuisClasse(l.classe),
-        commentaire: l.classe === 'autres' ? 'Hors-facture (Autres)' : null,
+        commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
@@ -133,11 +134,13 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
       onSuccess({
         numerosLettres: inserts
           .filter(i => i.code_client !== 'AUTRES')
-          .map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })),
+          .map(i => ({ numeroPiece: i.numero_facture ?? '', montant: i.montant })),
         idLigneBancaire: ligneActive.id_operation,
         montantTotal: Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100,
       })
       annuler()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors du lettrage.')
     } finally {
       setChargement(false)
     }

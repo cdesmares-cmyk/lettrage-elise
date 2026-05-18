@@ -121,7 +121,7 @@ export interface LigneExtractionLettrage {
   date_lettrage: string
   libelle_bancaire: string | null
   code_client: string
-  numero_facture: string
+  numero_facture: string | null
   montant: number
   commentaire: string | null
 }
@@ -135,7 +135,7 @@ export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFich
       fmtDate(l.date_lettrage),
       l.libelle_bancaire ?? '',
       l.code_client,
-      l.numero_facture,
+      l.code_client === 'AUTRES' ? `Autres${l.commentaire ? ' · ' + l.commentaire : ''}` : (l.numero_facture ?? ''),
       l.montant,
       l.commentaire ?? '',
     ])
