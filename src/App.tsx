@@ -6,11 +6,10 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
-import { PageDepot } from './pages/PageDepot'
 import { PageLettrage } from './pages/PageLettrage'
 import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
-import { PageExtraction } from './pages/PageExtraction'
+import { PageImportExport } from './pages/PageImportExport'
 import { PageAdmin } from './pages/PageAdmin'
 import { PageRelances } from './pages/PageRelances'
 
@@ -60,12 +59,14 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/tableau-de-bord" replace />} />
-        <Route path="/depot" element={<PageDepot />} />
         <Route path="/lettrage" element={<PageLettrage />} />
         <Route path="/compte-client" element={<PageCompteClient />} />
         <Route path="/tableau-de-bord" element={<PageTableauDeBord />} />
-        <Route path="/extraction" element={<PageExtraction />} />
         <Route path="/relances" element={<PageRelances />} />
+        <Route path="/import-export" element={<PageImportExport />} />
+        {/* Redirections pour les anciens liens */}
+        <Route path="/depot" element={<Navigate to="/import-export" replace />} />
+        <Route path="/extraction" element={<Navigate to="/import-export" replace />} />
         <Route path="/admin" element={<PageAdmin />} />
       </Route>
     </Routes>

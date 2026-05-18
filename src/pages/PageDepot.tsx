@@ -34,7 +34,7 @@ const NB_ETAPES = 4
 const NUM_ETAPE: Record<Etape, number> = { type: 1, upload: 2, mapping: 3, validation: 4, succes: 4 }
 const ETAPES_ORDONNEES: Etape[] = ['type', 'upload', 'mapping', 'validation']
 
-export function PageDepot() {
+export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {}) {
   const [etape, setEtape] = useState<Etape>('type')
   const [typeFichier, setTypeFichier] = useState<TypeFichier | null>(null)
   const [fichier, setFichier] = useState<File | null>(null)
@@ -120,6 +120,7 @@ export function PageDepot() {
       <BanniereJarvis />
 
       {/* En-tête de page */}
+      {!hideEnTete && (
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Dépôt de fichiers</h1>
@@ -131,6 +132,7 @@ export function PageDepot() {
           </button>
         )}
       </div>
+      )}
 
       {/* Progression par étapes */}
       {etape !== 'succes' && (

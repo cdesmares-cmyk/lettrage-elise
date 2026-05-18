@@ -6,12 +6,11 @@ import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { supabase } from '../lib/supabase'
 
 const ONGLETS_TOUS = [
-  { chemin: '/tableau-de-bord', label: 'Tableau de bord', commercial: true },
-  { chemin: '/depot',           label: 'Dépôt',           commercial: false },
-  { chemin: '/lettrage',        label: 'Lettrage',         commercial: false },
-  { chemin: '/compte-client',   label: 'Compte client',    commercial: true },
-  { chemin: '/relances',        label: 'Relances',         commercial: false },
-  { chemin: '/extraction',      label: 'Extraction',       commercial: true },
+  { chemin: '/tableau-de-bord',  label: 'Tableau de bord', commercial: true },
+  { chemin: '/lettrage',         label: 'Lettrage',         commercial: false },
+  { chemin: '/compte-client',    label: 'Compte client',    commercial: true },
+  { chemin: '/relances',         label: 'Relances',         commercial: false },
+  { chemin: '/import-export',    label: 'Import / Export',  commercial: false },
 ]
 
 function getInitiales(email: string): string {
