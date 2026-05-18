@@ -1,12 +1,14 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useFacturesClient } from '../hooks/useFacturesClient'
+import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
 import { TableComptesClients } from '../components/compte-client/TableComptesClients'
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
+import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
@@ -26,11 +28,15 @@ export function PageCompteClient() {
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
+  const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
+  const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
+
+  useEffect(() => { chargerTous() }, [])
 
   return (
     <div>
@@ -98,6 +104,8 @@ export function PageCompteClient() {
           onHistorique={setFacHistorique}
           onOptions={setClientOptions}
           onRelancer={setClientRelance}
+          commentaires={commentaires}
+          onOuvrirCommentaire={setFacCommentaire}
         />
       )}
 
@@ -110,6 +118,8 @@ export function PageCompteClient() {
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
+          commentaires={commentaires}
+          onOuvrirCommentaire={setFacCommentaire}
         />
       )}
 
@@ -121,8 +131,19 @@ export function PageCompteClient() {
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
+          commentaires={commentaires}
+          onOuvrirCommentaire={setFacCommentaire}
         />
       )}
+
+      {/* Panneau Commentaire Facture */}
+      <PanneauCommentaireFacture
+        facture={facCommentaire}
+        commentaire={facCommentaire ? (commentaires.get(facCommentaire.numero_piece) ?? null) : null}
+        onFermer={() => setFacCommentaire(null)}
+        onSauvegarder={sauvegarder}
+        onStatutChange={factures.mettreAJourStatut}
+      />
 
       {/* Panneau Options */}
       <PanneauOptions

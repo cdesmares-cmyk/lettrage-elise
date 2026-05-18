@@ -41,6 +41,16 @@ export interface FactureDetail {
   est_avoir: boolean
 }
 
+export interface CommentaireFacture {
+  id: string
+  numero_piece: string
+  contact: string | null
+  date_contact: string | null
+  commentaire: string | null
+  operateur: string | null
+  updated_at: string
+}
+
 export interface HistoriqueLettrage {
   id: string
   id_ligne_bancaire: string | null

@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { Relance } from '../../hooks/useRelances'
-import type { CompteClient } from '../../types/client'
+import type { CompteClient, CommentaireFacture } from '../../types/client'
 
 function joursDepuis(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
@@ -27,9 +27,10 @@ function badgeAnc(j: number) {
 interface Props {
   relances: Relance[]
   onRelancer: (client: CompteClient) => void
+  commentaires?: Map<string, CommentaireFacture>
 }
 
-export function ListePriorites({ relances, onRelancer }: Props) {
+export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
   const { clients, facturesActives } = useAppData()
 
   const priorites = useMemo(() => {
@@ -60,18 +61,24 @@ export function ListePriorites({ relances, onRelancer }: Props) {
           ? joursDepuis(derniereRelance[c.code_dso])
           : 365
         const hasSansReponse = clientsAvecSansReponse.has(c.code_dso)
+        const hasStatut = factures.some(f => f.statut_facture != null)
+        const hasCommentaire = commentaires
+          ? factures.some(f => commentaires.has(f.numero_piece))
+          : false
         return {
           ...c,
           ancMax: Math.max(0, ancMax),
           joursSansRelance,
           jamsRelance: !derniereRelance[c.code_dso],
           hasSansReponse,
+          hasStatut,
+          hasCommentaire,
           score: scorePriorite(c.encours_total, Math.max(0, ancMax), joursSansRelance, hasSansReponse),
         }
       })
       .sort((a, b) => b.score - a.score)
       .slice(0, 10)
-  }, [clients, facturesActives, relances])
+  }, [clients, facturesActives, relances, commentaires])
 
   if (priorites.length === 0) {
     return (
@@ -112,6 +119,12 @@ export function ListePriorites({ relances, onRelancer }: Props) {
                 )}
                 {c.jamsRelance && (
                   <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded">jamais relancé</span>
+                )}
+                {c.hasStatut && (
+                  <span title="Facture(s) en litige ou provisionnée" className="text-[10px]">⚠</span>
+                )}
+                {c.hasCommentaire && (
+                  <span title="Commentaire(s) sur facture(s)" className="text-[10px]">💬</span>
                 )}
               </div>
             </div>

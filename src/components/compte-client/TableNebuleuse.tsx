@@ -1,6 +1,6 @@
 // Vue nébuleuse : regroupement par code_groupement avec expand factures consolidées
 import React, { useState, useTransition } from 'react'
-import type { GroupeNebuleuse, FactureDetail, StatutFacture } from '../../types/client'
+import type { GroupeNebuleuse, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
 
@@ -12,6 +12,8 @@ interface Props {
   onExpand: (codes: string[]) => void
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onHistorique: (fac: FactureDetail) => void
+  commentaires?: Map<string, CommentaireFacture>
+  onOuvrirCommentaire?: (fac: FactureDetail) => void
 }
 
 function fmt(n: number) {
@@ -61,7 +63,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique }: Props) {
+export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [zerosVisibles, setZerosVisibles] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
@@ -203,6 +205,8 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                                       chargement={false}
                                       onStatutChange={onStatutChange}
                                       onHistorique={onHistorique}
+                                      commentaires={commentaires}
+                                      onOuvrirCommentaire={onOuvrirCommentaire}
                                       compact
                                     />
                                   </div>

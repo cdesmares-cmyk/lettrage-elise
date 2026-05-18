@@ -1,6 +1,6 @@
 // Sous-tableau factures partagé entre la vue clients (expand) et la vue factures flat
 import { useState, useRef } from 'react'
-import type { FactureDetail, StatutFacture } from '../../types/client'
+import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
 import { NumeroPiece } from '../NumeroPiece'
 
@@ -10,6 +10,8 @@ interface Props {
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onHistorique: (fac: FactureDetail) => void
   compact?: boolean
+  commentaires?: Map<string, CommentaireFacture>
+  onOuvrirCommentaire?: (fac: FactureDetail) => void
   // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
   controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
@@ -81,7 +83,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort, commentaires, onOuvrirCommentaire }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -167,7 +169,12 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             return (
               <tr key={f.numero_piece} className={`border border-gray-100 rounded-lg transition-colors ${estCompte ? 'bg-ockham-teal-muted/60 hover:bg-ockham-teal-muted' : 'hover:bg-gray-50'}`}>
                 <td className="px-2 py-2 text-center">
-                  {f.statut_facture && !estCompte && <span className="text-amber-500 text-[11px]">⚠</span>}
+                  {!estCompte && (
+                    <div className="flex flex-col items-center gap-0.5">
+                      {f.statut_facture && <span className="text-amber-500 text-[10px] leading-none">⚠</span>}
+                      {commentaires?.has(f.numero_piece) && <span className="text-ockham-teal text-[10px] leading-none">💬</span>}
+                    </div>
+                  )}
                 </td>
                 {!compact && (
                   <td className="px-3 py-2">
@@ -205,12 +212,27 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
                 <td className="px-3 py-2">
-                  <button
-                    onClick={e => { e.stopPropagation(); onHistorique(f) }}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
-                  >
-                    📋 Historique
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={e => { e.stopPropagation(); onHistorique(f) }}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
+                    >
+                      📋 Historique
+                    </button>
+                    {onOuvrirCommentaire && !estCompte && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onOuvrirCommentaire(f) }}
+                        title="Commentaire"
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors whitespace-nowrap ${
+                          commentaires?.has(f.numero_piece)
+                            ? 'bg-ockham-teal-muted text-ockham-teal border-ockham-teal/40 hover:bg-ockham-teal/10'
+                            : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600'
+                        }`}
+                      >
+                        💬
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             )

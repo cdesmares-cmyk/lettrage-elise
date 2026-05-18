@@ -1,6 +1,6 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
 import { useState, useEffect } from 'react'
-import type { CompteClient, FactureDetail, StatutFacture } from '../../types/client'
+import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
 import { useRole } from '../../contexts/RoleContext'
@@ -18,6 +18,8 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
+  commentaires?: Map<string, CommentaireFacture>
+  onOuvrirCommentaire?: (fac: FactureDetail) => void
 }
 
 const PAGE_SIZE = 25
@@ -78,7 +80,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, commentaires, onOuvrirCommentaire }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -230,6 +232,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               chargement={estChargement(c.code_dso)}
                               onStatutChange={onStatutChange}
                               onHistorique={onHistorique}
+                              commentaires={commentaires}
+                              onOuvrirCommentaire={onOuvrirCommentaire}
                               compact
                             />
                             {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (

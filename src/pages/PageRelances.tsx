@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRelances } from '../hooks/useRelances'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useLeaderboard } from '../hooks/useLeaderboard'
+import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
 import { KpisRelances } from '../components/relances/KpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
@@ -16,6 +17,9 @@ export function PageRelances() {
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
+  const { commentaires, chargerTous } = useCommentairesFactures()
+
+  useEffect(() => { chargerTous() }, [])
 
   return (
     <div className="space-y-6">
@@ -45,7 +49,7 @@ export function PageRelances() {
         <div className="space-y-4">
           <div className="space-y-3">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priorités</p>
-            <ListePriorites relances={relances} onRelancer={setClientRelance} />
+            <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
           </div>
           {!isCommercial && classement.length > 0 && (
             <div className="space-y-3">
