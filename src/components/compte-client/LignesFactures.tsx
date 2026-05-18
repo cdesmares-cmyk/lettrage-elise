@@ -222,14 +222,13 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     {onOuvrirCommentaire && !estCompte && (
                       <button
                         onClick={e => { e.stopPropagation(); onOuvrirCommentaire(f) }}
-                        title="Commentaire"
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors whitespace-nowrap ${
+                        className={`flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap ${
                           commentaires?.has(f.numero_piece)
-                            ? 'bg-ockham-teal-muted text-ockham-teal border-ockham-teal/40 hover:bg-ockham-teal/10'
-                            : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-gray-400 hover:text-gray-600'
+                            ? 'bg-ockham-teal-muted text-ockham-teal border-ockham-teal/40'
+                            : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40'
                         }`}
                       >
-                        💬
+                        💬 Commentaire
                       </button>
                     )}
                   </div>

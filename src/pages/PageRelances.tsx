@@ -66,6 +66,7 @@ export function PageRelances() {
         onFermer={() => setClientRelance(null)}
         onSent={() => setClientRelance(null)}
         gmailAuth={gmailAuth}
+        commentaires={commentaires}
       />
     </div>
   )

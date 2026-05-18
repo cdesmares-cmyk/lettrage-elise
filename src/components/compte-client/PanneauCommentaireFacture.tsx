@@ -1,5 +1,6 @@
 // Volet latéral — commentaire + statut d'une facture
 import { useState, useEffect } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
 import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 
 const STATUTS: { val: StatutFacture; label: string; cls: string }[] = [
@@ -18,6 +19,8 @@ interface Props {
 }
 
 export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSauvegarder, onStatutChange }: Props) {
+  const { utilisateur } = useAuth()
+  const operateurCourant = utilisateur?.email?.split('@')[0] ?? ''
   const [statut, setStatut] = useState<StatutFacture | null>(null)
   const [contact, setContact] = useState('')
   const [dateContact, setDateContact] = useState('')
@@ -132,13 +135,18 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
             />
           </div>
 
-          {/* Méta */}
-          {commentaire?.updated_at && (
-            <p className="text-[10px] text-gray-400">
-              Mis à jour le {new Date(commentaire.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-              {commentaire.operateur ? ` · ${commentaire.operateur}` : ''}
-            </p>
-          )}
+          {/* Opérateur */}
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Opérateur</label>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+              <span className="text-sm text-gray-700 font-medium flex-1">{commentaire?.operateur ?? operateurCourant}</span>
+              {commentaire?.updated_at && (
+                <span className="text-[10px] text-gray-400">
+                  {new Date(commentaire.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Footer */}

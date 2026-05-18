@@ -174,6 +174,7 @@ export function PageCompteClient() {
         onFermer={() => setClientRelance(null)}
         onSent={() => setClientRelance(null)}
         gmailAuth={gmailAuth}
+        commentaires={commentaires}
       />
 
       {/* Modal Export */}
