@@ -60,7 +60,11 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
     modifier(key, { chargement: false, info_facture: row as InfoFacture | null })
   }
 
-  function handleNumeroChange(key: string, value: string) {
+  function handleNumeroChange(key: string, value: string, classe: ClasseLettrage) {
+    if (classe === 'autres') {
+      modifier(key, { numero_facture: value })
+      return
+    }
     modifier(key, { numero_facture: value, info_facture: null })
     clearTimeout(debounceRefs.current[key])
     debounceRefs.current[key] = setTimeout(() => chercherFacture(key, value), 400)
@@ -83,12 +87,14 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
       const today = new Date().toISOString().split('T')[0]
       const inserts = lignes.map(l => ({
         id_ligne_bancaire: null,
-        numero_facture: l.numero_facture.trim(),
+        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
         code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
         montant: Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
         mode: 'manuel' as const,
-        commentaire: `Correction — ${parseFloat(l.montant) < 0 ? 'délettrage' : 'relettering'}`,
+        commentaire: l.classe === 'autres'
+          ? (l.numero_facture.trim() || null)
+          : `Correction — ${parseFloat(l.montant) < 0 ? 'délettrage' : 'relettering'}`,
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
@@ -125,7 +131,10 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                 <div className="relative">
                   <select
                     value={ligne.classe}
-                    onChange={e => modifier(ligne._key, { classe: e.target.value as ClasseLettrage })}
+                    onChange={e => {
+                      clearTimeout(debounceRefs.current[ligne._key])
+                      modifier(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', info_facture: null, chargement: false })
+                    }}
                     className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
@@ -137,11 +146,11 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                   <input
                     type="text"
                     value={ligne.numero_facture}
-                    onChange={e => handleNumeroChange(ligne._key, e.target.value)}
-                    placeholder={ligne.classe === 'autres' ? 'Description…' : 'N° facture'}
+                    onChange={e => handleNumeroChange(ligne._key, e.target.value, ligne.classe)}
+                    placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
                     className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5"
                   />
-                  {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
+                  {ligne.chargement && ligne.classe !== 'autres' && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
                 </div>
                 <input
                   type="number"
