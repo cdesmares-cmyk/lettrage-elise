@@ -132,7 +132,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
       <table className="w-full text-xs">
         <thead>
           <tr className={`border-b border-gray-100 ${compact ? 'bg-ockham-teal-muted' : 'bg-gray-50'}`}>
-            <th className="w-5 px-2 py-2" />
             {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
             {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
             {compact
@@ -171,14 +170,6 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             const isAvoir = f.est_avoir || f.montant_ttc < 0
             return (
               <tr key={f.numero_piece} className={`border border-gray-100 rounded-lg transition-colors ${estCompte ? 'bg-ockham-teal-muted/60 hover:bg-ockham-teal-muted' : 'hover:bg-gray-50'}`}>
-                <td className="px-2 py-2 text-center">
-                  {!estCompte && (
-                    <div className="flex flex-col items-center gap-0.5">
-                      {f.statut_facture && <span className="text-amber-500 text-[10px] leading-none">⚠</span>}
-                      {commentaires?.has(f.numero_piece) && <span className="text-ockham-teal text-[10px] leading-none">💬</span>}
-                    </div>
-                  )}
-                </td>
                 {!compact && (
                   <td className="px-3 py-2">
                     <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>
@@ -227,10 +218,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     {!estCompte && (
                       <button
                         onClick={e => { e.stopPropagation(); onOuvrirCommentaire(f) }}
-                        className={`flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap ${
+                        className={`flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded transition-colors whitespace-nowrap ${
                           commentaires?.has(f.numero_piece)
-                            ? 'bg-ockham-teal-muted text-ockham-teal border-ockham-teal/40'
-                            : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                            : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
                         }`}
                       >
                         💬 Commentaire
