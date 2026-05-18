@@ -22,11 +22,12 @@ export function PageLettrage() {
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm((data) => {
+    console.log('[LETTRAGE-OK] optimiste:', data.numerosLettres.length, 'facture(s)', data.numerosLettres)
     // Mise à jour optimiste instantanée — l'utilisateur peut enchaîner sans attendre
     mettreAJourResteDuLocal(data.numerosLettres)
     liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
-    // Resync en arrière-plan (non-bloquant)
-    liste.rafraichir()
+    // Resync en arrière-plan sans spinner (non-bloquant)
+    liste.rafraichirSilencieux()
     rafraichirDonnees()
     if (historique.visible) historique.charger()
   })

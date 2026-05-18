@@ -25,6 +25,7 @@ export function useLignesBancaires() {
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
   const [version, setVersion] = useState(0)
+  const silentRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   function setRecherche(v: string) {
@@ -37,7 +38,8 @@ export function useLignesBancaires() {
     let annule = false
 
     async function charger() {
-      setChargement(true)
+      if (!silentRef.current) setChargement(true)
+      silentRef.current = false
 
       // Requête d'affichage : limitée à 300 lignes (table paginée)
       let q = supabase
@@ -98,6 +100,8 @@ export function useLignesBancaires() {
   }, [filtre, dateDebut, dateFin, version])
 
   function rafraichir() { setVersion(v => v + 1) }
+  // Resync sans spinner — utilisé après les mises à jour optimistes
+  function rafraichirSilencieux() { silentRef.current = true; setVersion(v => v + 1) }
 
   function mettreAJourLigneBancaireLocale(idOperation: string, montantLettre: number) {
     setLignes(prev => prev.map(l => {
@@ -117,6 +121,6 @@ export function useLignesBancaires() {
     filtre, setFiltre,
     dateDebut, setDateDebut,
     dateFin, setDateFin,
-    rafraichir, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant,
+    rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant,
   }
 }
