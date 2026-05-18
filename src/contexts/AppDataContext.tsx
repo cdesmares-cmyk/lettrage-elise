@@ -101,11 +101,16 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const { data: maxData } = await supabase.from('factures')
         .select('date_emission').eq('est_avoir', false)
         .order('date_emission', { ascending: false }).limit(1)
-      const moisMax = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
-      if (moisMax) {
+      const moisMaxBrut = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
+      if (moisMaxBrut) {
+        // M-1 : le mois le plus récent est souvent incomplet → on recule d'un mois
+        const yrBrut = parseInt(moisMaxBrut.slice(0, 4)), moBrut = parseInt(moisMaxBrut.slice(5, 7))
+        const moRef = moBrut === 1 ? 12 : moBrut - 1
+        const yrRef = moBrut === 1 ? yrBrut - 1 : yrBrut
+        const moisMax = `${yrRef}-${String(moRef).padStart(2, '0')}`
         setMoisMaxFactures(moisMax)
         // Calcul pure string — évite le décalage UTC/heure locale
-        const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
+        const yr = yrRef, mo = moRef
         let startMo = mo - 11; let startYr = yr
         if (startMo <= 0) { startMo += 12; startYr -= 1 }
         const lastDay = new Date(yr, mo, 0).getDate()
@@ -122,7 +127,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           caOffset += CA_PAGE
         }
         setCa12Mois(ca)
-        console.log('[DSO-CTX] moisMax:', moisMax, '| dateDebut:', dateDebut, '| dateFin:', dateFin, '| ca12Mois:', ca)
+        console.log('[DSO-CTX] moisMaxBrut:', moisMaxBrut, '| moisMax (M-1):', moisMax, '| dateDebut:', dateDebut, '| dateFin:', dateFin, '| ca12Mois:', ca)
       }
 
       const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
