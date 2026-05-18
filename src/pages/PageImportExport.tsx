@@ -1,6 +1,7 @@
 // Onglet Import / Export — regroupe le dépôt de fichiers (Import) et les exports comptables (Export)
 import { useState } from 'react'
 import { PageDepot } from './PageDepot'
+import { SectionExport } from '../components/import-export/SectionExport'
 
 type Vue = 'import' | 'export'
 
@@ -41,11 +42,7 @@ export function PageImportExport() {
 
       {vue === 'import' && <PageDepot hideEnTete />}
 
-      {vue === 'export' && (
-        <div className="flex flex-col items-center justify-center py-24 text-center text-gray-400">
-          <p className="text-sm font-medium">Export comptable — à venir</p>
-        </div>
-      )}
+      {vue === 'export' && <SectionExport />}
     </div>
   )
 }

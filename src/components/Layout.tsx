@@ -44,21 +44,31 @@ export function Layout() {
 
         {/* Navigation */}
         <nav className="flex gap-1">
-          {onglets.map(({ chemin, label }) => (
+          {onglets.map(({ chemin, label }) => {
+            const isImportExport = chemin === '/import-export'
+            return (
             <NavLink
               key={chemin}
               to={chemin}
               className={({ isActive }) =>
                 `flex items-center gap-1.5 px-3.5 py-1.5 rounded-md text-[13px] font-medium transition-colors ${
-                  isActive
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                  isImportExport
+                    ? isActive
+                      ? 'bg-ockham-navy text-white ring-1 ring-ockham-teal/40'
+                      : 'text-ockham-teal hover:bg-ockham-navy/80 hover:text-white'
+                    : isActive
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-ockham-teal' : 'bg-slate-700'}`} />
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    isImportExport
+                      ? isActive ? 'bg-ockham-teal' : 'bg-ockham-teal/50'
+                      : isActive ? 'bg-ockham-teal' : 'bg-slate-700'
+                  }`} />
                   {label}
                   {chemin === '/relances' && nbRelancesEnAttente > 0 && (
                     <span className="ml-0.5 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
@@ -68,7 +78,8 @@ export function Layout() {
                 </>
               )}
             </NavLink>
-          ))}
+            )
+          })}
         </nav>
 
         {/* Badge lecture seule — visible uniquement pour les commerciaux */}
