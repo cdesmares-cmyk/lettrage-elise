@@ -39,7 +39,7 @@ export function BlocExportLettrage() {
         <div>
           <h3 className="text-sm font-bold text-gray-900">Export Lettrage</h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            Fichier Excel avec 2 onglets : <span className="font-medium text-gray-700">Affectation</span> · <span className="font-medium text-gray-700">Lignes bancaires</span>
+            Fichier Excel avec 3 onglets : <span className="font-medium text-gray-700">Affectation</span> · <span className="font-medium text-gray-700">Lignes bancaires</span> · <span className="font-medium text-gray-700">Cadrage</span>
           </p>
         </div>
       </div>
@@ -82,8 +82,12 @@ export function BlocExportLettrage() {
         </div>
         <div>
           <p className="font-semibold text-gray-600 mb-1">Onglet Lignes bancaires</p>
-          <p>Date · Libellé · Crédit</p>
+          <p>Date · Libellé · Débit · Crédit</p>
           <p>Type (Facture / Autres) · Commentaire</p>
+        </div>
+        <div className="col-span-2">
+          <p className="font-semibold text-gray-600 mb-1">Onglet Cadrage</p>
+          <p>Par jour : Total Crédit reçu · Total Lettré (hors Autres) — écart visible pour l'expert-comptable</p>
         </div>
       </div>
     </div>

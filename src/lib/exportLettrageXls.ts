@@ -1,4 +1,4 @@
-// Export Lettrage multi-onglets via SheetJS — 2 feuilles : Affectation + Lignes bancaires
+// Export Lettrage multi-onglets via SheetJS — 3 feuilles : Affectation + Lignes bancaires + Cadrage
 // La date de référence est toujours la date de la ligne bancaire (date_operation),
 // pas la date de saisie du lettrage (date_lettrage).
 import * as XLSX from 'xlsx'
@@ -18,6 +18,7 @@ interface RowLigneBancaire {
   id_operation: string
   date_operation: string
   libelle: string
+  debit: number | null
   credit: number | null
   montant_lettre: number
   statut_lettrage: string
@@ -29,37 +30,41 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
+function round2(n: number) { return Math.round(n * 100) / 100 }
+
 export async function exporterLettrageXls(dateDebut: string, dateFin: string): Promise<void> {
-  // ── 1. Lignes bancaires (crédits) dans la plage de dates ────────
-  // Référentiel de date : on exporte les lignes reçues sur la période,
-  // quel que soit le moment où le lettrage a été saisi.
+  // ── 1. Toutes les lignes bancaires dans la plage de dates ────────
+  // Inclut débits et crédits pour la feuille 2 (vue complète relevé)
   const { data: lignesData } = await supabase
     .from('v_lignes_bancaires_avec_statut')
-    .select('id_operation, date_operation, libelle, credit, montant_lettre, statut_lettrage')
+    .select('id_operation, date_operation, libelle, debit, credit, montant_lettre, statut_lettrage')
     .gte('date_operation', dateDebut)
     .lte('date_operation', dateFin)
-    .neq('statut_lettrage', 'debit')
     .order('date_operation', { ascending: true })
 
   const lignes = (lignesData as unknown as RowLigneBancaire[]) ?? []
-  const ligneIds = lignes.map(l => l.id_operation)
 
-  // Map id_operation → infos ligne bancaire
+  // Map id_operation → infos ligne (utilisé pour feuille 1 et cadrage)
   const ligneInfoMap = new Map(
     lignes.map(l => [l.id_operation, { libelle: l.libelle, date_operation: l.date_operation }])
   )
 
-  // ── 2. Lettrages associés à ces lignes bancaires ─────────────────
+  // IDs des lignes crédit uniquement (les seules pouvant avoir des lettrages)
+  const ligneIdsCredit = lignes
+    .filter(l => l.statut_lettrage !== 'debit')
+    .map(l => l.id_operation)
+
+  // ── 2. Lettrages associés aux lignes crédit ──────────────────────
   let lettrages: RowLettrage[] = []
-  if (ligneIds.length) {
+  if (ligneIdsCredit.length) {
     const { data: lettrageData } = await supabase
       .from('lettrages')
       .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur')
-      .in('id_ligne_bancaire', ligneIds)
+      .in('id_ligne_bancaire', ligneIdsCredit)
     lettrages = (lettrageData as unknown as RowLettrage[]) ?? []
   }
 
-  // Map lettrages par ligne bancaire (pour feuille 2)
+  // Map lettrages par ligne bancaire
   const lettragsByLigne = new Map<string, RowLettrage[]>()
   for (const l of lettrages) {
     if (!lettragsByLigne.has(l.id_ligne_bancaire)) lettragsByLigne.set(l.id_ligne_bancaire, [])
@@ -94,25 +99,21 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)
   ws1['!cols'] = [
-    { wch: 12 }, // Date
-    { wch: 42 }, // Ligne bancaire
-    { wch: 15 }, // Code client
-    { wch: 20 }, // N° Facture
-    { wch: 14 }, // Montant
-    { wch: 32 }, // Commentaire
-    { wch: 15 }, // Opérateur
+    { wch: 12 }, { wch: 42 }, { wch: 15 }, { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 15 },
   ]
   styleHeaderRow(ws1, 7)
 
-  // ── Feuille 2 : Lignes bancaires ─────────────────────────────────
+  // ── Feuille 2 : Lignes bancaires (débits + crédits) ──────────────
   const aoa2: (string | number)[][] = [
-    ['Date', 'Libellé', 'Crédit', 'Type', 'Commentaire'],
+    ['Date', 'Libellé', 'Débit', 'Crédit', 'Type', 'Commentaire'],
   ]
   for (const lb of lignes) {
+    const isDebit = lb.statut_lettrage === 'debit'
     const letts = lettragsByLigne.get(lb.id_operation) ?? []
     const hasFactures = letts.some(l => l.code_client !== 'AUTRES')
     const hasAutres = letts.some(l => l.code_client === 'AUTRES')
-    const type = !letts.length ? 'Non lettré'
+    const type = isDebit ? 'Débit'
+      : !letts.length ? 'Non lettré'
       : hasFactures && hasAutres ? 'Mixte'
       : hasAutres ? 'Autres'
       : 'Facture'
@@ -124,7 +125,8 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
     aoa2.push([
       fmtDate(lb.date_operation),
       lb.libelle,
-      lb.credit ?? 0,
+      lb.debit ?? '',
+      lb.credit ?? '',
       type,
       commentairesAutres,
     ])
@@ -132,16 +134,48 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
 
   const ws2 = XLSX.utils.aoa_to_sheet(aoa2)
   ws2['!cols'] = [
-    { wch: 12 }, // Date
-    { wch: 48 }, // Libellé
-    { wch: 14 }, // Crédit
-    { wch: 14 }, // Type
-    { wch: 38 }, // Commentaire
+    { wch: 12 }, { wch: 48 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 38 },
   ]
-  styleHeaderRow(ws2, 5)
+  styleHeaderRow(ws2, 6)
+
+  // ── Feuille 3 : Cadrage ──────────────────────────────────────────
+  // Par jour : Total Crédit reçu vs Total Lettré (hors Autres)
+  // Permet à l'expert-comptable d'identifier les journées avec écart.
+  const jourMap = new Map<string, { totalCredit: number; totalLettre: number }>()
+
+  for (const lb of lignes) {
+    if (!lb.credit) continue // on ne cadre que les crédits
+    const date = lb.date_operation
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettre: 0 })
+    jourMap.get(date)!.totalCredit += lb.credit
+  }
+
+  for (const l of lettrages) {
+    if (l.code_client === 'AUTRES') continue
+    const date = ligneInfoMap.get(l.id_ligne_bancaire)?.date_operation
+    if (!date) continue
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettre: 0 })
+    jourMap.get(date)!.totalLettre += l.montant
+  }
+
+  const aoa3: (string | number)[][] = [
+    ['Date', 'Total Crédit', 'Total Lettré'],
+  ]
+  for (const [date, { totalCredit, totalLettre }] of [...jourMap.entries()].sort()) {
+    aoa3.push([fmtDate(date), round2(totalCredit), round2(totalLettre)])
+  }
+  // Ligne de totaux
+  const grandCredit = round2([...jourMap.values()].reduce((s, v) => s + v.totalCredit, 0))
+  const grandLettre = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettre, 0))
+  aoa3.push(['TOTAL', grandCredit, grandLettre])
+
+  const ws3 = XLSX.utils.aoa_to_sheet(aoa3)
+  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }]
+  styleHeaderRow(ws3, 3)
 
   XLSX.utils.book_append_sheet(wb, ws1, 'Affectation')
   XLSX.utils.book_append_sheet(wb, ws2, 'Lignes bancaires')
+  XLSX.utils.book_append_sheet(wb, ws3, 'Cadrage')
 
   XLSX.writeFile(wb, `export_lettrage_${dateDebut}_${dateFin}.xlsx`)
 }
