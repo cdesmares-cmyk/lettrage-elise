@@ -93,7 +93,7 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
             Annuler
           </button>
           <button onClick={handleExport} disabled={chargement} className="flex-[2] flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-            {chargement ? '…' : '⬇ Télécharger XLS'}
+            {chargement ? '…' : '⬇ Télécharger XLSX'}
           </button>
         </div>
       </div>

@@ -46,7 +46,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
         <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
           <div>
             <h3 className="text-sm font-bold text-gray-900">⬇ Extraction XLS</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Tableau Excel — entête bleu nuit, cadre gris clair</p>
+            <p className="text-xs text-gray-400 mt-0.5">Fichier Excel — Calibri 12, montants numériques</p>
           </div>
           <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
@@ -86,7 +86,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
             Annuler
           </button>
           <button onClick={handleExport} disabled={chargement} className="flex-[2] flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-            {chargement ? '…' : '⬇ Télécharger XLS'}
+            {chargement ? '…' : '⬇ Télécharger XLSX'}
           </button>
         </div>
       </div>

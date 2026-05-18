@@ -1,30 +1,77 @@
-// Export XLS (HTML-as-Excel) sans dépendance externe
-// Les montants sont écrits en valeur brute + mso-number-format pour que SUM() fonctionne dans Excel
+// Export XLSX via SheetJS — Calibri 12, format nombre pour les montants, brut mais traitable
+import * as XLSX from 'xlsx'
 import type { FactureDetail, GroupeNebuleuse } from '../types/client'
 
-function fmtDate(iso: string | null) {
-  return iso ? new Date(iso).toLocaleDateString('fr-FR') : '—'
+function fmtDate(iso: string | null): string {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
 }
 
-const NUM_FMT = 'mso-number-format:"# ##0.00 [$\\€-40C]"'
-const TH = 'background:#0F172A;color:#FFFFFF;padding:8px 12px;font-size:11px;font-weight:700;border:1px solid #CBD5E1;text-align:left'
-const TD = 'padding:7px 12px;font-size:11px;border:1px solid #E5E7EB;color:#374151;vertical-align:middle'
-const TD_R = `${TD};text-align:right;${NUM_FMT}`
-
-function numCell(val: number | null, style: string, color?: string): string {
-  if (val == null) return `<td style="${TD};text-align:right">—</td>`
-  const colorStyle = color ? `;color:${color};font-weight:700` : ''
-  return `<td style="${style}${colorStyle}">${val.toFixed(2)}</td>`
+function dlXlsx(wb: XLSX.WorkBook, nomFichier: string) {
+  XLSX.writeFile(wb, `${nomFichier}.xlsx`)
 }
 
-// Construit un Map code_client → {groupe_key, nom_groupe} depuis la liste des groupes
-function buildGroupeMap(groupes: GroupeNebuleuse[]): Map<string, { cle: string; nom: string }> {
-  const map = new Map<string, { cle: string; nom: string }>()
-  for (const g of groupes) {
-    for (const code of g.codes_clients) {
-      map.set(code, { cle: g.groupe_key, nom: g.nom_groupe })
+// Applique Calibri 12 sur toutes les cellules + format nombre sur les colonnes monétaires
+function styleSheet(ws: XLSX.WorkSheet, monetaryCols: number[]) {
+  const ref = ws['!ref']
+  if (!ref) return
+  const range = XLSX.utils.decode_range(ref)
+  const monSet = new Set(monetaryCols)
+
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c })
+      if (!ws[addr]) continue
+      const isHeader = r === 0
+      ws[addr].s = isHeader
+        ? { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
+        : { font: { name: 'Calibri', sz: 12 } }
+      if (!isHeader && monSet.has(c) && typeof ws[addr].v === 'number') {
+        ws[addr].z = '#,##0.00'
+      }
     }
   }
+}
+
+// ── Factures compte client ────────────────────────────────────────────────────
+export function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_compte_client') {
+  const aoa: (string | number | null)[][] = [
+    ['Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture'],
+  ]
+  for (const f of factures) {
+    aoa.push([
+      f.code_client,
+      (f.est_avoir || f.montant_ttc < 0) ? 'Avoir' : 'Facture',
+      f.numero_piece,
+      f.montant_ht ?? '',
+      f.montant_ttc ?? '',
+      f.reste_du,
+      fmtDate(f.date_emission),
+      fmtDate(f.date_echeance),
+      f.statut_paiement ?? '',
+      f.statut_facture ?? '',
+    ])
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+  ]
+  styleSheet(ws, [3, 4, 5]) // Montant HT, TTC, Restant Dû
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Factures')
+  dlXlsx(wb, nomFichier)
+}
+
+// ── Nébuleuse (groupements) ───────────────────────────────────────────────────
+function buildGroupeMap(groupes: GroupeNebuleuse[]): Map<string, { cle: string; nom: string }> {
+  const map = new Map<string, { cle: string; nom: string }>()
+  for (const g of groupes)
+    for (const code of g.codes_clients)
+      map.set(code, { cle: g.groupe_key, nom: g.nom_groupe })
   return map
 }
 
@@ -35,61 +82,40 @@ export function exporterNebuleuseXls(
 ) {
   const groupeMap = buildGroupeMap(groupes)
 
-  const thead = `<thead><tr>
-    <th style="${TH}">Groupe</th>
-    <th style="${TH}">Nom groupe</th>
-    <th style="${TH}">Code client</th>
-    <th style="${TH}">Type</th>
-    <th style="${TH}">N° Facture</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Montant HT</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Montant TTC</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Restant Dû</th>
-    <th style="${TH};text-align:center">Date émission</th>
-    <th style="${TH};text-align:center">Date échéance</th>
-    <th style="${TH}">Statut paiement</th>
-    <th style="${TH}">Statut facture</th>
-  </tr></thead>`
-
-  const tbody = `<tbody>${factures.map((f, i) => {
-    const bg = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
-    const restantColor = f.reste_du <= 0.005 ? '#059669' : f.reste_du >= f.montant_ttc - 0.005 ? '#DC2626' : '#D97706'
-    const isAvoir = f.est_avoir || f.montant_ttc < 0
+  const aoa: (string | number | null)[][] = [
+    ['Groupe', 'Nom groupe', 'Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture'],
+  ]
+  for (const f of factures) {
     const grp = groupeMap.get(f.code_client)
-    return `<tr style="background:${bg}">
-      <td style="${TD};font-family:monospace;font-weight:700;color:#059669">${grp?.cle ?? '—'}</td>
-      <td style="${TD};font-weight:600">${grp?.nom ?? '—'}</td>
-      <td style="${TD};font-family:monospace;font-weight:700;color:#1D4ED8">${f.code_client}</td>
-      <td style="${TD};text-align:center;font-weight:700;color:${isAvoir ? '#EA580C' : '#2563EB'}">${isAvoir ? 'A' : 'F'}</td>
-      <td style="${TD};font-family:monospace">${f.numero_piece}</td>
-      ${numCell(f.montant_ht, TD_R)}
-      ${numCell(f.montant_ttc, TD_R)}
-      ${numCell(f.reste_du, TD_R, restantColor)}
-      <td style="${TD};text-align:center">${fmtDate(f.date_emission)}</td>
-      <td style="${TD};text-align:center">${fmtDate(f.date_echeance)}</td>
-      <td style="${TD}">${f.statut_paiement}</td>
-      <td style="${TD}">${f.statut_facture ?? ''}</td>
-    </tr>`
-  }).join('')}</tbody>`
+    aoa.push([
+      grp?.cle ?? '',
+      grp?.nom ?? '',
+      f.code_client,
+      (f.est_avoir || f.montant_ttc < 0) ? 'Avoir' : 'Facture',
+      f.numero_piece,
+      f.montant_ht ?? '',
+      f.montant_ttc ?? '',
+      f.reste_du,
+      fmtDate(f.date_emission),
+      fmtDate(f.date_echeance),
+      f.statut_paiement ?? '',
+      f.statut_facture ?? '',
+    ])
+  }
 
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
-    xmlns:x="urn:schemas-microsoft-com:office:excel"
-    xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="utf-8"/>
-    <style>table{border-collapse:collapse;width:100%} td,th{white-space:nowrap}</style>
-    </head>
-    <body><table>${thead}${tbody}</table></body></html>`
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 10 }, { wch: 20 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+  ]
+  styleSheet(ws, [5, 6, 7]) // Montant HT, TTC, Restant Dû
 
-  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${nomFichier}.xls`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Nébuleuse')
+  dlXlsx(wb, nomFichier)
 }
 
+// ── Extraction lettrages (modal lettrage) ─────────────────────────────────────
 export interface LigneExtractionLettrage {
   id: string
   date_lettrage: string
@@ -101,93 +127,25 @@ export interface LigneExtractionLettrage {
 }
 
 export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFichier = 'extraction_lettrages') {
-  const thead = `<thead><tr>
-    <th style="${TH}">Date</th>
-    <th style="${TH}">Ligne bancaire</th>
-    <th style="${TH}">Code client</th>
-    <th style="${TH}">N° Facture</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Montant attribué</th>
-    <th style="${TH}">Commentaire</th>
-  </tr></thead>`
+  const aoa: (string | number | null)[][] = [
+    ['Date', 'Ligne bancaire', 'Code client', 'N° Facture', 'Montant attribué', 'Commentaire'],
+  ]
+  for (const l of lignes) {
+    aoa.push([
+      fmtDate(l.date_lettrage),
+      l.libelle_bancaire ?? '',
+      l.code_client,
+      l.numero_facture,
+      l.montant,
+      l.commentaire ?? '',
+    ])
+  }
 
-  const tbody = `<tbody>${lignes.map((l, i) => {
-    const bg = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
-    return `<tr style="background:${bg}">
-      <td style="${TD}">${fmtDate(l.date_lettrage)}</td>
-      <td style="${TD}">${l.libelle_bancaire ?? '—'}</td>
-      <td style="${TD};font-family:monospace;font-weight:700;color:#1D4ED8">${l.code_client}</td>
-      <td style="${TD};font-family:monospace">${l.numero_facture}</td>
-      ${numCell(l.montant, TD_R)}
-      <td style="${TD}">${l.commentaire ?? ''}</td>
-    </tr>`
-  }).join('')}</tbody>`
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 12 }, { wch: 42 }, { wch: 14 }, { wch: 20 }, { wch: 16 }, { wch: 32 }]
+  styleSheet(ws, [4]) // Montant attribué
 
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
-    xmlns:x="urn:schemas-microsoft-com:office:excel"
-    xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="utf-8"/>
-    <style>table{border-collapse:collapse;width:100%} td,th{white-space:nowrap}</style>
-    </head>
-    <body><table>${thead}${tbody}</table></body></html>`
-
-  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${nomFichier}.xls`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-}
-
-export function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_compte_client') {
-  const thead = `<thead><tr>
-    <th style="${TH}">Code client</th>
-    <th style="${TH}">Type</th>
-    <th style="${TH}">N° Facture</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Montant HT</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Montant TTC</th>
-    <th style="${TH};text-align:right;${NUM_FMT}">Restant Dû</th>
-    <th style="${TH};text-align:center">Date émission</th>
-    <th style="${TH};text-align:center">Date échéance</th>
-    <th style="${TH}">Statut paiement</th>
-    <th style="${TH}">Statut facture</th>
-  </tr></thead>`
-
-  const tbody = `<tbody>${factures.map((f, i) => {
-    const bg = i % 2 === 0 ? '#FFFFFF' : '#F8FAFC'
-    const restantColor = f.reste_du <= 0.005 ? '#059669' : f.reste_du >= f.montant_ttc - 0.005 ? '#DC2626' : '#D97706'
-    const isAvoir = f.est_avoir || f.montant_ttc < 0
-    return `<tr style="background:${bg}">
-      <td style="${TD};font-family:monospace;font-weight:700;color:#1D4ED8">${f.code_client}</td>
-      <td style="${TD};text-align:center;font-weight:700;color:${isAvoir ? '#EA580C' : '#2563EB'}">${isAvoir ? 'A' : 'F'}</td>
-      <td style="${TD};font-family:monospace">${f.numero_piece}</td>
-      ${numCell(f.montant_ht, TD_R)}
-      ${numCell(f.montant_ttc, TD_R)}
-      ${numCell(f.reste_du, TD_R, restantColor)}
-      <td style="${TD};text-align:center">${fmtDate(f.date_emission)}</td>
-      <td style="${TD};text-align:center">${fmtDate(f.date_echeance)}</td>
-      <td style="${TD}">${f.statut_paiement}</td>
-      <td style="${TD}">${f.statut_facture ?? ''}</td>
-    </tr>`
-  }).join('')}</tbody>`
-
-  const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office"
-    xmlns:x="urn:schemas-microsoft-com:office:excel"
-    xmlns="http://www.w3.org/TR/REC-html40">
-    <head><meta charset="utf-8"/>
-    <style>table{border-collapse:collapse;width:100%} td,th{white-space:nowrap}</style>
-    </head>
-    <body><table>${thead}${tbody}</table></body></html>`
-
-  const blob = new Blob(['﻿' + html], { type: 'application/vnd.ms-excel;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = `${nomFichier}.xls`
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Lettrages')
+  dlXlsx(wb, nomFichier)
 }
