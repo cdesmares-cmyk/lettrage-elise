@@ -22,13 +22,11 @@ export function PageLettrage() {
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm((data) => {
-    console.log('[LETTRAGE-OK] optimiste:', data.numerosLettres.length, 'facture(s)', data.numerosLettres)
-    // Mise à jour optimiste instantanée — l'utilisateur peut enchaîner sans attendre
+    // Mise à jour locale ciblée — uniquement les factures et le client concernés
     mettreAJourResteDuLocal(data.numerosLettres)
     liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
-    // Resync en arrière-plan sans spinner (non-bloquant)
+    // Resync silencieux des lignes bancaires (pas de spinner, ~1s en arrière-plan)
     liste.rafraichirSilencieux()
-    rafraichirDonnees()
     if (historique.visible) historique.charger()
   })
   // Remises : chargement initial pour le badge dans BarreResume

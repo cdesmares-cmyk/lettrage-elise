@@ -159,6 +159,15 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   function mettreAJourResteDuLocal(lettres: { numeroPiece: string; montant: number }[]) {
     if (!lettres.length) return
     const map = new Map(lettres.map(l => [l.numeroPiece, l.montant]))
+
+    // Delta d'encours par client (calculé sur l'état courant avant màj)
+    const deltaParClient = new Map<string, number>()
+    for (const f of facturesActives) {
+      const m = map.get(f.numero_piece)
+      if (m !== undefined)
+        deltaParClient.set(f.code_client, (deltaParClient.get(f.code_client) ?? 0) + m)
+    }
+
     setFacturesActives(prev =>
       prev
         .map(f => {
@@ -168,6 +177,15 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         })
         .filter(f => Math.abs(f.reste_du) > 0.005)
     )
+
+    // Mise à jour ciblée de encours_total par client — évite un rafraichir() complet
+    if (deltaParClient.size > 0) {
+      setClients(prev => prev.map(c => {
+        const delta = deltaParClient.get(c.code_dso)
+        if (!delta) return c
+        return { ...c, encours_total: Math.max(0, Math.round((c.encours_total - delta) * 100) / 100) }
+      }))
+    }
   }
 
   return (
