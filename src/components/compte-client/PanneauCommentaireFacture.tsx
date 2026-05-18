@@ -14,7 +14,7 @@ interface Props {
   facture: FactureDetail | null
   commentaire: CommentaireFacture | null
   onFermer: () => void
-  onSauvegarder: (data: { numero_piece: string; contact: string; date_contact: string; commentaire: string }) => Promise<boolean>
+  onSauvegarder: (data: { numero_piece: string; contact: string; date_contact: string; commentaire: string; operateur: string }) => Promise<boolean>
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
 }
 
@@ -25,6 +25,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
   const [contact, setContact] = useState('')
   const [dateContact, setDateContact] = useState('')
   const [texte, setTexte] = useState('')
+  const [operateur, setOperateur] = useState('')
   const [enregistrement, setEnregistrement] = useState(false)
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
       setContact(commentaire?.contact ?? '')
       setDateContact(commentaire?.date_contact ?? '')
       setTexte(commentaire?.commentaire ?? '')
+      setOperateur(commentaire?.operateur ?? operateurCourant)
     }
   }, [facture?.numero_piece, commentaire])
 
@@ -46,6 +48,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
       contact,
       date_contact: dateContact,
       commentaire: texte,
+      operateur,
     })
     if (ok && statut !== facture.statut_facture) {
       onStatutChange(facture.numero_piece, statut)
@@ -137,15 +140,22 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
 
           {/* Opérateur */}
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Opérateur</label>
-            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-              <span className="text-sm text-gray-700 font-medium flex-1">{commentaire?.operateur ?? operateurCourant}</span>
-              {commentaire?.updated_at && (
-                <span className="text-[10px] text-gray-400">
-                  {new Date(commentaire.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                </span>
-              )}
-            </div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+              Opérateur
+              <span className="ml-1 text-gray-300 font-normal normal-case">(optionnel)</span>
+            </label>
+            <input
+              type="text"
+              value={operateur}
+              onChange={e => setOperateur(e.target.value)}
+              placeholder="Votre nom ou identifiant…"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+            />
+            {commentaire?.updated_at && (
+              <p className="text-[10px] text-gray-400 mt-1">
+                Mis à jour le {new Date(commentaire.updated_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              </p>
+            )}
           </div>
         </div>
 

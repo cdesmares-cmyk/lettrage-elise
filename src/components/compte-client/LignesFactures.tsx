@@ -155,7 +155,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
-            <th className="px-3 py-2" />
+            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">Historique</th>
+            {onOuvrirCommentaire && (
+              <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">Commentaire</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -211,15 +214,17 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 <td className="px-3 py-2">
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
-                <td className="px-3 py-2">
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={e => { e.stopPropagation(); onHistorique(f) }}
-                      className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
-                    >
-                      📋 Historique
-                    </button>
-                    {onOuvrirCommentaire && !estCompte && (
+                <td className="px-3 py-2 text-center">
+                  <button
+                    onClick={e => { e.stopPropagation(); onHistorique(f) }}
+                    className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
+                  >
+                    📋 Historique
+                  </button>
+                </td>
+                {onOuvrirCommentaire && (
+                  <td className="px-3 py-2 text-center">
+                    {!estCompte && (
                       <button
                         onClick={e => { e.stopPropagation(); onOuvrirCommentaire(f) }}
                         className={`flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap ${
@@ -231,8 +236,8 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                         💬 Commentaire
                       </button>
                     )}
-                  </div>
-                </td>
+                  </td>
+                )}
               </tr>
             )
           })}

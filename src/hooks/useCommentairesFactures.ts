@@ -1,11 +1,9 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import type { CommentaireFacture } from '../types/client'
 
 export function useCommentairesFactures() {
-  const { utilisateur } = useAuth()
   const [commentaires, setCommentaires] = useState<Map<string, CommentaireFacture>>(new Map())
 
   async function chargerTous() {
@@ -23,6 +21,7 @@ export function useCommentairesFactures() {
     contact: string
     date_contact: string
     commentaire: string
+    operateur: string
   }): Promise<boolean> {
     try {
       const payload = {
@@ -30,7 +29,7 @@ export function useCommentairesFactures() {
         contact: data.contact.trim() || null,
         date_contact: data.date_contact || null,
         commentaire: data.commentaire.trim() || null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
+        operateur: data.operateur.trim() || null,
         updated_at: new Date().toISOString(),
       }
       const { error } = await supabase
