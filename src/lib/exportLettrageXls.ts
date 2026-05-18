@@ -141,12 +141,13 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
   // Par jour : Total Crédit reçu vs Total Lettré (hors Autres)
   // Permet à l'expert-comptable d'identifier les journées avec écart.
-  const jourMap = new Map<string, { totalCredit: number; totalLettre: number }>()
+  // jourMap : totalCredit = somme des crédits reçus ; totalLettreRealise = somme des lettrages hors Autres
+  const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number }>()
 
   for (const lb of lignes) {
-    if (!lb.credit) continue // on ne cadre que les crédits
+    if (!lb.credit) continue
     const date = lb.date_operation
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettre: 0 })
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0 })
     jourMap.get(date)!.totalCredit += lb.credit
   }
 
@@ -154,24 +155,30 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
     if (l.code_client === 'AUTRES') continue
     const date = ligneInfoMap.get(l.id_ligne_bancaire)?.date_operation
     if (!date) continue
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettre: 0 })
-    jourMap.get(date)!.totalLettre += l.montant
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0 })
+    jourMap.get(date)!.totalLettreRealise += l.montant
   }
 
+  // Total Lettré = crédits − lettrages réalisés (hors Autres) = restant non lettré
+  // Delta        = Total Crédit − Total Lettré = montant effectivement letté
   const aoa3: (string | number)[][] = [
-    ['Date', 'Total Crédit', 'Total Lettré'],
+    ['Date', 'Total Crédit', 'Total Lettré', 'Delta'],
   ]
-  for (const [date, { totalCredit, totalLettre }] of [...jourMap.entries()].sort()) {
-    aoa3.push([fmtDate(date), round2(totalCredit), round2(totalLettre)])
+  for (const [date, { totalCredit, totalLettreRealise }] of [...jourMap.entries()].sort()) {
+    const totalLettre = round2(totalCredit - totalLettreRealise)
+    const delta = round2(totalCredit - totalLettre)
+    aoa3.push([fmtDate(date), round2(totalCredit), totalLettre, delta])
   }
   // Ligne de totaux
   const grandCredit = round2([...jourMap.values()].reduce((s, v) => s + v.totalCredit, 0))
-  const grandLettre = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettre, 0))
-  aoa3.push(['TOTAL', grandCredit, grandLettre])
+  const grandLettreRealise = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettreRealise, 0))
+  const grandLettre = round2(grandCredit - grandLettreRealise)
+  const grandDelta = round2(grandCredit - grandLettre)
+  aoa3.push(['TOTAL', grandCredit, grandLettre, grandDelta])
 
   const ws3 = XLSX.utils.aoa_to_sheet(aoa3)
-  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }]
-  styleHeaderRow(ws3, 3)
+  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 14 }]
+  styleHeaderRow(ws3, 4)
 
   XLSX.utils.book_append_sheet(wb, ws1, 'Affectation')
   XLSX.utils.book_append_sheet(wb, ws2, 'Lignes bancaires')
