@@ -55,6 +55,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [emailFallback, setEmailFallback] = useState('')
   const [nomFallback, setNomFallback] = useState('')
   const [envoi, setEnvoi] = useState(false)
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
 
   // Initialisation dès qu'on a les contacts et factures
   useEffect(() => {
@@ -208,21 +209,16 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                       <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                         <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
                         <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
-                        {commentaires?.has(f.numero_piece) && (() => {
-                          const com = commentaires.get(f.numero_piece)!
-                          return (
-                            <span className="relative group/tip flex-shrink-0">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/30 cursor-default">?</span>
-                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-ockham-navy text-white rounded-xl shadow-xl px-3 py-2.5 text-[11px] leading-relaxed opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-50">
-                                {com.commentaire && <p className="mb-1">{com.commentaire}</p>}
-                                {com.contact && <p className="text-slate-400">👤 {com.contact}</p>}
-                                {com.date_contact && <p className="text-slate-400">📅 {new Date(com.date_contact).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
-                                {com.operateur && <p className="text-slate-400 mt-1 border-t border-white/10 pt-1">par {com.operateur}</p>}
-                                <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-ockham-navy" />
-                              </span>
-                            </span>
-                          )
-                        })()}
+                        {commentaires?.has(f.numero_piece) && (
+                          <span
+                            className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/30 cursor-default"
+                            onMouseEnter={e => {
+                              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                              setTooltip({ x: r.left + r.width / 2, y: r.top, numero: f.numero_piece })
+                            }}
+                            onMouseLeave={() => setTooltip(null)}
+                          >?</span>
+                        )}
                         <span className="text-[11px] font-bold text-gray-700 tabular-nums">{fmtEuros(f.reste_du)}</span>
                         <span className={`text-[10px] font-bold px-1.5 rounded ${j > 90 ? 'bg-red-100 text-red-700' : j > 60 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{j}j</span>
                       </label>
@@ -263,6 +259,25 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               <p className="text-[10px] text-gray-300 mt-3 text-center">{estConnecte ? `Envoyé depuis ${gmailToken?.gmail_email}` : 'Connectez Gmail pour envoyer automatiquement'}</p>
             </div>
           </div>
+
+          {/* Tooltip commentaire — fixed, hors de tout overflow */}
+          {tooltip && commentaires?.has(tooltip.numero) && (() => {
+            const com = commentaires.get(tooltip.numero)!
+            return (
+              <div
+                className="pointer-events-none fixed z-[9999] w-60"
+                style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}
+              >
+                <div className="bg-slate-800 border border-slate-600 text-white rounded-xl shadow-2xl px-3.5 py-3 text-[11px] leading-relaxed">
+                  {com.commentaire && <p className="mb-1.5 text-white">{com.commentaire}</p>}
+                  {com.contact && <p className="text-slate-400">👤 {com.contact}</p>}
+                  {com.date_contact && <p className="text-slate-400">📅 {new Date(com.date_contact).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</p>}
+                  {com.operateur && <p className="text-slate-500 mt-1.5 border-t border-slate-600 pt-1.5">par {com.operateur}</p>}
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-600" />
+                </div>
+              </div>
+            )
+          })()}
 
           {/* Footer */}
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
