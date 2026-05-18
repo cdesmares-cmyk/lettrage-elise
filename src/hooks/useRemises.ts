@@ -5,6 +5,12 @@ import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import type { Remise, LigneFormRemise } from '../types/remise'
 
+function errMsg(err: unknown, fallback: string): string {
+  if (err instanceof Error) return err.message
+  if (err && typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message)
+  return fallback
+}
+
 interface RowRemise {
   id: string; type: 'cheque' | 'lcr'; numero: string; montant_total: number | null
   statut: 'en_attente' | 'encaisse'; id_ligne_bancaire: string | null
@@ -44,7 +50,8 @@ export function useRemises(onSuccessCallback?: () => void) {
           .map(l => ({ id: l.id, numero_facture: l.numero_facture, code_client: l.code_client, montant: l.montant })),
       })))
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du chargement des remises.')
+      console.error('[useRemises]', err)
+      toast.error(errMsg(err, 'Erreur lors du chargement des remises.'))
     } finally {
       setChargement(false)
     }
@@ -94,7 +101,8 @@ export function useRemises(onSuccessCallback?: () => void) {
       await charger()
       onSuccessCallback?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de la création.')
+      console.error('[useRemises]', err)
+      toast.error(errMsg(err, 'Erreur lors de la création.'))
     } finally {
       setChargement(false)
     }
@@ -138,7 +146,8 @@ export function useRemises(onSuccessCallback?: () => void) {
       await charger()
       onSuccessCallback?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de la modification.')
+      console.error('[useRemises]', err)
+      toast.error(errMsg(err, 'Erreur lors de la modification.'))
     } finally {
       setChargement(false)
     }
@@ -155,7 +164,8 @@ export function useRemises(onSuccessCallback?: () => void) {
       await charger()
       onSuccessCallback?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation.')
+      console.error('[useRemises]', err)
+      toast.error(errMsg(err, 'Erreur lors de l\'annulation.'))
     } finally {
       setChargement(false)
     }
@@ -181,7 +191,8 @@ export function useRemises(onSuccessCallback?: () => void) {
       await charger()
       onSuccessCallback?.()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'encaissement.')
+      console.error('[useRemises]', err)
+      toast.error(errMsg(err, 'Erreur lors de l\'encaissement.'))
     } finally {
       setChargement(false)
     }

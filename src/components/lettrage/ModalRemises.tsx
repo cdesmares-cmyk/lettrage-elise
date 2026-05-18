@@ -125,10 +125,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   const ecartLcr = Math.abs(somme - montantLcr)
   const lcrValide = typeForm !== 'lcr' || ecartLcr <= 0.05
 
-  // info_facture non requise : le montant est librement modifiable tant que non encaissé
+  // info_facture requise : garantit que code_client est toujours renseigné avant l'insert
   const lignesValides = lignesForm.every(l => {
     const m = parseFloat(l.montant)
-    return !!l.numero_facture.trim() && !!l.montant && !isNaN(m) && m > 0
+    return !!l.numero_facture.trim() && !!l.info_facture && !l.chargement && !!l.montant && !isNaN(m) && m > 0
   })
   const peutValider = !!numeroForm.trim() && lignesValides && (typeForm !== 'lcr' || (montantLcr > 0 && lcrValide))
 
