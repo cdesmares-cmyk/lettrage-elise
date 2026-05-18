@@ -99,11 +99,24 @@ export function useLignesBancaires() {
 
   function rafraichir() { setVersion(v => v + 1) }
 
+  function mettreAJourLigneBancaireLocale(idOperation: string, montantLettre: number) {
+    setLignes(prev => prev.map(l => {
+      if (l.id_operation !== idOperation) return l
+      const newMontantLettre = Math.round((l.montant_lettre + montantLettre) * 100) / 100
+      const credit = l.credit ?? 0
+      const newRestant = Math.max(0, Math.round((credit - newMontantLettre) * 100) / 100)
+      const newStatut: StatutLettrage = newRestant <= 0.005 ? 'lettre'
+        : newMontantLettre > 0.005 ? 'partiel' : 'non_lettre'
+      return { ...l, montant_lettre: newMontantLettre, restant: newRestant, statut_lettrage: newStatut }
+    }))
+    setMontantRestant(prev => Math.max(0, Math.round((prev - montantLettre) * 100) / 100))
+  }
+
   return {
     lignes, chargement, recherche, setRecherche,
     filtre, setFiltre,
     dateDebut, setDateDebut,
     dateFin, setDateFin,
-    rafraichir, nbNonLettres, montantRestant,
+    rafraichir, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant,
   }
 }

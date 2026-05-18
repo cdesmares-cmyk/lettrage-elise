@@ -20,6 +20,8 @@ interface AppDataContextType {
   chargement: boolean
   rafraichir: () => Promise<void>
   mettreAJourStatutLocal: (numeroPiece: string, statut: StatutFacture | null) => void
+  // Mise à jour optimiste après lettrage : réduit reste_du sans recharger tout le dataset
+  mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
   moisMaxFactures: string   // YYYY-MM, mois de la facture la plus récente en base
   ca12Mois: number          // Σ montant_ttc sur la fenêtre moisMax-11 → moisMax
 }
@@ -154,8 +156,22 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     ))
   }
 
+  function mettreAJourResteDuLocal(lettres: { numeroPiece: string; montant: number }[]) {
+    if (!lettres.length) return
+    const map = new Map(lettres.map(l => [l.numeroPiece, l.montant]))
+    setFacturesActives(prev =>
+      prev
+        .map(f => {
+          const m = map.get(f.numero_piece)
+          if (m === undefined) return f
+          return { ...f, reste_du: Math.round((f.reste_du - m) * 100) / 100 }
+        })
+        .filter(f => Math.abs(f.reste_du) > 0.005)
+    )
+  }
+
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, moisMaxFactures, ca12Mois }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois }}>
       {children}
     </AppDataContext.Provider>
   )

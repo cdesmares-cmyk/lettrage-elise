@@ -18,11 +18,18 @@ export function PageLettrage() {
   const [extractionOuverte, setExtractionOuverte] = useState(false)
   const [remisesOuverte, setRemisesOuverte] = useState(false)
 
-  const { rafraichir: rafraichirDonnees } = useAppData()
+  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
-  // Après chaque lettrage validé : rafraîchit les lignes bancaires, le cache et l'historique
-  const forme = useLettrageForm(() => { liste.rafraichir(); rafraichirDonnees(); if (historique.visible) historique.charger() })
+  const forme = useLettrageForm((data) => {
+    // Mise à jour optimiste instantanée — l'utilisateur peut enchaîner sans attendre
+    mettreAJourResteDuLocal(data.numerosLettres)
+    liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
+    // Resync en arrière-plan (non-bloquant)
+    liste.rafraichir()
+    rafraichirDonnees()
+    if (historique.visible) historique.charger()
+  })
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length

@@ -13,7 +13,13 @@ function nouvelleLigne(): LigneForme {
   return { _key: cle(), classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false }
 }
 
-export function useLettrageForm(onSuccess: () => void) {
+export interface LettrageValideData {
+  numerosLettres: { numeroPiece: string; montant: number }[]
+  idLigneBancaire: string
+  montantTotal: number
+}
+
+export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
   const [lettragesExistants, setLettragesExistants] = useState<LettrageExistant[]>([])
@@ -124,7 +130,13 @@ export function useLettrageForm(onSuccess: () => void) {
       }))
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
-      onSuccess()
+      onSuccess({
+        numerosLettres: inserts
+          .filter(i => i.code_client !== 'AUTRES')
+          .map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })),
+        idLigneBancaire: ligneActive.id_operation,
+        montantTotal: Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100,
+      })
       annuler()
     } finally {
       setChargement(false)
