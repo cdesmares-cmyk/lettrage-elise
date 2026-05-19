@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 interface Integration {
@@ -10,6 +11,7 @@ interface Integration {
 }
 
 export function useAxonautIntegration() {
+  const { profil } = useAuth()
   const [integration, setIntegration] = useState<Integration | null>(null)
   const [enCours, setEnCours] = useState(false)
 
@@ -30,7 +32,7 @@ export function useAxonautIntegration() {
       const { error } = await supabase
         .from('integrations')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ provider: 'axonaut', api_key: apiKey, actif: true } as any, {
+        .upsert({ provider: 'axonaut', api_key: apiKey, actif: true, organisation_id: profil?.organisation_id } as any, {
           onConflict: 'organisation_id,provider',
         })
       if (error) throw error
