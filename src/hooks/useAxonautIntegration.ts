@@ -65,11 +65,11 @@ export function useAxonautIntegration() {
     }
   }
 
-  async function synchroniser(): Promise<number> {
+  async function synchroniser(depuis?: string): Promise<number> {
     setEnCours(true)
     try {
       const { data, error } = await supabase.functions.invoke('axonaut-sync', {
-        body: { action: 'sync' },
+        body: { action: 'sync', depuis: depuis ?? null },
       })
       if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
       const nb: number = data.nb_mises_a_jour ?? 0

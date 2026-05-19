@@ -30,7 +30,9 @@ Deno.serve(async (req: Request) => {
   // Client admin pour écrire dans factures sans restriction RLS
   const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY)
 
-  const { action } = await req.json()
+  const { action, depuis } = await req.json()
+  // depuis : date ISO optionnelle (ex: '2026-01-01') pour limiter la synchro
+  const depuisTs = depuis ? Math.floor(new Date(depuis).getTime() / 1000) : 0
 
   // Lecture de la clef API depuis integrations (RLS garantit que c'est bien la bonne org)
   const { data: integration, error: intErr } = await supabaseUser
@@ -74,8 +76,13 @@ Deno.serve(async (req: Request) => {
       const invoices: any[] = await res.json()
       if (!Array.isArray(invoices) || invoices.length === 0) break
 
+      // Filtrer par date si 'depuis' est fourni (date = unix timestamp dans l'API Axonaut)
+      const filtrees = depuisTs
+        ? invoices.filter(inv => Number(inv.date) >= depuisTs)
+        : invoices
+
       // Mise à jour en parallèle pour toute la page
-      const updates = invoices
+      const updates = filtrees
         .filter(inv => inv.number && inv.public_path)
         .map(inv =>
           supabaseAdmin
@@ -88,6 +95,8 @@ Deno.serve(async (req: Request) => {
       const results = await Promise.all(updates)
       nbMaj += results.filter(r => !r.error).length
 
+      // Arrêt anticipé : si toutes les factures de la page sont antérieures à 'depuis'
+      if (depuisTs && invoices.every(inv => Number(inv.date) < depuisTs)) break
       if (invoices.length < PER_PAGE) break
       page++
 

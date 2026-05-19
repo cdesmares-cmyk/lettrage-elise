@@ -6,6 +6,7 @@ export function SectionIntegrationAxonaut() {
   const [saisie, setSaisie] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [nbSync, setNbSync] = useState<number | null>(null)
+  const [depuis, setDepuis] = useState('2026-01-01')
 
   async function handleSauvegarder() {
     if (!saisie.trim()) return
@@ -15,7 +16,7 @@ export function SectionIntegrationAxonaut() {
 
   async function handleSync() {
     setNbSync(null)
-    const nb = await synchroniser()
+    const nb = await synchroniser(depuis || undefined)
     setNbSync(nb)
   }
 
@@ -93,6 +94,16 @@ export function SectionIntegrationAxonaut() {
                 Récupère les <code className="text-[10px] bg-gray-100 px-1 rounded">public_path</code> depuis Axonaut
                 et les stocke sur chaque facture importée.
               </p>
+              <div className="flex items-center gap-2 mt-2">
+                <label className="text-[10px] text-gray-400 whitespace-nowrap">Depuis le</label>
+                <input
+                  type="date"
+                  value={depuis}
+                  onChange={e => setDepuis(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-0.5 text-[11px] outline-none focus:border-ockham-teal"
+                />
+                <span className="text-[10px] text-gray-300">vide = tout</span>
+              </div>
               {nbSync !== null && (
                 <p className="text-[11px] text-emerald-600 mt-1.5 font-medium">
                   ✓ {nbSync} facture{nbSync !== 1 ? 's' : ''} mise{nbSync !== 1 ? 's' : ''} à jour
