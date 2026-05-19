@@ -18,10 +18,12 @@ function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-function buildCorps(factures: { numero: string; montant: number; echeance: string | null }[]) {
-  const lignes = factures.map(f =>
-    `  • Facture ${f.numero} — ${fmtEuros(f.montant)}${f.echeance ? ` — échéance le ${fmtDate(f.echeance)}` : ''}`
-  ).join('\n')
+function buildCorps(factures: { numero: string; montant: number; echeance: string | null; pdfUrl?: string | null }[]) {
+  const lignes = factures.map(f => {
+    let ligne = `  • Facture ${f.numero} — ${fmtEuros(f.montant)}${f.echeance ? ` — échéance le ${fmtDate(f.echeance)}` : ''}`
+    if (f.pdfUrl) ligne += `\n    ↳ Voir la facture : ${f.pdfUrl}`
+    return ligne
+  }).join('\n')
   return `Bonjour,\n\nNous nous permettons de vous contacter au sujet des factures suivantes en attente de règlement :\n\n${lignes}\n\nNous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter en cas de question ou de litige.\n\nCordialement`
 }
 
@@ -64,7 +66,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setFacturesSel(toutesIds)
     setContactsSel(contacts.filter(c => c.email).map(c => c.id))
     setObjet(`Relance factures impayées — ${client.nom}`)
-    setCorps(buildCorps(impayees.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
+    setCorps(buildCorps(impayees.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
   }, [client?.code_dso, contacts.length, impayees.length])
 
   if (!client) return null
@@ -81,7 +83,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setFacturesSel(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
     const newSel = facturesSel.includes(num) ? facturesSel.filter(x => x !== num) : [...facturesSel, num]
     const sel = impayees.filter(f => newSel.includes(f.numero_piece))
-    setCorps(buildCorps(sel.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance }))))
+    setCorps(buildCorps(sel.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
   }
 
   const peutEnvoyer = !envoi && objet.trim() && corps.trim() && facturesSel.length > 0 &&
@@ -208,7 +210,18 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     return (
                       <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                         <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
-                        <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
+                        {f.axonaut_pdf_url ? (
+                          <a
+                            href={f.axonaut_pdf_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={e => e.stopPropagation()}
+                            title="Voir le PDF"
+                            className="font-mono text-[11px] text-ockham-teal hover:underline flex-1 truncate"
+                          >{f.numero_piece} ↗</a>
+                        ) : (
+                          <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
+                        )}
                         {commentaires?.has(f.numero_piece) && (
                           <span
                             className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/30 cursor-default"

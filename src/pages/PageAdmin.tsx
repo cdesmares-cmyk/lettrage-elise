@@ -4,6 +4,7 @@ import { useAppData } from '../contexts/AppDataContext'
 import { useRefValeurs } from '../hooks/useRefValeurs'
 import { useTheme } from '../contexts/ThemeContext'
 import { useRole } from '../contexts/RoleContext'
+import { SectionIntegrationAxonaut } from '../components/admin/SectionIntegrationAxonaut'
 import type { ImportRecord } from '../hooks/useAdmin'
 
 function fmtDate(iso: string) {
@@ -184,6 +185,9 @@ export function PageAdmin() {
           </table>
         )}
       </section>
+
+      {/* ── Section 1b : Intégrations ───────────────────────────────────────── */}
+      <SectionIntegrationAxonaut />
 
       {/* ── Section 2 : Listes de référence ────────────────────────────────── */}
       <section className="bg-white border border-gray-200 rounded-xl shadow-sm mb-5 overflow-hidden">

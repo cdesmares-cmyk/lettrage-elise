@@ -39,7 +39,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const rafraichir = useCallback(async () => {
     setChargement(true)
     try {
-      const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir'
+      const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
       const PAGE = 1000
 
       // Première page clients + première page factures en parallèle

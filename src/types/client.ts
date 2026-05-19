@@ -39,6 +39,7 @@ export interface FactureDetail {
   statut_paiement: string
   statut_facture: StatutFacture | null
   est_avoir: boolean
+  axonaut_pdf_url?: string | null
 }
 
 export interface CommentaireFacture {
