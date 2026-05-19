@@ -6,8 +6,9 @@ BEGIN;
 -- ── 1. Colonne sur factures ───────────────────────────────────────────────────
 ALTER TABLE factures ADD COLUMN IF NOT EXISTS axonaut_pdf_url text;
 
--- ── 2. Recréer v_factures_avec_reste_du pour exposer la nouvelle colonne ─────
-DROP VIEW IF EXISTS v_factures_avec_reste_du CASCADE;
+-- ── 2. Recréer les deux vues (ordre : comptes_clients d'abord car pas de dépendance croisée)
+DROP VIEW IF EXISTS v_comptes_clients;
+DROP VIEW IF EXISTS v_factures_avec_reste_du;
 
 CREATE VIEW v_factures_avec_reste_du
 WITH (security_invoker = true)
@@ -39,7 +40,7 @@ SELECT
   END AS statut_paiement
 FROM factures f;
 
--- ── 3. Recréer v_comptes_clients (CASCADE l'a dropée) ────────────────────────
+-- ── 3. Recréer v_comptes_clients ─────────────────────────────────────────────
 CREATE VIEW v_comptes_clients
 WITH (security_invoker = true)
 AS
