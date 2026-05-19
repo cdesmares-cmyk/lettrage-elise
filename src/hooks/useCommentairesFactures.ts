@@ -37,7 +37,8 @@ export function useCommentairesFactures() {
       }
       const { error } = await supabase
         .from('commentaires_factures')
-        .upsert(payload, { onConflict: 'organisation_id,numero_piece' })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .upsert(payload as any, { onConflict: 'organisation_id,numero_piece' })
       if (error) throw error
       setCommentaires(prev => {
         const next = new Map(prev)

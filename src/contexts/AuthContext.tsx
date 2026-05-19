@@ -32,7 +32,8 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
       .select('role, organisation_id')
       .eq('id', userId)
       .single()
-    if (data) setProfil({ role: data.role, organisation_id: data.organisation_id })
+    const d = data as { role: string; organisation_id: string } | null
+    if (d) setProfil({ role: d.role, organisation_id: d.organisation_id })
   }
 
   useEffect(() => {
