@@ -2,40 +2,63 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-// Contexte d'authentification Supabase — partagé dans toute l'application
+interface ProfilUtilisateur {
+  role: string
+  organisation_id: string
+}
+
 interface ContexteAuth {
   session: Session | null
   utilisateur: User | null
+  profil: ProfilUtilisateur | null
   chargement: boolean
 }
 
 const ContexteAuth = createContext<ContexteAuth>({
   session: null,
   utilisateur: null,
+  profil: null,
   chargement: true,
 })
 
 export function FournisseurAuth({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
+  const [profil, setProfil] = useState<ProfilUtilisateur | null>(null)
   const [chargement, setChargement] = useState(true)
 
+  async function chargerProfil(userId: string) {
+    const { data } = await supabase
+      .from('utilisateurs')
+      .select('role, organisation_id')
+      .eq('id', userId)
+      .single()
+    if (data) setProfil({ role: data.role, organisation_id: data.organisation_id })
+  }
+
   useEffect(() => {
-    // Récupération de la session existante au chargement
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
-      setChargement(false)
+      if (session?.user) {
+        chargerProfil(session.user.id).finally(() => setChargement(false))
+      } else {
+        setChargement(false)
+      }
     })
 
-    // Écoute des changements de session (connexion / déconnexion)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session?.user) {
+        chargerProfil(session.user.id)
+      } else {
+        setProfil(null)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
   return (
-    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, chargement }}>
+    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, profil, chargement }}>
       {children}
     </ContexteAuth.Provider>
   )
