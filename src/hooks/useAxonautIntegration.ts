@@ -53,7 +53,7 @@ export function useAxonautIntegration() {
       const { data, error } = await supabase.functions.invoke('axonaut-sync', {
         body: { action: 'test' },
       })
-      if (error || !data?.ok) throw new Error(data?.error ?? 'Connexion échouée')
+      if (error || !data?.ok) throw new Error(data?.message ?? data?.error ?? 'Connexion échouée')
       toast.success('Connexion Axonaut validée ✓')
       await charger()
       return true
