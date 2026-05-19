@@ -53,7 +53,10 @@ Deno.serve(async (req: Request) => {
 
   if (action === 'test') {
     const res = await fetch(`${AXONAUT_BASE}/invoices?page=0&per_page=1`, { headers: axonautHeaders })
-    if (!res.ok) return json({ ok: false, message: `Axonaut HTTP ${res.status}` })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return json({ ok: false, message: `Axonaut HTTP ${res.status} — ${body}` })
+    }
 
     // Marquer la connexion comme vérifiée
     await supabaseAdmin
