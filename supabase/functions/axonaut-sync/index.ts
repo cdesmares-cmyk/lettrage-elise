@@ -49,8 +49,10 @@ Deno.serve(async (req: Request) => {
   const { api_key: apiKey, organisation_id: orgId } = integration
 
   // ── Action : tester la connexion ─────────────────────────────────────────
+  const axonautHeaders = { userApiKey: apiKey }
+
   if (action === 'test') {
-    const res = await fetch(`${AXONAUT_BASE}/invoices?userApiKey=${apiKey}&page=0&per_page=1`)
+    const res = await fetch(`${AXONAUT_BASE}/invoices?page=0&per_page=1`, { headers: axonautHeaders })
     if (!res.ok) return json({ ok: false, message: `Axonaut HTTP ${res.status}` })
 
     // Marquer la connexion comme vérifiée
@@ -69,7 +71,7 @@ Deno.serve(async (req: Request) => {
     let nbMaj   = 0
 
     while (true) {
-      const res = await fetch(`${AXONAUT_BASE}/invoices?userApiKey=${apiKey}&page=${page}&per_page=${PER_PAGE}`)
+      const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}&per_page=${PER_PAGE}`, { headers: axonautHeaders })
       if (!res.ok) return json({ error: `Axonaut HTTP ${res.status}` }, 502)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
