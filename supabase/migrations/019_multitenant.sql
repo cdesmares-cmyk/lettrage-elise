@@ -27,13 +27,7 @@ CREATE TABLE IF NOT EXISTS organisations (
 );
 
 ALTER TABLE organisations ENABLE ROW LEVEL SECURITY;
-
--- Un utilisateur ne voit que son organisation
--- (la policy sur utilisateurs est créée après, car elle dépend de get_my_organisation_id)
-CREATE POLICY IF NOT EXISTS "organisations_select_own" ON organisations
-  FOR SELECT USING (
-    id IN (SELECT organisation_id FROM utilisateurs WHERE id = auth.uid())
-  );
+-- La policy sera créée après l'étape 3 (get_my_organisation_id doit exister)
 
 -- Insérer Elise Lyon
 INSERT INTO organisations (nom, slug)
@@ -69,6 +63,11 @@ STABLE
 AS $$
   SELECT organisation_id FROM utilisateurs WHERE id = auth.uid()
 $$;
+
+-- Policy organisations (ici car get_my_organisation_id() est maintenant disponible)
+DROP POLICY IF EXISTS "organisations_select_own" ON organisations;
+CREATE POLICY "organisations_select_own" ON organisations
+  FOR SELECT USING (id = get_my_organisation_id());
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- ÉTAPE 4 — Trigger auto-injection organisation_id à l'INSERT
@@ -491,15 +490,18 @@ CREATE INDEX IF NOT EXISTS idx_integrations_organisation ON integrations(organis
 
 ALTER TABLE integrations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "integrations_select" ON integrations;
 CREATE POLICY "integrations_select" ON integrations
   FOR SELECT USING (organisation_id = get_my_organisation_id());
 
+DROP POLICY IF EXISTS "integrations_admin_write" ON integrations;
 CREATE POLICY "integrations_admin_write" ON integrations
   FOR INSERT WITH CHECK (
     organisation_id = get_my_organisation_id()
     AND get_my_role() = 'admin'
   );
 
+DROP POLICY IF EXISTS "integrations_admin_update" ON integrations;
 CREATE POLICY "integrations_admin_update" ON integrations
   FOR UPDATE USING (
     organisation_id = get_my_organisation_id()
@@ -514,7 +516,10 @@ CREATE POLICY "integrations_admin_update" ON integrations
 -- NOTE : pour les nouveaux clients, l'admin devra définir l'organisation_id
 -- manuellement après création (ou via une Edge Function dédiée).
 CREATE OR REPLACE FUNCTION on_auth_user_created()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+RETURNS TRIGGER LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO utilisateurs (id, email, nom_affiche)
   VALUES (NEW.id, NEW.email, split_part(NEW.email, '@', 1))
