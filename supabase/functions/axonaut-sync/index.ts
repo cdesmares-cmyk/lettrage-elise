@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
 
     // ── test ────────────────────────────────────────────────────────────────
     if (action === 'test') {
-      const res = await fetch(`${AXONAUT_BASE}/invoices?page=0&per_page=1`, { headers: axonautHeaders })
+      const res = await fetch(`${AXONAUT_BASE}/invoices`, { headers: { ...axonautHeaders, page: '0' } })
       if (!res.ok) {
         const txt = await res.text().catch(() => '')
         return json({ ok: false, message: `Axonaut HTTP ${res.status} — ${txt}` })
@@ -70,7 +70,7 @@ Deno.serve(async (req: Request) => {
       let nbMaj = 0
 
       while (true) {
-        const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}&per_page=${PER_PAGE}`, { headers: axonautHeaders })
+        const res = await fetch(`${AXONAUT_BASE}/invoices`, { headers: { ...axonautHeaders, page: String(page) } })
         if (!res.ok) return json({ error: `Axonaut HTTP ${res.status}` }, 502)
 
         const invoices = await res.json() as Array<{ number: string; public_path: string; date: string }>
