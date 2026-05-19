@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY       = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const AXONAUT_BASE      = 'https://axonaut.com/api/v2'
-const PER_PAGE          = 50
+const PER_PAGE          = 500
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -78,19 +78,20 @@ Deno.serve(async (req: Request) => {
 
         const filtrees = depuisTs ? invoices.filter(inv => Number(inv.date) >= depuisTs) : invoices
 
-        const updates = filtrees
+        // Batch update : une seule requête SQL pour toute la page
+        const payload = filtrees
           .filter(inv => inv.number && inv.public_path)
-          .map(inv =>
-            supabaseAdmin
-              .from('factures')
-              .update({ axonaut_pdf_url: inv.public_path })
-              .eq('numero_piece', inv.number)
-              .eq('organisation_id', orgId)
-          )
+          .map(inv => ({ numero_piece: inv.number, pdf_url: inv.public_path }))
 
-        const results = await Promise.all(updates)
-        nbMaj += results.filter(r => !r.error).length
+        if (payload.length > 0) {
+          const { data: nb } = await supabaseAdmin.rpc('bulk_update_axonaut_pdf', {
+            updates: payload,
+            org_id: orgId,
+          })
+          nbMaj += (nb as number) ?? 0
+        }
 
+        // Arrêt anticipé si toutes les factures de la page sont antérieures à 'depuis'
         if (depuisTs && invoices.every(inv => Number(inv.date) < depuisTs)) break
         if (invoices.length < PER_PAGE) break
         page++
