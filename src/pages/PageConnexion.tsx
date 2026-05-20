@@ -25,7 +25,8 @@ export function PageConnexion() {
     if (!email.trim()) { setErreur('Entrez votre adresse email.'); return }
     setChargement(true)
     setErreur(null)
-    await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: SITE_URL })
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: SITE_URL })
+    if (error) { setErreur(error.message); setChargement(false); return }
     setResetEnvoye(true)
     setChargement(false)
   }
@@ -138,6 +139,12 @@ export function PageConnexion() {
             {chargement ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
+
+        <p className="text-center mt-6 text-xs text-gray-300">
+          <a href="https://www.ockham-finance.com/" className="hover:text-ockham-teal transition-colors">
+            ockham-finance.com
+          </a>
+        </p>
       </div>
     </div>
   )

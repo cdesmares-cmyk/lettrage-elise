@@ -99,7 +99,9 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
   }
 
   async function handleResetMdp(email: string) {
-    const { error } = await supabase.auth.resetPasswordForEmail(email)
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://app.ockham-finance.com',
+    })
     if (error) toast.error(error.message)
     else toast.success(`Email de réinitialisation envoyé à ${email}`)
   }

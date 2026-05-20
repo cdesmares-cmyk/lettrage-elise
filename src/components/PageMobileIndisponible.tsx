@@ -28,9 +28,12 @@ export function PageMobileIndisponible() {
         </div>
       </div>
 
-      <p className="text-white/20 text-[11px] mt-10">
-        Une version mobile est prévue prochainement.
-      </p>
+      <a
+        href="https://www.ockham-finance.com/"
+        className="text-white/20 text-[11px] mt-10 hover:text-white/40 transition-colors"
+      >
+        ockham-finance.com
+      </a>
     </div>
   )
 }
