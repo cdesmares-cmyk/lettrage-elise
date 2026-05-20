@@ -3,6 +3,17 @@ import { supabase } from '../lib/supabase'
 
 const SITE_URL = 'https://app.ockham-finance.com'
 
+function Logo() {
+  return (
+    <div className="flex flex-col items-center gap-2 mb-8">
+      <div className="w-16 h-16 rounded-2xl bg-ockham-teal/10 border border-ockham-teal/20 flex items-center justify-center mb-1">
+        <span className="text-4xl font-black text-ockham-teal leading-none select-none">O</span>
+      </div>
+      <p className="text-xl font-black tracking-widest text-white uppercase">OCKHAM</p>
+    </div>
+  )
+}
+
 export function PageConnexion() {
   const [email, setEmail] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
@@ -33,20 +44,20 @@ export function PageConnexion() {
 
   if (modeReset) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-          <h1 className="text-xl font-bold text-ockham-navy mb-1">OCKHAM</h1>
-          <p className="text-sm font-semibold text-gray-800 mb-1">Réinitialiser le mot de passe</p>
-          <p className="text-xs text-gray-400 mb-6">Un lien vous sera envoyé par email.</p>
+      <div className="min-h-screen bg-ockham-navy flex flex-col items-center justify-center px-4">
+        <Logo />
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-sm">
+          <p className="text-sm font-semibold text-white mb-1">Réinitialiser le mot de passe</p>
+          <p className="text-xs text-white/40 mb-6">Un lien vous sera envoyé par email.</p>
 
           {resetEnvoye ? (
             <div className="space-y-4">
-              <p className="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+              <p className="text-sm text-ockham-teal bg-ockham-teal/10 border border-ockham-teal/20 rounded-lg px-3 py-2">
                 ✓ Email envoyé à <strong>{email}</strong>. Vérifiez votre boîte de réception.
               </p>
               <button
                 onClick={() => { setModeReset(false); setResetEnvoye(false) }}
-                className="w-full text-sm text-gray-500 border border-gray-200 rounded-lg px-4 py-2 hover:border-gray-300 transition-colors"
+                className="w-full text-sm text-white/50 border border-white/10 rounded-lg px-4 py-2 hover:border-white/20 transition-colors"
               >
                 ← Retour à la connexion
               </button>
@@ -54,7 +65,7 @@ export function PageConnexion() {
           ) : (
             <form onSubmit={handleReset} className="flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Email</label>
                 <input
                   type="email"
                   required
@@ -62,58 +73,60 @@ export function PageConnexion() {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   placeholder="vous@domaine.fr"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ockham-teal"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-ockham-teal transition-colors"
                 />
               </div>
-              {erreur && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreur}</p>}
+              {erreur && <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{erreur}</p>}
               <button
                 type="submit"
                 disabled={chargement}
-                className="bg-ockham-teal text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
+                className="bg-ockham-teal text-white rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
               >
                 {chargement ? 'Envoi…' : 'Envoyer le lien'}
               </button>
               <button
                 type="button"
                 onClick={() => { setModeReset(false); setErreur(null) }}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-xs text-white/30 hover:text-white/50 transition-colors"
               >
                 ← Retour
               </button>
             </form>
           )}
         </div>
+        <a href="https://www.ockham-finance.com/" className="text-white/20 text-[11px] mt-8 hover:text-white/40 transition-colors">
+          ockham-finance.com
+        </a>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 w-full max-w-sm">
-        <h1 className="text-xl font-semibold text-gray-800 mb-1">
-          <span className="text-ockham-navy font-bold">OCKHAM</span>
-        </h1>
-        <p className="text-sm text-gray-500 mb-6">Connectez-vous pour accéder à l'application.</p>
+    <div className="min-h-screen bg-ockham-navy flex flex-col items-center justify-center px-4">
+      <Logo />
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-8 w-full max-w-sm">
+        <p className="text-sm font-semibold text-white mb-1">Connexion</p>
+        <p className="text-xs text-white/40 mb-6">Accédez à votre espace de travail.</p>
 
         <form onSubmit={handleConnexion} className="flex flex-col gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider mb-1.5">Email</label>
             <input
               type="email"
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ockham-teal"
               placeholder="vous@domaine.fr"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-ockham-teal transition-colors"
             />
           </div>
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-gray-700">Mot de passe</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-white/50 uppercase tracking-wider">Mot de passe</label>
               <button
                 type="button"
                 onClick={() => { setModeReset(true); setErreur(null) }}
-                className="text-xs text-ockham-teal hover:underline"
+                className="text-xs text-ockham-teal hover:text-ockham-teal-light transition-colors"
               >
                 Mot de passe oublié ?
               </button>
@@ -123,29 +136,27 @@ export function PageConnexion() {
               required
               value={motDePasse}
               onChange={e => setMotDePasse(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ockham-teal"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-ockham-teal transition-colors"
             />
           </div>
 
           {erreur && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erreur}</p>
+            <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{erreur}</p>
           )}
 
           <button
             type="submit"
             disabled={chargement}
-            className="bg-ockham-teal text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
+            className="bg-ockham-teal text-white rounded-lg px-4 py-2.5 text-sm font-semibold hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors mt-1"
           >
-            {chargement ? 'Connexion...' : 'Se connecter'}
+            {chargement ? 'Connexion…' : 'Se connecter'}
           </button>
         </form>
-
-        <p className="text-center mt-6 text-xs text-gray-300">
-          <a href="https://www.ockham-finance.com/" className="hover:text-ockham-teal transition-colors">
-            ockham-finance.com
-          </a>
-        </p>
       </div>
+
+      <a href="https://www.ockham-finance.com/" className="text-white/20 text-[11px] mt-8 hover:text-white/40 transition-colors">
+        ockham-finance.com
+      </a>
     </div>
   )
 }
