@@ -1,3 +1,4 @@
+import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
@@ -5,6 +6,7 @@ import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
+import { PageMobileIndisponible } from './components/PageMobileIndisponible'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDefinirMotDePasse } from './pages/PageDefinirMotDePasse'
 import { PageLettrage } from './pages/PageLettrage'
@@ -78,9 +80,21 @@ function AppRoutes() {
   )
 }
 
+function DetecteurMobile({ children }: { children: React.ReactNode }) {
+  const [isMobile, setIsMobile] = React.useState(() => window.innerWidth < 768)
+  React.useEffect(() => {
+    const fn = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', fn)
+    return () => window.removeEventListener('resize', fn)
+  }, [])
+  if (isMobile) return <PageMobileIndisponible />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <ThemeProvider>
+    <DetecteurMobile>
     <FournisseurAuth>
       <RoleProvider>
       <FournisseurDonnees>
@@ -98,6 +112,7 @@ export default function App() {
       </FournisseurDonnees>
       </RoleProvider>
     </FournisseurAuth>
+    </DetecteurMobile>
     </ThemeProvider>
   )
 }
