@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
       const { email, role = 'responsable_poste_client' } = body
       if (!email) return json({ error: 'Email requis' }, 400)
       const { data: invited, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-        redirectTo: `${SITE_URL}/`,
+        redirectTo: SITE_URL,
         data: {
           inviter_nom: caller.nom_affiche ?? user.email?.split('@')[0] ?? 'Votre administrateur',
         },
