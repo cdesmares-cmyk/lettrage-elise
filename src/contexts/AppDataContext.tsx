@@ -41,7 +41,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
-  const [chargement, setChargement] = useState(false)
+  const [chargement, setChargement] = useState(true)
   const [moisMaxFactures, setMoisMaxFactures] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI

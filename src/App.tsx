@@ -15,31 +15,34 @@ import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageImportExport } from './pages/PageImportExport'
 import { PageRelances } from './pages/PageRelances'
 
+function SplashChargement({ nom }: { nom?: string }) {
+  return (
+    <div className="min-h-screen bg-ockham-navy flex flex-col items-center justify-center gap-0">
+      <div className="flex flex-col items-center gap-2 mb-10">
+        <div className="w-20 h-20 rounded-2xl bg-ockham-teal/10 border border-ockham-teal/20 flex items-center justify-center mb-2">
+          <span className="text-5xl font-black text-ockham-teal leading-none select-none">O</span>
+        </div>
+        <p className="text-2xl font-black tracking-widest text-white uppercase">OCKHAM</p>
+        {nom && (
+          <p className="text-sm font-semibold text-ockham-teal tracking-wider uppercase mt-1">{nom}</p>
+        )}
+      </div>
+      <div className="w-6 h-6 border-2 border-ockham-teal border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
+
 // Garde de route : redirige vers /connexion si non authentifié,
 // affiche un écran de chargement pendant la récupération des données initiales
 function RoutePrivee({ children }: { children: React.ReactNode }) {
-  const { session, chargement: chargementAuth } = useAuth()
+  const { session, chargement: chargementAuth, profil } = useAuth()
   const { chargement: chargementDonnees } = useAppData()
 
-  if (chargementAuth) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <p className="text-gray-500 text-sm">Authentification…</p>
-      </div>
-    )
-  }
+  if (chargementAuth) return <div className="min-h-screen bg-gray-50" />
 
   if (!session) return <Navigate to="/connexion" replace />
 
-  if (chargementDonnees) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-2 border-ockham-teal border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500 text-sm font-medium">Chargement des données…</p>
-        <p className="text-gray-400 text-xs">Clients et factures en cours de chargement</p>
-      </div>
-    )
-  }
+  if (chargementDonnees) return <SplashChargement nom={profil?.nom_organisation} />
 
   return <>{children}</>
 }
