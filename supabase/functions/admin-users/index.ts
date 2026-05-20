@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SITE_URL     = Deno.env.get('SITE_URL') ?? 'https://lettrage-elise.vercel.app'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -44,6 +45,7 @@ Deno.serve(async (req: Request) => {
       const { email, role = 'responsable_poste_client' } = body
       if (!email) return json({ error: 'Email requis' }, 400)
       const { data: invited, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${SITE_URL}/`,
         data: {
           inviter_nom: caller.nom_affiche ?? user.email?.split('@')[0] ?? 'Votre administrateur',
         },
