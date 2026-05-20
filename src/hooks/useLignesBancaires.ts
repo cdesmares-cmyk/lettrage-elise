@@ -41,12 +41,6 @@ export function useLignesBancaires() {
     debounceRef.current = setTimeout(() => setVersion((n: number) => n + 1), 350)
   }
 
-  function appliquerFiltreStatut<T extends ReturnType<typeof supabase.from>>(q: T) {
-    if (filtre === 'a_lettrer') return q.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel') as T
-    if (filtre !== 'toutes') return q.eq('statut_lettrage', filtre) as T
-    return q
-  }
-
   useEffect(() => {
     let annule = false
 
@@ -65,7 +59,8 @@ export function useLignesBancaires() {
         .order('date_operation', { ascending: false })
         .range(from, to)
 
-      q = appliquerFiltreStatut(q)
+      if (filtre === 'a_lettrer') q = q.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
+      else if (filtre !== 'toutes') q = q.eq('statut_lettrage', filtre)
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
       if (term)      q = q.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
@@ -75,7 +70,8 @@ export function useLignesBancaires() {
         .from('v_lignes_bancaires_avec_statut')
         .select('id_operation', { count: 'exact', head: true })
 
-      qCount = appliquerFiltreStatut(qCount)
+      if (filtre === 'a_lettrer') qCount = qCount.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
+      else if (filtre !== 'toutes') qCount = qCount.eq('statut_lettrage', filtre)
       if (dateDebut) qCount = qCount.gte('date_operation', dateDebut)
       if (dateFin)   qCount = qCount.lte('date_operation', dateFin)
       if (term)      qCount = qCount.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
