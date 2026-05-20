@@ -6,6 +6,7 @@ import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
 import { PageConnexion } from './pages/PageConnexion'
+import { PageDefinirMotDePasse } from './pages/PageDefinirMotDePasse'
 import { PageLettrage } from './pages/PageLettrage'
 import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
@@ -42,7 +43,12 @@ function RoutePrivee({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { session } = useAuth()
+  const { session, typeMotDePasse, motDePasseDefini } = useAuth()
+
+  // Interception prioritaire : invitation ou reset mot de passe
+  if (typeMotDePasse) {
+    return <PageDefinirMotDePasse type={typeMotDePasse} onDone={motDePasseDefini} />
+  }
 
   return (
     <Routes>

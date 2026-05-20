@@ -12,6 +12,8 @@ interface ContexteAuth {
   utilisateur: User | null
   profil: ProfilUtilisateur | null
   chargement: boolean
+  typeMotDePasse: 'invite' | 'recovery' | null
+  motDePasseDefini: () => void
 }
 
 const ContexteAuth = createContext<ContexteAuth>({
@@ -19,12 +21,21 @@ const ContexteAuth = createContext<ContexteAuth>({
   utilisateur: null,
   profil: null,
   chargement: true,
+  typeMotDePasse: null,
+  motDePasseDefini: () => {},
 })
 
 export function FournisseurAuth({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null)
   const [chargement, setChargement] = useState(true)
+  // Détection invitation ou reset mot de passe via le hash de l'URL
+  const [typeMotDePasse, setTypeMotDePasse] = useState<'invite' | 'recovery' | null>(() => {
+    const hash = window.location.hash
+    if (hash.includes('type=invite')) return 'invite'
+    if (hash.includes('type=recovery')) return 'recovery'
+    return null
+  })
 
   async function chargerProfil(userId: string) {
     const { data } = await supabase
@@ -46,7 +57,8 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') setTypeMotDePasse('recovery')
       setSession(session)
       if (session?.user) {
         chargerProfil(session.user.id)
@@ -58,8 +70,10 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  function motDePasseDefini() { setTypeMotDePasse(null) }
+
   return (
-    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, profil, chargement }}>
+    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, profil, chargement, typeMotDePasse, motDePasseDefini }}>
       {children}
     </ContexteAuth.Provider>
   )
