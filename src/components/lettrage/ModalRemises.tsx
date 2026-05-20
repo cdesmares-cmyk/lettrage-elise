@@ -294,11 +294,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                               </div>
                             ))}
                             <div className="flex justify-end px-4 py-3">
-                              <button onClick={() => supprimer(remise.id)}
-                                disabled={chargement}
-                                className="text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                ✕ Supprimer
-                              </button>
+                              <span className="text-[10px] text-gray-400 italic">Remise encaissée — non modifiable</span>
                             </div>
                           </div>
                         )}

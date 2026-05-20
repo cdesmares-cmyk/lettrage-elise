@@ -1,6 +1,7 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
+import { PAGE_SIZE } from '../../hooks/useLignesBancaires'
 
 interface Props {
   lignes: LigneBancaireAvecStatut[]
@@ -10,10 +11,14 @@ interface Props {
   filtre: FiltreStatut
   dateDebut: string
   dateFin: string
+  page: number
+  totalPages: number
+  totalLignes: number
   onRecherche: (v: string) => void
   onFiltre: (v: FiltreStatut) => void
   onDateDebut: (v: string) => void
   onDateFin: (v: string) => void
+  onPage: (p: number) => void
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
   onHistorique: () => void
 }
@@ -36,16 +41,18 @@ function DotStatut({ statut }: { statut: StatutLettrage }) {
 }
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
-  { val: 'toutes', label: 'Toutes' },
+  { val: 'a_lettrer',  label: 'À lettrer' },
   { val: 'non_lettre', label: 'Non lettrées' },
-  { val: 'partiel', label: 'Partielles' },
-  { val: 'lettre', label: 'Lettrées' },
+  { val: 'partiel',    label: 'Partielles' },
+  { val: 'lettre',     label: 'Lettrées' },
+  { val: 'toutes',     label: 'Toutes' },
 ]
 
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,
   recherche, filtre, dateDebut, dateFin,
-  onRecherche, onFiltre, onDateDebut, onDateFin, onSelectLigne, onHistorique,
+  page, totalPages, totalLignes,
+  onRecherche, onFiltre, onDateDebut, onDateFin, onPage, onSelectLigne, onHistorique,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -199,6 +206,44 @@ export function TableLignesBancaires({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!chargement && totalLignes > PAGE_SIZE && (
+        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+          <span className="text-[11px] text-gray-400">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalLignes)} sur {totalLignes} lignes
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onPage(0)}
+              disabled={page === 0}
+              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
+              title="Première page"
+            >«</button>
+            <button
+              onClick={() => onPage(page - 1)}
+              disabled={page === 0}
+              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
+              title="Page précédente"
+            >‹</button>
+            <span className="text-xs font-semibold text-gray-600 px-2 tabular-nums">
+              {page + 1} / {totalPages}
+            </span>
+            <button
+              onClick={() => onPage(page + 1)}
+              disabled={page >= totalPages - 1}
+              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
+              title="Page suivante"
+            >›</button>
+            <button
+              onClick={() => onPage(totalPages - 1)}
+              disabled={page >= totalPages - 1}
+              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
+              title="Dernière page"
+            >»</button>
+          </div>
         </div>
       )}
     </div>

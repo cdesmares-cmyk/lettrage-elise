@@ -264,4 +264,13 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     aliases: ['avoir', 'est avoir', 'estavoir', 'type', 'nature document', 'type document', 'type piece'],
     hint: 'F = Facture, A = Avoir. Optionnel : auto-détecté si montant TTC négatif.',
   },
+  {
+    cle: 'reste_du',
+    label: 'Restant Dû TTC',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['restant du', 'reste du', 'solde', 'balance', 'outstanding', 'restant', 'montant restant', 'encours'],
+    hint: 'Optionnel. Si vide, prend la valeur du Montant TTC. Utile pour importer un historique partiellement réglé.',
+  },
 ]

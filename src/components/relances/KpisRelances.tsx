@@ -22,7 +22,7 @@ export function KpisRelances({ kpis }: Props) {
       <Kpi
         label="Score du mois"
         valeur={scoreMois}
-        sous="pts · envoyée +10 · répondue +20 · payée +30"
+        sous="pts · envoyée +10 · contact +20 · promesse +25 · payée +30"
         couleur="border-ockham-teal/25"
       />
       <Kpi

@@ -11,6 +11,9 @@ import { NumeroPiece } from '../NumeroPiece'
 function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
+function fmtEurosEmail(n: number) {
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
 }
@@ -18,13 +21,66 @@ function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-function buildCorps(factures: { numero: string; montant: number; echeance: string | null; pdfUrl?: string | null }[]) {
-  const lignes = factures.map(f => {
-    let ligne = `  • Facture ${f.numero} — ${fmtEuros(f.montant)}${f.echeance ? ` — échéance le ${fmtDate(f.echeance)}` : ''}`
-    if (f.pdfUrl) ligne += `\n    ↳ Voir la facture : ${f.pdfUrl}`
-    return ligne
-  }).join('\n')
+type FactureLigne = { numero: string; montantTtc: number; restedu: number; echeance: string | null; pdfUrl?: string | null }
+
+function buildCorps(factures: FactureLigne[]) {
+  const lignes = factures.map(f =>
+    `  • Facture ${f.numero} — ${fmtEuros(f.montantTtc)} TTC — Restant dû : ${fmtEuros(f.restedu)}${f.echeance ? ` — éch. ${fmtDate(f.echeance)}` : ''}`
+  ).join('\n')
   return `Bonjour,\n\nNous nous permettons de vous contacter au sujet des factures suivantes en attente de règlement :\n\n${lignes}\n\nNous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter en cas de question ou de litige.\n\nCordialement`
+}
+
+function buildHtml(factures: FactureLigne[], signature: string | null): string {
+  const totalTtc    = factures.reduce((s, f) => s + f.montantTtc, 0)
+  const totalReste  = factures.reduce((s, f) => s + f.restedu, 0)
+
+  const rows = factures.map(f => {
+    const retard = f.echeance ? Math.floor((Date.now() - new Date(f.echeance).getTime()) / 86_400_000) : null
+    const retardLabel = retard === null ? '—' : retard <= 0 ? '—' : `<span style="color:#dc2626;font-weight:600;">${retard}j</span>`
+    return `
+    <tr>
+      <td style="padding:11px 16px;border-bottom:1px solid #f1f3f5;">
+        ${f.pdfUrl
+          ? `<a href="${f.pdfUrl}" style="font-family:monospace;font-weight:600;color:#4CC5BB;text-decoration:none;">${f.numero}</a>`
+          : `<span style="font-family:monospace;font-weight:600;color:#374151;">${f.numero}</span>`}
+      </td>
+      <td style="padding:11px 16px;border-bottom:1px solid #f1f3f5;text-align:right;color:#374151;white-space:nowrap;">${fmtEurosEmail(f.montantTtc)}</td>
+      <td style="padding:11px 16px;border-bottom:1px solid #f1f3f5;text-align:right;font-weight:600;color:#374151;white-space:nowrap;">${fmtEurosEmail(f.restedu)}</td>
+      <td style="padding:11px 16px;border-bottom:1px solid #f1f3f5;text-align:center;">${retardLabel}</td>
+    </tr>`
+  }).join('')
+
+  const table = `
+    <table style="width:100%;border-collapse:collapse;border:1px solid #e8ecef;border-radius:10px;overflow:hidden;margin:20px 0;box-shadow:0 1px 4px rgba(14,26,43,0.06);">
+      <thead>
+        <tr style="background:#0E1A2B;">
+          <th style="padding:10px 16px;text-align:left;font-size:11px;color:#4CC5BB;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Facture</th>
+          <th style="padding:10px 16px;text-align:right;font-size:11px;color:#4CC5BB;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Total TTC</th>
+          <th style="padding:10px 16px;text-align:right;font-size:11px;color:#4CC5BB;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Restant Dû TTC</th>
+          <th style="padding:10px 16px;text-align:center;font-size:11px;color:#4CC5BB;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Retard</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+        <tr style="background:#e9eef3;border-top:1px solid #d4dbe3;">
+          <td style="padding:11px 16px;font-weight:700;color:#0E1A2B;font-size:13px;">Total</td>
+          <td style="padding:11px 16px;text-align:right;font-weight:700;color:#0E1A2B;white-space:nowrap;font-size:13px;">${fmtEurosEmail(totalTtc)}</td>
+          <td style="padding:11px 16px;text-align:right;font-weight:700;color:#dc2626;white-space:nowrap;font-size:13px;">${fmtEurosEmail(totalReste)}</td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>`
+
+  const sig = signature ? `<br><div>${signature}</div>` : ''
+
+  return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;max-width:600px;line-height:1.6;">
+    <p>Bonjour,</p>
+    <p>Nous nous permettons de vous contacter au sujet des factures suivantes en attente de règlement :</p>
+    ${table}
+    <p>Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter en cas de question ou de litige.</p>
+    <p>Cordialement</p>
+    ${sig}
+  </div>`
 }
 
 interface GmailAuthProps {
@@ -32,6 +88,7 @@ interface GmailAuthProps {
   token: GmailToken | null
   connecterGmail: () => void
   envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string }) => Promise<{ threadId: string } | null>
+  recupererSignature: () => Promise<string | null>
 }
 
 interface Props {
@@ -46,7 +103,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { utilisateur } = useAuth()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives } = useAppData()
-  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail } = gmailAuth
+  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
 
   const impayees = facturesActives.filter(f => f.code_client === client?.code_dso && f.reste_du > 0.005)
 
@@ -58,6 +115,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [nomFallback, setNomFallback] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
+  const [signature, setSignature] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (estConnecte) recupererSignature().then(setSignature)
+  }, [estConnecte])
 
   // Initialisation dès qu'on a les contacts et factures
   useEffect(() => {
@@ -65,8 +127,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     const toutesIds = impayees.map(f => f.numero_piece)
     setFacturesSel(toutesIds)
     setContactsSel(contacts.filter(c => c.email).map(c => c.id))
-    setObjet(`Relance factures impayées — ${client.nom}`)
-    setCorps(buildCorps(impayees.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
+    setObjet(`[ Elise Lyon ] - Relance factures impayées - ${client.nom} - ${client.code_dso}`)
+    setCorps(buildCorps(impayees.map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
   }, [client?.code_dso, contacts.length, impayees.length])
 
   if (!client) return null
@@ -83,7 +145,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setFacturesSel(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
     const newSel = facturesSel.includes(num) ? facturesSel.filter(x => x !== num) : [...facturesSel, num]
     const sel = impayees.filter(f => newSel.includes(f.numero_piece))
-    setCorps(buildCorps(sel.map(f => ({ numero: f.numero_piece, montant: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
+    setCorps(buildCorps(sel.map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))))
   }
 
   const peutEnvoyer = !envoi && objet.trim() && corps.trim() && facturesSel.length > 0 &&
@@ -106,14 +168,21 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       const destinataires = sanContacts
         ? [emailFallback.trim()]
         : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email!).filter(Boolean)
+      const selFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
+        .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
+      const htmlFinal = buildHtml(selFactures, signature)
       const res = await envoyerEmail({
         destinataires,
         objet:     objet.trim(),
-        corpsHtml: corps.replace(/\n/g, '<br>'),
+        corpsHtml: htmlFinal,
       })
       if (!res) { toast.error('Échec de l\'envoi Gmail'); setEnvoi(false); return }
       gmailThreadId = res.threadId
     }
+
+    const selFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
+      .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
+    const htmlFinal = buildHtml(selFactures, signature)
 
     const payload: Record<string, unknown> = {
       code_client:      codeClient,
@@ -121,7 +190,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       contacts_ids:     cIds,
       factures_ids:     facturesSel,
       objet:            objet.trim(),
-      corps_html:       corps.replace(/\n/g, '<br>'),
+      corps_html:       htmlFinal,
       statut:           'envoyee',
       envoyee_le:       new Date().toISOString(),
       points_attribues: 10,
@@ -137,28 +206,30 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     onFermer()
   }
 
-  const previewHtml = corps.replace(/\n/g, '<br>')
+  const previewFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
+    .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
+  const previewHtml = buildHtml(previewFactures, signature)
 
   return (
     <>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onFermer} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[72px] pb-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-88px)] flex flex-col overflow-hidden">
 
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center justify-between px-6 py-4 bg-ockham-navy flex-shrink-0">
             <div>
-              <p className="text-sm font-bold text-gray-900">Nouvelle relance — <span className="text-ockham-teal">{nomClient}</span></p>
-              <p className="text-xs text-gray-400 mt-0.5 font-mono">{codeClient} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
+              <p className="text-sm font-bold text-white">Nouvelle relance — <span className="text-ockham-teal">{nomClient}</span></p>
+              <p className="text-xs text-white/50 mt-0.5 font-mono">{codeClient} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
             </div>
-            <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 text-gray-400 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-sm flex items-center justify-center transition-colors">✕</button>
+            <button onClick={onFermer} className="w-7 h-7 rounded-full border border-white/20 text-white/60 hover:bg-white/10 hover:text-white text-sm flex items-center justify-center transition-colors">✕</button>
           </div>
 
           {/* Corps — 2 colonnes */}
           <div className="flex-1 overflow-hidden flex min-h-0">
 
             {/* Colonne gauche : formulaire */}
-            <div className="w-1/2 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
+            <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
 
               {/* Statut connexion Gmail */}
               {estConnecte ? (
@@ -177,7 +248,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
               {/* Contacts */}
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Destinataires</label>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">1 —</span>Destinataires</label>
                 {sanContacts ? (
                   <div className="space-y-2">
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
@@ -201,7 +272,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
               {/* Factures */}
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Factures à inclure</label>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">2 —</span>Factures à inclure</label>
                 <div className="space-y-1.5 max-h-40 overflow-y-auto">
                   {impayees.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune facture impayée</p>
@@ -242,20 +313,20 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
               {/* Objet */}
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Objet</label>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">3 —</span>Objet</label>
                 <input value={objet} onChange={e => setObjet(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
               </div>
 
               {/* Corps */}
               <div>
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Message</label>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">4 —</span>Message</label>
                 <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={10} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal resize-none font-sans" />
               </div>
             </div>
 
             {/* Colonne droite : aperçu */}
-            <div className="w-1/2 overflow-y-auto px-5 py-4">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Aperçu email</p>
+            <div className="w-3/5 overflow-y-auto px-5 py-4">
+              <p className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-3"><span className="text-ockham-navy dark:text-white/40 mr-1">5 —</span>Aperçu email</p>
               <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
                   {estConnecte && (

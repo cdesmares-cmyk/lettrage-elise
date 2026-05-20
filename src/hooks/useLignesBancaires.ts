@@ -13,25 +13,38 @@ interface RowLigne {
 
 interface RowTotaux { statut_lettrage: string; restant: number }
 
-export type FiltreStatut = 'toutes' | 'non_lettre' | 'partiel' | 'lettre'
+export type FiltreStatut = 'a_lettrer' | 'non_lettre' | 'partiel' | 'lettre' | 'toutes'
+
+export const PAGE_SIZE = 50
 
 export function useLignesBancaires() {
   const [lignes, setLignes] = useState<LigneBancaireAvecStatut[]>([])
   const [nbNonLettres, setNbNonLettres] = useState(0)
   const [montantRestant, setMontantRestant] = useState(0)
+  const [totalLignes, setTotalLignes] = useState(0)
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
-  const [filtre, setFiltre] = useState<FiltreStatut>('toutes')
+  const [filtre, setFiltre] = useState<FiltreStatut>('a_lettrer')
   const [dateDebut, setDateDebut] = useState('')
   const [dateFin, setDateFin] = useState('')
+  const [page, setPage] = useState(0)
   const [version, setVersion] = useState(0)
   const silentRef = useRef(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const rechercheRef = useRef(recherche)
+  rechercheRef.current = recherche
 
   function setRecherche(v: string) {
     setRechercheUI(v)
+    setPage(0)
     clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => setVersion((n: number) => n + 1), 350)
+  }
+
+  function appliquerFiltreStatut<T extends ReturnType<typeof supabase.from>>(q: T) {
+    if (filtre === 'a_lettrer') return q.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel') as T
+    if (filtre !== 'toutes') return q.eq('statut_lettrage', filtre) as T
+    return q
   }
 
   useEffect(() => {
@@ -41,55 +54,49 @@ export function useLignesBancaires() {
       if (!silentRef.current) setChargement(true)
       silentRef.current = false
 
-      // Requête d'affichage : limitée à 300 lignes (table paginée)
+      const term = rechercheRef.current.trim()
+      const from = page * PAGE_SIZE
+      const to = from + PAGE_SIZE - 1
+
+      // Requête principale paginée
       let q = supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('*')
         .order('date_operation', { ascending: false })
-        .limit(300)
+        .range(from, to)
 
-      if (filtre !== 'toutes') q = q.eq('statut_lettrage', filtre)
+      q = appliquerFiltreStatut(q)
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
+      if (term)      q = q.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
 
-      // Requête KPI : toutes les lignes, seulement les colonnes nécessaires
+      // Requête count (même filtres, sans pagination)
+      let qCount = supabase
+        .from('v_lignes_bancaires_avec_statut')
+        .select('id_operation', { count: 'exact', head: true })
+
+      qCount = appliquerFiltreStatut(qCount)
+      if (dateDebut) qCount = qCount.gte('date_operation', dateDebut)
+      if (dateFin)   qCount = qCount.lte('date_operation', dateFin)
+      if (term)      qCount = qCount.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
+
+      // Requête KPI globale (sans filtre statut ni limite)
       let qTotaux = supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('statut_lettrage, restant')
-
       if (dateDebut) qTotaux = qTotaux.gte('date_operation', dateDebut)
       if (dateFin)   qTotaux = qTotaux.lte('date_operation', dateFin)
 
-      const [{ data }, { data: dataTotaux }] = await Promise.all([q, qTotaux])
+      const [{ data }, { count }, { data: dataTotaux }] = await Promise.all([q, qCount, qTotaux])
       if (annule) return
 
-      const rows = data as unknown as RowLigne[] | null
-      let result = rows?.map(r => ({
-        ...r,
-        statut_lettrage: r.statut_lettrage as StatutLettrage,
-      })) ?? []
+      const rows = (data as unknown as RowLigne[]) ?? []
+      setLignes(rows.map(r => ({ ...r, statut_lettrage: r.statut_lettrage as StatutLettrage })))
+      setTotalLignes(count ?? 0)
 
-      // Filtre libellé côté client pour éviter un ilike sur chaque frappe
-      const term = recherche.trim().toLowerCase()
-      if (term) {
-        result = result.filter(r =>
-          r.libelle.toLowerCase().includes(term) ||
-          (r.detail ?? '').toLowerCase().includes(term) ||
-          (r.infos_complementaires ?? '').toLowerCase().includes(term)
-        )
-      }
-
-      setLignes(result)
-
-      // KPIs calculés sur la totalité des lignes (sans limite)
       const totaux = (dataTotaux as unknown as RowTotaux[]) ?? []
-      setNbNonLettres(totaux.filter(
-        r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel'
-      ).length)
-      setMontantRestant(totaux
-        .filter(r => r.statut_lettrage !== 'debit')
-        .reduce((s, r) => s + Math.max(0, r.restant), 0)
-      )
+      setNbNonLettres(totaux.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
+      setMontantRestant(totaux.filter(r => r.statut_lettrage !== 'debit').reduce((s, r) => s + Math.max(0, r.restant), 0))
 
       setChargement(false)
     }
@@ -97,30 +104,42 @@ export function useLignesBancaires() {
     charger()
     return () => { annule = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtre, dateDebut, dateFin, version])
+  }, [filtre, dateDebut, dateFin, page, version])
+
+  function setFiltreEtReset(v: FiltreStatut) { setPage(0); setFiltre(v) }
+  function setDateDebutEtReset(v: string)    { setPage(0); setDateDebut(v) }
+  function setDateFinEtReset(v: string)      { setPage(0); setDateFin(v) }
 
   function rafraichir() { setVersion(v => v + 1) }
-  // Resync sans spinner — utilisé après les mises à jour optimistes
   function rafraichirSilencieux() { silentRef.current = true; setVersion(v => v + 1) }
 
   function mettreAJourLigneBancaireLocale(idOperation: string, montantLettre: number) {
-    setLignes(prev => prev.map(l => {
-      if (l.id_operation !== idOperation) return l
-      const newMontantLettre = Math.round((l.montant_lettre + montantLettre) * 100) / 100
-      const credit = l.credit ?? 0
-      const newRestant = Math.max(0, Math.round((credit - newMontantLettre) * 100) / 100)
-      const newStatut: StatutLettrage = newRestant <= 0.005 ? 'lettre'
-        : newMontantLettre > 0.005 ? 'partiel' : 'non_lettre'
-      return { ...l, montant_lettre: newMontantLettre, restant: newRestant, statut_lettrage: newStatut }
-    }))
+    setLignes(prev => {
+      const updated = prev.map(l => {
+        if (l.id_operation !== idOperation) return l
+        const newMontantLettre = Math.round((l.montant_lettre + montantLettre) * 100) / 100
+        const credit = l.credit ?? 0
+        const newRestant = Math.max(0, Math.round((credit - newMontantLettre) * 100) / 100)
+        const newStatut: StatutLettrage = newRestant <= 0.005 ? 'lettre'
+          : newMontantLettre > 0.005 ? 'partiel' : 'non_lettre'
+        return { ...l, montant_lettre: newMontantLettre, restant: newRestant, statut_lettrage: newStatut }
+      })
+      if (filtre !== 'toutes' && filtre !== 'lettre') {
+        return updated.filter(l => l.statut_lettrage !== 'lettre')
+      }
+      return updated
+    })
     setMontantRestant(prev => Math.max(0, Math.round((prev - montantLettre) * 100) / 100))
   }
 
+  const totalPages = Math.max(1, Math.ceil(totalLignes / PAGE_SIZE))
+
   return {
     lignes, chargement, recherche, setRecherche,
-    filtre, setFiltre,
-    dateDebut, setDateDebut,
-    dateFin, setDateFin,
+    filtre, setFiltre: setFiltreEtReset,
+    dateDebut, setDateDebut: setDateDebutEtReset,
+    dateFin, setDateFin: setDateFinEtReset,
+    page, setPage, totalPages, totalLignes,
     rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant,
   }
 }

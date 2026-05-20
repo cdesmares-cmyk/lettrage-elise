@@ -18,6 +18,7 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
+  dernieresRelances?: Map<string, string>  // code_client → dernière envoyee_le ISO
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
 }
@@ -80,7 +81,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, commentaires, onOuvrirCommentaire }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -192,14 +193,25 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      {peutModifier && c.nb_impayees > 0 && (
-                        <button
-                          onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                          className="text-[10px] font-semibold text-ockham-teal border border-ockham-teal/40 bg-ockham-teal-muted px-2.5 py-1 rounded-md hover:bg-ockham-teal/10 hover:border-ockham-teal transition-all"
-                        >
-                          ✉ Relancer
-                        </button>
-                      )}
+                      {peutModifier && c.nb_impayees > 0 && (() => {
+                        const derniere = dernieresRelances?.get(c.code_dso)
+                        const recente = derniere
+                          ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
+                          : false
+                        return (
+                          <button
+                            onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                            className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
+                              recente
+                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400'
+                                : 'text-ockham-teal border-ockham-teal/40 bg-ockham-teal-muted hover:bg-ockham-teal/10 hover:border-ockham-teal'
+                            }`}
+                            title={recente ? `Relancé il y a moins de 30 jours` : undefined}
+                          >
+                            ✉ Relancer
+                          </button>
+                        )
+                      })()}
                       <button
                         onClick={e => { e.stopPropagation(); onOptions(c) }}
                         className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-all"

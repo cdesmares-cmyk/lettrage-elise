@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
 export function useComptesClients() {
-  const { clients: raw, facturesActives, chargement, rafraichir, moisMaxFactures, ca12Mois } = useAppData()
+  const { clients: raw, facturesActives, chargement, rafraichir, mettreAJourClientLocal, moisMaxFactures, ca12Mois } = useAppData()
   const [recherche, setRecherche] = useState('')
 
   const clients = useMemo((): CompteClient[] => {
@@ -88,13 +88,15 @@ export function useComptesClients() {
     plateforme: string | null
     code_groupement: string | null
   }) {
+    // Mise à jour locale immédiate — l'UI reflète le changement sans attendre Supabase
+    mettreAJourClientLocal(codeDso, opts)
+    toast.success('Informations enregistrées.')
+    // Persist en arrière-plan
     const { error } = await supabase
       .from('clients')
       .update(opts as never)
       .eq('code_dso', codeDso)
     if (error) { toast.error(error.message); return false }
-    toast.success('Informations enregistrées.')
-    await rafraichir()
     return true
   }
 

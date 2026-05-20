@@ -96,10 +96,14 @@ export function PageLettrage() {
           filtre={liste.filtre}
           dateDebut={liste.dateDebut}
           dateFin={liste.dateFin}
+          page={liste.page}
+          totalPages={liste.totalPages}
+          totalLignes={liste.totalLignes}
           onRecherche={liste.setRecherche}
           onFiltre={liste.setFiltre}
           onDateDebut={liste.setDateDebut}
           onDateFin={liste.setDateFin}
+          onPage={liste.setPage}
           onSelectLigne={handleSelectLigne}
           onHistorique={historique.toggle}
         />

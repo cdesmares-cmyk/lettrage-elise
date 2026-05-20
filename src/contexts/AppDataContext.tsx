@@ -1,7 +1,7 @@
 // Store global : chargement unique au démarrage de l'app
 // clients + factures actives (impayées + avoirs non soldés) en mémoire
 // → toutes les pages lisent depuis ce contexte, zéro requête à la navigation
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import toast from 'react-hot-toast'
@@ -14,12 +14,21 @@ interface RowCompteClient {
   nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null
 }
 
+interface OptsClientLocal {
+  statut_juridique?: StatutJuridique | null
+  commercial?: string | null
+  operateur?: string | null
+  plateforme?: string | null
+  code_groupement?: string | null
+}
+
 interface AppDataContextType {
   clients: CompteClient[]
   facturesActives: FactureDetail[]    // impayées + avoirs non soldés
   chargement: boolean
   rafraichir: () => Promise<void>
   mettreAJourStatutLocal: (numeroPiece: string, statut: StatutFacture | null) => void
+  mettreAJourClientLocal: (codeDso: string, opts: OptsClientLocal) => void
   // Mise à jour optimiste après lettrage : réduit reste_du sans recharger tout le dataset
   mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
   moisMaxFactures: string   // YYYY-MM, mois de la facture la plus récente en base
@@ -35,9 +44,11 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [chargement, setChargement] = useState(false)
   const [moisMaxFactures, setMoisMaxFactures] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
+  // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
+  const initialLoadDoneRef = useRef(false)
 
   const rafraichir = useCallback(async () => {
-    setChargement(true)
+    if (!initialLoadDoneRef.current) setChargement(true)
     try {
       const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
       const PAGE = 1000
@@ -146,6 +157,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       setFacturesActives(toutes)
     } finally {
       setChargement(false)
+      initialLoadDoneRef.current = true
     }
   }, [])
 
@@ -158,6 +170,12 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   function mettreAJourStatutLocal(numeroPiece: string, statut: StatutFacture | null) {
     setFacturesActives(prev => prev.map(f =>
       f.numero_piece === numeroPiece ? { ...f, statut_facture: statut } : f
+    ))
+  }
+
+  function mettreAJourClientLocal(codeDso: string, opts: OptsClientLocal) {
+    setClients(prev => prev.map(c =>
+      c.code_dso === codeDso ? { ...c, ...opts } : c
     ))
   }
 
@@ -194,7 +212,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois }}>
       {children}
     </AppDataContext.Provider>
   )

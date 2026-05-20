@@ -10,7 +10,6 @@ import { PageLettrage } from './pages/PageLettrage'
 import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageImportExport } from './pages/PageImportExport'
-import { PageAdmin } from './pages/PageAdmin'
 import { PageRelances } from './pages/PageRelances'
 
 // Garde de route : redirige vers /connexion si non authentifié,
@@ -67,7 +66,7 @@ function AppRoutes() {
         {/* Redirections pour les anciens liens */}
         <Route path="/depot" element={<Navigate to="/import-export" replace />} />
         <Route path="/extraction" element={<Navigate to="/import-export" replace />} />
-        <Route path="/admin" element={<PageAdmin />} />
+        <Route path="/admin" element={<Navigate to="/tableau-de-bord" replace />} />
       </Route>
     </Routes>
   )

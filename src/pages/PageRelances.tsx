@@ -12,7 +12,7 @@ import { useRole } from '../contexts/RoleContext'
 import type { CompteClient } from '../types/client'
 
 export function PageRelances() {
-  const { relances, chargement, kpis, mettreAJourStatut } = useRelances()
+  const { relances, chargement, kpis, mettreAJourStatut, archiver } = useRelances()
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
@@ -42,21 +42,22 @@ export function PageRelances() {
             relances={relances}
             chargement={chargement}
             onMajStatut={mettreAJourStatut}
+            onArchiver={archiver}
           />
         </div>
 
-        {/* Priorités + Leaderboard */}
+        {/* Classement + Priorités */}
         <div className="space-y-4">
-          <div className="space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Priorités</p>
-            <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
-          </div>
           {!isCommercial && classement.length > 0 && (
             <div className="space-y-3">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Classement équipe</p>
               <LeaderboardEquipe classement={classement} />
             </div>
           )}
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">À relancer en priorité</p>
+            <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
+          </div>
         </div>
       </div>
 

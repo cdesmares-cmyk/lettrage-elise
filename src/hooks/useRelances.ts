@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-export type StatutRelance = 'brouillon' | 'envoyee' | 'repondue' | 'sans_reponse' | 'payee'
+export type StatutRelance = 'brouillon' | 'envoyee' | 'repondue' | 'promesse_paiement' | 'sans_reponse' | 'payee'
 
 export interface Relance {
   id: string
@@ -17,6 +17,7 @@ export interface Relance {
   cree_le: string
   envoyee_le: string | null
   mis_a_jour_le: string
+  archivee: boolean
 }
 
 export interface KpisRelance {
@@ -31,6 +32,7 @@ const POINTS: Record<StatutRelance, number> = {
   brouillon: 0,
   envoyee: 10,
   repondue: 20,
+  promesse_paiement: 25,
   sans_reponse: 0,
   payee: 30,
 }
@@ -74,7 +76,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le')
+      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee')
       .order('cree_le', { ascending: false })
       .then(({ data }) => {
         setRelances((data ?? []) as Relance[])
@@ -89,7 +91,7 @@ export function useRelances() {
 
     const scoreMois = cesMois.reduce((sum, r) => sum + r.points_attribues, 0)
     const nbRelancesMois = envoyeesCeMois.length
-    const nbReponduOuPayee = cesMois.filter(r => r.statut === 'repondue' || r.statut === 'payee').length
+    const nbReponduOuPayee = cesMois.filter(r => r.statut === 'repondue' || r.statut === 'promesse_paiement' || r.statut === 'payee').length
     const tauxReponse = nbRelancesMois > 0 ? Math.round((nbReponduOuPayee / nbRelancesMois) * 100) : 0
     const nbSansReponse = relances.filter(r => r.statut === 'sans_reponse').length
     const streak = calcStreak(relances)
@@ -105,13 +107,22 @@ export function useRelances() {
     if (error) { toast.error('Erreur mise à jour statut'); return false }
     setRelances(prev => prev.map(r => r.id === id ? { ...r, ...patch } as Relance : r))
     const messages: Partial<Record<StatutRelance, string>> = {
-      repondue:     '✓ Répondue · +20 pts',
-      payee:        '🎉 Payée · +30 pts',
-      sans_reponse: 'Marquée sans réponse',
+      repondue:           '✓ Prise de contact · +20 pts',
+      promesse_paiement:  '✓ Promesse de paiement · +25 pts',
+      payee:              '🎉 Payée · +30 pts',
+      sans_reponse:       'Marquée sans réponse',
     }
     if (messages[statut]) toast.success(messages[statut]!)
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut }
+  async function archiver(id: string) {
+    const { error } = await supabase.from('relances').update({ archivee: true } as never).eq('id', id)
+    if (error) { toast.error('Erreur archivage'); return false }
+    setRelances(prev => prev.map(r => r.id === id ? { ...r, archivee: true } : r))
+    toast.success('Relance archivée')
+    return true
+  }
+
+  return { relances, chargement, kpis, mettreAJourStatut, archiver }
 }

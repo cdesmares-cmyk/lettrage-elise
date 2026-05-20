@@ -39,7 +39,7 @@ function appliquerMapping(
   for (const m of mapping) {
     if (!m.champ_cible) continue
     const val = ligne[m.colonne_source]
-    if (m.champ_cible === 'montant_ttc' || m.champ_cible === 'montant_ht') {
+    if (m.champ_cible === 'montant_ttc' || m.champ_cible === 'montant_ht' || m.champ_cible === 'reste_du') {
       const n = parseNombre(val)
       res[m.champ_cible] = n !== null ? Math.round(n * 100) / 100 : null
     } else if (m.champ_cible === 'date_emission' || m.champ_cible === 'date_echeance') {

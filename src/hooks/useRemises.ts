@@ -171,6 +171,11 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   }
 
   async function supprimer(remiseId: string) {
+    const remise = remises.find(r => r.id === remiseId)
+    if (remise?.statut === 'encaisse') {
+      toast.error('Impossible de supprimer une remise déjà encaissée.')
+      return
+    }
     setChargement(true)
     try {
       const { error: de } = await supabase.from('lettrages').delete().eq('remise_id', remiseId)

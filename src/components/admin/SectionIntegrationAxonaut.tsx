@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAxonautIntegration } from '../../hooks/useAxonautIntegration'
 
 export function SectionIntegrationAxonaut() {
@@ -6,7 +6,24 @@ export function SectionIntegrationAxonaut() {
   const [saisie, setSaisie] = useState('')
   const [editMode, setEditMode] = useState(false)
   const [nbSync, setNbSync] = useState<number | null>(null)
-  const [depuis, setDepuis] = useState('2026-01-01')
+  const [tempsEcoule, setTempsEcoule] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    if (enCours) {
+      setTempsEcoule(0)
+      timerRef.current = setInterval(() => setTempsEcoule(t => t + 1), 1000)
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [enCours])
+
+  function fmtTimer(s: number) {
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return m > 0 ? `${m}m ${sec.toString().padStart(2, '0')}s` : `${sec}s`
+  }
 
   async function handleSauvegarder() {
     if (!saisie.trim()) return
@@ -16,7 +33,7 @@ export function SectionIntegrationAxonaut() {
 
   async function handleSync() {
     setNbSync(null)
-    const nb = await synchroniser(depuis || undefined)
+    const nb = await synchroniser()
     setNbSync(nb)
   }
 
@@ -94,29 +111,26 @@ export function SectionIntegrationAxonaut() {
                 Récupère les <code className="text-[10px] bg-gray-100 px-1 rounded">public_path</code> depuis Axonaut
                 et les stocke sur chaque facture importée.
               </p>
-              <div className="flex items-center gap-2 mt-2">
-                <label className="text-[10px] text-gray-400 whitespace-nowrap">Depuis le</label>
-                <input
-                  type="date"
-                  value={depuis}
-                  onChange={e => setDepuis(e.target.value)}
-                  className="border border-gray-200 rounded px-2 py-0.5 text-[11px] outline-none focus:border-ockham-teal"
-                />
-                <span className="text-[10px] text-gray-300">vide = tout</span>
-              </div>
               {nbSync !== null && (
                 <p className="text-[11px] text-emerald-600 mt-1.5 font-medium">
                   ✓ {nbSync} facture{nbSync !== 1 ? 's' : ''} mise{nbSync !== 1 ? 's' : ''} à jour
                 </p>
               )}
             </div>
-            <button
-              onClick={handleSync}
-              disabled={enCours}
-              className="flex-shrink-0 text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-4 py-2 rounded disabled:opacity-40 transition-colors"
-            >
-              {enCours ? '⏳ Sync en cours…' : '↺ Synchroniser'}
-            </button>
+            <div className="flex-shrink-0 flex flex-col items-end gap-1">
+              <button
+                onClick={handleSync}
+                disabled={enCours}
+                className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-4 py-2 rounded disabled:opacity-40 transition-colors"
+              >
+                {enCours ? '⏳ Sync en cours…' : '↺ Synchroniser'}
+              </button>
+              {enCours && (
+                <span className="text-[10px] text-gray-400 tabular-nums">
+                  {fmtTimer(tempsEcoule)} — ~20 min pour un sync complet
+                </span>
+              )}
+            </div>
           </div>
         )}
       </div>

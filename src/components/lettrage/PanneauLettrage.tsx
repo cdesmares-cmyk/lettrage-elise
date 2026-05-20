@@ -1,5 +1,5 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
@@ -30,6 +30,7 @@ export function PanneauLettrage(props: Props) {
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const [confirmEncaissement, setConfirmEncaissement] = useState<string | null>(null)
 
   function handleNumeroChange(key: string, value: string) {
     modifierLigne(key, { numero_facture: value, info_facture: null })
@@ -168,9 +169,11 @@ export function PanneauLettrage(props: Props) {
                 <div className="space-y-2">
                   {remisesFiltrees.map(r => {
                     const total = r.montant_total ?? r.lignes.reduce((s, l) => s + l.montant, 0)
-                    const exact = Math.abs(total - creditDisponible) <= 0.05
+                    const ecart = Math.abs(total - creditDisponible)
+                    const exact = ecart <= 0.02
+                    const enConfirm = confirmEncaissement === r.id
                     return (
-                      <div key={r.id} className={`border rounded-lg px-3 py-2.5 ${exact ? 'border-emerald-300 bg-emerald-50/60' : 'border-gray-200 bg-gray-50'}`}>
+                      <div key={r.id} className={`border rounded-lg px-3 py-2.5 ${exact ? 'border-emerald-300 bg-emerald-50/60' : 'border-red-200 bg-red-50/40'}`}>
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
                             {r.type === 'cheque'
@@ -178,7 +181,10 @@ export function PanneauLettrage(props: Props) {
                               : <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-200 text-sky-800 border border-sky-300">LCR</span>
                             }
                             <span className="text-xs font-semibold text-gray-700">N°{r.numero}</span>
-                            {exact && <span className="text-[10px] font-semibold text-emerald-600">✓ montant exact</span>}
+                            {exact
+                              ? <span className="text-[10px] font-semibold text-emerald-600">✓ montant exact</span>
+                              : <span className="text-[10px] font-semibold text-red-500">⚠ écart {fmt(ecart)}</span>
+                            }
                           </div>
                           <span className="text-sm font-bold text-gray-900 tabular-nums">{fmt(total)}</span>
                         </div>
@@ -190,13 +196,42 @@ export function PanneauLettrage(props: Props) {
                             </div>
                           ))}
                         </div>
-                        <button
-                          onClick={() => onEncaisser(r.id)}
-                          disabled={chargement}
-                          className="w-full text-xs font-semibold bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
-                        >
-                          ✓ Encaisser cette remise
-                        </button>
+                        {!exact && (
+                          <p className="text-[10px] text-red-500 mb-2">
+                            Écart de {fmt(ecart)} avec la ligne bancaire — le montant doit correspondre à ±2 cts.
+                          </p>
+                        )}
+                        {enConfirm ? (
+                          <div className="bg-white border border-amber-200 rounded-md px-3 py-2.5 space-y-2">
+                            <p className="text-xs font-semibold text-gray-800">
+                              Confirmer l'encaissement de la remise {r.type === 'cheque' ? 'CHQ' : 'LCR'} N°{r.numero} ({fmt(total)}) ?
+                            </p>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => { setConfirmEncaissement(null); onEncaisser(r.id) }}
+                                disabled={chargement}
+                                className="flex-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white py-1.5 rounded-md transition-colors"
+                              >
+                                Oui, encaisser
+                              </button>
+                              <button
+                                onClick={() => setConfirmEncaissement(null)}
+                                className="flex-1 text-xs font-medium border border-gray-200 text-gray-500 hover:border-gray-300 py-1.5 rounded-md transition-colors"
+                              >
+                                Non
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => exact && setConfirmEncaissement(r.id)}
+                            disabled={chargement || !exact}
+                            title={!exact ? `Montant incompatible — écart de ${fmt(ecart)}` : undefined}
+                            className="w-full text-xs font-semibold bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white py-1.5 rounded-md transition-colors"
+                          >
+                            ✓ Encaisser cette remise
+                          </button>
+                        )}
                       </div>
                     )
                   })}

@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const GMAIL_CLIENT_ID = '166971095842-45ssnr9jgksk30d40r0knemup13nj08v.apps.googleusercontent.com'
 const REDIRECT_URI    = 'https://aqxsqmgtmenjpfrblqoe.supabase.co/functions/v1/gmail-oauth-callback'
-const SCOPE           = 'https://www.googleapis.com/auth/gmail.send openid email'
+const SCOPE           = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.settings.basic openid email'
 
 export interface GmailToken {
   access_token:  string
@@ -129,11 +129,28 @@ export function useGmailAuth() {
     return { threadId: data.threadId }
   }
 
+  async function recupererSignature(): Promise<string | null> {
+    const accessToken = await getTokenValide()
+    if (!accessToken || !token?.gmail_email) return null
+    try {
+      const res = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/settings/sendAs/${encodeURIComponent(token.gmail_email)}`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (!res.ok) return null
+      const data = await res.json()
+      return data.signature ?? null
+    } catch {
+      return null
+    }
+  }
+
   return {
     token,
     chargement,
     estConnecte:   !!token,
     connecterGmail,
     envoyerEmail,
+    recupererSignature,
   }
 }

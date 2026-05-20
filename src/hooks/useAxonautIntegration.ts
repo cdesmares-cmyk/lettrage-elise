@@ -65,20 +65,27 @@ export function useAxonautIntegration() {
     }
   }
 
-  async function synchroniser(depuis?: string): Promise<number> {
+  async function synchroniser(): Promise<number> {
     setEnCours(true)
+    let nbTotal = 0
+    let pageDebut = 1
+    const NB_PAGES = 5
     try {
-      const { data, error } = await supabase.functions.invoke('axonaut-sync', {
-        body: { action: 'sync', depuis: depuis ?? null },
-      })
-      if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
-      const nb: number = data.nb_mises_a_jour ?? 0
-      toast.success(`${nb} facture${nb > 1 ? 's' : ''} mise${nb > 1 ? 's' : ''} à jour.`)
+      while (true) {
+        const { data, error } = await supabase.functions.invoke('axonaut-sync', {
+          body: { action: 'sync', page_debut: pageDebut, nb_pages: NB_PAGES },
+        })
+        if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
+        nbTotal += data.nb_mises_a_jour ?? 0
+        if (data.termine) break
+        pageDebut = data.prochaine_page
+      }
+      toast.success(`${nbTotal} facture${nbTotal > 1 ? 's' : ''} mise${nbTotal > 1 ? 's' : ''} à jour.`)
       await charger()
-      return nb
+      return nbTotal
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Synchronisation échouée.')
-      return 0
+      return nbTotal
     } finally {
       setEnCours(false)
     }

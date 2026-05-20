@@ -1,6 +1,7 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useComptesClients } from '../hooks/useComptesClients'
+import { useRelances } from '../hooks/useRelances'
 import { useFacturesClient } from '../hooks/useFacturesClient'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
 import { BarreKpis } from '../components/compte-client/BarreKpis'
@@ -35,6 +36,17 @@ export function PageCompteClient() {
   const comptes = useComptesClients()
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
+  const { relances } = useRelances()
+
+  const dernieresRelances = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of relances) {
+      if (!r.envoyee_le || r.statut === 'brouillon') continue
+      const actuelle = map.get(r.code_client)
+      if (!actuelle || r.envoyee_le > actuelle) map.set(r.code_client, r.envoyee_le)
+    }
+    return map
+  }, [relances])
 
   useEffect(() => { chargerTous() }, [])
 
@@ -104,6 +116,7 @@ export function PageCompteClient() {
           onHistorique={setFacHistorique}
           onOptions={setClientOptions}
           onRelancer={setClientRelance}
+          dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
         />
