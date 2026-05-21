@@ -14,7 +14,7 @@ interface Props {
   facture: FactureDetail | null
   commentaire: CommentaireFacture | null
   onFermer: () => void
-  onSauvegarder: (data: { numero_piece: string; contact: string; date_contact: string; commentaire: string; operateur: string }) => Promise<boolean>
+  onSauvegarder: (data: { numero_piece: string; contact: string; date_contact: string; commentaire: string; operateur: string; ne_pas_relancer?: boolean }) => Promise<boolean>
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
 }
 
@@ -26,6 +26,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
   const [dateContact, setDateContact] = useState('')
   const [texte, setTexte] = useState('')
   const [operateur, setOperateur] = useState('')
+  const [nePasRelancer, setNePasRelancer] = useState(false)
   const [enregistrement, setEnregistrement] = useState(false)
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
       setDateContact(commentaire?.date_contact ?? '')
       setTexte(commentaire?.commentaire ?? '')
       setOperateur(commentaire?.operateur ?? operateurCourant)
+      setNePasRelancer(commentaire?.ne_pas_relancer ?? false)
     }
   }, [facture?.numero_piece, commentaire])
 
@@ -49,6 +51,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
       date_contact: dateContact,
       commentaire: texte,
       operateur,
+      ne_pas_relancer: nePasRelancer,
     })
     if (ok && statut !== facture.statut_facture) {
       onStatutChange(facture.numero_piece, statut)
@@ -136,6 +139,30 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
               rows={5}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors resize-none"
             />
+          </div>
+
+          {/* Ne pas relancer */}
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Relance</label>
+            <button
+              type="button"
+              onClick={() => setNePasRelancer(v => !v)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
+                nePasRelancer
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                nePasRelancer ? 'bg-red-500 border-red-500' : 'border-gray-300'
+              }`}>
+                {nePasRelancer && <span className="text-white text-[10px] leading-none font-bold">✓</span>}
+              </div>
+              Ne pas relancer cette facture
+            </button>
+            {nePasRelancer && (
+              <p className="text-[10px] text-red-400 mt-1.5">Cette facture sera exclue des mails de relance et des classements.</p>
+            )}
           </div>
 
           {/* Opérateur */}

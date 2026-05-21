@@ -57,7 +57,10 @@ export function ListePriorites({ relances, onRelancer, commentaires, mode }: Pro
     const liste = clients
       .filter(c => c.nb_impayees > 0 && c.encours_total > 0 && c.statut_juridique !== 'liquidation')
       .map(c => {
-        const factures = facturesActives.filter(f => f.code_client === c.code_dso && f.reste_du > 0)
+        const factures = facturesActives.filter(f =>
+          f.code_client === c.code_dso && f.reste_du > 0 &&
+          !commentaires?.get(f.numero_piece)?.ne_pas_relancer
+        )
         const ancMax = factures.length > 0
           ? Math.max(...factures.map(f => f.date_echeance ? joursDepuis(f.date_echeance) : 0))
           : 0
@@ -94,7 +97,7 @@ export function ListePriorites({ relances, onRelancer, commentaires, mode }: Pro
       {priorites.length === 0 ? (
         <div className="px-5 py-8 text-center text-sm text-gray-400">Aucun client avec des impayés</div>
       ) : (
-        <div className="divide-y divide-gray-50 max-h-[420px] overflow-y-auto">
+        <div className="divide-y divide-gray-50">
           {priorites.map((c, i) => (
             <div
               key={c.code_dso}
@@ -108,7 +111,6 @@ export function ListePriorites({ relances, onRelancer, commentaires, mode }: Pro
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-[10px] font-mono text-gray-400">{c.code_dso}</p>
                   {c.hasSansReponse && <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 rounded">sans réponse</span>}
-                  {c.jamsRelance && <span className="text-[9px] font-bold text-red-500 bg-red-50 px-1 rounded">jamais relancé</span>}
                   {c.hasStatut && <span title="Facture(s) en litige" className="text-[10px]">⚠</span>}
                   {c.hasCommentaire && <span title="Commentaire(s)" className="text-[10px]">💬</span>}
                 </div>

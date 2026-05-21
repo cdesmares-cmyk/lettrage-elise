@@ -3,6 +3,7 @@ import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { StatsOperateur } from '../../hooks/useLeaderboard'
+import type { CommentaireFacture } from '../../types/client'
 
 const STATUTS: { val: StatutRelance; label: string; cls: string }[] = [
   { val: 'brouillon',          label: 'Brouillon',             cls: 'bg-gray-100 text-gray-500 border-gray-200' },
@@ -62,14 +63,17 @@ interface Props {
   onMajStatut: (id: string, statut: StatutRelance) => Promise<boolean>
   onArchiver: (id: string) => Promise<boolean>
   classement: StatsOperateur[]
+  commentaires: Map<string, CommentaireFacture>
+  filtreOp: string
+  onFiltreOpChange: (op: string) => void
 }
 
-export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, classement }: Props) {
+export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
   const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
-  const [filtreOp, setFiltreOp] = useState<string>('tous')
   const [editStatut, setEditStatut] = useState<string | null>(null)
+  const [ligneOuverte, setLigneOuverte] = useState<string | null>(null)
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
 
@@ -106,9 +110,9 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           const jb = b.envoyee_le ? joursDepuis(b.envoyee_le) : -1
           cmp = ja - jb; break
         }
-        case 'statut':       cmp = STATUTS_ORDRE.indexOf(a.statut) - STATUTS_ORDRE.indexOf(b.statut); break
-        case 'montant':      cmp = getMontant(a) - getMontant(b); break
-        case 'operateur':    cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
+        case 'statut':   cmp = STATUTS_ORDRE.indexOf(a.statut) - STATUTS_ORDRE.indexOf(b.statut); break
+        case 'montant':  cmp = getMontant(a) - getMontant(b); break
+        case 'operateur': cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
       }
       return triAsc ? cmp : -cmp
     }).slice(0, 20)
@@ -126,9 +130,11 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   if (chargement) return <div className="py-12 text-center text-sm text-gray-400">Chargement…</div>
 
+  const nbCols = peutModifier ? 8 : 7
+
   return (
     <div className="space-y-3">
-      {/* Barre filtres + total */}
+      {/* Barre filtres */}
       <div className="flex items-center gap-2 flex-wrap">
         <select
           value={filtreStatut}
@@ -137,21 +143,19 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         >
           {FILTRES_STATUT.map(f => <option key={f.val} value={f.val}>{f.label}</option>)}
         </select>
-
         <select
           value={filtreOp}
-          onChange={e => setFiltreOp(e.target.value)}
+          onChange={e => onFiltreOpChange(e.target.value)}
           className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-ockham-teal bg-white text-gray-600"
         >
           <option value="tous">Tous les opérateurs</option>
           {operateursDispo.map(o => <option key={o.id} value={o.id}>{o.nom}</option>)}
         </select>
-
         <div className="ml-auto flex items-center gap-3">
           <span className="text-[10px] text-gray-400">
-            <span className="font-bold text-ockham-navy/70">{totalActives}</span> relance{totalActives !== 1 ? 's' : ''} active{totalActives !== 1 ? 's' : ''}
+            <span className="font-bold text-ockham-navy/70">{totalActives}</span> active{totalActives !== 1 ? 's' : ''}
           </span>
-          {filtrees.length > 0 && filtrees.length !== totalActives && (
+          {filtrees.length !== totalActives && filtrees.length > 0 && (
             <span className="text-[10px] text-gray-300">{filtrees.length} affichée{filtrees.length !== 1 ? 's' : ''}</span>
           )}
         </div>
@@ -186,7 +190,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                 {peutModifier && <th className="px-3 py-3 w-16" />}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody>
               {affichees.map(r => {
                 const actions = TRANSITIONS[r.statut] ?? []
                 const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
@@ -194,89 +198,130 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                 const nomClient = clientsMap.get(r.code_client) ?? '—'
                 const montant = getMontant(r)
                 const opNom = opMap.get(r.operateur_id) ?? ''
-                const rowCls = enRetard ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-gray-50/40'
+                const ouvert = ligneOuverte === r.id
+                const rowCls = enRetard ? 'bg-amber-50/50 hover:bg-amber-50' : ouvert ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50/40'
+
+                // Factures liées
+                const factures = (r.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
 
                 return (
-                  <tr key={r.id} className={`transition-colors ${rowCls}`}>
-                    <td className="px-3 py-2.5 font-mono text-xs text-gray-500">{r.code_client}</td>
-                    <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[160px] truncate">{nomClient}</td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400 tabular-nums whitespace-nowrap">
-                      {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
-                    </td>
-                    <td className="px-3 py-2.5 text-center">
-                      {jours !== null ? (
-                        <span className={`text-[11px] font-bold tabular-nums ${enRetard ? 'text-amber-600' : r.statut === 'payee' ? 'text-gray-300' : 'text-gray-500'}`}>
-                          {jours === 0 ? 'Auj.' : `${jours}j`}
-                        </span>
-                      ) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-1">
-                        {badgeStatut(r.statut)}
-                        {enRetard && <span className="text-[9px] text-amber-500">⏰</span>}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">
-                      {montant > 0 ? fmtEuros(montant) : '—'}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      {opNom ? (
-                        <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide" title={opNom}>
-                          {initiales(opNom)}
-                        </span>
-                      ) : <span className="text-gray-300">—</span>}
-                    </td>
-                    {peutModifier && (
+                  <>
+                    <tr
+                      key={r.id}
+                      onClick={() => setLigneOuverte(ouvert ? null : r.id)}
+                      className={`transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 ${rowCls}`}
+                    >
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-500">{r.code_client}</td>
+                      <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[160px] truncate">{nomClient}</td>
+                      <td className="px-3 py-2.5 text-xs text-gray-400 tabular-nums whitespace-nowrap">
+                        {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {jours !== null ? (
+                          <span className={`text-[11px] font-bold tabular-nums ${enRetard ? 'text-amber-600' : r.statut === 'payee' ? 'text-gray-300' : 'text-gray-500'}`}>
+                            {jours === 0 ? 'Auj.' : `${jours}j`}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1.5">
-                          {!r.archivee && actions.length > 0 && (
-                            editStatut === r.id ? (
-                              <select
-                                autoFocus
-                                defaultValue=""
-                                onBlur={() => setEditStatut(null)}
-                                onChange={async e => {
-                                  if (!e.target.value) return
-                                  setEditStatut(null)
-                                  await onMajStatut(r.id, e.target.value as StatutRelance)
-                                }}
-                                className="text-[10px] border border-ockham-teal rounded px-1.5 py-1 outline-none bg-white text-gray-700 min-w-[130px]"
-                              >
-                                <option value="" disabled>→ Choisir…</option>
-                                {actions.map(a => (
-                                  <option key={a} value={a}>{STATUTS.find(s => s.val === a)?.label}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <button
-                                onClick={() => setEditStatut(r.id)}
-                                className="text-[10px] font-semibold px-2 py-1 rounded border border-gray-200 text-gray-400 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors whitespace-nowrap"
-                              >
-                                → Statut
-                              </button>
-                            )
-                          )}
-                          {/* Archiver : cercle avec croix légèrement rouge */}
-                          {!r.archivee && (
-                            <button
-                              onClick={() => onArchiver(r.id)}
-                              title="Classer cette relance"
-                              className="w-5 h-5 rounded-full border border-red-200 bg-red-50/60 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors flex-shrink-0"
-                            >
-                              <span className="text-[9px] leading-none font-bold">✕</span>
-                            </button>
-                          )}
+                        <div className="flex items-center gap-1">
+                          {badgeStatut(r.statut)}
+                          {enRetard && <span className="text-[9px] text-amber-500">⏰</span>}
                         </div>
                       </td>
+                      <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">
+                        {montant > 0 ? fmtEuros(montant) : '—'}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {opNom ? (
+                          <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide" title={opNom}>
+                            {initiales(opNom)}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>}
+                      </td>
+                      {peutModifier && (
+                        <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                          <div className="flex items-center gap-1.5">
+                            {!r.archivee && actions.length > 0 && (
+                              editStatut === r.id ? (
+                                <select
+                                  autoFocus
+                                  defaultValue=""
+                                  onBlur={() => setEditStatut(null)}
+                                  onChange={async e => {
+                                    if (!e.target.value) return
+                                    setEditStatut(null)
+                                    await onMajStatut(r.id, e.target.value as StatutRelance)
+                                  }}
+                                  className="text-[10px] border border-ockham-teal rounded px-1.5 py-1 outline-none bg-white text-gray-700 min-w-[130px]"
+                                >
+                                  <option value="" disabled>→ Choisir…</option>
+                                  {actions.map(a => (
+                                    <option key={a} value={a}>{STATUTS.find(s => s.val === a)?.label}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <button
+                                  onClick={() => setEditStatut(r.id)}
+                                  className="text-[10px] font-semibold px-2 py-1 rounded border border-gray-200 text-gray-400 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors whitespace-nowrap"
+                                >
+                                  → Statut
+                                </button>
+                              )
+                            )}
+                            {!r.archivee && (
+                              <button
+                                onClick={() => onArchiver(r.id)}
+                                title="Classer cette relance"
+                                className="w-5 h-5 rounded-full border border-red-200 bg-red-50/60 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors flex-shrink-0"
+                              >
+                                <span className="text-[9px] leading-none font-bold">✕</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+
+                    {/* Ligne expandée — factures liées */}
+                    {ouvert && (
+                      <tr className="bg-ockham-teal-muted/60 border-t border-ockham-teal/10">
+                        <td colSpan={nbCols} className="px-6 py-3">
+                          {factures.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Aucune facture liée trouvée</p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {factures.map(f => {
+                                if (!f) return null
+                                const com = commentaires.get(f.numero_piece)
+                                return (
+                                  <div key={f.numero_piece} className="flex items-center gap-3 text-xs">
+                                    <span className="font-mono font-semibold text-ockham-navy/70 w-28 flex-shrink-0">{f.numero_piece}</span>
+                                    <span className="text-gray-400 w-20 flex-shrink-0">{f.date_emission ? fmtDate(f.date_emission) : '—'}</span>
+                                    <span className="text-gray-600 font-medium tabular-nums w-20 flex-shrink-0">{fmtEuros(f.montant_ttc ?? 0)}</span>
+                                    <span className="text-gray-400 tabular-nums w-20 flex-shrink-0">restant : {fmtEuros(f.reste_du)}</span>
+                                    {com?.ne_pas_relancer && (
+                                      <span className="text-[10px] font-bold text-red-400 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded flex-shrink-0">Ne pas relancer</span>
+                                    )}
+                                    {com?.commentaire && (
+                                      <span className="text-gray-500 truncate max-w-xs">→ {com.commentaire}</span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
                     )}
-                  </tr>
+                  </>
                 )
               })}
             </tbody>
           </table>
           {filtrees.length > 20 && (
             <div className="px-4 py-2 border-t border-gray-50 text-center text-[10px] text-gray-300">
-              20 premières lignes affichées sur {filtrees.length}
+              20 premières lignes sur {filtrees.length}
             </div>
           )}
         </div>

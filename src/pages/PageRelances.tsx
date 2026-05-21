@@ -16,6 +16,7 @@ export function PageRelances() {
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [filtreOp, setFiltreOp] = useState('tous')
   const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous } = useCommentairesFactures()
@@ -25,14 +26,24 @@ export function PageRelances() {
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Relances</h1>
-        <p className="text-sm text-gray-400 mt-0.5">Suivi et gamification de votre activité de recouvrement</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Relances</h1>
+          <p className="text-sm text-gray-400 mt-0.5">Suivi et gamification de votre activité de recouvrement</p>
+        </div>
+        {!isCommercial && classement.length > 0 && (
+          <button
+            onClick={() => setShowLeaderboard(true)}
+            className="text-sm font-semibold text-ockham-teal border border-ockham-teal/30 bg-ockham-teal-muted hover:bg-ockham-teal hover:text-white px-5 py-2.5 rounded-xl transition-colors"
+          >
+            Classement équipe ↗
+          </button>
+        )}
       </div>
 
-      {/* KPIs avec bouton Classement */}
+      {/* KPIs dynamiques */}
       {!isCommercial && (
-        <KpisRelances kpis={kpis} onClassement={() => setShowLeaderboard(true)} />
+        <KpisRelances relances={relances} filtreOp={filtreOp} kpis={kpis} />
       )}
 
       {/* Tableau pleine largeur */}
@@ -44,6 +55,9 @@ export function PageRelances() {
           onMajStatut={mettreAJourStatut}
           onArchiver={archiver}
           classement={classement}
+          commentaires={commentaires}
+          filtreOp={filtreOp}
+          onFiltreOpChange={setFiltreOp}
         />
       </div>
 
@@ -51,28 +65,13 @@ export function PageRelances() {
       <div className="space-y-2">
         <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">À relancer en priorité</p>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ListePriorites
-            relances={relances}
-            onRelancer={setClientRelance}
-            commentaires={commentaires}
-            mode="score"
-          />
-          <ListePriorites
-            relances={relances}
-            onRelancer={setClientRelance}
-            commentaires={commentaires}
-            mode="encours"
-          />
-          <ListePriorites
-            relances={relances}
-            onRelancer={setClientRelance}
-            commentaires={commentaires}
-            mode="anciennete"
-          />
+          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="score" />
+          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="encours" />
+          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="anciennete" />
         </div>
       </div>
 
-      {/* Modal classement équipe */}
+      {/* Panneau latéral classement */}
       {showLeaderboard && (
         <div className="fixed inset-0 z-50 flex items-center justify-end" onClick={() => setShowLeaderboard(false)}>
           <div
@@ -80,11 +79,8 @@ export function PageRelances() {
             onClick={e => e.stopPropagation()}
           >
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
-              <p className="text-sm font-bold text-ockham-navy/70 uppercase tracking-wider text-[11px]">Classement équipe</p>
-              <button
-                onClick={() => setShowLeaderboard(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
-              >✕</button>
+              <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider">Classement équipe</p>
+              <button onClick={() => setShowLeaderboard(false)} className="text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
             </div>
             <LeaderboardEquipe classement={classement} />
           </div>

@@ -50,6 +50,7 @@ export interface CommentaireFacture {
   commentaire: string | null
   operateur: string | null
   updated_at: string
+  ne_pas_relancer?: boolean
 }
 
 export interface HistoriqueLettrage {

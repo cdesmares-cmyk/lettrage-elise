@@ -11,7 +11,7 @@ export function useCommentairesFactures() {
   async function chargerTous() {
     const { data } = await supabase
       .from('commentaires_factures')
-      .select('id, numero_piece, contact, date_contact, commentaire, operateur, updated_at')
+      .select('id, numero_piece, contact, date_contact, commentaire, operateur, updated_at, ne_pas_relancer')
     const rows = (data as unknown as CommentaireFacture[]) ?? []
     const map = new Map<string, CommentaireFacture>()
     for (const r of rows) map.set(r.numero_piece, r)
@@ -24,6 +24,7 @@ export function useCommentairesFactures() {
     date_contact: string
     commentaire: string
     operateur: string
+    ne_pas_relancer?: boolean
   }): Promise<boolean> {
     try {
       const payload = {
@@ -33,6 +34,7 @@ export function useCommentairesFactures() {
         date_contact: data.date_contact || null,
         commentaire: data.commentaire.trim() || null,
         operateur: data.operateur.trim() || null,
+        ne_pas_relancer: data.ne_pas_relancer ?? false,
         updated_at: new Date().toISOString(),
       }
       const { error } = await supabase
