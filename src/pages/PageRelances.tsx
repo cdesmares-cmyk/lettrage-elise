@@ -15,6 +15,7 @@ export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut, archiver } = useRelances()
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
+  const [showLeaderboard, setShowLeaderboard] = useState(false)
   const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous } = useCommentairesFactures()
@@ -24,44 +25,73 @@ export function PageRelances() {
   return (
     <div className="space-y-6">
       {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Relances</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Suivi et gamification de votre activité de recouvrement</p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">Relances</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Suivi et gamification de votre activité de recouvrement</p>
       </div>
 
-      {/* KPIs — masqués pour le commercial */}
-      {!isCommercial && <KpisRelances kpis={kpis} />}
+      {/* KPIs avec bouton Classement */}
+      {!isCommercial && (
+        <KpisRelances kpis={kpis} onClassement={() => setShowLeaderboard(true)} />
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tableau des relances récentes */}
-        <div className="lg:col-span-2 space-y-3">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Relances récentes</p>
-          <TableauRelances
+      {/* Tableau pleine largeur */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Relances récentes</p>
+        <TableauRelances
+          relances={relances}
+          chargement={chargement}
+          onMajStatut={mettreAJourStatut}
+          onArchiver={archiver}
+          classement={classement}
+        />
+      </div>
+
+      {/* 3 blocs de priorités */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">À relancer en priorité</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <ListePriorites
             relances={relances}
-            chargement={chargement}
-            onMajStatut={mettreAJourStatut}
-            onArchiver={archiver}
+            onRelancer={setClientRelance}
+            commentaires={commentaires}
+            mode="score"
+          />
+          <ListePriorites
+            relances={relances}
+            onRelancer={setClientRelance}
+            commentaires={commentaires}
+            mode="encours"
+          />
+          <ListePriorites
+            relances={relances}
+            onRelancer={setClientRelance}
+            commentaires={commentaires}
+            mode="anciennete"
           />
         </div>
-
-        {/* Classement + Priorités */}
-        <div className="space-y-4">
-          {!isCommercial && classement.length > 0 && (
-            <div className="space-y-3">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Classement équipe</p>
-              <LeaderboardEquipe classement={classement} />
-            </div>
-          )}
-          <div className="space-y-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">À relancer en priorité</p>
-            <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
-          </div>
-        </div>
       </div>
 
-      {/* Modal composition relance (depuis liste priorités) */}
+      {/* Modal classement équipe */}
+      {showLeaderboard && (
+        <div className="fixed inset-0 z-50 flex items-center justify-end" onClick={() => setShowLeaderboard(false)}>
+          <div
+            className="bg-white border-l border-gray-200 shadow-2xl h-full w-full max-w-sm overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <p className="text-sm font-bold text-ockham-navy/70 uppercase tracking-wider text-[11px]">Classement équipe</p>
+              <button
+                onClick={() => setShowLeaderboard(false)}
+                className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+              >✕</button>
+            </div>
+            <LeaderboardEquipe classement={classement} />
+          </div>
+        </div>
+      )}
+
+      {/* Modal composition relance */}
       <ModalCompositionRelance
         client={clientRelance}
         onFermer={() => setClientRelance(null)}

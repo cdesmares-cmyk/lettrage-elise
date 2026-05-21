@@ -1,6 +1,9 @@
 import type { KpisRelance } from '../../hooks/useRelances'
 
-interface Props { kpis: KpisRelance }
+interface Props {
+  kpis: KpisRelance
+  onClassement: () => void
+}
 
 function Kpi({ label, valeur, sous, couleur }: { label: string; valeur: string | number; sous?: string; couleur: string }) {
   return (
@@ -12,9 +15,8 @@ function Kpi({ label, valeur, sous, couleur }: { label: string; valeur: string |
   )
 }
 
-export function KpisRelances({ kpis }: Props) {
+export function KpisRelances({ kpis, onClassement }: Props) {
   const { scoreMois, streak, nbRelancesMois, tauxReponse, nbSansReponse } = kpis
-
   const flammes = streak >= 7 ? '🔥🔥🔥' : streak >= 3 ? '🔥🔥' : streak >= 1 ? '🔥' : ''
 
   return (
@@ -22,7 +24,7 @@ export function KpisRelances({ kpis }: Props) {
       <Kpi
         label="Score du mois"
         valeur={scoreMois}
-        sous="pts · envoyée +10 · contact +20 · promesse +25 · payée +30"
+        sous="envoyée +10 · contact +20 · promesse +25 · payée +30"
         couleur="border-ockham-teal/25"
       />
       <Kpi
@@ -37,12 +39,23 @@ export function KpisRelances({ kpis }: Props) {
         sous={`${tauxReponse}% de taux de réponse`}
         couleur="border-gray-100"
       />
-      <Kpi
-        label="Sans réponse"
-        valeur={nbSansReponse}
-        sous={nbSansReponse > 0 ? 'À relancer en priorité' : 'Aucune en attente'}
-        couleur={nbSansReponse > 0 ? 'border-red-200' : 'border-gray-100'}
-      />
+      {/* Dernier KPI avec bouton Classement au-dessus */}
+      <div className="flex flex-col gap-1">
+        <div className="flex justify-end">
+          <button
+            onClick={onClassement}
+            className="text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 bg-ockham-teal-muted hover:bg-ockham-teal hover:text-white px-3 py-1 rounded-lg transition-colors"
+          >
+            Classement ↗
+          </button>
+        </div>
+        <Kpi
+          label="Sans réponse"
+          valeur={nbSansReponse}
+          sous={nbSansReponse > 0 ? 'À relancer en priorité' : 'Aucune en attente'}
+          couleur={nbSansReponse > 0 ? 'border-red-200' : 'border-gray-100'}
+        />
+      </div>
     </div>
   )
 }
