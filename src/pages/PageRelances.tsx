@@ -8,18 +8,20 @@ import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
+import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { useRole } from '../contexts/RoleContext'
-import type { CompteClient } from '../types/client'
+import type { CompteClient, FactureDetail } from '../types/client'
 
 export function PageRelances() {
-  const { relances, chargement, kpis, mettreAJourStatut, archiver } = useRelances()
+  const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
   const { isCommercial } = useRole()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
+  const [factureCommentee, setFactureCommentee] = useState<FactureDetail | null>(null)
   const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
-  const { commentaires, chargerTous } = useCommentairesFactures()
+  const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
 
   useEffect(() => { chargerTous() }, [])
 
@@ -54,6 +56,8 @@ export function PageRelances() {
           chargement={chargement}
           onMajStatut={mettreAJourStatut}
           onArchiver={archiver}
+          onSauvegarderNote={mettreAJourNote}
+          onOuvrirCommentaire={setFactureCommentee}
           classement={classement}
           commentaires={commentaires}
           filtreOp={filtreOp}
@@ -86,6 +90,19 @@ export function PageRelances() {
           </div>
         </div>
       )}
+
+      {/* Panneau commentaire facture (depuis ligne expandée) */}
+      <PanneauCommentaireFacture
+        facture={factureCommentee}
+        commentaire={factureCommentee ? (commentaires.get(factureCommentee.numero_piece) ?? null) : null}
+        onFermer={() => setFactureCommentee(null)}
+        onSauvegarder={async data => {
+          const ok = await sauvegarder(data)
+          if (ok) setFactureCommentee(null)
+          return ok
+        }}
+        onStatutChange={() => {}}
+      />
 
       {/* Modal composition relance */}
       <ModalCompositionRelance

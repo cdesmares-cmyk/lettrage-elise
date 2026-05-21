@@ -3,8 +3,17 @@ import { useState, useEffect, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
+import { supabase } from '../../lib/supabase'
 
-type Onglet = 'infos' | 'contacts'
+type Onglet = 'infos' | 'contacts' | 'relances'
+
+interface NoteRelance {
+  id: string
+  note: string | null
+  note_operateur: string | null
+  note_archivee_le: string | null
+  cree_le: string
+}
 
 interface Props {
   client: CompteClient | null
@@ -87,6 +96,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [groupement, setGroupement] = useState('')
   const [enregistrement, setEnregistrement] = useState(false)
   const [onglet, setOnglet] = useState<Onglet>('infos')
+  const [notesRelances, setNotesRelances] = useState<NoteRelance[]>([])
+  const [notesChargement, setNotesChargement] = useState(false)
 
   useEffect(() => {
     if (client) {
@@ -97,6 +108,23 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setGroupement(client.code_groupement ?? '')
     }
   }, [client])
+
+  useEffect(() => {
+    if (onglet !== 'relances' || !client) return
+    setNotesChargement(true)
+    supabase
+      .from('relances')
+      .select('id, note, note_operateur, note_archivee_le, cree_le')
+      .eq('code_client', client.code_dso)
+      .eq('archivee', true)
+      .not('note', 'is', null)
+      .order('note_archivee_le', { ascending: false })
+      .limit(5)
+      .then(({ data }) => {
+        setNotesRelances((data ?? []) as NoteRelance[])
+        setNotesChargement(false)
+      })
+  }, [onglet, client])
 
   if (!client) return null
 
@@ -142,7 +170,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
         {/* Onglets */}
         <div className="flex gap-2 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
-          {(['infos', 'contacts'] as Onglet[]).map(o => (
+          {(['infos', 'contacts', 'relances'] as Onglet[]).map(o => (
             <button
               key={o}
               onClick={() => setOnglet(o)}
@@ -152,13 +180,39 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
                   : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
               }`}
             >
-              {o === 'infos' ? 'Informations' : 'Contacts'}
+              {o === 'infos' ? 'Informations' : o === 'contacts' ? 'Contacts' : 'Relances'}
             </button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
           {onglet === 'contacts' && <SectionContacts codeClient={client.code_dso} />}
+          {onglet === 'relances' && (
+            <div className="space-y-3">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notes archivées — {client.nom}</p>
+              {notesChargement ? (
+                <p className="text-xs text-gray-400">Chargement…</p>
+              ) : notesRelances.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">Aucune note de relance archivée pour ce client.</p>
+              ) : (
+                notesRelances.map(n => (
+                  <div key={n.id} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-bold text-ockham-teal uppercase tracking-wider">
+                        {n.note_operateur ?? 'Opérateur inconnu'}
+                      </span>
+                      {n.note_archivee_le && (
+                        <span className="text-[10px] text-gray-400">
+                          {new Date(n.note_archivee_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{n.note}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
           {onglet === 'infos' && <>
           {/* Statut juridique */}
           <div>
@@ -245,7 +299,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             </button>
           </div>
         )}
-        {onglet === 'contacts' && (
+        {(onglet === 'contacts' || onglet === 'relances') && (
           <div className="px-5 py-4 border-t border-gray-100">
             <button onClick={fermerEtReset} className="w-full text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">
               Fermer

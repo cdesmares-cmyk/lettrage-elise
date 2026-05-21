@@ -18,6 +18,9 @@ export interface Relance {
   envoyee_le: string | null
   mis_a_jour_le: string
   archivee: boolean
+  note: string | null
+  note_operateur: string | null
+  note_archivee_le: string | null
 }
 
 export interface KpisRelance {
@@ -67,7 +70,7 @@ function calcStreak(relances: Relance[]): number {
 }
 
 export function useRelances() {
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
   const [relances, setRelances] = useState<Relance[]>([])
   const [chargement, setChargement] = useState(false)
 
@@ -76,7 +79,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee')
+      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le')
       .order('cree_le', { ascending: false })
       .then(({ data }) => {
         setRelances((data ?? []) as Relance[])
@@ -116,13 +119,25 @@ export function useRelances() {
     return true
   }
 
+  async function mettreAJourNote(id: string, note: string) {
+    const { error } = await supabase.from('relances').update({ note } as never).eq('id', id)
+    if (error) { toast.error('Erreur sauvegarde note'); return false }
+    setRelances(prev => prev.map(r => r.id === id ? { ...r, note } : r))
+    return true
+  }
+
   async function archiver(id: string) {
-    const { error } = await supabase.from('relances').update({ archivee: true } as never).eq('id', id)
+    const patch: Record<string, unknown> = {
+      archivee: true,
+      note_operateur: profil?.nom_affiche ?? null,
+      note_archivee_le: new Date().toISOString(),
+    }
+    const { error } = await supabase.from('relances').update(patch as never).eq('id', id)
     if (error) { toast.error('Erreur archivage'); return false }
-    setRelances(prev => prev.map(r => r.id === id ? { ...r, archivee: true } : r))
+    setRelances(prev => prev.map(r => r.id === id ? { ...r, ...patch } as Relance : r))
     toast.success('Relance archivée')
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, archiver }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver }
 }
