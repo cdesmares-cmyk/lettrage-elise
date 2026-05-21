@@ -105,7 +105,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { facturesActives } = useAppData()
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
 
-  const impayees = facturesActives.filter(f => f.code_client === client?.code_dso && f.reste_du > 0.005)
+  const impayees = facturesActives.filter(f =>
+    f.code_client === client?.code_dso &&
+    f.reste_du > 0.005 &&
+    !commentaires?.get(f.numero_piece)?.ne_pas_relancer
+  )
 
   const [contactsSel, setContactsSel] = useState<string[]>([])
   const [facturesSel, setFacturesSel] = useState<string[]>([])
