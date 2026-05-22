@@ -160,6 +160,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${c.encours_total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(c.encours_total)}</span>
+                    {Math.abs(c.encours_net - c.encours_total) > 0.01 && (
+                      <div className={`font-mono text-[10px] tabular-nums whitespace-nowrap mt-0.5 ${c.encours_net < 0 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                        net {fmt(c.encours_net)}
+                      </div>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-center">
                     <span className={`text-sm font-bold tabular-nums ${c.nb_impayees > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{c.nb_impayees}</span>

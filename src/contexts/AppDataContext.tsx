@@ -141,6 +141,12 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         console.log('[DSO-CTX] moisMaxBrut:', moisMaxBrut, '| moisMax (M-1):', moisMax, '| dateDebut:', dateDebut, '| dateFin:', dateFin, '| ca12Mois:', ca)
       }
 
+      // Encours net (avoirs et négatifs compris) = somme brute de tous les reste_du par client
+      const encNetMap = new Map<string, number>()
+      for (const f of toutes) {
+        encNetMap.set(f.code_client, (encNetMap.get(f.code_client) ?? 0) + f.reste_du)
+      }
+
       const maxEncours = Math.max(...tousClients.map(r => r.encours_total), 1)
       const maxImpayees = Math.max(...tousClients.map(r => r.nb_impayees), 1)
       setClients(tousClients.map(r => {
@@ -152,6 +158,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           ...r,
           statut_juridique: r.statut_juridique as StatutJuridique | null,
           note_risque: Math.round((0.40 * sAge + 0.35 * sEncours + 0.25 * sNb) * 100),
+          encours_net: Math.round((encNetMap.get(r.code_dso) ?? 0) * 100) / 100,
         }
       }))
       setFacturesActives(toutes)
