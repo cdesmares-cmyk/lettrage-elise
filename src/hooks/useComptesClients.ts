@@ -81,6 +81,25 @@ export function useComptesClients() {
       .sort((a, b) => b.encours_total - a.encours_total)
   }, [raw])
 
+  const nebuleuseFiltered = useMemo((): GroupeNebuleuse[] => {
+    if (!recherche.trim()) return nebuleuse
+    const q = recherche.toLowerCase()
+    const codesAvecFacture = new Set(
+      facturesActives
+        .filter(f => f.numero_piece.toLowerCase().includes(q))
+        .map(f => f.code_client)
+    )
+    return nebuleuse.filter(g =>
+      g.groupe_key.toLowerCase().includes(q) ||
+      g.nom_groupe.toLowerCase().includes(q) ||
+      g.clients.some(c =>
+        c.code_dso.toLowerCase().includes(q) ||
+        c.nom.toLowerCase().includes(q) ||
+        codesAvecFacture.has(c.code_dso)
+      )
+    )
+  }, [nebuleuse, recherche, facturesActives])
+
   async function sauvegarderOptions(codeDso: string, opts: {
     statut_juridique: StatutJuridique | null
     commercial: string | null
@@ -100,5 +119,5 @@ export function useComptesClients() {
     return true
   }
 
-  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse, rafraichir, sauvegarderOptions }
+  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions }
 }

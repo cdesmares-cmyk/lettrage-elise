@@ -110,22 +110,26 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <div className="flex items-end gap-3 px-4 py-3 border-b border-gray-100 flex-wrap">
 
-        {/* Préfiltres années dynamiques */}
+        {/* Filtre année — menu déroulant */}
         {annees.length > 0 && (
-          <div className="flex items-center gap-1.5 flex-shrink-0 self-end">
-            {annees.map(y => (
-              <button
-                key={y}
-                onClick={() => toggleAnnee(y)}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
-                  anneeActive === y
-                    ? 'bg-ockham-teal text-white border-ockham-teal'
-                    : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-ockham-teal hover:text-ockham-teal'
-                }`}
-              >
-                {y}
-              </button>
-            ))}
+          <div className="flex-shrink-0 self-end">
+            <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Année</label>
+            <select
+              value={anneeActive ?? ''}
+              onChange={e => {
+                const y = e.target.value
+                if (!y) { setDateDebut(''); setDateFin(''); setPage(0) }
+                else toggleAnnee(y)
+              }}
+              className={`border rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors ${
+                anneeActive ? 'border-ockham-teal text-ockham-teal font-semibold' : 'border-gray-200 text-gray-600'
+              }`}
+            >
+              <option value="">Toutes les années</option>
+              {annees.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
           </div>
         )}
 
