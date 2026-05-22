@@ -189,20 +189,21 @@ Deno.serve(async (req: Request) => {
       if (typeof body?.limit_clients  === 'number') limitClients  = body.limit_clients
     } catch { /* body vide → rotation dynamique */ }
 
-    // Rotation automatique : compte le total réel et choisit le bon lot du jour
+    // Rotation automatique : compte le total réel et choisit le bon lot de la tranche
+    // Tranche = fenêtre de 3h → 8 passes/jour, chaque lot différent
+    // Couverture complète : nbLots × 3h (ex: 10 lots = 30h pour 2000 clients)
     if (offsetClients === -1 && codeCibles.length === 0) {
       const { count } = await supabase
         .from('clients')
         .select('*', { count: 'exact', head: true })
         .not('siret', 'is', null)
         .neq('siret', '')
-      const total   = count ?? 0
-      const nbLots  = Math.max(1, Math.ceil(total / limitClients))
-      const jourAnnee = Math.floor(
-        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-      )
-      offsetClients = (jourAnnee % nbLots) * limitClients
-      console.log(`[bodacc-sync] rotation auto — ${total} clients, ${nbLots} lots, lot du jour offset=${offsetClients}`)
+      const total        = count ?? 0
+      const nbLots       = Math.max(1, Math.ceil(total / limitClients))
+      const trancheHeures = 3   // durée d'une tranche en heures (= intervalle du cron)
+      const slotActuel   = Math.floor(Date.now() / (trancheHeures * 60 * 60 * 1000))
+      offsetClients      = (slotActuel % nbLots) * limitClients
+      console.log(`[bodacc-sync] rotation auto — ${total} clients, ${nbLots} lots, slot=${slotActuel % nbLots}, offset=${offsetClients}`)
     }
 
     let query = supabase
