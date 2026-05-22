@@ -160,11 +160,11 @@ export function useImportClients() {
         // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
         const today = new Date().toISOString().split('T')[0]
         const facturesTampon = resultat.lignes_a_inserer
-          .filter(l => l['code_dso'] && l['nom'])
+          .filter(l => l['code_dso'])
           .map(l => ({
             numero_piece: `${l['code_dso']}_compte`,
             code_client: l['code_dso'] as string,
-            nom_client: l['nom'] as string,
+            nom_client: (l['nom'] as string | null) ?? null,
             date_emission: today,
             montant_ttc: 0,
             montant_ht: 0,

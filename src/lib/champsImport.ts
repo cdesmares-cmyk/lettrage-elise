@@ -150,7 +150,7 @@ export const CHAMPS_CLIENTS: ChampCible[] = [
     cle: 'nom',
     label: 'Nom du client',
     est_pivot: false,
-    requis: true,
+    requis: false,
     est_lettrable: false,
     aliases: ['nom', 'nom client', 'nomclient', 'raison sociale', 'raisonsociale', 'societe', 'client'],
   },
