@@ -1,6 +1,10 @@
 -- Migration 027 : Ajouter siret à la vue v_comptes_clients
 
-CREATE OR REPLACE VIEW v_comptes_clients AS
+DROP VIEW IF EXISTS v_comptes_clients CASCADE;
+
+CREATE VIEW v_comptes_clients
+WITH (security_invoker = true)
+AS
 SELECT
   c.code_dso,
   c.nom,
@@ -9,16 +13,18 @@ SELECT
   c.operateur,
   c.plateforme,
   c.code_groupement,
+  c.organisation_id,
   c.siret,
-  COUNT(vf.numero_piece)::int                                                    AS nb_factures_total,
-  COUNT(CASE WHEN vf.reste_du > 0.005 AND vf.est_avoir = false THEN 1 END)::int AS nb_impayees,
+  COUNT(f.numero_piece)::int                                                    AS nb_factures_total,
+  COUNT(CASE WHEN f.reste_du > 0.005 AND f.est_avoir = false THEN 1 END)::int  AS nb_impayees,
   COALESCE(
-    SUM(CASE WHEN vf.reste_du > 0.005 AND vf.est_avoir = false THEN vf.reste_du ELSE 0 END),
+    SUM(CASE WHEN f.reste_du > 0.005 AND f.est_avoir = false THEN f.reste_du ELSE 0 END),
     0
-  )::numeric(12,2)                                                               AS encours_total,
-  MAX(vf.date_emission)                                                          AS derniere_emission
+  )::numeric(12,2)                                                              AS encours_total,
+  MAX(f.date_emission)                                                          AS derniere_emission
 FROM clients c
-LEFT JOIN v_factures_avec_reste_du vf ON vf.code_client = c.code_dso
+LEFT JOIN factures f ON f.code_client = c.code_dso
+                     AND f.organisation_id = c.organisation_id
 GROUP BY
   c.code_dso, c.nom, c.statut_juridique, c.commercial, c.operateur,
-  c.plateforme, c.code_groupement, c.siret;
+  c.plateforme, c.code_groupement, c.organisation_id, c.siret;
