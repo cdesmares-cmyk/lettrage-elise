@@ -70,7 +70,7 @@ export function ModalVeilleBodacc({ onClose }: Props) {
       for (let i = 0; i < codes.length; i += 500) {
         const { error } = await supabase
           .from('clients')
-          .update({ statut_juridique: type as StatutJuridique })
+          .update({ statut_juridique: type as StatutJuridique } as never)
           .in('code_dso', codes.slice(i, i + 500))
         if (!error) nbMaj += codes.slice(i, i + 500).length
       }
