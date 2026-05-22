@@ -15,7 +15,6 @@ export interface CompteClient {
   nb_factures_total: number
   nb_impayees: number
   encours_total: number
-  encours_net: number
   derniere_emission: string | null
   note_risque: number
 }
