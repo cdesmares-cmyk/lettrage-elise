@@ -20,6 +20,7 @@ interface OptsClientLocal {
   operateur?: string | null
   plateforme?: string | null
   code_groupement?: string | null
+  siret?: string | null
 }
 
 interface AppDataContextType {

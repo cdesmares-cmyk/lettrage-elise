@@ -106,6 +106,7 @@ export function useComptesClients() {
     operateur: string | null
     plateforme: string | null
     code_groupement: string | null
+    siret: string | null
   }) {
     // Mise à jour locale immédiate — l'UI reflète le changement sans attendre Supabase
     mettreAJourClientLocal(codeDso, opts)

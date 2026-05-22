@@ -188,6 +188,15 @@ export const CHAMPS_CLIENTS: ChampCible[] = [
     aliases: ['code groupement', 'codegroupement', 'groupement', 'groupe', 'group', 'code groupe'],
     hint: 'Identifiant commun aux clients d\'un même groupe (vue Nébuleuse)',
   },
+  {
+    cle: 'siret',
+    label: 'SIRET',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['siret', 'n siret', 'numero siret', 'siren', 'id entreprise'],
+    hint: '14 chiffres — utilisé pour la veille BODACC',
+  },
 ]
 
 export const CHAMPS_FACTURES: ChampCible[] = [

@@ -17,6 +17,7 @@ export interface CompteClient {
   encours_total: number
   derniere_emission: string | null
   note_risque: number
+  siret: string | null
 }
 
 export interface RefValeur {

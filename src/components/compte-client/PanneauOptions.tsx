@@ -24,6 +24,7 @@ interface Props {
     operateur: string | null
     plateforme: string | null
     code_groupement: string | null
+    siret: string | null
   }) => Promise<boolean>
 }
 
@@ -94,6 +95,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [operateur, setOperateur] = useState('')
   const [plateforme, setPlateforme] = useState('')
   const [groupement, setGroupement] = useState('')
+  const [siret, setSiret] = useState('')
   const [enregistrement, setEnregistrement] = useState(false)
   const [onglet, setOnglet] = useState<Onglet>('infos')
   const [notesRelances, setNotesRelances] = useState<NoteRelance[]>([])
@@ -106,6 +108,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setOperateur(client.operateur ?? '')
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
+      setSiret(client.siret ?? '')
     }
   }, [client])
 
@@ -149,6 +152,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       operateur: operateur.trim() || null,
       plateforme: valPlateforme || null,
       code_groupement: groupement.trim() || null,
+      siret: siret.trim() || null,
     })
     setEnregistrement(false)
     if (ok) onFermer()
@@ -270,6 +274,18 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
             />
             <p className="text-[10px] text-gray-400 mt-1.5">Texte ou chiffre libre. Les clients partageant ce code seront regroupés dans la vue Nébuleuse.</p>
+          </div>
+
+          {/* SIRET */}
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">SIRET <span className="text-gray-300 normal-case font-normal">(veille BODACC)</span></label>
+            <input
+              type="text"
+              value={siret}
+              onChange={e => setSiret(e.target.value.replace(/\D/g, '').slice(0, 14))}
+              placeholder="14 chiffres"
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+            />
           </div>
 
           {/* Score risque (lecture seule) */}
