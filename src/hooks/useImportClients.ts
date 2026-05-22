@@ -116,6 +116,7 @@ export function useImportClients() {
       nb_doublons: miseAJour.length,
       hash,
       nom_fichier: fichier.name,
+      codes_existants: [...existants],
     }
   }
 
@@ -141,15 +142,24 @@ export function useImportClients() {
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
       // Upsert par lots de 500 (créer nouveaux + mettre à jour existants)
+      const codesExistants = new Set(resultat.codes_existants ?? [])
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(row => {
-            // SIRET vide dans le fichier → on ne touche pas la valeur existante en base
-            if (!row['siret']) {
-              const { siret: _s, ...reste } = row as Record<string, unknown>
-              return reste
+            const r = { ...row } as Record<string, unknown>
+            const code = r['code_dso'] as string
+            if (!r['nom']) {
+              if (codesExistants.has(code)) {
+                // Client existant sans colonne nom dans l'import → ne pas toucher le nom en base
+                delete r['nom']
+              } else {
+                // Nouveau client sans nom → utilise code_dso pour satisfaire NOT NULL
+                r['nom'] = code
+              }
             }
-            return row
+            // SIRET vide → on ne touche pas la valeur existante en base
+            if (!r['siret']) delete r['siret']
+            return r
           })
           const { error } = await supabase
             .from('clients')
