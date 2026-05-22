@@ -167,11 +167,17 @@ Deno.serve(async (req: Request) => {
     // Paramètres optionnels du body :
     //   date_min      : "2020-01-01"     — fenêtre historique (défaut 90j)
     //   code_clients  : ["61538"]        — cibler des clients spécifiques
-    //   offset_clients: 0                — pagination (défaut 0)
+    //   offset_clients: 0                — pagination manuelle (écrase la rotation auto)
     //   limit_clients : 200              — taille du lot (défaut 200)
+    //
+    // Sans body (appel cron) : rotation automatique sur 10 jours
+    //   Jour J → offset = (J % 10) * 200  → couvre 2000 clients en 10 jours
+    const jourAnnee = Math.floor(
+      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+    )
     let dateMin       = dateMin90j()
     let codeCibles:   string[] = []
-    let offsetClients = 0
+    let offsetClients = (jourAnnee % 10) * 200   // rotation automatique
     let limitClients  = 200
     try {
       const body = await req.json() as Record<string, unknown>
@@ -183,7 +189,7 @@ Deno.serve(async (req: Request) => {
       }
       if (typeof body?.offset_clients === 'number') offsetClients = body.offset_clients
       if (typeof body?.limit_clients  === 'number') limitClients  = body.limit_clients
-    } catch { /* body vide → valeurs par défaut */ }
+    } catch { /* body vide → rotation automatique */ }
 
     let query = supabase
       .from('clients')
