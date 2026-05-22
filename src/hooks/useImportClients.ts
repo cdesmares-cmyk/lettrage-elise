@@ -143,7 +143,14 @@ export function useImportClients() {
       // Upsert par lots de 500 (créer nouveaux + mettre à jour existants)
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
-          const lot = resultat.lignes_a_inserer.slice(i, i + 500)
+          const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(row => {
+            // SIRET vide dans le fichier → on ne touche pas la valeur existante en base
+            if (!row['siret']) {
+              const { siret: _s, ...reste } = row as Record<string, unknown>
+              return reste
+            }
+            return row
+          })
           const { error } = await supabase
             .from('clients')
             .upsert(lot as never, { onConflict: 'code_dso', ignoreDuplicates: false })
