@@ -170,14 +170,12 @@ Deno.serve(async (req: Request) => {
     //   offset_clients: 0                — pagination manuelle (écrase la rotation auto)
     //   limit_clients : 200              — taille du lot (défaut 200)
     //
-    // Sans body (appel cron) : rotation automatique sur 10 jours
-    //   Jour J → offset = (J % 10) * 200  → couvre 2000 clients en 10 jours
-    const jourAnnee = Math.floor(
-      (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
-    )
+    // Sans body (appel cron) : rotation dynamique
+    //   Compte d'abord le total réel → calcule le nombre de lots → choisit le lot du jour
+    //   Fonctionne pour 200 ou 200 000 clients, mono ou multi-tenant
     let dateMin       = dateMin90j()
     let codeCibles:   string[] = []
-    let offsetClients = (jourAnnee % 10) * 200   // rotation automatique
+    let offsetClients = -1   // -1 = calculer dynamiquement
     let limitClients  = 200
     try {
       const body = await req.json() as Record<string, unknown>
@@ -189,7 +187,23 @@ Deno.serve(async (req: Request) => {
       }
       if (typeof body?.offset_clients === 'number') offsetClients = body.offset_clients
       if (typeof body?.limit_clients  === 'number') limitClients  = body.limit_clients
-    } catch { /* body vide → rotation automatique */ }
+    } catch { /* body vide → rotation dynamique */ }
+
+    // Rotation automatique : compte le total réel et choisit le bon lot du jour
+    if (offsetClients === -1 && codeCibles.length === 0) {
+      const { count } = await supabase
+        .from('clients')
+        .select('*', { count: 'exact', head: true })
+        .not('siret', 'is', null)
+        .neq('siret', '')
+      const total   = count ?? 0
+      const nbLots  = Math.max(1, Math.ceil(total / limitClients))
+      const jourAnnee = Math.floor(
+        (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000
+      )
+      offsetClients = (jourAnnee % nbLots) * limitClients
+      console.log(`[bodacc-sync] rotation auto — ${total} clients, ${nbLots} lots, lot du jour offset=${offsetClients}`)
+    }
 
     let query = supabase
       .from('clients')
