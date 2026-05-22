@@ -104,7 +104,15 @@ Deno.serve(async (req: Request) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
-    const dateMin  = dateMin90j()
+
+    // date_min optionnel dans le body — utile pour backfill historique (ex: {"date_min":"2024-01-01"})
+    let dateMin = dateMin90j()
+    try {
+      const body = await req.json() as Record<string, unknown>
+      if (typeof body?.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min)) {
+        dateMin = body.date_min
+      }
+    } catch { /* body vide ou non-JSON → on garde la fenêtre par défaut */ }
 
     // Tous les clients avec SIRET renseigné, toutes organisations confondues
     const { data: clients, error: errClients } = await supabase
