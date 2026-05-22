@@ -8,8 +8,9 @@ import { ModalHistoriqueImport } from './ModalHistoriqueImport'
 import { ModalCorrectionLettrage } from './ModalCorrectionLettrage'
 import { ModalApiAxonaut } from './ModalApiAxonaut'
 import { ModalReinitialisation } from './ModalReinitialisation'
+import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 
-type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'reset'
+type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'reset'
 
 function getInitiales(email: string): string {
   const nom = email.split('@')[0]
@@ -106,7 +107,10 @@ export function MenuAdmin() {
               <Item label="API Axonaut" icon="🔗" onClick={() => ouvrir('axonaut')} />
             )}
             {isAdmin && (
-              <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger separator />
+              <Item label="Veille BODACC" icon="📡" onClick={() => ouvrir('bodacc')} separator />
+            )}
+            {isAdmin && (
+              <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger />
             )}
             <Item label="Déconnexion" icon="⏻" onClick={() => supabase.auth.signOut()} separator />
           </div>
@@ -119,6 +123,7 @@ export function MenuAdmin() {
       {modal === 'imports'     && <ModalHistoriqueImport     onClose={() => setModal(null)} />}
       {modal === 'lettrages'   && <ModalCorrectionLettrage  onClose={() => setModal(null)} />}
       {modal === 'axonaut'     && <ModalApiAxonaut           onClose={() => setModal(null)} />}
+      {modal === 'bodacc'      && <ModalVeilleBodacc          onClose={() => setModal(null)} />}
       {modal === 'reset'       && <ModalReinitialisation     onClose={() => setModal(null)} />}
     </>
   )

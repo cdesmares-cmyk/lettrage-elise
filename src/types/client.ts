@@ -1,6 +1,6 @@
 // Types pour le module Compte Client (Sprint 3)
 
-export type StatutJuridique = 'sauvegarde' | 'liquidation' | 'redressement'
+export type StatutJuridique = 'sauvegarde' | 'liquidation' | 'redressement' | 'cloture'
 export type StatutFacture = 'litige' | 'provisionne'
 export type VueMode = 'clients' | 'nebuleuse' | 'factures'
 

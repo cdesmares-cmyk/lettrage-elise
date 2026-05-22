@@ -36,14 +36,16 @@ function classeScore(note: number) {
 }
 
 const STATUT_LABELS: Record<string, string> = {
-  sauvegarde: '📁 Sauvegarde',
-  liquidation: '🚫 Liquidation',
+  sauvegarde:   '📁 Sauvegarde',
+  liquidation:  '🚫 Liquidation',
   redressement: '🔄 Redressement',
+  cloture:      '✅ Clôture',
 }
 const STATUT_CLASSES: Record<string, string> = {
-  sauvegarde: 'bg-amber-50 border-amber-300 text-amber-800',
-  liquidation: 'bg-red-50 border-red-300 text-red-800',
+  sauvegarde:   'bg-amber-50 border-amber-300 text-amber-800',
+  liquidation:  'bg-red-50 border-red-300 text-red-800',
   redressement: 'bg-orange-50 border-orange-300 text-orange-800',
+  cloture:      'bg-gray-50 border-gray-300 text-gray-600',
 }
 
 type SortDir = 'asc' | 'desc'

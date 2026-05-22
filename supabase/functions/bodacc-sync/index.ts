@@ -1,7 +1,6 @@
 // Edge Function — Veille BODACC quotidienne
 // Dataset unique : annonces-commerciales (bodacc-datadila.opendatasoft.com)
 // Procédures collectives : familleavis="collective"
-// Radiations            : publicationavis="C"
 // Déclenchée par pg_cron chaque matin à 6h.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -10,7 +9,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const BODACC_BASE  = 'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records'
 
-const TYPES_SURVEILLÉS = ['liquidation', 'redressement', 'sauvegarde', 'radiation', 'cloture']
+const TYPES_SURVEILLÉS = ['liquidation', 'redressement', 'sauvegarde', 'cloture']
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -39,7 +38,7 @@ function dateMin90j(): string {
   return d.toISOString().slice(0, 10)
 }
 
-type TypeProcedure = 'liquidation' | 'redressement' | 'sauvegarde' | 'radiation' | 'cloture' | 'autre'
+type TypeProcedure = 'liquidation' | 'redressement' | 'sauvegarde' | 'cloture' | 'autre'
 
 interface Jugement {
   nature?: string
@@ -66,8 +65,6 @@ function parseJugement(raw: string | null): Jugement | null {
 }
 
 function classifierType(r: BodaccRecord): TypeProcedure {
-  if (r.publicationavis === 'C') return 'radiation'
-
   const jugement = parseJugement(r.jugement)
   const texte = [
     r.familleavis_lib,
@@ -86,7 +83,6 @@ function classifierType(r: BodaccRecord): TypeProcedure {
 }
 
 function buildDescription(r: BodaccRecord): string {
-  if (r.publicationavis === 'C') return 'Radiation du registre du commerce et des sociétés'
   const jugement = parseJugement(r.jugement)
   return [
     jugement?.nature,
@@ -162,27 +158,20 @@ Deno.serve(async (req: Request) => {
       // Filtre SIREN : les deux formats stockés dans le champ multivalué registre
       const filtreRegistre = `registre="${siren}" OR registre="${sirenSpace}"`
 
-      // Procédures collectives (liquidation, redressement, sauvegarde)
+      // Procédures collectives (liquidation, redressement, sauvegarde, clôture)
       const recordsCollectives = await queryBodacc(
         `familleavis="collective" AND (${filtreRegistre})`,
         dateMin,
       )
       await sleep(250)
 
-      // Radiations
-      const recordsRadiations = await queryBodacc(
-        `publicationavis="C" AND (${filtreRegistre})`,
-        dateMin,
-      )
-      await sleep(250)
-
-      const toutes = [...recordsCollectives, ...recordsRadiations]
+      const toutes = recordsCollectives
         .map(r => ({
           organisation_id: client.organisation_id,
           code_client:     client.code_dso,
           siret:           client.siret,
           bodacc_id:       r.id,
-          famille:         r.publicationavis === 'C' ? 'BODACC-C' : 'BODACC-A/B',
+          famille:         'BODACC-A/B',
           type_procedure:  classifierType(r),
           tribunal:        r.tribunal ?? null,
           date_jugement:   parseJugement(r.jugement)?.date ?? null,

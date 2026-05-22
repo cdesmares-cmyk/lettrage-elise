@@ -31,8 +31,6 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json()
     const action: string = body.action
-    const depuis: string | null = body.depuis ?? null
-    const depuisTs = depuis ? Math.floor(new Date(depuis).getTime() / 1000) : 0
 
     const { data: integration, error: intErr } = await supabaseUser
       .from('integrations')
@@ -66,20 +64,19 @@ Deno.serve(async (req: Request) => {
 
     // ── sync ────────────────────────────────────────────────────────────────
     if (action === 'sync') {
-      let page  = 0
+      const pageDebut: number = body.page_debut ?? 1
+      const nbPages:   number = body.nb_pages   ?? 10
       let nbMaj = 0
+      let termine = false
 
-      while (true) {
-        const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page + 1}`, { headers: { ...axonautHeaders, page: String(page + 1) } })
+      for (let page = pageDebut; page < pageDebut + nbPages; page++) {
+        const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, { headers: { ...axonautHeaders, page: String(page) } })
         if (!res.ok) return json({ error: `Axonaut HTTP ${res.status}` }, 502)
 
-        const invoices = await res.json() as Array<{ number: string; public_path: string; date: string }>
-        if (!Array.isArray(invoices) || invoices.length === 0) break
+        const invoices = await res.json() as Array<{ number: string; public_path: string }>
+        if (!Array.isArray(invoices) || invoices.length === 0) { termine = true; break }
 
-        const filtrees = depuisTs ? invoices.filter(inv => Number(inv.date) >= depuisTs) : invoices
-
-        // Batch update : une seule requête SQL pour toute la page
-        const payload = filtrees
+        const payload = invoices
           .filter(inv => inv.number && inv.public_path)
           .map(inv => ({ numero_piece: inv.number, pdf_url: inv.public_path }))
 
@@ -91,20 +88,18 @@ Deno.serve(async (req: Request) => {
           nbMaj += (nb as number) ?? 0
         }
 
-        // Arrêt anticipé si toutes les factures de la page sont antérieures à 'depuis'
-        if (depuisTs && invoices.every(inv => Number(inv.date) < depuisTs)) break
-        if (invoices.length < PER_PAGE) break
-        page++
-        await new Promise(r => setTimeout(r, 120))
+        if (invoices.length < PER_PAGE) { termine = true; break }
       }
 
-      await supabaseAdmin
-        .from('integrations')
-        .update({ verifie_le: new Date().toISOString() })
-        .eq('provider', 'axonaut')
-        .eq('organisation_id', orgId)
+      if (termine) {
+        await supabaseAdmin
+          .from('integrations')
+          .update({ verifie_le: new Date().toISOString() })
+          .eq('provider', 'axonaut')
+          .eq('organisation_id', orgId)
+      }
 
-      return json({ ok: true, nb_mises_a_jour: nbMaj })
+      return json({ ok: true, nb_mises_a_jour: nbMaj, termine, prochaine_page: pageDebut + nbPages })
     }
 
     return json({ error: 'Action inconnue' }, 400)

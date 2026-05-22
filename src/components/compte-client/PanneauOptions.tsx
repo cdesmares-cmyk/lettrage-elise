@@ -28,11 +28,12 @@ interface Props {
   }) => Promise<boolean>
 }
 
-const STATUTS_JURIDIQUES: { val: StatutJuridique; label: string; couleur: string }[] = [
-  { val: 'sauvegarde', label: '📁 Sauvegarde', couleur: 'bg-amber-100 text-amber-800 border-amber-300' },
-  { val: 'liquidation', label: '🚫 Liquidation', couleur: 'bg-red-100 text-red-800 border-red-300' },
-  { val: 'redressement', label: '🔄 Redressement', couleur: 'bg-orange-100 text-orange-800 border-orange-300' },
-]
+const STATUT_BODACC: Record<StatutJuridique, { label: string; couleur: string }> = {
+  sauvegarde:   { label: '📁 Sauvegarde',   couleur: 'bg-amber-50 text-amber-800 border-amber-300' },
+  liquidation:  { label: '🚫 Liquidation',  couleur: 'bg-red-50 text-red-800 border-red-300' },
+  redressement: { label: '🔄 Redressement', couleur: 'bg-orange-50 text-orange-800 border-orange-300' },
+  cloture:      { label: '✅ Clôture',       couleur: 'bg-gray-50 text-gray-600 border-gray-300' },
+}
 
 function classeScore(note: number) {
   if (note <= 40) return { bar: 'bg-emerald-500', txt: 'text-emerald-600', label: 'Risque faible' }
@@ -218,28 +219,17 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             </div>
           )}
           {onglet === 'infos' && <>
-          {/* Statut juridique */}
+          {/* Statut juridique — lecture seule, alimenté par la veille BODACC */}
           <div>
             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut juridique</label>
-            <div className="space-y-1.5">
-              {STATUTS_JURIDIQUES.map(s => (
-                <button
-                  key={s.val}
-                  onClick={() => setStatut(statut === s.val ? '' : s.val)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${
-                    statut === s.val ? s.couleur + ' border' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                >
-                  {s.label}
-                  {statut === s.val && <span className="ml-auto text-[10px]">✓</span>}
-                </button>
-              ))}
-              {statut && (
-                <button onClick={() => setStatut('')} className="w-full text-xs text-gray-400 hover:text-gray-600 py-1 transition-colors">
-                  ✕ Effacer le statut
-                </button>
-              )}
-            </div>
+            {statut && STATUT_BODACC[statut as StatutJuridique] ? (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${STATUT_BODACC[statut as StatutJuridique].couleur}`}>
+                {STATUT_BODACC[statut as StatutJuridique].label}
+                <span className="ml-auto text-[10px] opacity-60">BODACC</span>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 italic px-1">Aucune procédure collective détectée</p>
+            )}
           </div>
 
           {/* Commercial — combobox : saisie libre + auto-création dans ref_valeurs */}
