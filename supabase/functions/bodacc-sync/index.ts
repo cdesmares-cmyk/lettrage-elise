@@ -124,20 +124,40 @@ Deno.serve(async (req: Request) => {
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
-    // date_min optionnel dans le body — ex: {"date_min":"2024-01-01"} pour backfill
-    let dateMin = dateMin90j()
+    // Paramètres optionnels du body :
+    //   date_min      : "2020-01-01"         — fenêtre historique (défaut 90j)
+    //   code_clients  : ["61538","77917"]     — cibler des clients spécifiques
+    //   offset_clients: 0                     — pagination (défaut 0)
+    //   limit_clients : 200                   — taille du lot (défaut 200)
+    let dateMin      = dateMin90j()
+    let codeCibles:  string[] = []
+    let offsetClients = 0
+    let limitClients  = 200
     try {
       const body = await req.json() as Record<string, unknown>
       if (typeof body?.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min)) {
         dateMin = body.date_min
       }
-    } catch { /* body vide → fenêtre par défaut */ }
+      if (Array.isArray(body?.code_clients)) {
+        codeCibles = (body.code_clients as unknown[]).map(String)
+      }
+      if (typeof body?.offset_clients === 'number') offsetClients = body.offset_clients
+      if (typeof body?.limit_clients  === 'number') limitClients  = body.limit_clients
+    } catch { /* body vide → valeurs par défaut */ }
 
-    const { data: clients, error: errClients } = await supabase
+    let query = supabase
       .from('clients')
       .select('code_dso, siret, organisation_id')
       .not('siret', 'is', null)
       .neq('siret', '')
+
+    if (codeCibles.length > 0) {
+      query = query.in('code_dso', codeCibles)
+    } else {
+      query = query.range(offsetClients, offsetClients + limitClients - 1)
+    }
+
+    const { data: clients, error: errClients } = await query
 
     if (errClients) return json({ error: errClients.message }, 500)
 
