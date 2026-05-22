@@ -11,7 +11,7 @@ interface RowCompteClient {
   code_dso: string; nom: string; statut_juridique: string | null
   commercial: string | null; operateur: string | null
   plateforme: string | null; code_groupement: string | null
-  nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null
+  nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null; siret: string | null
 }
 
 interface OptsClientLocal {
