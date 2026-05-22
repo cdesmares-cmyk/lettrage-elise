@@ -50,7 +50,8 @@ export interface ResultatValidation {
   noms_differents?: { code_client: string; nom_fichier: string; nom_base: string }[]
   hash: string
   nom_fichier: string
-  codes_existants?: string[]   // codes_dso déjà en base — pour différencier création vs MAJ à l'exécution
+  codes_existants?: string[]          // codes_dso déjà en base
+  noms_existants?: Record<string, string>  // nom actuel en base par code_dso — évite d'écraser lors d'un import sans colonne nom
 }
 
 // Résultat final après insertion en base

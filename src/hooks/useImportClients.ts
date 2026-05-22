@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext'
 
 interface RowImportRef { id: string; cree_le: string }
 interface RowImportId { id: string }
-interface RowCodeDso { code_dso: string }
 
 async function parserFichier(fichier: File) {
   const ext = fichier.name.split('.').pop()?.toLowerCase()
@@ -83,16 +82,18 @@ export function useImportClients() {
 
     const tousLesCodes = [...vus]
 
-    // Codes déjà en base
-    const existants = new Set<string>()
+    // Clients déjà en base : récupère code_dso + nom actuel
+    interface RowClientNom { code_dso: string; nom: string }
+    const nomsExistants: Record<string, string> = {}
     for (let i = 0; i < tousLesCodes.length; i += 500) {
       const { data } = await supabase
         .from('clients')
-        .select('code_dso')
+        .select('code_dso, nom')
         .in('code_dso', tousLesCodes.slice(i, i + 500))
-      const rows = data as unknown as RowCodeDso[] | null
-      rows?.forEach(r => existants.add(r.code_dso))
+      const rows = data as unknown as RowClientNom[] | null
+      rows?.forEach(r => { nomsExistants[r.code_dso] = r.nom })
     }
+    const existants = new Set(Object.keys(nomsExistants))
 
     const nouveaux = lignesUniques.filter(l => !existants.has((l[colPivot] ?? '').trim()))
     const miseAJour = lignesUniques.filter(l => existants.has((l[colPivot] ?? '').trim()))
@@ -117,6 +118,7 @@ export function useImportClients() {
       hash,
       nom_fichier: fichier.name,
       codes_existants: [...existants],
+      noms_existants: nomsExistants,
     }
   }
 
@@ -141,42 +143,29 @@ export function useImportClients() {
       const importRec = d2 as unknown as RowImportId | null
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
-      // Upsert par lots de 500 (créer nouveaux + mettre à jour existants)
-      // PostgREST normalise les colonnes à l'échelle du batch :
-      // si une ligne a 'nom' et une autre non, il injecte null → NOT NULL violation.
-      // Solution : 3 sous-groupes homogènes par rapport à la présence de 'nom'.
-      const codesExistants = new Set(resultat.codes_existants ?? [])
+      // Upsert par lots de 500.
+      // Règle nom : PostgREST normalise tous les rangs d'un batch sur l'union des clés —
+      // un rang sans 'nom' reçoit null, ce qui viole NOT NULL.
+      // Solution : garantir que CHAQUE rang porte un nom non-null.
+      //   - Client existant sans nom dans le fichier → nom actuel récupéré en base
+      //   - Nouveau client sans nom dans le fichier  → nom = code_dso
+      const nomsExistants = resultat.noms_existants ?? {}
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
-          const tranche = resultat.lignes_a_inserer.slice(i, i + 500)
-          const nettoyer = (row: Record<string, unknown>) => {
+          const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(row => {
             const r = { ...row } as Record<string, unknown>
+            const code = r['code_dso'] as string
+            if (!r['nom']) {
+              // Priorité : nom en base (existant) > code_dso (fallback NOT NULL)
+              r['nom'] = nomsExistants[code] ?? code
+            }
             if (!r['siret']) delete r['siret']
             return r
-          }
-
-          // 1. Nouveaux clients : nom absent → fallback code_dso (respecte NOT NULL)
-          const nouveaux = tranche
-            .filter(row => !codesExistants.has(row['code_dso'] as string))
-            .map(row => { const r = nettoyer(row); if (!r['nom']) r['nom'] = r['code_dso']; return r })
-
-          // 2. Existants avec nom renseigné dans le fichier → mise à jour normale
-          const existantsAvecNom = tranche
-            .filter(row => codesExistants.has(row['code_dso'] as string) && row['nom'])
-            .map(nettoyer)
-
-          // 3. Existants sans nom dans le fichier → préserver la valeur en base
-          const existantsSansNom = tranche
-            .filter(row => codesExistants.has(row['code_dso'] as string) && !row['nom'])
-            .map(row => { const r = nettoyer(row); delete r['nom']; return r })
-
-          for (const lot of [nouveaux, existantsAvecNom, existantsSansNom]) {
-            if (!lot.length) continue
-            const { error } = await supabase
-              .from('clients')
-              .upsert(lot as never, { onConflict: 'code_dso', ignoreDuplicates: false })
-            if (error) throw error
-          }
+          })
+          const { error } = await supabase
+            .from('clients')
+            .upsert(lot as never, { onConflict: 'code_dso', ignoreDuplicates: false })
+          if (error) throw error
         }
 
         // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
