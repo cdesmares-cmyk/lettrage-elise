@@ -319,7 +319,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                                           className={`ml-auto flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded transition-colors whitespace-nowrap flex-shrink-0 ${
                                             com?.ne_pas_relancer
                                               ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                                              : com?.commentaire
+                                              : (com?.commentaire ?? '').trim().length > 0
                                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
                                                 : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
                                           }`}
