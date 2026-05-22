@@ -2,6 +2,7 @@
 // Dataset unique : annonces-commerciales (bodacc-datadila.opendatasoft.com)
 // Procédures collectives : familleavis="collective"
 // Déclenchée par pg_cron chaque matin à 6h.
+// Flux : alertes_risque (upsert) → clients.statut_juridique (mise à jour auto)
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -10,6 +11,7 @@ const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const BODACC_BASE  = 'https://bodacc-datadila.opendatasoft.com/api/explore/v2.1/catalog/datasets/annonces-commerciales/records'
 
 const TYPES_SURVEILLÉS = ['liquidation', 'redressement', 'sauvegarde', 'cloture']
+const PRIORITE: Record<string, number> = { liquidation: 1, redressement: 2, sauvegarde: 3, cloture: 4 }
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -27,7 +29,6 @@ function siretToSiren(siret: string): string {
   return siret.replace(/\s/g, '').slice(0, 9)
 }
 
-// SIREN avec espaces : "532241874" → "532 241 874" (format stocké dans registre)
 function sirenAvecEspaces(siren: string): string {
   return `${siren.slice(0, 3)} ${siren.slice(3, 6)} ${siren.slice(6, 9)}`
 }
@@ -55,7 +56,7 @@ interface BodaccRecord {
   familleavis_lib: string | null
   typeavis: string | null
   tribunal: string | null
-  jugement: string | null   // JSON string à parser
+  jugement: string | null
   [key: string]: unknown
 }
 
@@ -91,10 +92,7 @@ function buildDescription(r: BodaccRecord): string {
   ].filter(Boolean).join(' — ').slice(0, 500)
 }
 
-async function queryBodacc(
-  filtre: string,
-  dateMin: string,
-): Promise<BodaccRecord[]> {
+async function queryBodacc(filtre: string, dateMin: string): Promise<BodaccRecord[]> {
   const url = new URL(BODACC_BASE)
   url.searchParams.set('where', `(${filtre}) AND dateparution>="${dateMin}"`)
   url.searchParams.set('order_by', 'dateparution desc')
@@ -118,6 +116,48 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+// Lit toutes les alertes en base et met à jour statut_juridique pour chaque client concerné.
+// Priorité : liquidation > redressement > sauvegarde > cloture
+async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Promise<number> {
+  const { data: alertes } = await supabase
+    .from('alertes_risque')
+    .select('organisation_id, code_client, type_procedure')
+
+  if (!alertes?.length) return 0
+
+  // Alerte la plus grave par (organisation_id, code_client)
+  const parClient: Record<string, { org: string; code: string; type: string }> = {}
+  for (const a of alertes as Array<{ organisation_id: string; code_client: string; type_procedure: string }>) {
+    const key = `${a.organisation_id}__${a.code_client}`
+    const actuel = parClient[key]
+    if (!actuel || (PRIORITE[a.type_procedure] ?? 99) < (PRIORITE[actuel.type] ?? 99)) {
+      parClient[key] = { org: a.organisation_id, code: a.code_client, type: a.type_procedure }
+    }
+  }
+
+  // Regrouper par (org, type) pour une update par lot
+  const groupes: Record<string, { org: string; type: string; codes: string[] }> = {}
+  for (const { org, code, type } of Object.values(parClient)) {
+    const key = `${org}__${type}`
+    if (!groupes[key]) groupes[key] = { org, type, codes: [] }
+    groupes[key].codes.push(code)
+  }
+
+  let nbMaj = 0
+  for (const { org, type, codes } of Object.values(groupes)) {
+    for (let i = 0; i < codes.length; i += 500) {
+      const { error } = await supabase
+        .from('clients')
+        .update({ statut_juridique: type } as never)
+        .eq('organisation_id', org)
+        .in('code_dso', codes.slice(i, i + 500))
+      if (!error) nbMaj += codes.slice(i, i + 500).length
+    }
+  }
+
+  return nbMaj
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -125,12 +165,12 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
     // Paramètres optionnels du body :
-    //   date_min      : "2020-01-01"         — fenêtre historique (défaut 90j)
-    //   code_clients  : ["61538","77917"]     — cibler des clients spécifiques
-    //   offset_clients: 0                     — pagination (défaut 0)
-    //   limit_clients : 200                   — taille du lot (défaut 200)
-    let dateMin      = dateMin90j()
-    let codeCibles:  string[] = []
+    //   date_min      : "2020-01-01"     — fenêtre historique (défaut 90j)
+    //   code_clients  : ["61538"]        — cibler des clients spécifiques
+    //   offset_clients: 0                — pagination (défaut 0)
+    //   limit_clients : 200              — taille du lot (défaut 200)
+    let dateMin       = dateMin90j()
+    let codeCibles:   string[] = []
     let offsetClients = 0
     let limitClients  = 200
     try {
@@ -158,7 +198,6 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: clients, error: errClients } = await query
-
     if (errClients) return json({ error: errClients.message }, 500)
 
     const rows = (clients ?? []) as Array<{
@@ -167,7 +206,7 @@ Deno.serve(async (req: Request) => {
       organisation_id: string
     }>
 
-    console.log(`[bodacc-sync] ${rows.length} clients avec SIRET — fenêtre ${dateMin} → aujourd'hui`)
+    console.log(`[bodacc-sync] ${rows.length} clients — fenêtre ${dateMin} → aujourd'hui`)
 
     let nbNouvelles = 0
     const erreursLog: string[] = []
@@ -175,17 +214,15 @@ Deno.serve(async (req: Request) => {
     for (const client of rows) {
       const siren      = siretToSiren(client.siret)
       const sirenSpace = sirenAvecEspaces(siren)
-      // Filtre SIREN : les deux formats stockés dans le champ multivalué registre
       const filtreRegistre = `registre="${siren}" OR registre="${sirenSpace}"`
 
-      // Procédures collectives (liquidation, redressement, sauvegarde, clôture)
-      const recordsCollectives = await queryBodacc(
+      const records = await queryBodacc(
         `familleavis="collective" AND (${filtreRegistre})`,
         dateMin,
       )
       await sleep(250)
 
-      const toutes = recordsCollectives
+      const toutes = records
         .map(r => ({
           organisation_id: client.organisation_id,
           code_client:     client.code_dso,
@@ -213,10 +250,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Mise à jour automatique de statut_juridique depuis toute la table alertes_risque
+    const nbStatutsMaj = await mettreAJourStatuts(supabase)
+
     const résumé = {
-      clients_traités:  rows.length,
-      alertes_insérées: nbNouvelles,
-      erreurs:          erreursLog,
+      clients_traités:   rows.length,
+      alertes_insérées:  nbNouvelles,
+      statuts_mis_a_jour: nbStatutsMaj,
+      erreurs:           erreursLog,
     }
     console.log('[bodacc-sync] terminé :', résumé)
     return json(résumé)
