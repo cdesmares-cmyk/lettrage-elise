@@ -1,5 +1,6 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useRelances } from '../hooks/useRelances'
 import { useFacturesClient } from '../hooks/useFacturesClient'
@@ -24,6 +25,7 @@ const VUES: { val: VueMode; label: string; icon: string }[] = [
 ]
 
 export function PageCompteClient() {
+  const [searchParams] = useSearchParams()
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
@@ -49,6 +51,17 @@ export function PageCompteClient() {
   }, [relances])
 
   useEffect(() => { chargerTous() }, [])
+
+  // Ouverture automatique de la fiche client depuis un lien email (?client=CODE)
+  useEffect(() => {
+    const codeCible = searchParams.get('client')
+    if (!codeCible || comptes.chargement || comptes.clients.length === 0) return
+    const cible = comptes.clients.find(c => c.code_dso === codeCible)
+    if (cible) {
+      setVue('clients')
+      setClientOptions(cible)
+    }
+  }, [searchParams, comptes.clients, comptes.chargement])
 
   return (
     <div>
