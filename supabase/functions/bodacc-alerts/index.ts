@@ -83,8 +83,19 @@ function buildEmail(a: Alerte): string {
 
         <!-- En-tête -->
         <tr>
-          <td style="background:#0E1A2B;padding:28px 40px;">
-            <span style="color:#4CC5BB;font-size:20px;font-weight:700;letter-spacing:0.05em;">OCKHAM</span>
+          <td style="background:#0E1A2B;padding:24px 40px;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:12px;">
+                  <div style="width:40px;height:40px;border-radius:10px;background:rgba(76,197,187,0.1);border:1.5px solid rgba(76,197,187,0.25);display:flex;align-items:center;justify-content:center;text-align:center;line-height:40px;">
+                    <span style="color:#4CC5BB;font-size:22px;font-weight:900;line-height:1;">O</span>
+                  </div>
+                </td>
+                <td style="vertical-align:middle;">
+                  <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">OCKHAM</span>
+                </td>
+              </tr>
+            </table>
           </td>
         </tr>
 
