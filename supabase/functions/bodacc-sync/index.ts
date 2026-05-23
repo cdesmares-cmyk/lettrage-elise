@@ -1,8 +1,13 @@
-// Edge Function — Veille BODACC quotidienne
-// Dataset unique : annonces-commerciales (bodacc-datadila.opendatasoft.com)
-// Procédures collectives : familleavis="collective"
-// Déclenchée par pg_cron chaque matin à 6h.
-// Flux : alertes_risque (upsert) → clients.statut_juridique (mise à jour auto)
+// Edge Function — Veille BODACC v3
+// ─────────────────────────────────────────────────────────────────────────────
+// Mode quotidien  (sans org_id) : approche inversée
+//   BODACC → tous les SIRENs du jour → match clients → alertes + statuts
+//   Scalable à l'infini : 2 000 ou 2 000 000 clients = même nombre d'appels API
+//
+// Mode onboarding (avec org_id) : scan historique client-par-client
+//   date_min auto = date de la facture la plus ancienne du tenant
+//   Exécuté une seule fois à l'arrivée d'un nouveau tenant
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -33,9 +38,9 @@ function sirenAvecEspaces(siren: string): string {
   return `${siren.slice(0, 3)} ${siren.slice(3, 6)} ${siren.slice(6, 9)}`
 }
 
-function dateMin90j(): string {
+function dateHier(): string {
   const d = new Date()
-  d.setDate(d.getDate() - 90)
+  d.setDate(d.getDate() - 1)
   return d.toISOString().slice(0, 10)
 }
 
@@ -57,7 +62,14 @@ interface BodaccRecord {
   typeavis: string | null
   tribunal: string | null
   jugement: string | null
+  registre: string[] | null
   [key: string]: unknown
+}
+
+interface ClientRow {
+  code_dso: string
+  siret: string
+  organisation_id: string
 }
 
 function parseJugement(raw: string | null): Jugement | null {
@@ -68,12 +80,8 @@ function parseJugement(raw: string | null): Jugement | null {
 function classifierType(r: BodaccRecord): TypeProcedure {
   const jugement = parseJugement(r.jugement)
   const texte = [
-    r.familleavis_lib,
-    r.familleavis,
-    r.typeavis,
-    jugement?.nature,
-    jugement?.complementJugement,
-    jugement?.famille,
+    r.familleavis_lib, r.familleavis, r.typeavis,
+    jugement?.nature, jugement?.complementJugement, jugement?.famille,
   ].filter(Boolean).join(' ').toLowerCase()
 
   if (texte.includes('liquidation'))                            return 'liquidation'
@@ -92,32 +100,82 @@ function buildDescription(r: BodaccRecord): string {
   ].filter(Boolean).join(' — ').slice(0, 500)
 }
 
-async function queryBodacc(filtre: string, dateMin: string): Promise<BodaccRecord[]> {
-  const url = new URL(BODACC_BASE)
-  url.searchParams.set('where', `(${filtre}) AND dateparution>="${dateMin}"`)
-  url.searchParams.set('order_by', 'dateparution desc')
-  url.searchParams.set('limit', '10')
-
-  try {
-    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(8000) })
-    if (!res.ok) {
-      console.warn(`[bodacc-sync] HTTP ${res.status} — ${url.toString()}`)
-      return []
-    }
-    const data = await res.json() as { results?: BodaccRecord[] }
-    return data.results ?? []
-  } catch (err) {
-    console.warn(`[bodacc-sync] erreur fetch :`, err)
-    return []
-  }
-}
-
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Lit toutes les alertes en base et met à jour statut_juridique pour chaque client concerné.
-// Priorité : liquidation > redressement > sauvegarde > cloture
+// Pagine l'API BODACC sans limite — prend tout ce qui est publié depuis dateMin
+async function fetchAllBodacc(filtre: string): Promise<BodaccRecord[]> {
+  const all: BodaccRecord[] = []
+  let offset = 0
+  const limit = 100
+
+  while (true) {
+    const url = new URL(BODACC_BASE)
+    url.searchParams.set('where', filtre)
+    url.searchParams.set('order_by', 'dateparution desc')
+    url.searchParams.set('limit', String(limit))
+    url.searchParams.set('offset', String(offset))
+
+    try {
+      const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10000) })
+      if (!res.ok) {
+        console.warn(`[bodacc-sync] HTTP ${res.status} offset=${offset}`)
+        break
+      }
+      const data = await res.json() as { total_count: number; results?: BodaccRecord[] }
+      const results = data.results ?? []
+      all.push(...results)
+      offset += results.length
+      if (offset >= data.total_count || results.length === 0) break
+      await sleep(150)
+    } catch (err) {
+      console.warn(`[bodacc-sync] erreur fetch offset=${offset}:`, err)
+      break
+    }
+  }
+
+  console.log(`[bodacc-sync] BODACC → ${all.length} records récupérés`)
+  return all
+}
+
+// Construit les alertes à insérer à partir des records BODACC et des clients matchés
+function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Record<string, unknown>[] {
+  // Index records par SIREN (format sans espaces)
+  const recordsBySiren: Record<string, BodaccRecord[]> = {}
+  for (const r of records) {
+    const sirens = (r.registre ?? []).map(s => s.replace(/\s/g, '')).filter(s => /^\d{9}$/.test(s))
+    for (const siren of sirens) {
+      if (!recordsBySiren[siren]) recordsBySiren[siren] = []
+      recordsBySiren[siren].push(r)
+    }
+  }
+
+  const alertes: Record<string, unknown>[] = []
+  for (const client of clients) {
+    const siren = siretToSiren(client.siret)
+    for (const r of recordsBySiren[siren] ?? []) {
+      const type = classifierType(r)
+      if (!TYPES_SURVEILLÉS.includes(type)) continue
+      alertes.push({
+        organisation_id: client.organisation_id,
+        code_client:     client.code_dso,
+        siret:           client.siret,
+        bodacc_id:       r.id,
+        famille:         'BODACC-A/B',
+        type_procedure:  type,
+        tribunal:        r.tribunal ?? null,
+        date_jugement:   parseJugement(r.jugement)?.date ?? null,
+        date_parution:   r.dateparution ?? null,
+        description:     buildDescription(r),
+        // notifie_le : null par défaut → Phase 4 emails lira WHERE notifie_le IS NULL
+      })
+    }
+  }
+  return alertes
+}
+
+// Lit toutes les alertes et met à jour statut_juridique (priorité : liquidation > redressement > sauvegarde > cloture)
 async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Promise<number> {
   const { data: alertes } = await supabase
     .from('alertes_risque')
@@ -125,7 +183,6 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
 
   if (!alertes?.length) return 0
 
-  // Alerte la plus grave par (organisation_id, code_client)
   const parClient: Record<string, { org: string; code: string; type: string }> = {}
   for (const a of alertes as Array<{ organisation_id: string; code_client: string; type_procedure: string }>) {
     const key = `${a.organisation_id}__${a.code_client}`
@@ -135,7 +192,6 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
     }
   }
 
-  // Regrouper par (org, type) pour une update par lot
   const groupes: Record<string, { org: string; type: string; codes: string[] }> = {}
   for (const { org, code, type } of Object.values(parClient)) {
     const key = `${org}__${type}`
@@ -154,132 +210,126 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
       if (!error) nbMaj += codes.slice(i, i + 500).length
     }
   }
-
   return nbMaj
 }
 
+// ─── MODE QUOTIDIEN : approche inversée ──────────────────────────────────────
+async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
+  const dateMin = dateHier()
+  const filtre  = `familleavis="collective" AND dateparution>="${dateMin}"`
+
+  // 1. Toutes les publications BODACC depuis hier (pagination automatique, sans limite)
+  const records = await fetchAllBodacc(filtre)
+  if (!records.length) return { mode: 'quotidien', alertes_insérées: 0, statuts_mis_a_jour: 0 }
+
+  // 2. SIRENs uniques trouvés dans le batch (format 9 chiffres sans espaces)
+  const sirens = [...new Set(
+    records.flatMap(r => (r.registre ?? []).map(s => s.replace(/\s/g, '')).filter(s => /^\d{9}$/.test(s)))
+  )]
+  console.log(`[bodacc-sync] ${sirens.length} SIRENs uniques dans le batch BODACC`)
+
+  // 3. Un seul appel SQL : tous les clients de toutes les orgs qui matchent ces SIRENs
+  // Un SIREN peut matcher plusieurs orgs → tous sont retournés (multi-tenant)
+  const { data: clients, error: errClients } = await supabase
+    .rpc('match_clients_par_siren', { sirens })
+  if (errClients) throw new Error(errClients.message)
+
+  const rows = (clients ?? []) as ClientRow[]
+  console.log(`[bodacc-sync] ${rows.length} clients matchés (toutes orgs)`)
+
+  // 4. Construire et insérer les alertes
+  const alertes = construireAlertes(records, rows)
+  let nbInsérées = 0
+  for (let i = 0; i < alertes.length; i += 500) {
+    const { error } = await supabase
+      .from('alertes_risque')
+      .upsert(alertes.slice(i, i + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+    if (!error) nbInsérées += alertes.slice(i, i + 500).length
+  }
+
+  // 5. Mise à jour statut_juridique
+  const nbStatuts = await mettreAJourStatuts(supabase)
+
+  return { mode: 'quotidien', records_bodacc: records.length, sirens_uniques: sirens.length, clients_matchés: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
+}
+
+// ─── MODE ONBOARDING : scan historique client-par-client pour un tenant ──────
+async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: string, dateMinParam: string | null) {
+  // date_min = paramètre fourni OU date de la facture la plus ancienne du tenant
+  let dateMin = dateMinParam
+  if (!dateMin) {
+    const { data: oldest } = await supabase
+      .from('factures')
+      .select('date_emission')
+      .eq('organisation_id', orgId)
+      .not('date_emission', 'is', null)
+      .order('date_emission', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    dateMin = (oldest as { date_emission: string } | null)?.date_emission ?? '2020-01-01'
+  }
+  console.log(`[bodacc-sync] onboarding org=${orgId} depuis ${dateMin}`)
+
+  const { data: clients } = await supabase
+    .from('clients')
+    .select('code_dso, siret, organisation_id')
+    .eq('organisation_id', orgId)
+    .not('siret', 'is', null)
+    .neq('siret', '')
+
+  const rows = (clients ?? []) as ClientRow[]
+  console.log(`[bodacc-sync] onboarding : ${rows.length} clients avec SIRET`)
+
+  let nbInsérées = 0
+  const erreursLog: string[] = []
+
+  for (const client of rows) {
+    const siren      = siretToSiren(client.siret)
+    const sirenSpace = sirenAvecEspaces(siren)
+    const filtre     = `familleavis="collective" AND (registre="${siren}" OR registre="${sirenSpace}")`
+
+    const records = await fetchAllBodacc(`${filtre} AND dateparution>="${dateMin}"`)
+    await sleep(250)
+
+    const alertes = construireAlertes(records, [client])
+    if (!alertes.length) continue
+
+    const { error } = await supabase
+      .from('alertes_risque')
+      .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+    if (error) {
+      erreursLog.push(`${client.code_dso}: ${error.message}`)
+    } else {
+      nbInsérées += alertes.length
+    }
+  }
+
+  const nbStatuts = await mettreAJourStatuts(supabase)
+
+  return { mode: 'onboarding', org_id: orgId, date_min: dateMin, clients_traités: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts, erreurs: erreursLog }
+}
+
+// ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
-    // Paramètres optionnels du body :
-    //   date_min      : "2020-01-01"     — fenêtre historique (défaut 90j)
-    //   code_clients  : ["61538"]        — cibler des clients spécifiques
-    //   offset_clients: 0                — pagination manuelle (écrase la rotation auto)
-    //   limit_clients : 200              — taille du lot (défaut 200)
-    //
-    // Sans body (appel cron) : rotation dynamique
-    //   Compte d'abord le total réel → calcule le nombre de lots → choisit le lot du jour
-    //   Fonctionne pour 200 ou 200 000 clients, mono ou multi-tenant
-    let dateMin       = dateMin90j()
-    let codeCibles:   string[] = []
-    let offsetClients = -1   // -1 = calculer dynamiquement
-    let limitClients  = 200
+    let orgId: string | null    = null
+    let dateMin: string | null  = null
     try {
       const body = await req.json() as Record<string, unknown>
+      if (typeof body?.org_id === 'string')   orgId   = body.org_id
       if (typeof body?.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min)) {
         dateMin = body.date_min
       }
-      if (Array.isArray(body?.code_clients)) {
-        codeCibles = (body.code_clients as unknown[]).map(String)
-      }
-      if (typeof body?.offset_clients === 'number') offsetClients = body.offset_clients
-      if (typeof body?.limit_clients  === 'number') limitClients  = body.limit_clients
-    } catch { /* body vide → rotation dynamique */ }
+    } catch { /* body vide = mode quotidien */ }
 
-    // Rotation automatique : compte le total réel et choisit le bon lot de la tranche
-    // Tranche = fenêtre de 3h → 8 passes/jour, chaque lot différent
-    // Couverture complète : nbLots × 3h (ex: 10 lots = 30h pour 2000 clients)
-    if (offsetClients === -1 && codeCibles.length === 0) {
-      const { count } = await supabase
-        .from('clients')
-        .select('*', { count: 'exact', head: true })
-        .not('siret', 'is', null)
-        .neq('siret', '')
-      const total        = count ?? 0
-      const nbLots       = Math.max(1, Math.ceil(total / limitClients))
-      const trancheHeures = 3   // durée d'une tranche en heures (= intervalle du cron)
-      const slotActuel   = Math.floor(Date.now() / (trancheHeures * 60 * 60 * 1000))
-      offsetClients      = (slotActuel % nbLots) * limitClients
-      console.log(`[bodacc-sync] rotation auto — ${total} clients, ${nbLots} lots, slot=${slotActuel % nbLots}, offset=${offsetClients}`)
-    }
+    const résumé = orgId
+      ? await scanOnboarding(supabase, orgId, dateMin)
+      : await scanQuotidien(supabase)
 
-    let query = supabase
-      .from('clients')
-      .select('code_dso, siret, organisation_id')
-      .not('siret', 'is', null)
-      .neq('siret', '')
-
-    if (codeCibles.length > 0) {
-      query = query.in('code_dso', codeCibles)
-    } else {
-      query = query.range(offsetClients, offsetClients + limitClients - 1)
-    }
-
-    const { data: clients, error: errClients } = await query
-    if (errClients) return json({ error: errClients.message }, 500)
-
-    const rows = (clients ?? []) as Array<{
-      code_dso: string
-      siret: string
-      organisation_id: string
-    }>
-
-    console.log(`[bodacc-sync] ${rows.length} clients — fenêtre ${dateMin} → aujourd'hui`)
-
-    let nbNouvelles = 0
-    const erreursLog: string[] = []
-
-    for (const client of rows) {
-      const siren      = siretToSiren(client.siret)
-      const sirenSpace = sirenAvecEspaces(siren)
-      const filtreRegistre = `registre="${siren}" OR registre="${sirenSpace}"`
-
-      const records = await queryBodacc(
-        `familleavis="collective" AND (${filtreRegistre})`,
-        dateMin,
-      )
-      await sleep(250)
-
-      const toutes = records
-        .map(r => ({
-          organisation_id: client.organisation_id,
-          code_client:     client.code_dso,
-          siret:           client.siret,
-          bodacc_id:       r.id,
-          famille:         'BODACC-A/B',
-          type_procedure:  classifierType(r),
-          tribunal:        r.tribunal ?? null,
-          date_jugement:   parseJugement(r.jugement)?.date ?? null,
-          date_parution:   r.dateparution ?? null,
-          description:     buildDescription(r),
-        }))
-        .filter(a => TYPES_SURVEILLÉS.includes(a.type_procedure))
-
-      if (!toutes.length) continue
-
-      const { error: errInsert } = await supabase
-        .from('alertes_risque')
-        .upsert(toutes, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
-
-      if (errInsert) {
-        erreursLog.push(`${client.code_dso}: ${errInsert.message}`)
-      } else {
-        nbNouvelles += toutes.length
-      }
-    }
-
-    // Mise à jour automatique de statut_juridique depuis toute la table alertes_risque
-    const nbStatutsMaj = await mettreAJourStatuts(supabase)
-
-    const résumé = {
-      clients_traités:   rows.length,
-      alertes_insérées:  nbNouvelles,
-      statuts_mis_a_jour: nbStatutsMaj,
-      erreurs:           erreursLog,
-    }
     console.log('[bodacc-sync] terminé :', résumé)
     return json(résumé)
 
