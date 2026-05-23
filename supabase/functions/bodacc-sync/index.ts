@@ -177,11 +177,22 @@ function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Recor
 
 // Lit toutes les alertes et met à jour statut_juridique (priorité : liquidation > redressement > sauvegarde > cloture)
 async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Promise<number> {
-  const { data: alertes } = await supabase
-    .from('alertes_risque')
-    .select('organisation_id, code_client, type_procedure')
+  // Pagination pour dépasser la limite PostgREST de 1000 lignes
+  const alertes: Array<{ organisation_id: string; code_client: string; type_procedure: string }> = []
+  const PAGE = 1000
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('alertes_risque')
+      .select('organisation_id, code_client, type_procedure')
+      .range(offset, offset + PAGE - 1)
+    if (error || !data?.length) break
+    alertes.push(...(data as typeof alertes))
+    if (data.length < PAGE) break
+    offset += PAGE
+  }
 
-  if (!alertes?.length) return 0
+  if (!alertes.length) return 0
 
   const parClient: Record<string, { org: string; code: string; type: string }> = {}
   for (const a of alertes as Array<{ organisation_id: string; code_client: string; type_procedure: string }>) {
@@ -270,14 +281,23 @@ async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: 
   }
   console.log(`[bodacc-sync] onboarding org=${orgId} depuis ${dateMin}`)
 
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('code_dso, siret, organisation_id')
-    .eq('organisation_id', orgId)
-    .not('siret', 'is', null)
-    .neq('siret', '')
-
-  const rows = (clients ?? []) as ClientRow[]
+  // Pagination pour dépasser la limite PostgREST de 1000 lignes
+  const rows: ClientRow[] = []
+  const PAGE = 1000
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('clients')
+      .select('code_dso, siret, organisation_id')
+      .eq('organisation_id', orgId)
+      .not('siret', 'is', null)
+      .neq('siret', '')
+      .range(offset, offset + PAGE - 1)
+    if (error || !data?.length) break
+    rows.push(...(data as ClientRow[]))
+    if (data.length < PAGE) break
+    offset += PAGE
+  }
   console.log(`[bodacc-sync] onboarding : ${rows.length} clients avec SIRET`)
 
   let nbInsérées = 0
