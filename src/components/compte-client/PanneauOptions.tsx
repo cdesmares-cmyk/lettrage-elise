@@ -341,7 +341,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
                 <div className="w-full h-2 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
                   <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${client.note_risque}%` }} />
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">0,40 × ancienneté + 0,35 × encours + 0,25 × nb impayées (normalisés)</p>
+                <p className="text-[10px] text-gray-400 mt-1">Calculé chaque matin — retard, tendance, % échu, BODACC</p>
               </div>
             </div>
           </div>
