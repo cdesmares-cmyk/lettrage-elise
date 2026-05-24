@@ -4,6 +4,7 @@ import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { supabase } from '../../lib/supabase'
+import { useRole } from '../../contexts/RoleContext'
 
 type Onglet = 'infos' | 'contacts' | 'relances'
 
@@ -90,6 +91,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const { valeurs: commerciaux, ajouter: ajouterCommercial } = useRefValeurs('commercial')
   const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
+  const { peutModifier } = useRole()
 
   const [statut, setStatut] = useState<StatutJuridique | ''>('')
   const [commercial, setCommercial] = useState('')
@@ -97,6 +99,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [plateforme, setPlateforme] = useState('')
   const [groupement, setGroupement] = useState('')
   const [siret, setSiret] = useState('')
+  const [delaiAlerte, setDelaiAlerte] = useState<string>('')
   const [enregistrement, setEnregistrement] = useState(false)
   const [onglet, setOnglet] = useState<Onglet>('infos')
   const [notesRelances, setNotesRelances] = useState<NoteRelance[]>([])
@@ -110,6 +113,13 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
       setSiret(client.siret ?? '')
+      setDelaiAlerte('')
+      // Charge le seuil alerte client si défini
+      supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
+        .maybeSingle().then(({ data }) => {
+          const row = data as { delai_alerte_jours: number | null } | null
+          setDelaiAlerte(row?.delai_alerte_jours != null ? String(row.delai_alerte_jours) : '')
+        })
     }
   }, [client])
 
@@ -194,6 +204,49 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
           {onglet === 'contacts' && <SectionContacts codeClient={client.code_dso} />}
           {onglet === 'relances' && (
             <div className="space-y-3">
+              {/* Seuil alerte — override discret, admin + responsable uniquement */}
+              {peutModifier && (
+                <div className="pb-3 border-b border-gray-100">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                    Seuil alerte <span className="normal-case font-normal text-gray-300">(jours après échéance)</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={180}
+                      value={delaiAlerte}
+                      onChange={e => setDelaiAlerte(e.target.value)}
+                      placeholder="Défaut org"
+                      className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal"
+                    />
+                    {delaiAlerte && (
+                      <button
+                        onClick={async () => {
+                          const val = parseInt(delaiAlerte)
+                          await supabase.from('clients').update({ delai_alerte_jours: isNaN(val) ? null : val } as never).eq('code_dso', client!.code_dso)
+                          setDelaiAlerte(isNaN(val) ? '' : String(val))
+                        }}
+                        className="text-[11px] font-medium text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 transition-colors"
+                      >
+                        Appliquer
+                      </button>
+                    )}
+                    {delaiAlerte && (
+                      <button
+                        onClick={async () => {
+                          await supabase.from('clients').update({ delai_alerte_jours: null } as never).eq('code_dso', client!.code_dso)
+                          setDelaiAlerte('')
+                        }}
+                        className="text-[11px] text-gray-400 hover:text-gray-600"
+                      >
+                        Réinitialiser
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-gray-300 mt-1">Laissez vide pour utiliser le seuil de l'organisation.</p>
+                </div>
+              )}
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notes archivées — {client.nom}</p>
               {notesChargement ? (
                 <p className="text-xs text-gray-400">Chargement…</p>

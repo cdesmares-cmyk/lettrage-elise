@@ -9,8 +9,9 @@ import { ModalCorrectionLettrage } from './ModalCorrectionLettrage'
 import { ModalApiAxonaut } from './ModalApiAxonaut'
 import { ModalReinitialisation } from './ModalReinitialisation'
 import { ModalVeilleBodacc } from './ModalVeilleBodacc'
+import { ModalAlertesParametres } from './ModalAlertesParametres'
 
-type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'reset'
+type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'alertes' | 'reset'
 
 function getInitiales(email: string): string {
   const nom = email.split('@')[0]
@@ -110,7 +111,10 @@ export function MenuAdmin() {
               <Item label="Veille BODACC" icon="📡" onClick={() => ouvrir('bodacc')} separator />
             )}
             {isAdmin && (
-              <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger />
+              <Item label="Alertes & Scoring" icon="🎯" onClick={() => ouvrir('alertes')} />
+            )}
+            {isAdmin && (
+              <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger separator />
             )}
             <Item label="Déconnexion" icon="⏻" onClick={() => supabase.auth.signOut()} separator />
           </div>
@@ -124,6 +128,7 @@ export function MenuAdmin() {
       {modal === 'lettrages'   && <ModalCorrectionLettrage  onClose={() => setModal(null)} />}
       {modal === 'axonaut'     && <ModalApiAxonaut           onClose={() => setModal(null)} />}
       {modal === 'bodacc'      && <ModalVeilleBodacc          onClose={() => setModal(null)} />}
+      {modal === 'alertes'     && <ModalAlertesParametres    onClose={() => setModal(null)} />}
       {modal === 'reset'       && <ModalReinitialisation     onClose={() => setModal(null)} />}
     </>
   )

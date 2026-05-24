@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useRelances } from '../hooks/useRelances'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useLeaderboard } from '../hooks/useLeaderboard'
@@ -9,12 +10,14 @@ import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
+import { DivAlertesScore } from '../components/relances/DivAlertesScore'
 import { useRole } from '../contexts/RoleContext'
 import type { CompteClient, FactureDetail } from '../types/client'
 
 export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
   const { isCommercial } = useRole()
+  const navigate = useNavigate()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
@@ -47,6 +50,14 @@ export function PageRelances() {
       {!isCommercial && (
         <KpisRelances relances={relances} filtreOp={filtreOp} kpis={kpis} />
       )}
+
+      {/* Alertes score client du jour */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Alertes risque client — aujourd'hui</p>
+        <DivAlertesScore
+          onOuvrirFiche={code => navigate(`/compte-client?client=${encodeURIComponent(code)}`)}
+        />
+      </div>
 
       {/* Tableau pleine largeur */}
       <div className="space-y-2">
