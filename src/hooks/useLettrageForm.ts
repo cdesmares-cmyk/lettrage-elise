@@ -102,6 +102,30 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
     if (!ligneActive || !peutValider()) return
     setChargement(true)
     try {
+      // Vérification live : s'assurer que le reste_du est encore suffisant en base
+      // (protection contre le double-lettrage si un autre user a lettrée entre-temps)
+      const factureLignes = lignesForme.filter(l =>
+        (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') && l.numero_facture
+      )
+      if (factureLignes.length > 0) {
+        const { data: freshData } = await supabase
+          .from('v_factures_avec_reste_du')
+          .select('numero_piece, reste_du')
+          .in('numero_piece', factureLignes.map(l => l.numero_facture.trim()))
+        const freshMap = new Map(
+          ((freshData as { numero_piece: string; reste_du: number }[]) ?? []).map(r => [r.numero_piece, r.reste_du])
+        )
+        for (const l of factureLignes) {
+          const resteDuLive = freshMap.get(l.numero_facture.trim()) ?? 0
+          const montant = parseFloat(l.montant) || 0
+          if (resteDuLive < montant - 0.005) {
+            toast.error(`Facture ${l.numero_facture} : solde insuffisant (${resteDuLive.toFixed(2)} € restant). Elle a peut-être déjà été lettrée.`)
+            setChargement(false)
+            return
+          }
+        }
+      }
+
       const today = new Date().toISOString().split('T')[0]
       // Pour les lignes "Autres" sans montant : utiliser le restant après les factures
       const montantFactures = Math.round(

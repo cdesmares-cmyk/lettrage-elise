@@ -71,50 +71,35 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   ) {
     setChargement(true)
     try {
-      const { data: rd, error: re } = await supabase
-        .from('remises')
-        .insert({
-          type, numero,
-          montant_total: type === 'lcr' ? montantLcr : null,
-          statut: 'en_attente',
-          cree_par: utilisateur?.id ?? null,
-          operateur: utilisateur?.email?.split('@')[0] ?? null,
-        } as never)
-        .select('id').single()
-      if (re) throw re
-      const remise = rd as unknown as { id: string }
-
-      const today = new Date().toISOString().split('T')[0]
-      const inserts = lignes.map(l => ({
-        id_ligne_bancaire: null,
-        remise_id: remise.id,
+      const lignesJson = lignes.map(l => ({
         numero_facture: l.numero_facture.trim(),
         code_client: l.info_facture?.code_client ?? '',
         montant: Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
-        mode: 'manuel',
-        commentaire: `Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero}`,
-        cree_par: utilisateur?.id ?? null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
-      const { error: le } = await supabase.from('lettrages').insert(inserts as never)
-      if (le) {
-        await supabase.from('remises').delete().eq('id', remise.id)
-        throw le
-      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: remiseId, error } = await (supabase.rpc as any)('creer_remise_atomique', {
+        p_type:          type,
+        p_numero:        numero,
+        p_montant_total: type === 'lcr' ? montantLcr : null,
+        p_cree_par:      utilisateur?.id ?? null,
+        p_operateur:     utilisateur?.email?.split('@')[0] ?? null,
+        p_lignes:        lignesJson,
+      })
+      if (error) throw error
 
       const newRemise: Remise = {
-        id: remise.id, type, numero,
+        id: remiseId as string, type, numero,
         montant_total: type === 'lcr' ? montantLcr : null,
         statut: 'en_attente', id_ligne_bancaire: null, date_encaissement: null,
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
         created_at: new Date().toISOString(),
-        lignes: inserts.map(i => ({ id: '', numero_facture: i.numero_facture, code_client: i.code_client, montant: i.montant })),
+        lignes: lignesJson.map(i => ({ id: '', numero_facture: i.numero_facture, code_client: i.code_client, montant: i.montant })),
       }
       setRemises(prev => [newRemise, ...prev])
       toast.success(`Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero} créée.`)
-      onSuccessCallback?.({ numerosLettres: inserts.map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })) })
+      onSuccessCallback?.({ numerosLettres: lignesJson.map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })) })
     } catch (err) {
       console.error('[useRemises]', err)
       toast.error(errMsg(err, 'Erreur lors de la création.'))

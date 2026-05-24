@@ -168,6 +168,19 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     else { setClients([]); setFacturesActives([]); setMoisMaxFactures(''); setCa12Mois(0); setChargement(false) }
   }, [session, rafraichir])
 
+  // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
+  // Maintient les données à jour pour les équipes multi-utilisateurs sans Realtime
+  useEffect(() => {
+    if (!session) return
+    const timer = setInterval(() => { rafraichir() }, 60_000)
+    const onFocus = () => { rafraichir() }
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [session, rafraichir])
+
   function mettreAJourStatutLocal(numeroPiece: string, statut: StatutFacture | null) {
     setFacturesActives(prev => prev.map(f =>
       f.numero_piece === numeroPiece ? { ...f, statut_facture: statut } : f
