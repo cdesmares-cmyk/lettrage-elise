@@ -205,8 +205,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             onClick={e => { e.stopPropagation(); onRelancer(c) }}
                             className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
                               recente
-                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100 hover:border-emerald-400'
-                                : 'text-ockham-teal border-ockham-teal/40 bg-ockham-teal-muted hover:bg-ockham-teal/10 hover:border-ockham-teal'
+                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
                             }`}
                             title={recente ? `Relancé il y a moins de 30 jours` : undefined}
                           >
@@ -216,7 +216,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       })()}
                       <button
                         onClick={e => { e.stopPropagation(); onOptions(c) }}
-                        className="text-[10px] font-semibold text-gray-500 border border-gray-200 px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-all"
+                        className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
                       >
                         ⚙ Options
                       </button>
@@ -226,8 +226,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
                 {estOuvert && (
                   <tr key={`${c.code_dso}-fac`}>
-                    <td colSpan={10} className="px-0 py-0 border-b-2 border-ockham-teal/20">
-                      <div className="px-4 py-3 bg-ockham-teal-muted/60">
+                    <td colSpan={10} className="px-0 py-0 border-b border-gray-100">
+                      <div className="bg-gray-50 border-l-2 border-ockham-teal ml-0 overflow-hidden">
                         {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
                           // Toutes les factures sont réglées — pas d'impayée en mémoire
                           <div className="py-3 text-center">

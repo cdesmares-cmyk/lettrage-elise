@@ -131,7 +131,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
     <>
       <table className="w-full text-xs">
         <thead>
-          <tr className={`border-b border-gray-100 ${compact ? 'bg-ockham-teal-muted' : 'bg-gray-50'}`}>
+          <tr className="bg-white border-b border-gray-200">
             {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
             {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
             {compact
@@ -169,7 +169,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-ockham-teal font-bold' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
             const isAvoir = f.est_avoir || f.montant_ttc < 0
             return (
-              <tr key={f.numero_piece} className={`border border-gray-100 rounded-lg transition-colors ${estCompte ? 'bg-ockham-teal-muted/60 hover:bg-ockham-teal-muted' : 'hover:bg-gray-50'}`}>
+              <tr key={f.numero_piece} className={`border-b border-gray-50 transition-colors ${estCompte ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70' : 'bg-white hover:bg-slate-50'}`}>
                 {!compact && (
                   <td className="px-3 py-2">
                     <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>
