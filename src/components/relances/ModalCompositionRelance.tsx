@@ -39,19 +39,19 @@ function buildHtml(factures: FactureLigne[], signature: string | null): string {
     const retardLabel = retard === null ? '—' : retard <= 0 ? '—' : `<span style="color:#dc2626;font-weight:600;">${retard}j</span>`
     return `
     <tr>
-      <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;border-left:3px solid #4CC5BB;">
+      <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;border-left:1px solid #e2e8f0;">
         ${f.pdfUrl
-          ? `<a href="${f.pdfUrl}" style="font-family:monospace;font-weight:600;color:#4CC5BB;text-decoration:none;">${f.numero}</a>`
+          ? `<a href="${f.pdfUrl}" style="font-family:monospace;font-weight:600;color:#374151;text-decoration:underline;">${f.numero}</a>`
           : `<span style="font-family:monospace;font-weight:600;color:#374151;">${f.numero}</span>`}
       </td>
       <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;text-align:right;color:#374151;white-space:nowrap;">${fmtEurosEmail(f.montantTtc)}</td>
       <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;text-align:right;font-weight:600;color:#374151;white-space:nowrap;">${fmtEurosEmail(f.restedu)}</td>
-      <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;text-align:center;">${retardLabel}</td>
+      <td style="padding:8px 14px;border-bottom:1px solid #edf1f5;text-align:center;border-right:1px solid #e2e8f0;">${retardLabel}</td>
     </tr>`
   }).join('')
 
   const table = `
-    <table style="width:100%;border-collapse:collapse;border:1px solid #e8ecef;border-radius:10px;overflow:hidden;margin:20px 0;box-shadow:0 1px 4px rgba(14,26,43,0.06);">
+    <table style="width:100%;border-collapse:collapse;margin:20px 0;box-shadow:0 1px 4px rgba(14,26,43,0.06);">
       <thead>
         <tr style="background:linear-gradient(135deg,#0E1A2B 0%,#1a2d44 100%);">
           <th style="padding:9px 14px;text-align:left;font-size:11px;color:#4CC5BB;font-weight:700;text-transform:uppercase;letter-spacing:.07em;">Facture</th>
@@ -62,11 +62,11 @@ function buildHtml(factures: FactureLigne[], signature: string | null): string {
       </thead>
       <tbody>
         ${rows}
-        <tr style="background:#f8fafc;border-top:2px solid #0E1A2B;">
-          <td style="padding:8px 14px;font-weight:700;color:#0E1A2B;font-size:13px;border-left:3px solid #4CC5BB;">Total</td>
-          <td style="padding:8px 14px;text-align:right;font-weight:700;color:#0E1A2B;white-space:nowrap;font-size:13px;">${fmtEurosEmail(totalTtc)}</td>
-          <td style="padding:8px 14px;text-align:right;font-weight:700;color:#dc2626;white-space:nowrap;font-size:13px;">${fmtEurosEmail(totalReste)}</td>
-          <td></td>
+        <tr style="background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <td style="padding:9px 14px;font-weight:700;color:#0E1A2B;font-size:13px;border-left:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;">Total</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:700;color:#0E1A2B;white-space:nowrap;font-size:13px;border-bottom:1px solid #e2e8f0;">${fmtEurosEmail(totalTtc)}</td>
+          <td style="padding:9px 14px;text-align:right;font-weight:700;color:#dc2626;white-space:nowrap;font-size:13px;border-bottom:1px solid #e2e8f0;">${fmtEurosEmail(totalReste)}</td>
+          <td style="border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;"></td>
         </tr>
       </tbody>
     </table>`
