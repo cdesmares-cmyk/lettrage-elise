@@ -4,14 +4,13 @@ import { useRelances } from '../hooks/useRelances'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
-import { KpisRelances } from '../components/relances/KpisRelances'
+import { BarreKpisRelances } from '../components/relances/BarreKpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { DivAlertesScore } from '../components/relances/DivAlertesScore'
-import { PipelineRelances } from '../components/relances/PipelineRelances'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
 import type { CompteClient, FactureDetail } from '../types/client'
@@ -50,16 +49,8 @@ export function PageRelances() {
         </div>
       </div>
 
-      {/* KPIs manager (hors commerciaux) */}
-      {!isCommercial && (
-        <KpisRelances relances={relances} filtreOp={filtreOp} kpis={kpis} />
-      )}
-
-      {/* Pipeline visuel */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Pipeline du mois</p>
-        <PipelineRelances relances={relances} filtreOp={filtreOp} />
-      </div>
+      {/* KPIs unifiés : Total € + pipeline */}
+      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} />
 
       {/* Alertes risque — strip horizontal */}
       <div className="space-y-2">
