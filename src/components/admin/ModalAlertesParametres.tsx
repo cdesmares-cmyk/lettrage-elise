@@ -15,7 +15,7 @@ interface UserRow {
 }
 
 export function ModalAlertesParametres({ onClose }: Props) {
-  const { profil } = useAuth()
+  const { profil, utilisateur } = useAuth()
   const [delai, setDelai]   = useState(25)
   const [snooze, setSnooze] = useState(20)
   const [users, setUsers]   = useState<UserRow[]>([])
@@ -43,7 +43,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
       .then(({ data }) => { if (data) setUsers(data as UserRow[]) })
   }, [profil?.organisation_id])
 
-  const moiMeme = users.find(u => u.id === profil?.id)
+  const moiMeme = users.find(u => u.id === utilisateur?.id)
 
   async function sauvegarder() {
     if (!profil?.organisation_id) return
@@ -71,7 +71,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, recoit_digest_alertes: valeur } : u))
   }
 
-  const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== profil?.id)
+  const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== utilisateur?.id)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
