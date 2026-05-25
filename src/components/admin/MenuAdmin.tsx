@@ -110,7 +110,7 @@ export function MenuAdmin() {
             {isAdmin && (
               <Item label="Veille BODACC" icon="📡" onClick={() => ouvrir('bodacc')} separator />
             )}
-            {isAdmin && (
+            {peutModifier && (
               <Item label="Alertes & Scoring" icon="🎯" onClick={() => ouvrir('alertes')} />
             )}
             {isAdmin && (

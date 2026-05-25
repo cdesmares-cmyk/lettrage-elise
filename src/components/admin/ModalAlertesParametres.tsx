@@ -43,6 +43,8 @@ export function ModalAlertesParametres({ onClose }: Props) {
       .then(({ data }) => { if (data) setUsers(data as UserRow[]) })
   }, [profil?.organisation_id])
 
+  const moiMeme = users.find(u => u.id === profil?.id)
+
   async function sauvegarder() {
     if (!profil?.organisation_id) return
     setSauvegarde(true)
@@ -69,7 +71,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, recoit_digest_alertes: valeur } : u))
   }
 
-  const commerciaux = users.filter(u => u.role === 'commercial')
+  const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== profil?.id)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -82,6 +84,30 @@ export function ModalAlertesParametres({ onClose }: Props) {
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
         </div>
+
+        {/* Abonnement personnel */}
+        {moiMeme && (
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Mes notifications
+            </label>
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+              <div>
+                <p className="text-sm text-gray-700">Recevoir le digest email quotidien</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Récapitulatif des alertes envoyé chaque matin à 7h30</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                <input
+                  type="checkbox"
+                  checked={moiMeme.recoit_digest_alertes}
+                  onChange={e => toggleDigest(moiMeme.id, e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+              </label>
+            </div>
+          </div>
+        )}
 
         {/* Délai alerte */}
         <div>
