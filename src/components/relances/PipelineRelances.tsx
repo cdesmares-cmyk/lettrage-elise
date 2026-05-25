@@ -9,10 +9,10 @@ function fmtMontant(n: number) {
 }
 
 const ETAPES = [
-  { statut: 'envoyee',           label: 'Envoyée',         dotCls: 'bg-slate-400',   numCls: 'text-gray-800',    topColor: '#94A3B8' },
-  { statut: 'repondue',          label: 'Contact établi',  dotCls: 'bg-sky-400',     numCls: 'text-sky-700',     topColor: '#38BDF8' },
-  { statut: 'promesse_paiement', label: 'Promesse',        dotCls: 'bg-amber-400',   numCls: 'text-amber-700',   topColor: '#FBBF24' },
-  { statut: 'payee',             label: 'Payée',           dotCls: 'bg-emerald-500', numCls: 'text-emerald-700', topColor: '#10B981' },
+  { statut: 'envoyee',           label: 'Envoyée',        dotCls: 'bg-slate-400',   numCls: 'text-gray-800'    },
+  { statut: 'repondue',          label: 'Contact établi', dotCls: 'bg-sky-400',     numCls: 'text-sky-700'     },
+  { statut: 'promesse_paiement', label: 'Promesse',       dotCls: 'bg-amber-400',   numCls: 'text-amber-700'   },
+  { statut: 'payee',             label: 'Payée',          dotCls: 'bg-emerald-500', numCls: 'text-emerald-700' },
 ] as const
 
 interface Props {
@@ -42,16 +42,12 @@ export function PipelineRelances({ relances, filtreOp }: Props) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
       {stats.map((e, i) => (
-        <div
-          key={e.statut}
-          className={`px-5 py-4 flex flex-col gap-2 ${i < 3 ? 'border-r border-gray-100' : ''}`}
-          style={{ borderTop: `3px solid ${e.topColor}` }}
-        >
+        <div key={e.statut} className={`px-5 py-4 flex flex-col gap-2 ${i < 3 ? 'border-r border-gray-100' : ''}`}>
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${e.dotCls}`} />
             <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{e.label}</span>
           </div>
-          <p className={`text-3xl font-extrabold tabular-nums leading-none ${e.numCls}`}>{e.nb}</p>
+          <p className={`text-[26px] font-extrabold tabular-nums leading-none ${e.numCls}`}>{e.nb}</p>
           <p className="text-[11px] text-gray-400 tabular-nums">{fmtMontant(e.montant)}</p>
         </div>
       ))}

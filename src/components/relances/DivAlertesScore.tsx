@@ -89,11 +89,16 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
 
   return (
     <>
-      <div className="relative">
-        {/* Strip horizontal scroll */}
+      <div className="flex items-stretch gap-3">
+
+        {/* Hitbox scroll vertical — 3 alertes visibles */}
         <div
-          className="flex gap-3 overflow-x-auto pb-2"
-          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+          className="flex-1 overflow-y-auto space-y-2"
+          style={{
+            height: 276,
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+          }}
         >
           {alertes.map((a, i) => {
             const cls = cardClasses(a.score_risque)
@@ -101,40 +106,35 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
               <div
                 key={a.id}
                 onClick={() => peutModifier && handleRelancer(a.code_client)}
-                className={`flex-shrink-0 border rounded-xl p-3.5 transition-all select-none ${cls.border} ${cls.bg} ${peutModifier ? 'cursor-pointer hover:shadow-sm' : ''}`}
-                style={{ scrollSnapAlign: 'start', width: 200 }}
+                className={`flex items-center gap-4 border rounded-xl px-4 py-3 transition-all select-none ${cls.border} ${cls.bg} ${peutModifier ? 'cursor-pointer hover:shadow-sm' : ''}`}
               >
-                {/* Header : rang + badge */}
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-[10px] font-bold text-gray-300">#{i + 1}</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls.badge}`}>
-                    {a.score_risque} — {cls.label}
-                  </span>
+                {/* Rang */}
+                <span className="text-[10px] font-bold text-gray-300 w-4 flex-shrink-0 text-center">#{i + 1}</span>
+
+                {/* Identité client */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900 truncate">{a.nom_client ?? a.code_client}</p>
+                  <p className="text-[10px] font-mono text-gray-400">{a.code_client}</p>
                 </div>
 
-                {/* Nom client */}
-                <p className="text-sm font-bold text-gray-900 truncate leading-tight">{a.nom_client ?? a.code_client}</p>
-                <p className="text-[10px] font-mono text-gray-400 mt-0.5">{a.code_client}</p>
+                {/* Badge risque */}
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${cls.badge}`}>
+                  {a.score_risque} — {cls.label}
+                </span>
 
                 {/* Métriques */}
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-gray-400">Encours</span>
-                    <span className="text-[11px] font-bold text-gray-800 tabular-nums">{formatEuros(a.encours_ttc)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-gray-400">Retard max</span>
-                    <span className={`text-[11px] font-bold tabular-nums ${a.retard_max_jours > 90 ? 'text-red-600' : a.retard_max_jours > 60 ? 'text-amber-600' : 'text-gray-600'}`}>
-                      {a.retard_max_jours}j
-                    </span>
-                  </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[12px] font-bold text-gray-800 tabular-nums">{formatEuros(a.encours_ttc)}</p>
+                  <p className={`text-[10px] font-semibold tabular-nums ${a.retard_max_jours > 90 ? 'text-red-500' : a.retard_max_jours > 60 ? 'text-amber-500' : 'text-gray-400'}`}>
+                    {a.retard_max_jours}j retard
+                  </p>
                 </div>
 
-                {/* Actions secondaires */}
-                <div className="mt-3 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                {/* Actions — stopPropagation pour ne pas déclencher le relancer */}
+                <div className="flex items-center gap-1.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => onOuvrirFiche(a.code_client)}
-                    className="flex-1 text-[10px] font-semibold text-ockham-teal border border-ockham-teal/30 bg-white hover:bg-ockham-teal-muted px-2 py-1 rounded-lg transition-colors"
+                    className="text-[10px] font-semibold text-ockham-teal border border-ockham-teal/30 bg-white hover:bg-ockham-teal-muted px-2.5 py-1 rounded-lg transition-colors"
                   >
                     Voir fiche
                   </button>
@@ -151,18 +151,23 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
               </div>
             )
           })}
-
-          {/* Sentinelle de fin pour indiquer qu'il y en a d'autres */}
-          {alertes.length > 5 && (
-            <div className="flex-shrink-0 flex items-center justify-center text-[11px] font-semibold text-gray-300 pr-2" style={{ width: 40 }}>
-              ›
-            </div>
-          )}
         </div>
 
-        {/* Compteur */}
-        <p className="text-[10px] text-gray-400 mt-1">{alertes.length} alerte{alertes.length > 1 ? 's' : ''} aujourd'hui · cliquer pour relancer</p>
+        {/* Indicateur scroll — 3 dots verticaux */}
+        {alertes.length > 3 && (
+          <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 w-3">
+            <span className="block w-1 h-1 rounded-full bg-gray-300" />
+            <span className="block w-2 h-2 rounded-full bg-gray-400" />
+            <span className="block w-1 h-1 rounded-full bg-gray-300" />
+          </div>
+        )}
       </div>
+
+      <p className="text-[10px] text-gray-400 mt-1.5">
+        {alertes.length} alerte{alertes.length > 1 ? 's' : ''} aujourd'hui
+        {peutModifier && ' · cliquer pour relancer'}
+        {alertes.length > 3 && ' · défiler pour voir toutes les alertes'}
+      </p>
 
       <ModalCompositionRelance
         client={clientRelance}
