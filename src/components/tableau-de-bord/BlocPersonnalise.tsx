@@ -1,6 +1,8 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { useDashboard } from '../../hooks/useDashboard'
 import { NumeroPiece } from '../NumeroPiece'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../contexts/AuthContext'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -8,14 +10,15 @@ const _fmtEuro = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maxi
 function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 
 const LS_KEY = 'dashboard_widgets_v1'
-const TOUS_WIDGETS = ['surveiller', 'avoirs', 'concentration', 'annotees'] as const
+const TOUS_WIDGETS = ['surveiller', 'avoirs', 'concentration', 'annotees', 'bodacc'] as const
 type WidgetId = typeof TOUS_WIDGETS[number]
 
 const WIDGET_META: Record<WidgetId, { label: string; description: string }> = {
-  surveiller:    { label: 'Clients à surveiller', description: '3+ impayées échues'  },
-  avoirs:        { label: 'Avoirs ouverts',        description: 'Avoirs non soldés'   },
-  concentration: { label: 'Concentration',         description: 'Part des top 3 clients' },
-  annotees:      { label: 'Factures annotées',     description: 'Litige & Provisionné' },
+  surveiller:    { label: 'Clients à surveiller', description: '3+ impayées échues'       },
+  avoirs:        { label: 'Avoirs ouverts',        description: 'Avoirs non soldés'        },
+  concentration: { label: 'Concentration',         description: 'Part des top 3 clients'  },
+  annotees:      { label: 'Factures annotées',     description: 'Litige & Provisionné'    },
+  bodacc:        { label: 'Alertes BODACC',        description: 'Parutions du mois en cours' },
 }
 
 function readPrefs(): WidgetId[] {
@@ -140,6 +143,92 @@ function WidgetAnnotees({ factures }: Props) {
   )
 }
 
+interface AlerteBodacc {
+  id: string
+  code_client: string
+  type_procedure: string
+  famille: string
+  date_jugement: string | null
+  date_parution: string | null
+}
+
+const BADGE_BODACC: Record<string, { bg: string; text: string; label: string }> = {
+  liquidation:  { bg: 'bg-red-100',    text: 'text-red-700',    label: 'Liquidation'  },
+  redressement: { bg: 'bg-orange-100', text: 'text-orange-700', label: 'Redressement' },
+  sauvegarde:   { bg: 'bg-amber-100',  text: 'text-amber-700',  label: 'Sauvegarde'   },
+  radiation:    { bg: 'bg-gray-100',   text: 'text-gray-600',   label: 'Radiation'    },
+  cloture:      { bg: 'bg-gray-100',   text: 'text-gray-500',   label: 'Clôture'      },
+}
+
+function badgeBodacc(type: string) {
+  return BADGE_BODACC[type] ?? { bg: 'bg-gray-100', text: 'text-gray-600', label: type }
+}
+
+function WidgetBodacc({ clients }: Props) {
+  const { profil } = useAuth()
+  const [alertes, setAlertes] = useState<AlerteBodacc[]>([])
+  const [chargement, setChargement] = useState(false)
+
+  const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
+
+  useEffect(() => {
+    if (!profil?.organisation_id) return
+    setChargement(true)
+    const debut = new Date()
+    debut.setDate(1)
+    const debutStr = debut.toISOString().split('T')[0]
+    supabase
+      .from('alertes_risque')
+      .select('id, code_client, type_procedure, famille, date_jugement, date_parution')
+      .eq('organisation_id', profil.organisation_id)
+      .gte('date_parution', debutStr)
+      .order('date_parution', { ascending: false })
+      .limit(10)
+      .then(({ data }) => { setAlertes((data ?? []) as AlerteBodacc[]); setChargement(false) })
+  }, [profil?.organisation_id])
+
+  if (chargement) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-gray-400">
+        <span className="w-3 h-3 border border-gray-300 border-t-transparent rounded-full animate-spin" />
+        Chargement…
+      </div>
+    )
+  }
+
+  if (!alertes.length) {
+    return <p className="text-xs text-gray-400 py-4 text-center">Aucune parution BODACC ce mois-ci.</p>
+  }
+
+  return (
+    <ul
+      className="divide-y divide-gray-50 -mx-4 overflow-y-auto"
+      style={{ maxHeight: 280, scrollbarWidth: 'none' }}
+    >
+      {alertes.map(a => {
+        const badge = badgeBodacc(a.type_procedure)
+        const nom = clientsMap.get(a.code_client)
+        return (
+          <li key={a.id} className="px-4 py-2.5 flex items-start gap-3">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5 ${badge.bg} ${badge.text}`}>
+              {badge.label}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-gray-800 truncate">{nom ?? a.code_client}</p>
+              <p className="text-[10px] font-mono text-gray-400">{a.code_client}</p>
+            </div>
+            {a.date_jugement && (
+              <span className="text-[10px] text-gray-400 flex-shrink-0 tabular-nums">
+                {new Date(a.date_jugement).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+              </span>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
 export function BlocPersonnalise(props: Props) {
   const [actifs, setActifs] = useState<WidgetId[]>(readPrefs)
   const [editMode, setEditMode] = useState(false)
@@ -157,6 +246,7 @@ export function BlocPersonnalise(props: Props) {
     avoirs:        <WidgetAvoirs {...props} />,
     concentration: <WidgetConcentration {...props} />,
     annotees:      <WidgetAnnotees {...props} />,
+    bodacc:        <WidgetBodacc {...props} />,
   }
 
   return (
@@ -202,7 +292,8 @@ export function BlocPersonnalise(props: Props) {
           actifs.length === 1 ? 'grid-cols-1'
           : actifs.length === 2 ? 'grid-cols-2'
           : actifs.length === 3 ? 'grid-cols-3'
-          : 'grid-cols-4'
+          : actifs.length === 4 ? 'grid-cols-4'
+          : 'grid-cols-5'
         }`}>
           {actifs.map(id => (
             <div key={id} className="bg-white p-4">

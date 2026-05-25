@@ -20,16 +20,19 @@ export function PageTableauDeBord() {
           <h1 className="text-xl font-bold text-gray-900">Tableau de bord</h1>
           <p className="text-sm text-gray-400 mt-0.5">Pilotage des encours — indicateurs clés</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {data.moisExclusLabel && (
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+            <label className="flex items-center gap-3 cursor-pointer select-none bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm hover:border-gray-300 transition-colors">
               <span className="text-xs text-gray-500">Exclure <span className="font-semibold text-gray-700">{data.moisExclusLabel}</span></span>
               <button
                 onClick={() => data.setExclureDernierMois(!data.exclureDernierMois)}
-                className={`relative w-8 h-4.5 rounded-full transition-colors ${data.exclureDernierMois ? 'bg-ockham-teal' : 'bg-gray-200'}`}
+                className={`relative rounded-full transition-colors overflow-hidden flex-shrink-0 ${data.exclureDernierMois ? 'bg-ockham-teal' : 'bg-gray-200'}`}
                 style={{ width: 32, height: 18 }}
               >
-                <span className={`absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-transform ${data.exclureDernierMois ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                <span
+                  className="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow transition-all duration-200"
+                  style={{ left: data.exclureDernierMois ? 14 : 2 }}
+                />
               </button>
             </label>
           )}

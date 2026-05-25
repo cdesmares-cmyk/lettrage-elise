@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom'
 import type { useDashboard, SeuilAnciennete } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
@@ -107,14 +106,9 @@ export function BlocKpis({
             {fmtNb(nbImpayeesEchues)}
           </span>
           <span className="text-[11px] text-gray-400 leading-snug">Échéance dépassée</span>
-          <div className="mt-auto flex items-center gap-2 pt-1">
-            {exclureDernierMois && moisExclusLabel && (
-              <span className="text-[10px] text-gray-400 truncate">Hors {moisExclusLabel}</span>
-            )}
-            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline ml-auto flex-shrink-0">
-              Voir →
-            </Link>
-          </div>
+          {exclureDernierMois && moisExclusLabel && (
+            <span className="text-[10px] text-gray-400 mt-auto">Hors {moisExclusLabel}</span>
+          )}
         </div>
 
         {/* Clients avec impayés */}
@@ -124,11 +118,6 @@ export function BlocKpis({
             {fmtNb(nbClientsEchus)}
           </span>
           <span className="text-[11px] text-gray-400 leading-snug">Clients distincts concernés</span>
-          <div className="mt-auto pt-1">
-            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline">
-              Voir →
-            </Link>
-          </div>
         </div>
 
         {/* Encours total */}
@@ -199,11 +188,6 @@ export function BlocKpis({
             {fmtEuro(montantCritique)}
           </span>
           <span className="text-[11px] text-gray-400">Retard supérieur à 90 jours</span>
-          <div className="mt-auto pt-1">
-            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline">
-              Voir →
-            </Link>
-          </div>
         </div>
 
       </div>
