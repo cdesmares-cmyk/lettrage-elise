@@ -4,7 +4,7 @@ import { useAppData } from '../../contexts/AppDataContext'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
 import { useCommentairesFactures } from '../../hooks/useCommentairesFactures'
 import { ModalCompositionRelance } from './ModalCompositionRelance'
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import type { CompteClient } from '../../types/client'
 
@@ -47,6 +47,15 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
   const { commentaires } = useCommentairesFactures()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [alerteCodeApresRelance, setAlerteCodeApresRelance] = useState<string | null>(null)
+  const [scrollRatio, setScrollRatio] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const max = el.scrollHeight - el.clientHeight
+    setScrollRatio(max > 0 ? el.scrollTop / max : 0)
+  }, [])
 
   function handleRelancer(codeClient: string) {
     const client = clients.find(c => c.code_dso === codeClient)
@@ -87,19 +96,31 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
     )
   }
 
+  const dotSize = (zone: 'top' | 'mid' | 'bot') => {
+    const active =
+      scrollRatio < 0.33 ? 'top' :
+      scrollRatio < 0.67 ? 'mid' : 'bot'
+    return active === zone
+      ? 'w-2 h-2 bg-gray-500'
+      : 'w-1 h-1 bg-gray-300'
+  }
+
   return (
     <>
-      <div className="flex items-stretch gap-3">
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-4">
+        <div className="flex items-stretch gap-3">
 
-        {/* Hitbox scroll vertical — 3 alertes visibles */}
-        <div
-          className="flex-1 overflow-y-auto space-y-2"
-          style={{
-            height: 276,
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-          }}
-        >
+          {/* Hitbox scroll vertical — 3 alertes visibles */}
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 overflow-y-auto space-y-2"
+            style={{
+              height: 276,
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+            }}
+          >
           {alertes.map((a, i) => {
             const cls = cardClasses(a.score_risque)
             return (
@@ -153,21 +174,22 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
           })}
         </div>
 
-        {/* Indicateur scroll — 3 dots verticaux */}
-        {alertes.length > 3 && (
-          <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 w-3">
-            <span className="block w-1 h-1 rounded-full bg-gray-300" />
-            <span className="block w-2 h-2 rounded-full bg-gray-400" />
-            <span className="block w-1 h-1 rounded-full bg-gray-300" />
-          </div>
-        )}
-      </div>
+          {/* Indicateur scroll — 3 dots animés */}
+          {alertes.length > 3 && (
+            <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 w-3">
+              <span className={`block rounded-full transition-all duration-300 ${dotSize('top')}`} />
+              <span className={`block rounded-full transition-all duration-300 ${dotSize('mid')}`} />
+              <span className={`block rounded-full transition-all duration-300 ${dotSize('bot')}`} />
+            </div>
+          )}
+        </div>
 
-      <p className="text-[10px] text-gray-400 mt-1.5">
-        {alertes.length} alerte{alertes.length > 1 ? 's' : ''} aujourd'hui
-        {peutModifier && ' · cliquer pour relancer'}
-        {alertes.length > 3 && ' · défiler pour voir toutes les alertes'}
-      </p>
+        <p className="text-[10px] text-gray-400 mt-3">
+          {alertes.length} alerte{alertes.length > 1 ? 's' : ''} aujourd'hui
+          {peutModifier && ' · cliquer pour relancer'}
+          {alertes.length > 3 && ' · défiler pour voir toutes les alertes'}
+        </p>
+      </div>
 
       <ModalCompositionRelance
         client={clientRelance}
