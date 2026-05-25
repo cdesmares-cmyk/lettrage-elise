@@ -5,13 +5,13 @@ import { useAppData } from '../../contexts/AppDataContext'
 import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { FactureDetail, CommentaireFacture } from '../../types/client'
 
-const STATUTS: { val: StatutRelance; label: string; cls: string }[] = [
-  { val: 'brouillon',          label: 'Brouillon',             cls: 'bg-gray-100 text-gray-500 border-gray-200' },
-  { val: 'envoyee',            label: 'Relance en cours',      cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-  { val: 'repondue',           label: 'Prise de contact',      cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { val: 'promesse_paiement',  label: 'Promesse de paiement',  cls: 'bg-indigo-50 text-indigo-700 border-indigo-200' },
-  { val: 'sans_reponse',       label: 'Sans réponse',          cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-  { val: 'payee',              label: 'Payée',                 cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+const STATUTS: { val: StatutRelance; label: string; cls: string; dot: string; menuCls: string }[] = [
+  { val: 'brouillon',          label: 'Brouillon',            cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-400',    menuCls: 'text-gray-600' },
+  { val: 'envoyee',            label: 'Relance en cours',     cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',    menuCls: 'text-blue-700' },
+  { val: 'repondue',           label: 'Prise de contact',     cls: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500',  menuCls: 'text-violet-700' },
+  { val: 'promesse_paiement',  label: 'Promesse de paiement', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',    dot: 'bg-indigo-500',  menuCls: 'text-indigo-700' },
+  { val: 'sans_reponse',       label: 'Sans réponse',         cls: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400',   menuCls: 'text-amber-700' },
+  { val: 'payee',              label: 'Payée',                cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', menuCls: 'text-emerald-700' },
 ]
 
 const STATUTS_ORDRE = ['envoyee', 'repondue', 'promesse_paiement', 'sans_reponse', 'payee']
@@ -34,9 +34,22 @@ const FILTRES_STATUT: { val: StatutRelance | 'tous'; label: string }[] = [
 
 type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'statut' | 'montant' | 'operateur'
 
-function badgeStatut(statut: StatutRelance) {
+function BadgeStatut({ statut, peutModifier, onClick }: { statut: StatutRelance; peutModifier: boolean; onClick: (e: React.MouseEvent) => void }) {
   const s = STATUTS.find(x => x.val === statut) ?? STATUTS[0]
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded border whitespace-nowrap ${s.cls}`}>{s.label}</span>
+  const hasTransitions = !!TRANSITIONS[statut]?.length
+  const interactive = peutModifier && hasTransitions
+  return (
+    <button
+      onClick={interactive ? onClick : undefined}
+      className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all ${s.cls} ${
+        interactive ? 'cursor-pointer hover:brightness-95 hover:shadow-sm' : 'cursor-default'
+      }`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
+      {s.label}
+      {interactive && <span className="opacity-40 text-[8px] ml-0.5">▾</span>}
+    </button>
+  )
 }
 
 function fmtDate(iso: string) {
@@ -75,7 +88,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const { clients, facturesActives } = useAppData()
   const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
   const [recherche, setRecherche] = useState('')
-  const [editStatut, setEditStatut] = useState<string | null>(null)
+  const [popupStatut, setPopupStatut] = useState<{ id: string; top: number; left: number } | null>(null)
   const [ligneOuverte, setLigneOuverte] = useState<string | null>(null)
   const [noteTexte, setNoteTexte] = useState('')
   const [noteSaving, setNoteSaving] = useState(false)
@@ -233,7 +246,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
             </thead>
             <tbody>
               {affichees.map(r => {
-                const actions = TRANSITIONS[r.statut] ?? []
                 const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
                 const enRetard = jours !== null && jours >= SEUIL_ALERTE && r.statut === 'envoyee'
                 const nomClient = clientsMap.get(r.code_client) ?? '—'
@@ -264,9 +276,16 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                           </span>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center gap-1">
-                          {badgeStatut(r.statut)}
+                          <BadgeStatut
+                            statut={r.statut}
+                            peutModifier={peutModifier && !r.archivee}
+                            onClick={e => {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                              setPopupStatut(prev => prev?.id === r.id ? null : { id: r.id, top: rect.bottom + 6, left: rect.left })
+                            }}
+                          />
                           {enRetard && <span className="text-[9px] text-amber-500">⏰</span>}
                         </div>
                       </td>
@@ -282,44 +301,15 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                       </td>
                       {peutModifier && (
                         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-1.5">
-                            {!r.archivee && actions.length > 0 && (
-                              editStatut === r.id ? (
-                                <select
-                                  autoFocus
-                                  defaultValue=""
-                                  onBlur={() => setEditStatut(null)}
-                                  onChange={async e => {
-                                    if (!e.target.value) return
-                                    setEditStatut(null)
-                                    await onMajStatut(r.id, e.target.value as StatutRelance)
-                                  }}
-                                  className="text-[10px] border border-ockham-teal rounded px-1.5 py-1 outline-none bg-white text-gray-700 min-w-[130px]"
-                                >
-                                  <option value="" disabled>→ Choisir…</option>
-                                  {actions.map(a => (
-                                    <option key={a} value={a}>{STATUTS.find(s => s.val === a)?.label}</option>
-                                  ))}
-                                </select>
-                              ) : (
-                                <button
-                                  onClick={() => setEditStatut(r.id)}
-                                  className="text-[10px] font-semibold px-2 py-1 rounded border border-gray-200 text-gray-400 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors whitespace-nowrap"
-                                >
-                                  → Statut
-                                </button>
-                              )
-                            )}
-                            {!r.archivee && (
-                              <button
-                                onClick={() => onArchiver(r.id)}
-                                title="Classer cette relance"
-                                className="w-5 h-5 rounded-full border border-red-200 bg-red-50/60 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors flex-shrink-0"
-                              >
-                                <span className="text-[9px] leading-none font-bold">✕</span>
-                              </button>
-                            )}
-                          </div>
+                          {!r.archivee && (
+                            <button
+                              onClick={() => onArchiver(r.id)}
+                              title="Classer cette relance"
+                              className="w-5 h-5 rounded-full border border-red-200 bg-red-50/60 flex items-center justify-center text-red-300 hover:text-red-500 hover:bg-red-100 hover:border-red-300 transition-colors"
+                            >
+                              <span className="text-[9px] leading-none font-bold">✕</span>
+                            </button>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -413,6 +403,55 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           )}
         </div>
       )}
+
+      {/* Overlay transparent pour fermer le popup au clic extérieur */}
+      {popupStatut && (
+        <div className="fixed inset-0 z-40" onClick={() => setPopupStatut(null)} />
+      )}
+
+      {/* Popover statut — design soigné */}
+      {popupStatut && (() => {
+        const relance = affichees.find(r => r.id === popupStatut.id)
+        if (!relance) return null
+        const options = TRANSITIONS[relance.statut] ?? []
+        const current = STATUTS.find(s => s.val === relance.statut)
+        return (
+          <div
+            className="fixed z-50 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden"
+            style={{ top: popupStatut.top, left: popupStatut.left, minWidth: 220 }}
+          >
+            {/* Statut actuel — en-tête du menu */}
+            <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Statut actuel</p>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${current?.dot}`} />
+                <span className="text-[12px] font-semibold text-gray-700">{current?.label}</span>
+              </div>
+            </div>
+
+            {/* Options de transition */}
+            <div className="py-1.5">
+              <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Passer à</p>
+              {options.map(val => {
+                const s = STATUTS.find(x => x.val === val)!
+                return (
+                  <button
+                    key={val}
+                    onClick={async () => {
+                      setPopupStatut(null)
+                      await onMajStatut(relance.id, val)
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left group"
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.dot}`} />
+                    <span className={`text-[13px] font-semibold ${s.menuCls} group-hover:opacity-90`}>{s.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
