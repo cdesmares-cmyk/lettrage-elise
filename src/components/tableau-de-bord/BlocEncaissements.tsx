@@ -45,7 +45,7 @@ export function BlocEncaissements({
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
       <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <h3 className="text-xs font-semibold text-gray-700">Encaissements</h3>
+          <h3 className="text-sm font-bold text-gray-800">Encaissements</h3>
           {totalCourant > 0 && (
             <span className="text-[11px] font-mono font-bold text-gray-600">{fmtEuro(totalCourant)}</span>
           )}

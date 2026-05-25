@@ -162,7 +162,7 @@ export function BlocPersonnalise(props: Props) {
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
       <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-gray-700">Vue personnalisée</h3>
+        <h3 className="text-sm font-bold text-gray-800">Vue personnalisée</h3>
         <button
           onClick={() => setEditMode(e => !e)}
           className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${

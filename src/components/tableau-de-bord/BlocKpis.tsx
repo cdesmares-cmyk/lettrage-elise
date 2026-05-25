@@ -1,39 +1,25 @@
+import { Link } from 'react-router-dom'
 import type { useDashboard, SeuilAnciennete } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
 
 const _fmtNb   = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 const _fmtEuro = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const _fmtK    = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 function fmtNb(n: number)   { return _fmtNb.format(n) }
+function fmtK(n: number)    { return n >= 1000 ? _fmtK.format(n / 1000) + ' k€' : _fmtEuro.format(n) + ' €' }
 
-function dsoConfig(dso: number): { classe: string; label: string; couleurGauge: string } {
-  if (dso <= 30) return { classe: 'text-emerald-600', label: 'Excellent',  couleurGauge: '#10b981' }
-  if (dso <= 45) return { classe: 'text-ockham-teal', label: 'Bon',        couleurGauge: '#4CC5BB' }
-  if (dso <= 60) return { classe: 'text-amber-600',   label: 'Attention',  couleurGauge: '#f59e0b' }
-  return              { classe: 'text-red-600',       label: 'Critique',   couleurGauge: '#ef4444' }
+function dsoConfig(dso: number) {
+  if (dso <= 30) return { texte: 'text-emerald-600', bg: '#ECFDF5', border: '#A7F3D0', label: 'Excellent',  jauge: '#10b981' }
+  if (dso <= 45) return { texte: 'text-ockham-teal', bg: '#ECFDFB', border: '#CFEDE9', label: 'Bon',        jauge: '#4CC5BB' }
+  if (dso <= 60) return { texte: 'text-amber-600',   bg: '#FFFBEB', border: '#FDE68A', label: 'Attention',  jauge: '#f59e0b' }
+  return              { texte: 'text-red-600',       bg: '#FEF2F2', border: '#FECACA', label: 'Critique',   jauge: '#ef4444' }
 }
 
 const SEUILS: SeuilAnciennete[] = [3, 6, 12, 18, 24]
 
-interface KpiCardProps {
-  titre: string
-  valeur: React.ReactNode
-  sous?: React.ReactNode
-  footer?: React.ReactNode
-  accentBorder?: string
-}
-
-function KpiCard({ titre, valeur, sous, footer, accentBorder = 'border-gray-100' }: KpiCardProps) {
-  return (
-    <div className={`bg-white border ${accentBorder} rounded-xl shadow-sm px-5 py-4 flex flex-col gap-1`}>
-      <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{titre}</span>
-      <div className="text-2xl font-bold tabular-nums text-gray-900 leading-tight">{valeur}</div>
-      {sous   && <div className="text-xs text-gray-500 leading-snug">{sous}</div>}
-      {footer && <div className="mt-2">{footer}</div>}
-    </div>
-  )
-}
+const SPARK_HEIGHTS = [62, 68, 72, 74, 70, 65, 60, 54, 50, 48, 44, 40]
 
 export function BlocKpis({
   nbImpayeesEchues, nbClientsEchus, dsoRoulant,
@@ -41,113 +27,184 @@ export function BlocKpis({
   montantMoisPrec, montantAnPrec,
   montantSeuilMois, seuilAnciennete, setSeuilAnciennete,
   libelleMoisPrec, libelleMoisAnPrec,
+  encoursCourant, balanceAgee,
 }: Props) {
-
   const dso = dsoRoulant ?? 0
   const cfg = dsoConfig(dso)
-  const gaugeWidth = Math.min(100, Math.round((dso / 90) * 100))
+  const gaugeWidth = dsoRoulant !== null ? Math.min(100, Math.round((dso / 90) * 100)) : 0
+  const montantCritique = balanceAgee.find(t => t.label === '+90j')?.montant ?? 0
 
   return (
     <div className="space-y-3">
-      {/* Ligne 1 */}
-      <div className="grid grid-cols-3 gap-3">
 
-        <KpiCard
-          titre="Factures impayées échues"
-          accentBorder={nbImpayeesEchues > 0 ? 'border-red-100' : 'border-gray-100'}
-          valeur={
-            <span className={nbImpayeesEchues > 0 ? 'text-red-600' : 'text-gray-900'}>
-              {fmtNb(nbImpayeesEchues)}
-            </span>
-          }
-          sous="Factures avec échéance dépassée"
-        />
+      {/* Ligne 1 — DSO hero (2fr) + Factures échues + Clients échus + Encours total */}
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 12 }}>
 
-        <KpiCard
-          titre={`Impayés — ${libelleMoisPrec} (M-1)`}
-          accentBorder={montantMoisPrec > 0 ? 'border-amber-100' : 'border-gray-100'}
-          valeur={
-            <span className={montantMoisPrec > 0 ? 'text-amber-700' : 'text-gray-400'}>
-              {fmtEuro(montantMoisPrec)}
-            </span>
-          }
-          sous="Factures du mois précédent encore ouvertes"
-        />
+        {/* DSO Hero */}
+        <div
+          className="rounded-2xl border px-6 py-5 flex flex-col gap-3 relative overflow-hidden shadow-sm"
+          style={{ background: `linear-gradient(135deg, #fff 55%, ${cfg.bg})`, borderColor: cfg.border }}
+        >
+          {/* Anneau décoratif */}
+          <div style={{
+            position: 'absolute', right: -40, top: -40,
+            width: 180, height: 180, borderRadius: '50%',
+            background: `conic-gradient(${cfg.jauge} 0 ${gaugeWidth * 3.6}deg, #E5E7EB ${gaugeWidth * 3.6}deg 360deg)`,
+            opacity: 0.15, pointerEvents: 'none'
+          }} />
 
-        {/* DSO — card hero */}
-        <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-4 flex flex-col gap-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400">DSO roulant — 12 mois</span>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
+            DSO roulant — 12 mois
+          </span>
+
           {dsoRoulant !== null ? (
             <>
-              <div className={`text-3xl font-bold tabular-nums leading-tight ${cfg.classe}`}>
-                {dsoRoulant.toFixed(1)}<span className="text-lg ml-1">j</span>
+              <div className="flex items-baseline gap-3 relative z-10">
+                <span className={`font-extrabold tabular-nums leading-none ${cfg.texte}`} style={{ fontSize: 44 }}>
+                  {dsoRoulant.toFixed(1)}<span style={{ fontSize: 22, marginLeft: 4 }}>j</span>
+                </span>
+                <span
+                  className="text-[11px] font-bold px-2.5 py-1 rounded-full"
+                  style={{ background: cfg.bg, color: cfg.jauge, border: `1px solid ${cfg.border}` }}
+                >
+                  {cfg.label}
+                </span>
               </div>
-              <div className={`text-xs font-semibold ${cfg.classe}`}>{cfg.label}</div>
-              <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${gaugeWidth}%`, background: cfg.couleurGauge }} />
+
+              {/* Jauge */}
+              <div className="relative z-10 space-y-1">
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${gaugeWidth}%`, background: cfg.jauge }}
+                  />
+                </div>
+                <div className="flex justify-between text-[9px] text-gray-300">
+                  <span>0j</span><span>45j</span><span>90j+</span>
+                </div>
               </div>
-              <div className="flex justify-between text-[9px] text-gray-300 mt-0.5">
-                <span>0j</span><span>45j</span><span>90j</span>
+
+              {/* Sparkline */}
+              <div className="flex items-flex-end gap-0.5 relative z-10" style={{ height: 28 }}>
+                {SPARK_HEIGHTS.map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-sm"
+                    style={{ height: `${h}%`, alignSelf: 'flex-end', background: cfg.jauge, opacity: 0.4 + i * 0.05 }}
+                  />
+                ))}
               </div>
             </>
           ) : (
-            <span className="text-2xl font-bold text-gray-300">—</span>
+            <span className="text-4xl font-bold text-gray-300">—</span>
           )}
+        </div>
+
+        {/* Factures impayées échues */}
+        <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${nbImpayeesEchues > 0 ? 'border-red-100' : 'border-gray-100'}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">Factures impayées échues</span>
+          <span className={`font-extrabold tabular-nums leading-tight ${nbImpayeesEchues > 0 ? 'text-red-600' : 'text-gray-900'}`} style={{ fontSize: 26 }}>
+            {fmtNb(nbImpayeesEchues)}
+          </span>
+          <span className="text-[11px] text-gray-400 leading-snug">Échéance dépassée</span>
+          <div className="mt-auto flex items-center gap-2 pt-1">
+            {exclureDernierMois && moisExclusLabel && (
+              <span className="text-[10px] text-gray-400 truncate">Hors {moisExclusLabel}</span>
+            )}
+            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline ml-auto flex-shrink-0">
+              Voir →
+            </Link>
+          </div>
+        </div>
+
+        {/* Clients avec impayés */}
+        <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${nbClientsEchus > 0 ? 'border-amber-100' : 'border-gray-100'}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">Clients avec impayés échus</span>
+          <span className={`font-extrabold tabular-nums leading-tight ${nbClientsEchus > 0 ? 'text-amber-600' : 'text-gray-400'}`} style={{ fontSize: 26 }}>
+            {fmtNb(nbClientsEchus)}
+          </span>
+          <span className="text-[11px] text-gray-400 leading-snug">Clients distincts concernés</span>
+          <div className="mt-auto pt-1">
+            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline">
+              Voir →
+            </Link>
+          </div>
+        </div>
+
+        {/* Encours total */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">Encours total TTC</span>
+          <span className="font-extrabold tabular-nums leading-tight text-gray-900" style={{ fontSize: 22 }}>
+            {fmtK(encoursCourant)}
+          </span>
+          <span className="text-[11px] text-gray-400 leading-snug">Toutes factures ouvertes</span>
         </div>
 
       </div>
 
-      {/* Ligne 2 */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* Ligne 2 — M-1, N-1, +X mois, Créances critiques */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
 
-        <KpiCard
-          titre="Clients avec impayés échus"
-          accentBorder={nbClientsEchus > 0 ? 'border-amber-100' : 'border-gray-100'}
-          valeur={
-            <span className={nbClientsEchus > 0 ? 'text-amber-600' : 'text-gray-400'}>
-              {fmtNb(nbClientsEchus)}
-            </span>
-          }
-          sous={exclureDernierMois && moisExclusLabel ? `Hors ${moisExclusLabel}` : 'Clients distincts concernés'}
-        />
+        <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${montantMoisPrec > 0 ? 'border-amber-100' : 'border-gray-100'}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
+            Impayés — {libelleMoisPrec} (M-1)
+          </span>
+          <span className={`font-extrabold tabular-nums leading-tight ${montantMoisPrec > 0 ? 'text-amber-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
+            {fmtEuro(montantMoisPrec)}
+          </span>
+          <span className="text-[11px] text-gray-400">Factures du mois précédent encore ouvertes</span>
+        </div>
 
-        <KpiCard
-          titre={`Impayés — ${libelleMoisAnPrec} (N-1)`}
-          valeur={
-            <span className={montantAnPrec > 0 ? 'text-amber-700' : 'text-gray-400'}>
-              {fmtEuro(montantAnPrec)}
-            </span>
-          }
-          sous="Même mois l'année passée, encore ouvertes"
-        />
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex flex-col gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
+            Impayés — {libelleMoisAnPrec} (N-1)
+          </span>
+          <span className={`font-extrabold tabular-nums leading-tight ${montantAnPrec > 0 ? 'text-amber-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
+            {fmtEuro(montantAnPrec)}
+          </span>
+          <span className="text-[11px] text-gray-400">Même mois l'année passée, encore ouvertes</span>
+        </div>
 
-        <KpiCard
-          titre={`Impayés — +${seuilAnciennete} mois`}
-          accentBorder={montantSeuilMois > 0 ? 'border-red-100' : 'border-gray-100'}
-          valeur={
-            <span className={montantSeuilMois > 0 ? 'text-red-700' : 'text-gray-400'}>
-              {fmtEuro(montantSeuilMois)}
-            </span>
-          }
-          sous="Factures émises il y a plus de X mois encore non soldées"
-          footer={
-            <div className="flex gap-1">
+        <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${montantSeuilMois > 0 ? 'border-red-100' : 'border-gray-100'}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
+            Impayés — +{seuilAnciennete} mois
+          </span>
+          <span className={`font-extrabold tabular-nums leading-tight ${montantSeuilMois > 0 ? 'text-red-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
+            {fmtEuro(montantSeuilMois)}
+          </span>
+          <span className="text-[11px] text-gray-400">Anciennes créances à traiter en priorité</span>
+          <div className="mt-auto pt-1">
+            <div className="inline-flex bg-gray-100 rounded-lg p-0.5 gap-0.5">
               {SEUILS.map(s => (
                 <button
                   key={s}
                   onClick={() => setSeuilAnciennete(s)}
-                  className={`text-[11px] font-semibold px-2 py-1 rounded-md transition-colors ${
+                  className={`text-[11px] font-bold px-2 py-1 rounded-md transition-colors ${
                     seuilAnciennete === s
-                      ? 'bg-ockham-navy text-white'
-                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      ? 'bg-white text-red-600 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   +{s}m
                 </button>
               ))}
             </div>
-          }
-        />
+          </div>
+        </div>
+
+        {/* Créances critiques > 90j */}
+        <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${montantCritique > 0 ? 'border-red-100' : 'border-gray-100'}`}>
+          <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">Créances critiques</span>
+          <span className={`font-extrabold tabular-nums leading-tight ${montantCritique > 0 ? 'text-red-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
+            {fmtEuro(montantCritique)}
+          </span>
+          <span className="text-[11px] text-gray-400">Retard supérieur à 90 jours</span>
+          <div className="mt-auto pt-1">
+            <Link to="/compte-client" className="text-[11px] font-semibold text-ockham-teal hover:underline">
+              Voir →
+            </Link>
+          </div>
+        </div>
 
       </div>
     </div>

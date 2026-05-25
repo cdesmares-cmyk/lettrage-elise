@@ -25,7 +25,7 @@ function TooltipEuro({ active, payload, label }: { active?: boolean; payload?: {
 function CardHeader({ children, action }: { children: React.ReactNode; action?: React.ReactNode }) {
   return (
     <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
-      <h3 className="text-xs font-semibold text-gray-700">{children}</h3>
+      <h3 className="text-sm font-bold text-gray-800">{children}</h3>
       {action}
     </div>
   )
