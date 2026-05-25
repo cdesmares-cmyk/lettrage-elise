@@ -25,7 +25,7 @@ const VUES: { val: VueMode; label: string; icon: string }[] = [
 ]
 
 export function PageCompteClient() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
@@ -60,6 +60,7 @@ export function PageCompteClient() {
     if (cible) {
       setVue('clients')
       comptes.setRecherche(codeCible)
+      setSearchParams({}, { replace: true })
     }
   }, [searchParams, comptes.clients, comptes.chargement])
 
