@@ -59,7 +59,7 @@ export function PageCompteClient() {
     const cible = comptes.clients.find(c => c.code_dso === codeCible)
     if (cible) {
       setVue('clients')
-      setClientOptions(cible)
+      comptes.setRecherche(codeCible)
     }
   }, [searchParams, comptes.clients, comptes.chargement])
 
