@@ -11,6 +11,8 @@ import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { DivAlertesScore } from '../components/relances/DivAlertesScore'
+import { PipelineRelances } from '../components/relances/PipelineRelances'
+import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
 import type { CompteClient, FactureDetail } from '../types/client'
 
@@ -34,24 +36,32 @@ export function PageRelances() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Relances</h1>
-          <p className="text-sm text-gray-400 mt-0.5">Suivi et gamification de votre activité de recouvrement</p>
+          <p className="text-sm text-gray-400 mt-0.5">Pilotage du recouvrement</p>
         </div>
-        {!isCommercial && classement.length > 0 && (
-          <button
-            onClick={() => setShowLeaderboard(true)}
-            className="text-sm font-semibold text-ockham-teal border border-ockham-teal/30 bg-ockham-teal-muted hover:bg-ockham-teal hover:text-white px-5 py-2.5 rounded-xl transition-colors"
-          >
-            Classement équipe ↗
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isCommercial && classement.length > 0 && (
+            <button
+              onClick={() => setShowLeaderboard(true)}
+              className="text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal px-4 py-2 rounded-xl transition-colors shadow-sm"
+            >
+              Classement équipe ↗
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* KPIs dynamiques */}
+      {/* KPIs manager (hors commerciaux) */}
       {!isCommercial && (
         <KpisRelances relances={relances} filtreOp={filtreOp} kpis={kpis} />
       )}
 
-      {/* Alertes score client du jour */}
+      {/* Pipeline visuel */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Pipeline du mois</p>
+        <PipelineRelances relances={relances} filtreOp={filtreOp} />
+      </div>
+
+      {/* Alertes risque — strip horizontal */}
       <div className="space-y-2">
         <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Alertes risque client — aujourd'hui</p>
         <DivAlertesScore
@@ -59,7 +69,7 @@ export function PageRelances() {
         />
       </div>
 
-      {/* Tableau pleine largeur */}
+      {/* Tableau relances */}
       <div className="space-y-2">
         <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Relances récentes</p>
         <TableauRelances
@@ -76,13 +86,12 @@ export function PageRelances() {
         />
       </div>
 
-      {/* 3 blocs de priorités */}
+      {/* Priorités + gamification côte à côte */}
       <div className="space-y-2">
         <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">À relancer en priorité</p>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="score" />
-          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="encours" />
-          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} mode="anciennete" />
+        <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
+          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
+          <PanneauGamification relances={relances} kpis={kpis} classement={classement} />
         </div>
       </div>
 
@@ -102,7 +111,7 @@ export function PageRelances() {
         </div>
       )}
 
-      {/* Panneau commentaire facture (depuis ligne expandée) */}
+      {/* Panneau commentaire facture */}
       <PanneauCommentaireFacture
         facture={factureCommentee}
         commentaire={factureCommentee ? (commentaires.get(factureCommentee.numero_piece) ?? null) : null}
@@ -115,7 +124,7 @@ export function PageRelances() {
         onStatutChange={() => {}}
       />
 
-      {/* Modal composition relance */}
+      {/* Modal composition relance (depuis priorités) */}
       <ModalCompositionRelance
         client={clientRelance}
         onFermer={() => setClientRelance(null)}

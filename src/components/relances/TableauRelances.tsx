@@ -74,6 +74,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
   const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
+  const [recherche, setRecherche] = useState('')
   const [editStatut, setEditStatut] = useState<string | null>(null)
   const [ligneOuverte, setLigneOuverte] = useState<string | null>(null)
   const [noteTexte, setNoteTexte] = useState('')
@@ -102,10 +103,16 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const actives = relances.filter(r => r.statut !== 'brouillon' && !r.archivee)
   const totalActives = filtreOp === 'tous' ? actives.length : actives.filter(r => r.operateur_id === filtreOp).length
 
-  const filtrees = actives.filter(r =>
-    (filtreStatut === 'tous' || r.statut === filtreStatut) &&
-    (filtreOp === 'tous' || r.operateur_id === filtreOp)
-  )
+  const filtrees = actives.filter(r => {
+    if (filtreStatut !== 'tous' && r.statut !== filtreStatut) return false
+    if (filtreOp !== 'tous' && r.operateur_id !== filtreOp) return false
+    if (recherche.trim()) {
+      const q = recherche.toLowerCase()
+      const nom = (clientsMap.get(r.code_client) ?? '').toLowerCase()
+      if (!nom.includes(q) && !r.code_client.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   const affichees = useMemo(() => {
     return [...filtrees].sort((a, b) => {
@@ -143,29 +150,54 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   return (
     <div className="space-y-3">
-      {/* Barre filtres */}
+      {/* Barre filtres ligne 1 : pills statut + recherche */}
       <div className="flex items-center gap-2 flex-wrap">
-        <select
-          value={filtreStatut}
-          onChange={e => setFiltreStatut(e.target.value as StatutRelance | 'tous')}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-ockham-teal bg-white text-gray-600"
-        >
-          {FILTRES_STATUT.map(f => <option key={f.val} value={f.val}>{f.label}</option>)}
-        </select>
-        <select
-          value={filtreOp}
-          onChange={e => onFiltreOpChange(e.target.value)}
-          className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-ockham-teal bg-white text-gray-600"
-        >
-          <option value="tous">Tous les opérateurs</option>
-          {operateursDispo.map(o => <option key={o.id} value={o.id}>{o.nom}</option>)}
-        </select>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 gap-0.5">
+          {FILTRES_STATUT.map(f => (
+            <button
+              key={f.val}
+              onClick={() => setFiltreStatut(f.val)}
+              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors whitespace-nowrap ${
+                filtreStatut === f.val
+                  ? 'bg-ockham-navy text-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 min-w-[200px] flex-1 max-w-xs">
+          <span className="text-gray-300 text-xs">🔍</span>
+          <input
+            value={recherche}
+            onChange={e => setRecherche(e.target.value)}
+            placeholder="Client, code…"
+            className="flex-1 text-xs outline-none bg-transparent text-gray-700 placeholder-gray-300"
+          />
+          {recherche && (
+            <button onClick={() => setRecherche('')} className="text-gray-300 hover:text-gray-500 text-xs leading-none">✕</button>
+          )}
+        </div>
+
+        {operateursDispo.length > 0 && (
+          <select
+            value={filtreOp}
+            onChange={e => onFiltreOpChange(e.target.value)}
+            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-ockham-teal bg-white text-gray-600"
+          >
+            <option value="tous">Tous les opérateurs</option>
+            {operateursDispo.map(o => <option key={o.id} value={o.id}>{o.nom}</option>)}
+          </select>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] text-gray-400">
             <span className="font-bold text-ockham-navy/70">{totalActives}</span> active{totalActives !== 1 ? 's' : ''}
           </span>
           {filtrees.length !== totalActives && filtrees.length > 0 && (
-            <span className="text-[10px] text-gray-300">{filtrees.length} affichée{filtrees.length !== 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-gray-300">· {filtrees.length} affichée{filtrees.length !== 1 ? 's' : ''}</span>
           )}
         </div>
       </div>

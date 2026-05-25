@@ -1,23 +1,38 @@
-import { useState } from 'react'
-import toast from 'react-hot-toast'
 import { useAlertesScore } from '../../hooks/useAlertesScore'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
 import { useCommentairesFactures } from '../../hooks/useCommentairesFactures'
 import { ModalCompositionRelance } from './ModalCompositionRelance'
+import { useState } from 'react'
+import toast from 'react-hot-toast'
 import type { CompteClient } from '../../types/client'
 
-const PAR_PAGE = 5
-
-function badgeScore(score: number) {
-  if (score >= 70) return { bg: 'bg-red-100 text-red-700',    label: 'Élevé' }
-  if (score >= 40) return { bg: 'bg-amber-100 text-amber-700', label: 'Modéré' }
-  return              { bg: 'bg-emerald-100 text-emerald-700', label: 'Faible' }
+function formatEuros(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M€`
+  if (n >= 10_000) return `${Math.round(n / 1_000)} k€`
+  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n) + ' €'
 }
 
-function formatEuros(n: number) {
-  return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n) + ' €'
+function cardClasses(score: number) {
+  if (score >= 70) return {
+    border: 'border-red-200 hover:border-red-400',
+    bg: 'bg-red-50/60',
+    badge: 'bg-red-100 text-red-700',
+    label: 'Élevé',
+  }
+  if (score >= 40) return {
+    border: 'border-amber-200 hover:border-amber-400',
+    bg: 'bg-amber-50/40',
+    badge: 'bg-amber-100 text-amber-700',
+    label: 'Modéré',
+  }
+  return {
+    border: 'border-gray-200 hover:border-ockham-teal/40',
+    bg: 'bg-white',
+    badge: 'bg-emerald-100 text-emerald-700',
+    label: 'Faible',
+  }
 }
 
 interface Props {
@@ -30,7 +45,6 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
   const { clients } = useAppData()
   const gmailAuth = useGmailAuth()
   const { commentaires } = useCommentairesFactures()
-  const [page, setPage] = useState(0)
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [alerteCodeApresRelance, setAlerteCodeApresRelance] = useState<string | null>(null)
 
@@ -49,18 +63,8 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
     toast(t => (
       <div className="flex items-center gap-3">
         <span className="text-sm text-gray-700">Mettre ce client en attente {snoozeJours}j ?</span>
-        <button
-          onClick={() => { prendreEnCharge(code); toast.dismiss(t.id) }}
-          className="text-xs font-semibold text-ockham-teal hover:underline"
-        >
-          Oui
-        </button>
-        <button
-          onClick={() => toast.dismiss(t.id)}
-          className="text-xs text-gray-400 hover:text-gray-600"
-        >
-          Non
-        </button>
+        <button onClick={() => { prendreEnCharge(code); toast.dismiss(t.id) }} className="text-xs font-semibold text-ockham-teal hover:underline">Oui</button>
+        <button onClick={() => toast.dismiss(t.id)} className="text-xs text-gray-400 hover:text-gray-600">Non</button>
       </div>
     ), { duration: 8000 })
   }
@@ -83,101 +87,81 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
     )
   }
 
-  const nbPages = Math.ceil(alertes.length / PAR_PAGE)
-  const pageCourante = Math.min(page, nbPages - 1)
-  const visibles = alertes.slice(pageCourante * PAR_PAGE, (pageCourante + 1) * PAR_PAGE)
-
   return (
     <>
-      <div className="space-y-2">
-        {visibles.map((a, i) => {
-          const rang = pageCourante * PAR_PAGE + i + 1
-          const badge = badgeScore(a.score_risque)
-          return (
-            <div
-              key={a.id}
-              className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-gray-300 transition-colors"
-            >
-              <span className="text-[11px] font-bold text-gray-300 w-5 text-center flex-shrink-0">
-                {rang}
-              </span>
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full flex-shrink-0 ${badge.bg}`}>
-                {a.score_risque} — {badge.label}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">{a.nom_client ?? a.code_client}</p>
-                <p className="text-[11px] text-gray-400 font-mono">{a.code_client}</p>
-              </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-gray-900">{formatEuros(a.encours_ttc)}</p>
-                <p className="text-[11px] text-gray-400">Retard max : {a.retard_max_jours}j</p>
-              </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={() => onOuvrirFiche(a.code_client)}
-                  className="text-[11px] font-semibold text-ockham-teal border border-ockham-teal/30 bg-ockham-teal/5 hover:bg-ockham-teal hover:text-white px-3 py-1.5 rounded-lg transition-colors"
-                >
-                  Voir compte
-                </button>
-                {peutModifier && (
-                  <button
-                    onClick={() => handleRelancer(a.code_client)}
-                    className="text-[11px] font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/80 px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    Relancer
-                  </button>
-                )}
-                {peutModifier && (
-                  <button
-                    onClick={() => prendreEnCharge(a.code_client)}
-                    title={`Mettre en attente ${snoozeJours} jours`}
-                    className="text-[11px] font-medium text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    ✓ Pris en charge
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
+      <div className="relative">
+        {/* Strip horizontal scroll */}
+        <div
+          className="flex gap-3 overflow-x-auto pb-2"
+          style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch' }}
+        >
+          {alertes.map((a, i) => {
+            const cls = cardClasses(a.score_risque)
+            return (
+              <div
+                key={a.id}
+                onClick={() => peutModifier && handleRelancer(a.code_client)}
+                className={`flex-shrink-0 border rounded-xl p-3.5 transition-all select-none ${cls.border} ${cls.bg} ${peutModifier ? 'cursor-pointer hover:shadow-sm' : ''}`}
+                style={{ scrollSnapAlign: 'start', width: 200 }}
+              >
+                {/* Header : rang + badge */}
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[10px] font-bold text-gray-300">#{i + 1}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cls.badge}`}>
+                    {a.score_risque} — {cls.label}
+                  </span>
+                </div>
 
-        {/* Pagination */}
-        {nbPages > 1 && (
-          <div className="flex items-center justify-between pt-1">
-            <p className="text-[11px] text-gray-400">
-              {pageCourante + 1} / {nbPages} — {alertes.length} alertes
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={pageCourante === 0}
-                className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                ←
-              </button>
-              {Array.from({ length: nbPages }, (_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setPage(i)}
-                  className={`w-7 h-7 text-xs rounded-lg transition-colors ${
-                    i === pageCourante
-                      ? 'bg-ockham-teal text-white font-semibold'
-                      : 'border border-gray-200 text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
-              <button
-                onClick={() => setPage(p => Math.min(nbPages - 1, p + 1))}
-                disabled={pageCourante === nbPages - 1}
-                className="px-2.5 py-1 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-              >
-                →
-              </button>
+                {/* Nom client */}
+                <p className="text-sm font-bold text-gray-900 truncate leading-tight">{a.nom_client ?? a.code_client}</p>
+                <p className="text-[10px] font-mono text-gray-400 mt-0.5">{a.code_client}</p>
+
+                {/* Métriques */}
+                <div className="mt-3 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-gray-400">Encours</span>
+                    <span className="text-[11px] font-bold text-gray-800 tabular-nums">{formatEuros(a.encours_ttc)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-gray-400">Retard max</span>
+                    <span className={`text-[11px] font-bold tabular-nums ${a.retard_max_jours > 90 ? 'text-red-600' : a.retard_max_jours > 60 ? 'text-amber-600' : 'text-gray-600'}`}>
+                      {a.retard_max_jours}j
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions secondaires */}
+                <div className="mt-3 flex gap-1.5" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => onOuvrirFiche(a.code_client)}
+                    className="flex-1 text-[10px] font-semibold text-ockham-teal border border-ockham-teal/30 bg-white hover:bg-ockham-teal-muted px-2 py-1 rounded-lg transition-colors"
+                  >
+                    Voir fiche
+                  </button>
+                  {peutModifier && (
+                    <button
+                      onClick={() => prendreEnCharge(a.code_client)}
+                      title={`Snooze ${snoozeJours}j`}
+                      className="text-[10px] font-medium text-gray-400 hover:text-gray-600 border border-gray-200 hover:border-gray-300 px-2 py-1 rounded-lg transition-colors"
+                    >
+                      ✓
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+
+          {/* Sentinelle de fin pour indiquer qu'il y en a d'autres */}
+          {alertes.length > 5 && (
+            <div className="flex-shrink-0 flex items-center justify-center text-[11px] font-semibold text-gray-300 pr-2" style={{ width: 40 }}>
+              ›
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Compteur */}
+        <p className="text-[10px] text-gray-400 mt-1">{alertes.length} alerte{alertes.length > 1 ? 's' : ''} aujourd'hui · cliquer pour relancer</p>
       </div>
 
       <ModalCompositionRelance

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { Relance } from '../../hooks/useRelances'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
@@ -25,20 +25,20 @@ function badgeAnc(j: number) {
 
 export type ModePriorite = 'score' | 'encours' | 'anciennete'
 
-const TITRES: Record<ModePriorite, string> = {
-  score:      'Score client — Top 10',
-  encours:    'Encours client — Top 10',
-  anciennete: 'Facture ancienne — Top 10',
-}
+const ONGLETS: { val: ModePriorite; label: string }[] = [
+  { val: 'score',      label: 'Score' },
+  { val: 'encours',    label: 'Encours' },
+  { val: 'anciennete', label: 'Ancienneté' },
+]
 
 interface Props {
   relances: Relance[]
   onRelancer: (client: CompteClient) => void
   commentaires?: Map<string, CommentaireFacture>
-  mode: ModePriorite
 }
 
-export function ListePriorites({ relances, onRelancer, commentaires, mode }: Props) {
+export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
+  const [mode, setMode] = useState<ModePriorite>('score')
   const { clients, facturesActives } = useAppData()
 
   const priorites = useMemo(() => {
@@ -89,9 +89,21 @@ export function ListePriorites({ relances, onRelancer, commentaires, mode }: Pro
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/40 flex items-center justify-between">
-        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">{TITRES[mode]}</p>
-        <p className="text-[10px] text-gray-300">Top {priorites.length}</p>
+      <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between gap-3">
+        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider flex-shrink-0">À relancer en priorité</p>
+        <div className="flex items-center bg-gray-100 rounded-md p-0.5 gap-0.5">
+          {ONGLETS.map(o => (
+            <button
+              key={o.val}
+              onClick={() => setMode(o.val)}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors whitespace-nowrap ${
+                mode === o.val ? 'bg-white text-ockham-navy shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {priorites.length === 0 ? (
