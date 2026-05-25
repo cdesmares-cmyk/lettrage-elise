@@ -97,13 +97,13 @@ function DetecteurMobile({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <ThemeProvider>
-    <DetecteurMobile>
     <FournisseurAuth>
       <RoleProvider>
       <FournisseurDonnees>
       <BrowserRouter>
-        <AppRoutes />
-        {/* Toaster pour les notifications (section 10 du CDC — pas d'alert() natif) */}
+        <DetecteurMobile>
+          <AppRoutes />
+        </DetecteurMobile>
         <Toaster
           position="bottom-right"
           toastOptions={{
@@ -115,7 +115,6 @@ export default function App() {
       </FournisseurDonnees>
       </RoleProvider>
     </FournisseurAuth>
-    </DetecteurMobile>
     </ThemeProvider>
   )
 }
