@@ -8,7 +8,6 @@ import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
 import { buildCorps, buildHtml, fmtEuros, joursDepuis } from '../../lib/relanceEmail'
-import type { FactureLigne } from '../../lib/relanceEmail'
 
 interface GmailAuthProps {
   estConnecte: boolean
