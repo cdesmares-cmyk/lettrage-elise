@@ -119,6 +119,7 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
               height: 276,
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
+              overscrollBehavior: 'contain',
             }}
           >
           {alertes.map((a, i) => {
