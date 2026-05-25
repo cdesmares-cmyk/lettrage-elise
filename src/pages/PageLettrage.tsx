@@ -60,21 +60,14 @@ export function PageLettrage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">Lettrage</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Associez les crédits bancaires à vos factures</p>
+          <p className="text-sm text-gray-400 mt-0.5">Associez les crédits bancaires à vos factures</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3 text-xs text-gray-400">
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />100 % lettré</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
-          </div>
-          <button
-            onClick={() => setExtractionOuverte(true)}
-            className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors"
-          >
-            ⬇ Extraction
-          </button>
-        </div>
+        <button
+          onClick={() => setExtractionOuverte(true)}
+          className="flex items-center gap-2 text-sm font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 px-4 py-2 rounded-lg transition-colors"
+        >
+          ⬇ Extraction
+        </button>
       </div>
 
       {/* Barre de résumé */}
@@ -82,6 +75,7 @@ export function PageLettrage() {
         nbNonLettres={liste.nbNonLettres}
         montantRestant={liste.montantRestant}
         nbRemisesEnAttente={nbRemisesEnAttente}
+        nbLignesGlobal={liste.nbLignesGlobal}
         onCorrection={() => setCorrectionOuverte(true)}
         onOuvrirRemises={() => setRemisesOuverte(true)}
       />

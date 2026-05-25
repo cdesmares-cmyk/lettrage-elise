@@ -22,6 +22,7 @@ export function useLignesBancaires() {
   const [nbNonLettres, setNbNonLettres] = useState(0)
   const [montantRestant, setMontantRestant] = useState(0)
   const [totalLignes, setTotalLignes] = useState(0)
+  const [nbLignesGlobal, setNbLignesGlobal] = useState(0)
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
   const [filtre, setFiltre] = useState<FiltreStatut>('a_lettrer')
@@ -91,8 +92,10 @@ export function useLignesBancaires() {
       setTotalLignes(count ?? 0)
 
       const totaux = (dataTotaux as unknown as RowTotaux[]) ?? []
-      setNbNonLettres(totaux.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
-      setMontantRestant(totaux.filter(r => r.statut_lettrage !== 'debit').reduce((s, r) => s + Math.max(0, r.restant), 0))
+      const nonDebits = totaux.filter(r => r.statut_lettrage !== 'debit')
+      setNbLignesGlobal(nonDebits.length)
+      setNbNonLettres(nonDebits.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
+      setMontantRestant(nonDebits.reduce((s, r) => s + Math.max(0, r.restant), 0))
 
       setChargement(false)
     }
@@ -136,6 +139,6 @@ export function useLignesBancaires() {
     dateDebut, setDateDebut: setDateDebutEtReset,
     dateFin, setDateFin: setDateFinEtReset,
     page, setPage, totalPages, totalLignes,
-    rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant,
+    rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant, nbLignesGlobal,
   }
 }

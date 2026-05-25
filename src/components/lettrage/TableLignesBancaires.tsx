@@ -57,70 +57,81 @@ export function TableLignesBancaires({
   const hasActive = ligneActiveId !== null
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-      {/* En-tête avec filtres */}
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
-        {/* Filtres statut */}
-        <div className="flex gap-1">
-          {FILTRES.map(f => (
-            <button
-              key={f.val}
-              onClick={() => onFiltre(f.val)}
-              className={`text-xs font-medium px-3 py-1.5 rounded-md transition-colors ${
-                filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+      {/* Toolbar */}
+      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+        {/* Ligne 1 : recherche + période + historique */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Recherche */}
+          <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+            <span className="text-gray-400 text-xs flex-shrink-0">🔍</span>
+            <input
+              type="text"
+              value={recherche}
+              onChange={e => onRecherche(e.target.value)}
+              placeholder="Libellé, référence, montant…"
+              className="text-xs text-gray-700 placeholder-gray-400 outline-none flex-1 bg-transparent min-w-0"
+            />
+            {recherche && (
+              <button onClick={() => onRecherche('')} className="text-gray-300 hover:text-gray-500 text-xs flex-shrink-0">✕</button>
+            )}
+          </div>
+
+          {/* Période */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Du</span>
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={e => onDateDebut(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
+            />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">au</span>
+            <input
+              type="date"
+              value={dateFin}
+              onChange={e => onDateFin(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
+            />
+            {(dateDebut || dateFin) && (
+              <button
+                onClick={() => { onDateDebut(''); onDateFin('') }}
+                className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
+                title="Effacer les dates"
+              >✕</button>
+            )}
+          </div>
+
+          <button
+            onClick={onHistorique}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
+          >
+            📋 Historique
+          </button>
         </div>
 
-        <button
-          onClick={onHistorique}
-          className="text-xs font-medium px-3 py-1.5 rounded-md border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal hover:bg-ockham-teal-muted transition-colors whitespace-nowrap"
-        >
-          📋 Historique
-        </button>
+        {/* Ligne 2 : filtres statut + légende */}
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex gap-1 flex-wrap">
+            {FILTRES.map(f => (
+              <button
+                key={f.val}
+                onClick={() => onFiltre(f.val)}
+                className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
+                  filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex-1" />
-
-        {/* Filtre période */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Du</span>
-          <input
-            type="date"
-            value={dateDebut}
-            onChange={e => onDateDebut(e.target.value)}
-            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-          />
-          <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">au</span>
-          <input
-            type="date"
-            value={dateFin}
-            onChange={e => onDateFin(e.target.value)}
-            className="border border-gray-200 rounded-md px-2 py-1 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-          />
-          {(dateDebut || dateFin) && (
-            <button
-              onClick={() => { onDateDebut(''); onDateFin('') }}
-              className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
-              title="Effacer le filtre date"
-            >
-              ✕
-            </button>
-          )}
-        </div>
-
-        {/* Recherche */}
-        <div className="flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-1.5">
-          <span className="text-gray-400 text-xs">🔍</span>
-          <input
-            type="text"
-            value={recherche}
-            onChange={e => onRecherche(e.target.value)}
-            placeholder="Libellé, réf…"
-            className="text-xs text-gray-700 placeholder-gray-400 outline-none w-32 bg-transparent"
-          />
+          {/* Légende */}
+          <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-shrink-0">
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Lettré</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
+          </div>
         </div>
       </div>
 

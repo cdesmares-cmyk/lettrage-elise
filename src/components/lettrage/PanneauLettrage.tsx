@@ -111,16 +111,16 @@ export function PanneauLettrage(props: Props) {
 
   // ── Formulaire de lettrage ──
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
-      {/* En-tête */}
-      <div className="px-5 py-4 border-b border-gray-100 bg-ockham-teal-muted/60">
-        <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-wider mb-1">Lettrage en cours</p>
-        <p className="text-sm font-semibold text-gray-800 truncate">{ligneActive.libelle}</p>
-        <p className="text-xs text-gray-500 mt-0.5">
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
+      {/* En-tête — crédit sélectionné */}
+      <div className="px-5 py-4 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #ECFDFB 0%, #fff 60%)' }}>
+        <p className="text-[10px] font-bold text-ockham-teal uppercase tracking-widest mb-2">Crédit sélectionné</p>
+        <p className="text-2xl font-extrabold tabular-nums text-ockham-teal leading-none">{fmt(creditDisponible)}</p>
+        <p className="text-sm font-semibold text-gray-800 truncate mt-2">{ligneActive.libelle}</p>
+        <p className="text-xs text-gray-400 mt-0.5">
           {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}
           {ligneActive.infos_complementaires && <> · {ligneActive.infos_complementaires}</>}
         </p>
-        <p className="text-xl font-bold text-gray-900 mt-2 tabular-nums">{fmt(creditDisponible)}</p>
       </div>
 
       {/* Attributions précédentes — visible pour les partiellement lettrés */}
