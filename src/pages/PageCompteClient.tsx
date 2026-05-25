@@ -17,6 +17,7 @@ import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNeb
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
+import { exporterXls } from '../lib/exportXls'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: string }[] = [
@@ -38,6 +39,7 @@ export function PageCompteClient() {
   const [modeSelection, setModeSelection] = useState(false)
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
+  const [exportSelectionEnCours, setExportSelectionEnCours] = useState(false)
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
@@ -77,6 +79,18 @@ export function PageCompteClient() {
     () => comptes.clients.filter(c => selection.has(c.code_dso)).reduce((s, c) => s + c.encours_total, 0),
     [comptes.clients, selection]
   )
+
+  async function exporterSelection() {
+    if (!selection.size || exportSelectionEnCours) return
+    setExportSelectionEnCours(true)
+    const codes = [...selection]
+    await factures.chargerFactures(codes)
+    const data = factures.getFactures(codes)
+    if (data.length) {
+      exporterXls(data, `extraction_selection_${new Date().toISOString().split('T')[0]}`)
+    }
+    setExportSelectionEnCours(false)
+  }
 
   function fmtEncours(n: number) {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
@@ -185,11 +199,11 @@ export function PageCompteClient() {
               ✉ Relancer ({clientsSelectionnes.length})
             </button>
             <button
-              onClick={() => setExportOuvert(true)}
-              disabled={selection.size === 0}
+              onClick={exporterSelection}
+              disabled={selection.size === 0 || exportSelectionEnCours}
               className="text-xs font-semibold px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white border border-white/20 rounded-lg transition-colors"
             >
-              ⬇ Exporter la sélection
+              {exportSelectionEnCours ? '…' : '⬇ Exporter la sélection'}
             </button>
           </div>
         </div>
