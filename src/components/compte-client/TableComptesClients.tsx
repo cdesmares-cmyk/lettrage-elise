@@ -18,9 +18,12 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
-  dernieresRelances?: Map<string, string>  // code_client → dernière envoyee_le ISO
+  dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
+  modeSelection?: boolean
+  selection?: Set<string>
+  onToggleSelection?: (code: string) => void
 }
 
 const PAGE_SIZE = 25
@@ -83,7 +86,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -96,6 +99,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   useEffect(() => { if (ouvert && !clients.find(c => c.code_dso === ouvert)) setOuvert(null) }, [clients, ouvert])
 
   function toggle(code: string) {
+    if (modeSelection) { onToggleSelection?.(code); return }
     if (ouvert === code) { setOuvert(null) }
     else { setOuvert(code); onExpand(code) }
   }
@@ -144,15 +148,29 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             const factures = getFactures(c.code_dso)
             // nb_factures_total - nb_impayees = factures entièrement réglées (stats SQL, indépendant du cache)
             const nbReglees = c.nb_factures_total - c.nb_impayees
+            const estSelectionne = selection.has(c.code_dso)
             return (
               <>
                 <tr
                   key={c.code_dso}
                   onClick={() => toggle(c.code_dso)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer transition-colors border-b border-gray-50 ${
+                    modeSelection
+                      ? estSelectionne ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50'
+                      : estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'
+                  }`}
                 >
-                  <td className="px-3 py-3 text-center">
-                    <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                  <td className="px-3 py-3 text-center" onClick={e => { e.stopPropagation(); toggle(c.code_dso) }}>
+                    {modeSelection ? (
+                      <input
+                        type="checkbox"
+                        checked={estSelectionne}
+                        onChange={() => onToggleSelection?.(c.code_dso)}
+                        className="accent-ockham-teal w-4 h-4 rounded cursor-pointer"
+                      />
+                    ) : (
+                      <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
@@ -224,7 +242,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                 </tr>
 
-                {estOuvert && (
+                {estOuvert && !modeSelection && (
                   <tr key={`${c.code_dso}-fac`}>
                     <td colSpan={10} className="px-0 py-0 border-b border-gray-100">
                       <div className="bg-gray-50 border-l-2 border-ockham-teal ml-0 overflow-hidden">

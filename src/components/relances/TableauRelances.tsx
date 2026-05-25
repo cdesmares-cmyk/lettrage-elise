@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -94,6 +94,14 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const [noteSaving, setNoteSaving] = useState(false)
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollRatio, setScrollRatio] = useState(0)
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const max = el.scrollHeight - el.clientHeight
+    setScrollRatio(max > 0 ? el.scrollTop / max : 0)
+  }, [])
 
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
@@ -144,7 +152,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         case 'operateur': cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
       }
       return triAsc ? cmp : -cmp
-    }).slice(0, 20)
+    })
   }, [filtrees, tri, triAsc, clientsMap, opMap])
 
   function toggleTri(col: ColSort) {
@@ -220,9 +228,15 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           {actives.length === 0 ? 'Aucune relance envoyée pour le moment' : 'Aucune relance pour ce filtre'}
         </div>
       ) : (
-        <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+        <div className="flex items-stretch gap-2">
+          <div
+            ref={scrollRef}
+            onScroll={handleScroll}
+            className="flex-1 bg-white border border-gray-100 rounded-xl overflow-y-auto"
+            style={{ height: 520, scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain' } as React.CSSProperties}
+          >
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_#f3f4f6]">
               <tr className="border-b border-gray-100 bg-gray-50/60">
                 {([
                   ['code_client', 'Code'],
@@ -396,11 +410,26 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
               })}
             </tbody>
           </table>
-          {filtrees.length > 20 && (
+          {affichees.length > 10 && (
             <div className="px-4 py-2 border-t border-gray-50 text-center text-[10px] text-gray-300">
-              20 premières lignes sur {filtrees.length}
+              {affichees.length} relances · défiler pour toutes les voir
             </div>
           )}
+          </div>
+
+          {/* Dots de scroll dynamiques */}
+          {affichees.length > 10 && (() => {
+            const active = scrollRatio < 0.33 ? 'top' : scrollRatio < 0.67 ? 'mid' : 'bot'
+            const dot = (zone: 'top' | 'mid' | 'bot') =>
+              active === zone ? 'w-2 h-2 bg-gray-500' : 'w-1 h-1 bg-gray-300'
+            return (
+              <div className="flex flex-col items-center justify-center gap-1.5 flex-shrink-0 w-3">
+                <span className={`block rounded-full transition-all duration-300 ${dot('top')}`} />
+                <span className={`block rounded-full transition-all duration-300 ${dot('mid')}`} />
+                <span className={`block rounded-full transition-all duration-300 ${dot('bot')}`} />
+              </div>
+            )
+          })()}
         </div>
       )}
 

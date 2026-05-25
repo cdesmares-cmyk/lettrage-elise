@@ -1,5 +1,5 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useRelances } from '../hooks/useRelances'
@@ -15,6 +15,7 @@ import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
+import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
@@ -34,6 +35,9 @@ export function PageCompteClient() {
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
+  const [modeSelection, setModeSelection] = useState(false)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
@@ -51,6 +55,34 @@ export function PageCompteClient() {
   }, [relances])
 
   useEffect(() => { chargerTous() }, [])
+
+  const toggleSelection = useCallback((code: string) => {
+    setSelection(prev => {
+      const next = new Set(prev)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  }, [])
+
+  function basculerModeSelection() {
+    setModeSelection(v => { if (v) setSelection(new Set()); return !v })
+  }
+
+  const clientsSelectionnes = useMemo(
+    () => comptes.clients.filter(c => selection.has(c.code_dso) && c.nb_impayees > 0),
+    [comptes.clients, selection]
+  )
+  const totalSelectionne = useMemo(
+    () => comptes.clients.filter(c => selection.has(c.code_dso)).reduce((s, c) => s + c.encours_total, 0),
+    [comptes.clients, selection]
+  )
+
+  function fmtEncours(n: number) {
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
+    if (n >= 10_000)    return `${Math.round(n / 1_000)} k€`
+    return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+  }
 
   // Ouverture automatique de la fiche client depuis un lien email (?client=CODE)
   useEffect(() => {
@@ -113,7 +145,55 @@ export function PageCompteClient() {
           )}
         </div>
 
+        {vue === 'clients' && (
+          <button
+            onClick={basculerModeSelection}
+            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+              modeSelection
+                ? 'bg-ockham-teal text-white border-ockham-teal'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-ockham-teal hover:text-ockham-teal'
+            }`}
+          >
+            {modeSelection ? `✓ Sélection (${selection.size})` : 'Sélection'}
+          </button>
+        )}
       </div>
+
+      {/* Bandeau sélection */}
+      {modeSelection && vue === 'clients' && (
+        <div className="flex items-center gap-4 bg-ockham-navy px-5 py-3 rounded-xl mb-4 flex-wrap">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span className="text-sm font-bold text-white tabular-nums">{selection.size} client{selection.size > 1 ? 's' : ''} sélectionné{selection.size > 1 ? 's' : ''}</span>
+            {selection.size > 0 && (
+              <span className="text-xs text-ockham-teal font-semibold tabular-nums">{fmtEncours(totalSelectionne)}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selection.size > 0 && (
+              <button
+                onClick={() => setSelection(new Set())}
+                className="text-[11px] text-white/50 hover:text-white transition-colors"
+              >
+                Tout désélectionner
+              </button>
+            )}
+            <button
+              onClick={() => setRelanceMasseOuverte(true)}
+              disabled={clientsSelectionnes.length === 0}
+              className="text-xs font-semibold px-3 py-1.5 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white rounded-lg transition-colors"
+            >
+              ✉ Relancer ({clientsSelectionnes.length})
+            </button>
+            <button
+              onClick={() => setExportOuvert(true)}
+              disabled={selection.size === 0}
+              className="text-xs font-semibold px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white border border-white/20 rounded-lg transition-colors"
+            >
+              ⬇ Exporter la sélection
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Contenu selon la vue */}
       {vue === 'clients' && (
@@ -133,6 +213,9 @@ export function PageCompteClient() {
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
+          modeSelection={modeSelection}
+          selection={selection}
+          onToggleSelection={toggleSelection}
         />
       )}
 
@@ -195,7 +278,7 @@ export function PageCompteClient() {
         onFermer={() => setExportNebOuvert(false)}
       />
 
-      {/* Modal Composition Relance */}
+      {/* Modal Composition Relance (client unique) */}
       <ModalCompositionRelance
         client={clientRelance}
         onFermer={() => setClientRelance(null)}
@@ -203,6 +286,17 @@ export function PageCompteClient() {
         gmailAuth={gmailAuth}
         commentaires={commentaires}
       />
+
+      {/* Modal Relance Massive */}
+      {relanceMasseOuverte && (
+        <ModalRelanceMasse
+          clients={clientsSelectionnes}
+          gmailAuth={gmailAuth}
+          commentaires={commentaires}
+          onFermer={() => setRelanceMasseOuverte(false)}
+          onFini={() => { setRelanceMasseOuverte(false); setModeSelection(false); setSelection(new Set()) }}
+        />
+      )}
 
       {/* Modal Export */}
       <ModalExport
