@@ -373,7 +373,7 @@ export function PanneauLettrage(props: Props) {
         <button
           onClick={valider}
           disabled={!peutValider() || chargement}
-          className="flex-[2] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+          className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
           {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider le lettrage'}
         </button>
