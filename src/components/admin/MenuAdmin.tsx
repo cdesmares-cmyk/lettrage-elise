@@ -116,7 +116,7 @@ export function MenuAdmin() {
             {isAdmin && (
               <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger separator />
             )}
-            <Item label="Déconnexion" icon="⏻" onClick={() => supabase.auth.signOut()} separator />
+            <Item label="Déconnexion" icon="⏻" onClick={async () => { await supabase.auth.signOut(); window.location.href = '/connexion' }} separator />
           </div>
         )}
       </div>
