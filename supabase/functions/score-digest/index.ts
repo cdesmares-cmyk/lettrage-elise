@@ -189,9 +189,8 @@ Deno.serve(async (req: Request) => {
 
       const emails = ((users ?? []) as { email: string; role: string; recoit_digest_alertes: boolean }[])
         .filter(u =>
-          u.role === 'admin' ||
-          u.role === 'responsable_poste_client' ||
-          (u.role === 'commercial' && u.recoit_digest_alertes)
+          (u.role === 'admin' || u.role === 'responsable_poste_client') &&
+          u.recoit_digest_alertes === true
         )
         .map(u => u.email)
 
