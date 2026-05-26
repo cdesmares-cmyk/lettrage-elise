@@ -1,14 +1,236 @@
-// Section Export — liste les blocs d'export disponibles
-import { BlocExportLettrage } from './BlocExportLettrage'
-import { BlocExportContacts } from './BlocExportContacts'
+// Section Export — sélection du type d'export puis panneau de configuration
+import { useState } from 'react'
+import toast from 'react-hot-toast'
+import { exporterLettrageXls } from '../../lib/exportLettrageXls'
+import { supabase } from '../../lib/supabase'
+
+type TypeExport = 'lettrage' | 'contacts'
+
+const OPTIONS: {
+  type: TypeExport
+  icone: string
+  titre: string
+  description: string
+  info: string
+}[] = [
+  {
+    type: 'lettrage',
+    icone: '📊',
+    titre: 'Lettrage',
+    description: 'Fichier Excel multi-onglets : affectation, lignes bancaires, cadrage comptable.',
+    info: 'Sélectionnez une plage de dates pour filtrer les lettrages à exporter.',
+  },
+  {
+    type: 'contacts',
+    icone: '📇',
+    titre: 'Contacts',
+    description: 'Tous les contacts actifs de votre organisation, prêts à être modifiés et ré-importés.',
+    info: 'Export instantané — aucune période à sélectionner.',
+  },
+]
+
+function debutMoisCourant() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+}
+function today() {
+  return new Date().toISOString().split('T')[0]
+}
+
+interface RowContact {
+  id: string
+  code_client: string
+  nom: string
+  prenom: string | null
+  email: string
+  telephone: string | null
+  role_contact: string
+}
+
+function genererCSVContacts(contacts: RowContact[]): string {
+  const entete = ['id_contact', 'code_client', 'nom', 'prenom', 'email', 'telephone', 'role_contact', 'delete']
+  const echapper = (v: string | null | undefined) => {
+    const s = v ?? ''
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
+    return s
+  }
+  const lignes = contacts.map(c => [
+    echapper(c.id),
+    echapper(c.code_client),
+    echapper(c.nom),
+    echapper(c.prenom),
+    echapper(c.email),
+    echapper(c.telephone),
+    echapper(c.role_contact),
+    '',
+  ].join(','))
+  return [entete.join(','), ...lignes].join('\n')
+}
 
 export function SectionExport() {
+  const [type, setType] = useState<TypeExport | null>(null)
+  const [dateDebut, setDateDebut] = useState(debutMoisCourant)
+  const [dateFin, setDateFin] = useState(today)
+  const [chargement, setChargement] = useState(false)
+
+  const optionSelectionnee = OPTIONS.find(o => o.type === type)
+
+  async function handleExportLettrage() {
+    if (!dateDebut || !dateFin) { toast.error('Veuillez sélectionner une période'); return }
+    setChargement(true)
+    try {
+      await exporterLettrageXls(dateDebut, dateFin)
+      toast.success('Export généré')
+    } catch {
+      toast.error('Erreur lors de l\'export')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  async function handleExportContacts() {
+    setChargement(true)
+    try {
+      const { data, error } = await supabase
+        .from('contacts_client')
+        .select('id, code_client, nom, prenom, email, telephone, role_contact')
+        .eq('actif', true)
+        .order('code_client')
+        .order('nom')
+      if (error) throw error
+      const contacts = (data ?? []) as RowContact[]
+      if (contacts.length === 0) {
+        toast('Aucun contact actif à exporter', { icon: 'ℹ️' })
+        return
+      }
+      const csv = genererCSVContacts(contacts)
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `contacts_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`${contacts.length} contact${contacts.length > 1 ? 's' : ''} exporté${contacts.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Erreur lors de l\'export des contacts')
+    } finally {
+      setChargement(false)
+    }
+  }
+
   return (
-    <div>
-      <p className="text-xs text-gray-400 mb-4">Sélectionnez une période et générez le fichier.</p>
-      <div className="grid grid-cols-1 gap-4 max-w-2xl">
-        <BlocExportLettrage />
-        <BlocExportContacts />
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="border-b border-gray-100 px-6 py-4">
+        <h2 className="text-sm font-semibold text-gray-800">Choisir le type d'export</h2>
+      </div>
+      <div className="p-6">
+
+        {/* Grille de sélection — même pattern que EtapeType */}
+        <div className="grid grid-cols-2 gap-4 mb-5">
+          {OPTIONS.map(opt => (
+            <button
+              key={opt.type}
+              onClick={() => setType(opt.type)}
+              className={`relative text-left border-2 rounded-xl p-5 transition-all ${
+                type === opt.type
+                  ? 'border-ockham-teal bg-ockham-teal-muted'
+                  : 'border-gray-200 bg-white hover:border-ockham-teal/40 hover:bg-ockham-teal-muted/30'
+              }`}
+            >
+              {type === opt.type && (
+                <span className="absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full bg-ockham-teal text-white text-[10px] font-bold">
+                  ✓
+                </span>
+              )}
+              <div className="text-2xl mb-3">{opt.icone}</div>
+              <p className="font-semibold text-sm text-gray-900 mb-1">{opt.titre}</p>
+              <p className="text-xs text-gray-500 leading-relaxed">{opt.description}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Bandeau info type sélectionné */}
+        <div className="flex gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-6 text-sm text-ockham-teal-dark">
+          <span className="text-base flex-shrink-0">💡</span>
+          <span>
+            {optionSelectionnee
+              ? optionSelectionnee.info
+              : 'Sélectionnez un type pour voir les options disponibles.'}
+          </span>
+        </div>
+
+        {/* Panneau de configuration — affiché une fois le type choisi */}
+        {type === 'lettrage' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Plage de dates</p>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Du</label>
+                <input
+                  type="date"
+                  value={dateDebut}
+                  onChange={e => setDateDebut(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Au</label>
+                <input
+                  type="date"
+                  value={dateFin}
+                  onChange={e => setDateFin(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors"
+                />
+              </div>
+              <button
+                onClick={handleExportLettrage}
+                disabled={chargement || !dateDebut || !dateFin}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap"
+              >
+                {chargement ? '⟳ Export…' : '⬇ Exporter .xlsx'}
+              </button>
+            </div>
+            <div className="border-t border-gray-100 pt-3 mt-4 grid grid-cols-2 gap-3 text-[11px] text-gray-500">
+              <div>
+                <p className="font-semibold text-gray-600 mb-1">Onglet Affectation</p>
+                <p>Date · Ligne bancaire · Code client</p>
+                <p>N° Facture · Montant · Commentaire · Opérateur</p>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-600 mb-1">Onglet Lignes bancaires</p>
+                <p>Date · Libellé · Débit · Crédit</p>
+                <p>Type (Facture / Autres) · Commentaire</p>
+              </div>
+              <div className="col-span-2">
+                <p className="font-semibold text-gray-600 mb-1">Onglet Cadrage</p>
+                <p>Par jour : Total Crédit reçu · Total Lettré (hors Autres) — écart visible pour l'expert-comptable</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {type === 'contacts' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="text-[11px] text-gray-500">
+                <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                <p>id_contact · code_client · nom · prénom · email · téléphone · rôle · delete</p>
+                <p className="mt-1 text-gray-400">
+                  La colonne <span className="font-mono">delete</span> est vide à l'export — indiquez <span className="font-mono">delete</span> pour désactiver un contact lors du ré-import.
+                </p>
+              </div>
+              <button
+                onClick={handleExportContacts}
+                disabled={chargement}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+              >
+                {chargement ? '⟳ Export…' : '⬇ Exporter .csv'}
+              </button>
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   )
