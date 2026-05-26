@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import type { TypeFichier } from '../../types/import'
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS } from '../../lib/champsImport'
 
 interface Props {
   typeFichier: TypeFichier
@@ -44,6 +44,13 @@ const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label:
     nomModele: 'modele_comptes_clients.csv',
     modeleXlsx: false,
   },
+  import_contacts: {
+    accept: ACCEPT_TOUS,
+    extensions: EXT_TOUS,
+    label: 'Contacts',
+    nomModele: 'modele_contacts.csv',
+    modeleXlsx: false,
+  },
 }
 
 // Exemples indicatifs par clé de champ
@@ -74,13 +81,20 @@ const EXEMPLES: Record<string, string> = {
   operateur:              'cdesmares',
   plateforme:             'Chorus',
   code_groupement:        'GRP-01',
+  id_contact:             '',
+  prenom:                 'Marie',
+  email:                  'marie.martin@example.com',
+  telephone:              '06 12 34 56 78',
+  role_contact:           'Comptabilité',
+  delete:                 '',
 }
 
-const CHAMPS_PAR_TYPE = {
+const CHAMPS_PAR_TYPE: Record<TypeFichier, typeof CHAMPS_BANCAIRES> = {
   csv_bancaire:    CHAMPS_BANCAIRES,
   xlsx_factures:   CHAMPS_FACTURES,
   import_lettrage: CHAMPS_LETTRAGES,
   import_clients:  CHAMPS_CLIENTS,
+  import_contacts: CHAMPS_CONTACTS,
 }
 
 // Valeurs numériques réelles pour le template XLSX (stockées comme numbers, pas strings)
