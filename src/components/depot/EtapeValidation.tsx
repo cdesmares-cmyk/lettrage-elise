@@ -180,15 +180,20 @@ export function EtapeValidation({
               <tr key={i} className={
                 ligne.statut === 'doublon' || ligne.statut === 'sur_paiement' ? 'bg-amber-50' :
                 ligne.statut === 'invalide' ? 'bg-red-50' :
+                ligne.statut === 'modification' ? 'bg-blue-50' :
                 'hover:bg-gray-50'
               }>
                 <td className="px-4 py-2">
                   {ligne.statut === 'doublon' ? (
-                    <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Doublon</span>
+                    <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Doublon fichier</span>
+                  ) : ligne.statut === 'modification' ? (
+                    <span className="bg-blue-100 text-blue-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Modification</span>
                   ) : ligne.statut === 'sur_paiement' ? (
                     <span className="bg-amber-100 text-amber-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Sur-paiement</span>
                   ) : ligne.statut === 'invalide' ? (
-                    <span className="bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Introuvable</span>
+                    <span className="bg-red-100 text-red-700 text-[10px] font-semibold px-2 py-0.5 rounded-full" title={ligne.message}>
+                      {ligne.message ? `⚠ ${ligne.message}` : 'Introuvable'}
+                    </span>
                   ) : (
                     <span className="bg-emerald-100 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 rounded-full">Nouveau</span>
                   )}

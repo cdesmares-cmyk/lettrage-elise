@@ -32,7 +32,8 @@ export interface ResultatAnalyse {
 // Une ligne dans l'aperçu de validation
 export interface LigneApercu {
   donnees: Record<string, string>
-  statut: 'nouveau' | 'doublon' | 'sur_paiement' | 'invalide'
+  statut: 'nouveau' | 'doublon' | 'sur_paiement' | 'invalide' | 'modification'
+  message?: string
   cle_pivot: string
 }
 

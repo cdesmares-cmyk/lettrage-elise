@@ -158,18 +158,29 @@ export function useImportContacts() {
       return existantsMap.has(cle) && !(colDelete && (l[colDelete] ?? '').toLowerCase() === 'delete')
     })
 
-    const apercu = lignesValides.slice(0, 10).map(l => {
-      const cle = `${normaliserEmail(l[colEmail] ?? '')}|${(l[colCode] ?? '').trim()}`
+    // Aperçu sur les 10 premières lignes brutes (valides ET invalides) pour que l'utilisateur
+    // voie exactement ce qui se passe ligne par ligne, avec la raison si erreur de format.
+    const apercu = lignes.slice(0, 10).map((l, idx) => {
+      const email = normaliserEmail(l[colEmail] ?? '')
+      const code = (l[colCode] ?? '').trim()
+      const nom = colNom ? (l[colNom] ?? '').trim() : ''
+
+      if (!email || !email.includes('@'))
+        return { donnees: l, statut: 'invalide' as const, cle_pivot: email || '—', message: 'email invalide ou manquant' }
+      if (!code)
+        return { donnees: l, statut: 'invalide' as const, cle_pivot: email, message: 'code client manquant' }
+      if (!nom)
+        return { donnees: l, statut: 'invalide' as const, cle_pivot: email, message: 'nom manquant' }
+      if (lignesDoublon.has(idx))
+        return { donnees: l, statut: 'doublon' as const, cle_pivot: email }
+
+      const cle = `${email}|${code}`
       const estSuppression = colDelete && (l[colDelete] ?? '').toLowerCase() === 'delete'
-      return {
-        donnees: l,
-        statut: estSuppression
-          ? ('invalide' as const)
-          : existantsMap.has(cle)
-          ? ('doublon' as const)
-          : ('nouveau' as const),
-        cle_pivot: l[colEmail] ?? '',
-      }
+      if (estSuppression)
+        return { donnees: l, statut: 'modification' as const, cle_pivot: email, message: 'sera désactivé' }
+      if (existantsMap.has(cle))
+        return { donnees: l, statut: 'modification' as const, cle_pivot: email }
+      return { donnees: l, statut: 'nouveau' as const, cle_pivot: email }
     })
 
     return {
