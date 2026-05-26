@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import toast from 'react-hot-toast'
 import type { LigneHistorique } from '../../hooks/useHistoriqueLettrage'
 import { HISTORIQUE_PAGE_SIZE } from '../../hooks/useHistoriqueLettrage'
 import type { CompteClient } from '../../types/client'
+import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   lignes: LigneHistorique[]
@@ -29,39 +28,6 @@ function normaliser(s: string | null | undefined) {
   return (s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 }
 
-function CopyButton({ valeur }: { valeur: string }) {
-  const [copie, setCopie] = useState(false)
-  function handleCopy(e: React.MouseEvent) {
-    e.stopPropagation()
-    navigator.clipboard.writeText(valeur).then(() => {
-      setCopie(true)
-      toast.success(`Copié : ${valeur}`, { duration: 1500 })
-      setTimeout(() => setCopie(false), 1500)
-    })
-  }
-  return (
-    <button
-      onClick={handleCopy}
-      title="Copier le numéro"
-      className={`ml-1.5 inline-flex items-center justify-center w-4 h-4 rounded transition-colors flex-shrink-0 ${
-        copie
-          ? 'text-emerald-500'
-          : 'text-gray-300 hover:text-ockham-teal'
-      }`}
-    >
-      {copie ? (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l3 3 7-7" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 16 16" fill="none" className="w-3 h-3" stroke="currentColor" strokeWidth={1.8}>
-          <rect x="5" y="5" width="8" height="8" rx="1.5" />
-          <path d="M3 11V3.5A1.5 1.5 0 014.5 2H11" strokeLinecap="round" />
-        </svg>
-      )}
-    </button>
-  )
-}
 
 export function TableHistoriqueLettrage({
   lignes, lignesServeur, chargement, chargementServeur,
@@ -215,10 +181,10 @@ export function TableHistoriqueLettrage({
                     </td>
                     <td className="px-3 py-2.5">
                       {l.numero_facture ? (
-                        <div className="flex items-center">
-                          <span className="font-mono text-ockham-teal-dark font-semibold">{l.numero_facture}</span>
-                          <CopyButton valeur={l.numero_facture} />
-                        </div>
+                        <NumeroPiece
+                          numero={l.numero_facture}
+                          className="font-mono text-ockham-teal-dark font-semibold"
+                        />
                       ) : (
                         <span className="text-amber-600 font-semibold text-[10px] bg-amber-50 px-1.5 py-0.5 rounded">
                           Autres{l.commentaire ? ` · ${l.commentaire}` : ''}
