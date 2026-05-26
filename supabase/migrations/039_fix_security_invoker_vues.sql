@@ -1,0 +1,36 @@
+-- Migration 039 : Restaurer security_invoker = true sur v_comptes_clients
+-- Cause : la vue a été recréée (ajout score_risque) sans l'option security_invoker,
+-- ce qui désactivait le RLS et exposait les clients de toutes les organisations.
+
+DROP VIEW IF EXISTS v_comptes_clients CASCADE;
+
+CREATE VIEW v_comptes_clients
+WITH (security_invoker = true)
+AS
+SELECT
+  c.code_dso,
+  c.nom,
+  c.statut_juridique,
+  c.commercial,
+  c.operateur,
+  c.plateforme,
+  c.code_groupement,
+  c.organisation_id,
+  c.siret,
+  c.score_risque,
+  COUNT(f.numero_piece)::int                                                    AS nb_factures_total,
+  COUNT(CASE WHEN f.reste_du > 0.005 AND f.est_avoir = false THEN 1 END)::int  AS nb_impayees,
+  COALESCE(
+    SUM(CASE WHEN f.reste_du > 0.005 AND f.est_avoir = false THEN f.reste_du ELSE 0 END),
+    0
+  )::numeric(12,2)                                                              AS encours_total,
+  MAX(f.date_emission)                                                          AS derniere_emission
+FROM clients c
+LEFT JOIN factures f ON f.code_client = c.code_dso
+                     AND f.organisation_id = c.organisation_id
+GROUP BY
+  c.code_dso, c.nom, c.statut_juridique, c.commercial, c.operateur,
+  c.plateforme, c.code_groupement, c.organisation_id, c.siret, c.score_risque;
+
+-- Vérification : reloptions doit contenir {security_invoker=true}
+-- SELECT relname, reloptions FROM pg_class WHERE relname = 'v_comptes_clients';
