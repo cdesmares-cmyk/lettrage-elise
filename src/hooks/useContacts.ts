@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 
-export type RoleContact = 'comptabilite' | 'relance' | 'direction' | 'terrain' | 'autre'
+export type RoleContact = string
 
 export interface Contact {
   id: string

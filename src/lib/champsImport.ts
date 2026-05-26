@@ -199,6 +199,77 @@ export const CHAMPS_CLIENTS: ChampCible[] = [
   },
 ]
 
+export const CHAMPS_CONTACTS: ChampCible[] = [
+  {
+    cle: 'id_contact',
+    label: 'ID Contact (mise à jour)',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['id contact', 'id_contact', 'identifiant contact', 'contact id', 'uuid contact'],
+    hint: 'UUID généré par l\'outil — laissez vide pour un nouveau contact',
+  },
+  {
+    cle: 'code_client',
+    label: 'Code client (pivot)',
+    est_pivot: true,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['code client', 'codeclient', 'code dso', 'codedso', 'dso', 'code', 'code_client'],
+  },
+  {
+    cle: 'nom',
+    label: 'Nom',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['nom', 'nom contact', 'name', 'lastname', 'last name', 'nom de famille'],
+  },
+  {
+    cle: 'prenom',
+    label: 'Prénom',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['prenom', 'prénom', 'firstname', 'first name', 'prenom contact'],
+  },
+  {
+    cle: 'email',
+    label: 'Email (pivot)',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: ['email', 'mail', 'adresse email', 'adresse mail', 'e-mail', 'courriel'],
+    hint: 'Clé de dédoublonnage — une adresse email est unique par code client',
+  },
+  {
+    cle: 'telephone',
+    label: 'Téléphone',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['telephone', 'téléphone', 'tel', 'phone', 'mobile', 'portable', 'tel direct'],
+  },
+  {
+    cle: 'role_contact',
+    label: 'Rôle',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['role', 'rôle', 'role contact', 'fonction', 'poste', 'titre'],
+    hint: 'Texte libre : ex. Comptabilité, Direction, Relance…',
+  },
+  {
+    cle: 'delete',
+    label: 'Action (supprimer)',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['delete', 'action', 'supprimer', 'suppression', 'archiver'],
+    hint: 'Indiquez "delete" pour désactiver ce contact',
+  },
+]
+
 export const CHAMPS_FACTURES: ChampCible[] = [
   {
     cle: 'numero_piece',

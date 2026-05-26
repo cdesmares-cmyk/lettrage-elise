@@ -49,6 +49,14 @@ const OPTIONS: {
     pivot: 'Code client',
     info: 'Les clients existants seront mis à jour. Les nouveaux codes clients seront créés.',
   },
+  {
+    type: 'import_contacts',
+    icone: '📇',
+    titre: 'Contacts',
+    description: 'Import et mise à jour des contacts rattachés à vos clients (nom, email, téléphone, rôle).',
+    pivot: 'Email + Code client',
+    info: 'Upsert par email/code client. Colonne "delete" = désactivation. Les doublons email dans le fichier sont ignorés avec alerte.',
+  },
 ]
 
 export function EtapeType({ valeur, onChange, onSuivant }: Props) {
@@ -56,7 +64,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
 
   return (
     <div>
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-2 xl:grid-cols-3 gap-4 mb-5">
         {OPTIONS.map(opt => (
           <button
             key={opt.type}

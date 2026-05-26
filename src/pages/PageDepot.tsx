@@ -11,6 +11,7 @@ import { useImportBancaire } from '../hooks/useImportBancaire'
 import { useImportFactures } from '../hooks/useImportFactures'
 import { useImportLettrage } from '../hooks/useImportLettrage'
 import { useImportClients } from '../hooks/useImportClients'
+import { useImportContacts } from '../hooks/useImportContacts'
 import { useAppData } from '../contexts/AppDataContext'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
@@ -49,9 +50,11 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
   const hookFactures = useImportFactures()
   const hookLettrage = useImportLettrage()
   const hookClients = useImportClients()
+  const hookContacts = useImportContacts()
   const hook = typeFichier === 'csv_bancaire' ? hookBancaire
     : typeFichier === 'xlsx_factures' ? hookFactures
     : typeFichier === 'import_lettrage' ? hookLettrage
+    : typeFichier === 'import_contacts' ? hookContacts
     : hookClients
 
   function reinitialiser() {
@@ -215,10 +218,10 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
               <div className="text-4xl mb-4">✅</div>
               <h3 className="text-lg font-bold text-gray-900 mb-1">Import terminé</h3>
               <p className="text-gray-500 text-sm mb-6">
-                {validation.nom_fichier} · {typeFichier === 'import_clients'
+                {validation.nom_fichier} · {typeFichier === 'import_clients' || typeFichier === 'import_contacts'
                   ? `${validation.nb_nouvelles} créé${validation.nb_nouvelles > 1 ? 's' : ''}, ${validation.nb_doublons} mis à jour`
                   : `${validation.nb_nouvelles.toLocaleString('fr-FR')} lignes importées`}
-                {typeFichier !== 'import_clients' && validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
+                {typeFichier !== 'import_clients' && typeFichier !== 'import_contacts' && validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
                 {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} factures ignorées`}
                 {(validation.nb_avertissements ?? 0) > 0 && ` · ${validation.nb_avertissements} sur-paiements`}
               </p>
