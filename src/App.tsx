@@ -17,17 +17,43 @@ import { PageRelances } from './pages/PageRelances'
 
 function SplashChargement({ nom }: { nom?: string }) {
   return (
-    <div className="min-h-screen bg-ockham-navy flex flex-col items-center justify-center gap-0">
-      <div className="flex flex-col items-center gap-2 mb-10">
-        <div className="w-20 h-20 rounded-2xl bg-ockham-teal/10 border border-ockham-teal/20 flex items-center justify-center mb-2">
-          <span className="text-5xl font-black text-ockham-teal leading-none select-none">O</span>
-        </div>
-        <p className="text-2xl font-black tracking-widest text-white uppercase">OCKHAM</p>
+    <div className="min-h-screen bg-ockham-navy flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center animate-fade-up">
+        {/* Hexagone logo */}
+        <svg
+          width="64" height="72"
+          viewBox="0 0 64 72"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="mb-5"
+        >
+          <path
+            d="M32 2L61 18.5v35L32 70 3 53.5v-35L32 2z"
+            stroke="#4CC5BB"
+            strokeWidth="2"
+            fill="rgba(76,197,187,0.08)"
+          />
+          <text
+            x="32" y="46"
+            textAnchor="middle"
+            fontFamily="-apple-system, 'Plus Jakarta Sans', sans-serif"
+            fontWeight="900"
+            fontSize="28"
+            fill="#4CC5BB"
+            letterSpacing="-1"
+          >O</text>
+        </svg>
+
+        <p className="text-2xl font-black tracking-widest text-white uppercase mb-1">OCKHAM</p>
         {nom && (
-          <p className="text-sm font-semibold text-ockham-teal tracking-wider uppercase mt-1">{nom}</p>
+          <p className="text-xs font-semibold text-ockham-teal/70 tracking-widest uppercase mb-0">{nom}</p>
         )}
+
+        {/* Barre de progression shimmer */}
+        <div className="mt-8 w-40 h-[2px] bg-ockham-teal/15 rounded-full overflow-hidden">
+          <div className="h-full w-1/3 bg-ockham-teal rounded-full animate-shimmer-bar" />
+        </div>
       </div>
-      <div className="w-6 h-6 border-2 border-ockham-teal border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }
