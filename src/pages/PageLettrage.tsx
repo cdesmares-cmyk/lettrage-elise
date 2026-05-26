@@ -18,7 +18,7 @@ export function PageLettrage() {
   const [extractionOuverte, setExtractionOuverte] = useState(false)
   const [remisesOuverte, setRemisesOuverte] = useState(false)
 
-  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal } = useAppData()
+  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm((data) => {
@@ -120,9 +120,9 @@ export function PageLettrage() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
                 <h3 className="text-base font-bold text-gray-900">📋 Historique des lettrages</h3>
-                {historique.lignes.length > 0 && (
+                {historique.lignes.length > 0 && !historique.recherche && (
                   <span className="text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                    {historique.lignes.length} actions
+                    {historique.lignes.length} dernières actions
                   </span>
                 )}
               </div>
@@ -132,7 +132,17 @@ export function PageLettrage() {
               >✕</button>
             </div>
             <div className="overflow-auto flex-1">
-              <TableHistoriqueLettrage lignes={historique.lignes} chargement={historique.chargement} />
+              <TableHistoriqueLettrage
+                lignes={historique.lignes}
+                lignesServeur={historique.lignesServeur}
+                chargement={historique.chargement}
+                chargementServeur={historique.chargementServeur}
+                clients={clients}
+                recherche={historique.recherche}
+                onRecherche={historique.setRecherche}
+                page={historique.page}
+                onPage={historique.setPage}
+              />
             </div>
           </div>
         </div>
