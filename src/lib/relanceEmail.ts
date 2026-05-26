@@ -65,7 +65,7 @@ export function buildHtml(factures: FactureLigne[], signature: string | null): s
   const rows = factures.map(buildRow).join('')
 
   // Mention Ockham discrète sous le tableau
-  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <strong style="color:#9CA3AF;font-weight:600;">Ockham Finance</strong></p>`
+  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <a href="https://www.ockham-finance.com" style="color:#9CA3AF;font-weight:600;text-decoration:none;" target="_blank">Ockham Finance</a></p>`
 
   const sig = signature
     ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${signature}</div>`
