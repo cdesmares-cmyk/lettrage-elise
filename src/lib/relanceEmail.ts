@@ -64,11 +64,8 @@ export function buildHtml(factures: FactureLigne[], signature: string | null): s
   const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
   const rows = factures.map(buildRow).join('')
 
-  // Note sous tableau — visible uniquement s'il y a des factures avec PDF
-  const aPdf = factures.some(f => f.pdfUrl)
-  const notePdf = aPdf
-    ? `<p style="margin:0 0 24px;font-size:12px;color:#9CA3AF;line-height:1.6;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Les factures en rouge sont échues. Cliquez sur le badge <span style="background:#E6F7F5;border:1px solid rgba(76,197,187,0.3);border-radius:20px;padding:1px 6px;font-size:10px;font-weight:600;color:#0D9488;">PDF</span> pour accéder au document correspondant.</p>`
-    : `<p style="margin:0 0 24px;font-size:12px;color:#9CA3AF;line-height:1.6;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Les factures affichées en rouge sont échues.</p>`
+  // Mention Ockham discrète sous le tableau
+  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <strong style="color:#9CA3AF;font-weight:600;">Ockham Finance</strong></p>`
 
   const sig = signature
     ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${signature}</div>`
@@ -117,14 +114,6 @@ export function buildHtml(factures: FactureLigne[], signature: string | null): s
 
   ${sig}
 
-  <!-- Footer Ockham — discret -->
-  <div style="border-top:1px solid #F1F5F9;padding-top:14px;text-align:center;">
-    <p style="margin:0;font-size:11px;color:#CBD5E1;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">
-      Propulsé par
-      <svg width="11" height="12" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg>
-      <strong style="color:#9CA3AF;font-weight:600;">Ockham Finance</strong>
-    </p>
-  </div>
 
 </div>`
 }
