@@ -28,8 +28,7 @@ interface Props {
 export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires }: Props) {
   const { utilisateur } = useAuth()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
-  const { facturesActives } = useAppData()
-  const { scenarios } = useAppData()
+  const { facturesActives, scenarios } = useAppData()
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
 
   const impayees = facturesActives.filter(f =>
@@ -41,12 +40,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [contactsSel, setContactsSel] = useState<string[]>([])
   const [facturesSel, setFacturesSel] = useState<string[]>([])
   const [scenarioId, setScenarioId] = useState<string>('')
-  const [objet, setObjet] = useState('')
-  const [corps, setCorps] = useState('')
   const [emailFallback, setEmailFallback] = useState('')
   const [nomFallback, setNomFallback] = useState('')
   const [envoi, setEnvoi] = useState(false)
-  const [onglet, setOnglet] = useState<'rediger' | 'apercu'>('rediger')
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
 
@@ -60,28 +56,37 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setContactsSel(contacts.filter(c => c.email).map(c => c.id))
   }, [client?.code_dso, contacts.length, impayees.length])
 
-  // Pré-remplissage auto dès que les scénarios sont chargés
+  // Sélectionne le scénario niveau 1 par défaut
   useEffect(() => {
     if (!client || !scenarios.length || scenarioId) return
-    appliquerScenario(scenarios[0].id)
+    const defaut = scenarios.find(s => s.niveau === 1) ?? scenarios[0]
+    setScenarioId(defaut.id)
   }, [scenarios.length, client?.code_dso])
-
-  function appliquerScenario(id: string) {
-    const sc = scenarios.find(s => s.id === id)
-    if (!sc || !client) return
-    const montantDu = impayees.filter(f => facturesSel.includes(f.numero_piece)).reduce((s, f) => s + f.reste_du, 0)
-    const ctx = { nomClient: client.nom, codeClient: client.code_dso, montantDu }
-    setScenarioId(id)
-    setObjet(resolveBalises(sc.objet, ctx))
-    setCorps(resolveBalises(sc.corps_texte, ctx))
-  }
 
   if (!client) return null
 
   const contactsAvecEmail = contacts.filter(c => c.email)
   const sanContacts = contactsAvecEmail.length === 0
-  const nomClient = client.nom
-  const codeClient = client.code_dso
+
+  // Valeurs calculées en direct — se mettent à jour à chaque changement de scénario ou de sélection
+  const scenarioCourant = scenarios.find(s => s.id === scenarioId) ?? null
+  const facturesSélectionnées = impayees.filter(f => facturesSel.includes(f.numero_piece))
+  const montantDu = facturesSélectionnées.reduce((s, f) => s + f.reste_du, 0)
+  const ctx = { nomClient: client.nom, codeClient: client.code_dso, montantDu }
+
+  const objetFinal = scenarioCourant ? resolveBalises(scenarioCourant.objet, ctx) : ''
+  const corpsResolu = scenarioCourant ? resolveBalises(scenarioCourant.corps_texte, ctx) : ''
+
+  const lignesFactures = facturesSélectionnées.map(f => ({
+    numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du,
+    echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url,
+  }))
+
+  const previewHtml = corpsResolu
+    ? corpsResolu.includes('[Tableau Factures]')
+      ? buildHtmlFromScenario(corpsResolu, lignesFactures, signature)
+      : buildHtml(lignesFactures, signature)
+    : buildHtml(lignesFactures, signature)
 
   function toggleContact(id: string) {
     setContactsSel(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -90,7 +95,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setFacturesSel(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
   }
 
-  const peutEnvoyer = !envoi && objet.trim() && corps.trim() && facturesSel.length > 0 &&
+  const peutEnvoyer = !envoi && !!objetFinal.trim() && facturesSel.length > 0 &&
     (sanContacts ? emailFallback.trim() && nomFallback.trim() : contactsSel.length > 0)
 
   async function handleEnvoyer() {
@@ -104,39 +109,23 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       cIds = []
     }
 
-    // Envoi Gmail si l'opérateur a connecté sa boîte
     let gmailThreadId: string | undefined
     if (estConnecte) {
       const destinataires = sanContacts
         ? [emailFallback.trim()]
         : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email!).filter(Boolean)
-      const selFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
-        .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
-      const htmlFinal = corps.includes('[Tableau Factures]')
-        ? buildHtmlFromScenario(corps, selFactures, signature)
-        : buildHtml(selFactures, signature)
-      const res = await envoyerEmail({
-        destinataires,
-        objet:     objet.trim(),
-        corpsHtml: htmlFinal,
-      })
+      const res = await envoyerEmail({ destinataires, objet: objetFinal.trim(), corpsHtml: previewHtml })
       if (!res) { toast.error('Échec de l\'envoi Gmail'); setEnvoi(false); return }
       gmailThreadId = res.threadId
     }
 
-    const selFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
-      .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
-    const htmlFinal = corps.includes('[Tableau Factures]')
-      ? buildHtmlFromScenario(corps, selFactures, signature)
-      : buildHtml(selFactures, signature)
-
     const payload: Record<string, unknown> = {
-      code_client:      codeClient,
+      code_client:      client!.code_dso,
       operateur_id:     utilisateur.id,
       contacts_ids:     cIds,
       factures_ids:     facturesSel,
-      objet:            objet.trim(),
-      corps_html:       htmlFinal,
+      objet:            objetFinal.trim(),
+      corps_html:       previewHtml,
       statut:           'envoyee',
       envoyee_le:       new Date().toISOString(),
       points_attribues: 10,
@@ -144,19 +133,12 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 
     const { error } = await supabase.from('relances').insert(payload as never)
-
     setEnvoi(false)
     if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
     toast.success(estConnecte ? '✉ Envoyé · +10 pts' : '+10 pts · Relance enregistrée')
     onSent()
     onFermer()
   }
-
-  const previewFactures = impayees.filter(f => facturesSel.includes(f.numero_piece))
-    .map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
-  const previewHtml = corps.includes('[Tableau Factures]')
-    ? buildHtmlFromScenario(corps, previewFactures, signature)
-    : buildHtml(previewFactures, signature)
 
   return (
     <>
@@ -170,8 +152,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
             style={{ background: 'linear-gradient(135deg, #0E1A2B 0%, #1a2d44 100%)', borderTop: '2px solid #4CC5BB' }}
           >
             <div>
-              <p className="text-sm font-bold text-white">Nouvelle relance — <span className="text-ockham-teal">{nomClient}</span></p>
-              <p className="text-xs text-white/50 mt-0.5 font-mono">{codeClient} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
+              <p className="text-sm font-bold text-white">Nouvelle relance — <span className="text-ockham-teal">{client.nom}</span></p>
+              <p className="text-xs text-white/50 mt-0.5 font-mono">{client.code_dso} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
             </div>
             <button onClick={onFermer} className="w-7 h-7 rounded-full border border-white/20 text-white/60 hover:bg-white/10 hover:text-white text-sm flex items-center justify-center transition-colors">✕</button>
           </div>
@@ -179,10 +161,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           {/* Corps — 2 colonnes */}
           <div className="flex-1 overflow-hidden flex min-h-0">
 
-            {/* Colonne gauche : formulaire */}
+            {/* Colonne gauche */}
             <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
 
-              {/* Statut connexion Gmail */}
               {estConnecte ? (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                   <span className="text-emerald-600 text-sm">✓</span>
@@ -191,15 +172,13 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               ) : (
                 <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-xs text-amber-700">Gmail non connecté — la relance sera enregistrée sans envoi</p>
-                  <button onClick={connecterGmail} className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0">
-                    Connecter Gmail →
-                  </button>
+                  <button onClick={connecterGmail} className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0">Connecter Gmail →</button>
                 </div>
               )}
 
-              {/* Contacts */}
+              {/* 1 — Destinataires */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">1 —</span>Destinataires</label>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">1 —</span>Destinataires</label>
                 {sanContacts ? (
                   <div className="space-y-2">
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
@@ -221,10 +200,10 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                 )}
               </div>
 
-              {/* Factures */}
+              {/* 2 — Factures */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">2 —</span>Factures à inclure</label>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
+                <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {impayees.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune facture impayée</p>
                   ) : impayees.map(f => {
@@ -233,14 +212,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                       <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                         <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
                         {f.axonaut_pdf_url ? (
-                          <a
-                            href={f.axonaut_pdf_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={e => e.stopPropagation()}
-                            title="Voir le PDF"
-                            className="font-mono text-[11px] text-ockham-teal hover:underline flex-1 truncate"
-                          >{f.numero_piece} ↗</a>
+                          <a href={f.axonaut_pdf_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="font-mono text-[11px] text-ockham-teal hover:underline flex-1 truncate">{f.numero_piece} ↗</a>
                         ) : (
                           <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
                         )}
@@ -262,84 +234,56 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                 </div>
               </div>
 
-              {/* Scénario */}
+              {/* 3 — Scénario */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy dark:text-white/40 mr-1">3 —</span>Scénario</label>
-                <select
-                  value={scenarioId}
-                  onChange={e => appliquerScenario(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal cursor-pointer"
-                >
-                  {!scenarioId && <option value="">— Choisir un scénario</option>}
-                  {scenarios.map(s => (
-                    <option key={s.id} value={s.id}>Niveau {s.niveau} — {s.nom}</option>
-                  ))}
-                </select>
-                {scenarios.length === 0 && (
-                  <p className="text-[11px] text-amber-600 mt-1">Aucun scénario configuré — ajoutez-en depuis Mon compte → Scénarios de relance</p>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
+                {scenarios.length > 0 ? (
+                  <select
+                    value={scenarioId}
+                    onChange={e => setScenarioId(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal cursor-pointer"
+                  >
+                    {!scenarioId && <option value="">— Choisir un scénario</option>}
+                    {scenarios.map(s => (
+                      <option key={s.id} value={s.id}>Niveau {s.niveau} — {s.nom}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-[11px] text-amber-600">Aucun scénario configuré — ajoutez-en depuis Mon compte → Scénarios de relance</p>
                 )}
               </div>
             </div>
 
-            {/* Colonne droite : rédiger + aperçu */}
+            {/* Colonne droite — aperçu live en lecture seule */}
             <div className="w-3/5 flex flex-col overflow-hidden">
-              {/* Onglets */}
-              <div className="flex border-b border-gray-100 px-5 pt-4 flex-shrink-0 gap-4">
-                {(['rediger', 'apercu'] as const).map(o => (
-                  <button
-                    key={o}
-                    onClick={() => setOnglet(o)}
-                    className={`pb-2 text-[11px] font-bold uppercase tracking-wider border-b-2 transition-colors ${
-                      onglet === o ? 'border-ockham-teal text-ockham-teal' : 'border-transparent text-gray-400 hover:text-gray-600'
-                    }`}
-                  >
-                    {o === 'rediger' ? 'Rédiger' : 'Aperçu email'}
-                  </button>
-                ))}
+              <div className="px-5 pt-4 pb-2 flex-shrink-0">
+                <p className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider">Aperçu email</p>
               </div>
-
-              {onglet === 'rediger' ? (
-                <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Objet</label>
-                    <input value={objet} onChange={e => setObjet(e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+              <div className="flex-1 overflow-y-auto px-5 pb-4">
+                <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
+                  {/* En-tête simulé */}
+                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
+                    {estConnecte && (
+                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span></p>
+                    )}
+                    <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
+                    <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Obj :</span> <span className="font-semibold text-gray-800">{objetFinal || '—'}</span></p>
                   </div>
-                  <div className="flex-1">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Corps du message</label>
-                    <textarea
-                      value={corps}
-                      onChange={e => setCorps(e.target.value)}
-                      rows={16}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-ockham-teal resize-none font-sans leading-relaxed"
-                    />
-                    <p className="text-[10px] text-gray-300 mt-1">[Tableau Factures] sera remplacé par le tableau des factures sélectionnées lors de l'envoi</p>
-                  </div>
+                  {/* Corps HTML rendu */}
+                  <div className="px-4 py-4" dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 </div>
-              ) : (
-                <div className="flex-1 overflow-y-auto px-5 py-4">
-                  <div className="border border-gray-200 rounded-xl overflow-hidden text-sm">
-                    <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
-                      {estConnecte && (
-                        <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span></p>
-                      )}
-                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
-                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Obj :</span> <span className="font-semibold text-gray-800">{objet || '—'}</span></p>
-                    </div>
-                    <div className="px-4 py-4 text-gray-700 text-[13px] leading-relaxed" dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                  </div>
-                  <p className="text-[10px] text-gray-300 mt-3 text-center">{estConnecte ? `Envoyé depuis ${gmailToken?.gmail_email}` : 'Connectez Gmail pour envoyer automatiquement'}</p>
-                </div>
-              )}</div>
+                <p className="text-[10px] text-gray-300 mt-3 text-center">
+                  {estConnecte ? `Envoyé depuis ${gmailToken?.gmail_email}` : 'Connectez Gmail pour envoyer automatiquement'}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Tooltip commentaire — fixed, hors de tout overflow */}
+          {/* Tooltip commentaire */}
           {tooltip && commentaires?.has(tooltip.numero) && (() => {
             const com = commentaires.get(tooltip.numero)!
             return (
-              <div
-                className="pointer-events-none fixed z-[9999] w-60"
-                style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}
-              >
+              <div className="pointer-events-none fixed z-[9999] w-60" style={{ left: tooltip.x, top: tooltip.y - 8, transform: 'translate(-50%, -100%)' }}>
                 <div className="bg-slate-800 border border-slate-600 text-white rounded-xl shadow-2xl px-3.5 py-3 text-[11px] leading-relaxed">
                   {com.commentaire && <p className="mb-1.5 text-white">{com.commentaire}</p>}
                   {com.contact && <p className="text-slate-400">👤 {com.contact}</p>}
