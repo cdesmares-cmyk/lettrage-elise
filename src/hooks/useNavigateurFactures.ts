@@ -22,9 +22,10 @@ export interface SuggestionNavigateur {
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
 
-function extraireNumerosDetail(detail: string | null): string[] {
-  if (!detail) return []
-  return [...new Set(detail.match(/\b\d{7,}\b/g) ?? [])]
+function extraireNumerosDetail(detail: string | null, infosComp: string | null): string[] {
+  const texte = [detail, infosComp].filter(Boolean).join(' ')
+  if (!texte) return []
+  return [...new Set(texte.match(/\b\d{7,}\b/g) ?? [])]
 }
 
 async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
@@ -117,7 +118,7 @@ export function useNavigateurFactures(
   async function computeSuggestions(ligne: LigneBancaireAvecStatut) {
     setChargementSugg(true)
     try {
-      const detailNums = extraireNumerosDetail(ligne.detail)
+      const detailNums = extraireNumerosDetail(ligne.detail, ligne.infos_complementaires)
       const [facturesNum, sepaMatch, facturesHisto] = await Promise.all([
         fetchParNums(detailNums),
         fetchSepaMatch(ligne.libelle),
