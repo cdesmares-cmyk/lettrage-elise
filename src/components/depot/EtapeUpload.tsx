@@ -1,5 +1,6 @@
 // Étape 2 : dépôt du fichier par glisser-déposer ou sélection
 import { useRef, useState } from 'react'
+import { IcDownload } from '../Icones'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import type { TypeFichier } from '../../types/import'
@@ -229,7 +230,7 @@ export function EtapeUpload({ typeFichier, onFichierSelectionne, onRetour, charg
           onClick={() => telechargerModele(typeFichier)}
           className="flex items-center gap-1.5 text-xs font-medium text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/40 hover:border-ockham-teal bg-ockham-teal-muted hover:bg-ockham-teal/10 px-3 py-2 rounded-lg transition-colors"
         >
-          ⬇ Modèle {config.modeleXlsx ? 'XLSX' : 'CSV'}
+          <IcDownload size={12} className="inline-block mr-1" /> Modèle {config.modeleXlsx ? 'XLSX' : 'CSV'}
         </button>
       </div>
     </div>

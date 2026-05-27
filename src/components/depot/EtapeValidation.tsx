@@ -1,5 +1,6 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
 import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS } from '../../lib/champsImport'
+import { IcUpload } from '../Icones'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
 interface Props {
@@ -232,7 +233,7 @@ export function EtapeValidation({
             {chargement ? (
               <><span className="animate-spin">⏳</span> Import en cours…</>
             ) : (
-              '⬆️ Lancer l\'import'
+              <><IcUpload size={13} className="inline-block mr-1.5" />Lancer l'import</>
             )}
           </button>
         </div>

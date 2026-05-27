@@ -1,5 +1,6 @@
 // Modal de gestion des remises Chèque / LCR (Sprint 4)
 import { useState, useEffect, useRef } from 'react'
+import { IcBuilding, IcEdit } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useRemises } from '../../hooks/useRemises'
 import type { RemiseSuccessData } from '../../hooks/useRemises'
@@ -157,7 +158,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
         <div className="flex items-start justify-between px-7 py-5 border-b border-gray-100">
           <div>
             <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              🏦 Remises Chèque / LCR
+              <IcBuilding size={15} className="flex-shrink-0" /> Remises Chèque / LCR
               {enAttente.length > 0 && (
                 <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
                   {enAttente.length} en attente
@@ -198,7 +199,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
 
                   {enAttente.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                      <div className="text-3xl mb-3 opacity-30">🏦</div>
+                      <div className="mb-3 opacity-20 text-gray-400"><IcBuilding size={40} /></div>
                       <p className="text-sm font-medium">Aucune remise en attente</p>
                       <p className="text-xs mt-1">Cliquez sur "Saisir une remise" pour créer votre première remise.</p>
                     </div>
@@ -241,7 +242,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                               <div className="flex justify-end gap-2 px-4 py-3">
                                 <button onClick={() => ouvrirFormulaire(remise)}
                                   className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-3 py-1.5 rounded-lg transition-colors">
-                                  ✏️ Modifier
+                                  <IcEdit size={11} className="inline-block mr-1" /> Modifier
                                 </button>
                                 <button onClick={() => supprimer(remise.id)}
                                   disabled={chargement}

@@ -1,3 +1,5 @@
+import { IcBuilding } from '../Icones'
+
 interface Props {
   nbNonLettres: number
   montantRestant: number
@@ -44,7 +46,7 @@ export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, 
             onClick={onOuvrirRemises}
             className="relative flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
           >
-            🏦 Chèque / LCR
+            <IcBuilding size={13} className="flex-shrink-0" /> Chèque / LCR
             {nbRemisesEnAttente > 0 && (
               <span className="bg-white text-ockham-teal text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
                 {nbRemisesEnAttente}

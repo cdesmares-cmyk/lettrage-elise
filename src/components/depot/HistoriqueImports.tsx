@@ -1,5 +1,6 @@
 // Widget historique des imports récents
 import { useEffect, useState } from 'react'
+import { IcClock, IcBarChart } from '../Icones'
 import { supabase } from '../../lib/supabase'
 
 interface LigneHistorique {
@@ -54,8 +55,8 @@ export function HistoriqueImports({ rafraichir }: { rafraichir: number }) {
     <div className="divide-y divide-gray-100">
       {imports.map(imp => (
         <div key={imp.id} className="flex items-center gap-3 px-1 py-3 hover:bg-gray-50 rounded-lg transition-colors">
-          <div className="text-xl flex-shrink-0">
-            {imp.type === 'csv_bancaire' ? '📋' : '📊'}
+          <div className="flex-shrink-0 text-gray-400">
+            {imp.type === 'csv_bancaire' ? <IcClock size={18} /> : <IcBarChart size={18} />}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

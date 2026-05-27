@@ -1,7 +1,7 @@
 // Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
 // + onglet Remboursement : insère un lettrage négatif sur une facture
 import { useState, useRef, useEffect } from 'react'
-import { IcWarning, IcEdit } from '../Icones'
+import { IcWarning, IcEdit, IcRefund } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -276,7 +276,7 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
   return (
     <div className="px-6 py-5">
       <div className="flex items-start gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-5 text-xs text-ockham-teal-dark">
-        <span className="flex-shrink-0 mt-0.5">💸</span>
+        <span className="flex-shrink-0 mt-0.5 text-ockham-teal-dark"><IcRefund size={15} /></span>
         <span>
           Indiquez le numéro de facture remboursée. Le montant TTC est proposé automatiquement — ajustez si le remboursement est partiel.
           L'opération <strong>délettrera</strong> la facture du montant saisi.
@@ -339,7 +339,7 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
           disabled={!peutValider || chargement}
           className="flex-[2] flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '💸 Valider le remboursement'}
+          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : <><IcRefund size={13} className="flex-shrink-0" /> Valider le remboursement</>}
         </button>
       </div>
     </div>
@@ -380,7 +380,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
             onClick={() => setOnglet('remboursement')}
             className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'remboursement' ? 'text-red-600 border-b-2 border-red-600 bg-red-50/30' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            💸 Remboursement
+            <span className="flex items-center justify-center gap-1.5"><IcRefund size={13} /> Remboursement</span>
           </button>
         </div>
 

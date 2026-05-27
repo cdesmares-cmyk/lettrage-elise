@@ -81,3 +81,21 @@ export function IcNetwork(p: SvgProps) {
 export function IcFileText(p: SvgProps) {
   return <Svg {...p}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></Svg>
 }
+export function IcBuilding(p: SvgProps) {
+  return <Svg {...p}><path d="M3 21h18M3 7v14M21 7v14M6 21V7M18 21V7"/><path d="M3 7l9-4 9 4"/><line x1="9" y1="21" x2="9" y2="14"/><line x1="15" y1="21" x2="15" y2="14"/><rect x="9" y="14" width="6" height="7"/></Svg>
+}
+export function IcUpload(p: SvgProps) {
+  return <Svg {...p}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></Svg>
+}
+export function IcKey(p: SvgProps) {
+  return <Svg {...p}><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></Svg>
+}
+export function IcRefund(p: SvgProps) {
+  return <Svg {...p}><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></Svg>
+}
+export function IcContacts(p: SvgProps) {
+  return <Svg {...p}><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><circle cx="9" cy="10" r="3"/><path d="M15 8h2M15 12h2M6 16c0-1.1 1.34-2 3-2s3 .9 3 2"/></Svg>
+}
+export function IcBarChart(p: SvgProps) {
+  return <Svg {...p}><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></Svg>
+}

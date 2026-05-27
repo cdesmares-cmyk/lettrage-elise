@@ -1,5 +1,6 @@
 // Onglet Import / Export — regroupe le dépôt de fichiers (Import) et les exports comptables (Export)
 import { useState } from 'react'
+import { IcUpload, IcDownload } from '../components/Icones'
 import { PageDepot } from './PageDepot'
 import { SectionExport } from '../components/import-export/SectionExport'
 
@@ -27,7 +28,7 @@ export function PageImportExport() {
               vue === 'import' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            ⬆ Import
+            <IcUpload size={13} className="inline-block mr-1.5" /> Import
           </button>
           <button
             onClick={() => setVue('export')}
@@ -35,7 +36,7 @@ export function PageImportExport() {
               vue === 'export' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            ⬇ Export
+            <IcDownload size={13} className="inline-block mr-1.5" /> Export
           </button>
         </div>
       </div>

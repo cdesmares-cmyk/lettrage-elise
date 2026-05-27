@@ -1,5 +1,7 @@
 // Étape 1 : sélection du type de fichier à importer
+import type { ReactNode } from 'react'
 import type { TypeFichier } from '../../types/import'
+import { IcBuilding, IcFileText, IcLink, IcUser, IcContacts, IcKey } from '../Icones'
 
 interface Props {
   valeur: TypeFichier | null
@@ -11,7 +13,7 @@ const FORMATS_TOUS = ['CSV', 'XLSX']
 
 const OPTIONS: {
   type: TypeFichier
-  icone: string
+  icone: ReactNode
   titre: string
   description: string
   pivot: string
@@ -19,7 +21,7 @@ const OPTIONS: {
 }[] = [
   {
     type: 'csv_bancaire',
-    icone: '🏦',
+    icone: <IcBuilding size={26} />,
     titre: 'Relevé bancaire',
     description: 'Lignes de transactions exportées depuis votre banque.',
     pivot: 'N° Opération',
@@ -27,7 +29,7 @@ const OPTIONS: {
   },
   {
     type: 'xlsx_factures',
-    icone: '🧾',
+    icone: <IcFileText size={26} />,
     titre: 'Factures',
     description: 'Export de votre logiciel comptable ou ERP (numéros de pièce, montants, échéances).',
     pivot: 'N° de pièce',
@@ -35,7 +37,7 @@ const OPTIONS: {
   },
   {
     type: 'import_lettrage',
-    icone: '🔗',
+    icone: <IcLink size={26} />,
     titre: 'Lettrage',
     description: 'Import en masse de lettrages pour la migration historique. Chaque ligne associe un montant à une facture existante.',
     pivot: 'N° de facture',
@@ -43,7 +45,7 @@ const OPTIONS: {
   },
   {
     type: 'import_clients',
-    icone: '👤',
+    icone: <IcUser size={26} />,
     titre: 'Comptes clients',
     description: 'Création et mise à jour en masse des fiches clients (nom, commercial, opérateur, plateforme, groupement).',
     pivot: 'Code client',
@@ -51,7 +53,7 @@ const OPTIONS: {
   },
   {
     type: 'import_contacts',
-    icone: '📇',
+    icone: <IcContacts size={26} />,
     titre: 'Contacts',
     description: 'Import et mise à jour des contacts rattachés à vos clients (nom, email, téléphone, rôle).',
     pivot: 'Email + Code client',
@@ -80,7 +82,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
                 ✓
               </span>
             )}
-            <div className="text-2xl mb-3">{opt.icone}</div>
+            <div className="mb-3 text-gray-500">{opt.icone}</div>
             <p className="font-semibold text-sm text-gray-900 mb-1">{opt.titre}</p>
             <p className="text-xs text-gray-500 leading-relaxed mb-3">{opt.description}</p>
             <div className="flex gap-1.5 flex-wrap">
@@ -96,7 +98,7 @@ export function EtapeType({ valeur, onChange, onSuivant }: Props) {
 
       {/* Info clé pivot */}
       <div className="flex gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-6 text-sm text-ockham-teal-dark">
-        <span className="text-base flex-shrink-0">🔑</span>
+        <span className="flex-shrink-0 text-ockham-teal-dark"><IcKey size={15} /></span>
         <span>
           {optionSelectionnee
             ? <>Clé pivot : <strong>{optionSelectionnee.pivot}</strong>. {optionSelectionnee.info}</>

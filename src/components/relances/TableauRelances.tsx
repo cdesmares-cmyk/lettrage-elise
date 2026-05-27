@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { IcSearch } from '../Icones'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -190,7 +191,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         </div>
 
         <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 min-w-[200px] flex-1 max-w-xs">
-          <span className="text-gray-300 text-xs">🔍</span>
+          <IcSearch size={13} className="text-gray-300 flex-shrink-0" />
           <input
             value={recherche}
             onChange={e => setRecherche(e.target.value)}

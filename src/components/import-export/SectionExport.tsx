@@ -1,5 +1,7 @@
 // Section Export — sélection du type d'export puis panneau de configuration
 import { useState } from 'react'
+import type { ReactNode } from 'react'
+import { IcBarChart, IcContacts, IcDownload } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { supabase } from '../../lib/supabase'
@@ -8,21 +10,21 @@ type TypeExport = 'lettrage' | 'contacts'
 
 const OPTIONS: {
   type: TypeExport
-  icone: string
+  icone: ReactNode
   titre: string
   description: string
   info: string
 }[] = [
   {
     type: 'lettrage',
-    icone: '📊',
+    icone: <IcBarChart size={26} />,
     titre: 'Lettrage',
     description: 'Fichier Excel multi-onglets : affectation, lignes bancaires, cadrage comptable.',
     info: 'Sélectionnez une plage de dates pour filtrer les lettrages à exporter.',
   },
   {
     type: 'contacts',
-    icone: '📇',
+    icone: <IcContacts size={26} />,
     titre: 'Contacts',
     description: 'Tous les contacts actifs de votre organisation, prêts à être modifiés et ré-importés.',
     info: 'Export instantané — aucune période à sélectionner.',
@@ -143,7 +145,7 @@ export function SectionExport() {
                   ✓
                 </span>
               )}
-              <div className="text-2xl mb-3">{opt.icone}</div>
+              <div className="mb-3 text-gray-500">{opt.icone}</div>
               <p className="font-semibold text-sm text-gray-900 mb-1">{opt.titre}</p>
               <p className="text-xs text-gray-500 leading-relaxed">{opt.description}</p>
             </button>
@@ -188,7 +190,7 @@ export function SectionExport() {
                 disabled={chargement || !dateDebut || !dateFin}
                 className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap"
               >
-                {chargement ? '⟳ Export…' : '⬇ Exporter .xlsx'}
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
               </button>
             </div>
             <div className="border-t border-gray-100 pt-3 mt-4 grid grid-cols-2 gap-3 text-[11px] text-gray-500">
@@ -225,7 +227,7 @@ export function SectionExport() {
                 disabled={chargement}
                 className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
               >
-                {chargement ? '⟳ Export…' : '⬇ Exporter .csv'}
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
               </button>
             </div>
           </div>
