@@ -61,18 +61,19 @@ async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavig
 }
 
 async function fetchHistorique(ligne: LigneBancaireAvecStatut): Promise<FactureNavigateur[]> {
-  const { data: lignesPareil } = await supabase
+  const { data: lignesPareilRaw } = await supabase
     .from('lignes_bancaires')
     .select('id_operation')
     .eq('libelle', ligne.libelle)
     .neq('id_operation', ligne.id_operation)
     .limit(20)
+  const lignesPareil = (lignesPareilRaw as { id_operation: string }[] | null)
   if (!lignesPareil?.length) return []
 
   const { data: lettrages } = await supabase
     .from('lettrages')
     .select('numero_facture')
-    .in('id_ligne_bancaire', (lignesPareil as { id_operation: string }[]).map(l => l.id_operation))
+    .in('id_ligne_bancaire', lignesPareil.map(l => l.id_operation))
     .not('numero_facture', 'is', null)
     .limit(15)
   if (!lettrages?.length) return []
