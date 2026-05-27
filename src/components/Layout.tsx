@@ -3,6 +3,7 @@ import { useTheme } from '../contexts/ThemeContext'
 import { useRole } from '../contexts/RoleContext'
 import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
+import { IcSun, IcMoon } from './Icones'
 
 const ONGLETS_TOUS = [
   { chemin: '/tableau-de-bord',  label: 'Tableau de bord', commercial: true },
@@ -81,10 +82,10 @@ export function Layout() {
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={toggleTheme}
-            className="text-slate-500 hover:text-slate-300 text-xs px-2 py-1.5 rounded transition-colors"
+            className="text-slate-500 hover:text-slate-300 px-2 py-1.5 rounded transition-colors flex items-center justify-center"
             title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
           >
-            {theme === 'dark' ? '☀' : '◐'}
+            {theme === 'dark' ? <IcSun size={15} /> : <IcMoon size={15} />}
           </button>
           <MenuAdmin />
         </div>

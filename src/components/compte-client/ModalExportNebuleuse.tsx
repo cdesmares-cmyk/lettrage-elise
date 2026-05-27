@@ -1,5 +1,6 @@
 // Modal d'export XLS Nébuleuse — sélection par groupe + téléchargement
 import { useState } from 'react'
+import { IcDownload } from '../Icones'
 import type { GroupeNebuleuse, FactureDetail } from '../../types/client'
 import { exporterNebuleuseXls } from '../../lib/exportXls'
 
@@ -51,7 +52,7 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100">
           <div>
-            <h3 className="text-sm font-bold text-gray-900">⬇ Extraction XLS — Nébuleuse</h3>
+            <h3 className="text-sm font-bold text-gray-900 flex items-center gap-1.5"><IcDownload size={13} className="text-gray-500" /> Extraction XLS — Nébuleuse</h3>
             <p className="text-xs text-gray-400 mt-0.5">Factures par groupement · colonnes Groupe + Nom groupe</p>
           </div>
           <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
@@ -93,7 +94,7 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
             Annuler
           </button>
           <button onClick={handleExport} disabled={chargement} className="flex-[2] flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-            {chargement ? '…' : '⬇ Télécharger XLSX'}
+            {chargement ? '…' : <><IcDownload size={13} className="inline-block mr-1.5" />Télécharger XLSX</>}
           </button>
         </div>
       </div>

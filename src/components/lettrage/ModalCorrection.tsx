@@ -1,6 +1,7 @@
 // Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
 // + onglet Remboursement : insère un lettrage négatif sur une facture
 import { useState, useRef, useEffect } from 'react'
+import { IcWarning, IcEdit } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -113,7 +114,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
   return (
     <div className="px-6 py-5">
       <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-xs text-amber-800">
-        <span className="flex-shrink-0 mt-0.5">⚠️</span>
+        <span className="flex-shrink-0 mt-0.5 text-amber-500"><IcWarning size={15} /></span>
         <span>
           Ajoutez une ligne <strong>négative</strong> (délettrage) puis une ligne <strong>positive</strong> (relettering).
           Le solde total doit être nul pour pouvoir valider.
@@ -373,7 +374,7 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
             onClick={() => setOnglet('correction')}
             className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'correction' ? 'text-ockham-teal border-b-2 border-ockham-teal bg-ockham-teal-muted/30' : 'text-gray-400 hover:text-gray-600'}`}
           >
-            ✏️ Correction
+            <span className="flex items-center justify-center gap-1.5"><IcEdit size={13} /> Correction</span>
           </button>
           <button
             onClick={() => setOnglet('remboursement')}

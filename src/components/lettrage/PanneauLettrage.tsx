@@ -1,5 +1,6 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
 import { useRef, useState } from 'react'
+import { IcCursor, IcWarning, IcEdit } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
@@ -45,7 +46,7 @@ export function PanneauLettrage(props: Props) {
   if (!ligneActive) {
     return (
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
-        <div className="text-4xl mb-3 opacity-30">👆</div>
+        <div className="mb-3 opacity-20 text-gray-400"><IcCursor size={40} /></div>
         <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne bancaire</p>
         <p className="text-gray-400 text-xs">Cliquez sur un crédit dans la liste pour commencer le lettrage</p>
       </div>
@@ -64,7 +65,7 @@ export function PanneauLettrage(props: Props) {
 
         <div className="px-5 py-4">
           <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
-            <span className="flex-shrink-0 mt-0.5">⚠️</span>
+            <span className="flex-shrink-0 mt-0.5 text-amber-500"><IcWarning size={15} /></span>
             <span>
               Cette opération a été lettrée le{' '}
               <strong>{formatDate(ligneActive.derniere_date_lettrage)}</strong>.
@@ -94,9 +95,9 @@ export function PanneauLettrage(props: Props) {
 
           <button
             onClick={onOuvrirCorrection}
-            className="w-full text-sm font-semibold text-ockham-teal border-2 border-ockham-teal/40 hover:border-ockham-teal hover:bg-ockham-teal-muted px-4 py-2.5 rounded-lg transition-all"
+            className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-ockham-teal border-2 border-ockham-teal/40 hover:border-ockham-teal hover:bg-ockham-teal-muted px-4 py-2.5 rounded-lg transition-all"
           >
-            ✏️ Corriger via le module de correction
+            <IcEdit size={13} className="flex-shrink-0" /> Corriger via le module de correction
           </button>
         </div>
 

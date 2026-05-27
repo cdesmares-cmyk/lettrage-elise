@@ -10,6 +10,7 @@ import { ModalApiAxonaut } from './ModalApiAxonaut'
 import { ModalReinitialisation } from './ModalReinitialisation'
 import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 import { ModalAlertesParametres } from './ModalAlertesParametres'
+import { IcUsers, IcSliders, IcClock, IcEdit, IcLink, IcNewspaper, IcBell, IcTrash, IcLogOut } from '../Icones'
 
 type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'alertes' | 'reset'
 
@@ -22,7 +23,7 @@ function getInitiales(email: string): string {
 
 interface ItemProps {
   label: string
-  icon: string
+  icon: React.ReactNode
   onClick: () => void
   danger?: boolean
   separator?: boolean
@@ -40,7 +41,7 @@ function Item({ label, icon, onClick, danger, separator }: ItemProps) {
             : 'text-gray-700 hover:bg-gray-50'
         }`}
       >
-        <span className="text-[14px] w-4 text-center flex-shrink-0">{icon}</span>
+        <span className="w-4 flex items-center justify-center flex-shrink-0">{icon}</span>
         {label}
       </button>
     </>
@@ -93,30 +94,30 @@ export function MenuAdmin() {
         {ouvert && (
           <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
             {isAdmin && (
-              <Item label="Gestion des ressources" icon="👥" onClick={() => ouvrir('ressources')} />
+              <Item label="Gestion des ressources" icon={<IcUsers size={14} />} onClick={() => ouvrir('ressources')} />
             )}
             {peutModifier && (
-              <Item label="Champs personnalisés" icon="🏷" onClick={() => ouvrir('champs')} />
+              <Item label="Champs personnalisés" icon={<IcSliders size={14} />} onClick={() => ouvrir('champs')} />
             )}
             {peutModifier && (
-              <Item label="Historique d'import" icon="📋" onClick={() => ouvrir('imports')} />
+              <Item label="Historique d'import" icon={<IcClock size={14} />} onClick={() => ouvrir('imports')} />
             )}
             {peutModifier && (
-              <Item label="Correction lettrage" icon="✏️" onClick={() => ouvrir('lettrages')} />
+              <Item label="Correction lettrage" icon={<IcEdit size={14} />} onClick={() => ouvrir('lettrages')} />
             )}
             {peutModifier && (
-              <Item label="API Axonaut" icon="🔗" onClick={() => ouvrir('axonaut')} />
+              <Item label="API Axonaut" icon={<IcLink size={14} />} onClick={() => ouvrir('axonaut')} />
             )}
             {isAdmin && (
-              <Item label="Veille BODACC" icon="📡" onClick={() => ouvrir('bodacc')} separator />
+              <Item label="Veille BODACC" icon={<IcNewspaper size={14} />} onClick={() => ouvrir('bodacc')} separator />
             )}
             {peutModifier && (
-              <Item label="Alertes & Scoring" icon="🎯" onClick={() => ouvrir('alertes')} />
+              <Item label="Alertes & Scoring" icon={<IcBell size={14} />} onClick={() => ouvrir('alertes')} />
             )}
             {isAdmin && (
-              <Item label="Réinitialisation" icon="⚠️" onClick={() => ouvrir('reset')} danger separator />
+              <Item label="Réinitialisation" icon={<IcTrash size={14} />} onClick={() => ouvrir('reset')} danger separator />
             )}
-            <Item label="Déconnexion" icon="⏻" onClick={async () => { await supabase.auth.signOut(); window.location.href = '/connexion' }} separator />
+            <Item label="Déconnexion" icon={<IcLogOut size={14} />} onClick={async () => { await supabase.auth.signOut(); window.location.href = '/connexion' }} separator />
           </div>
         )}
       </div>

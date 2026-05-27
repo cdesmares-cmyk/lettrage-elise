@@ -1,5 +1,6 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useRelances } from '../hooks/useRelances'
@@ -20,10 +21,10 @@ import { useGmailAuth } from '../hooks/useGmailAuth'
 import { exporterXls } from '../lib/exportXls'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
-const VUES: { val: VueMode; label: string; icon: string }[] = [
-  { val: 'nebuleuse', label: 'Nébuleuse', icon: '🌐' },
-  { val: 'clients', label: 'Comptes client', icon: '👤' },
-  { val: 'factures', label: 'Factures', icon: '🧾' },
+const VUES: { val: VueMode; label: string; icon: React.ReactNode }[] = [
+  { val: 'nebuleuse', label: 'Nébuleuse', icon: <IcNetwork size={13} /> },
+  { val: 'clients', label: 'Comptes client', icon: <IcUser size={13} /> },
+  { val: 'factures', label: 'Factures', icon: <IcFileText size={13} /> },
 ]
 
 export function PageCompteClient() {
@@ -122,7 +123,7 @@ export function PageCompteClient() {
           onClick={() => vue === 'nebuleuse' ? setExportNebOuvert(true) : setExportOuvert(true)}
           className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors"
         >
-          ⬇ Extraction XLS
+          <IcDownload size={14} /> Extraction XLS
         </button>
       </div>
 
@@ -146,7 +147,7 @@ export function PageCompteClient() {
         </div>
 
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 flex-1 max-w-xs">
-          <span className="text-gray-400 text-xs">🔍</span>
+          <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
           <input
             type="text"
             value={comptes.recherche}
@@ -203,7 +204,7 @@ export function PageCompteClient() {
               disabled={selection.size === 0 || exportSelectionEnCours}
               className="text-xs font-semibold px-3 py-1.5 bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white border border-white/20 rounded-lg transition-colors"
             >
-              {exportSelectionEnCours ? '…' : '⬇ Exporter la sélection'}
+              {exportSelectionEnCours ? '…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter la sélection</>}
             </button>
           </div>
         </div>

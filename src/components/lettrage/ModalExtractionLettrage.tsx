@@ -1,5 +1,6 @@
 // Modale d'extraction des lettrages : filtres date/client + tableau + export XLS
 import { useState } from 'react'
+import { IcSearch, IcDownload } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { exporterExtractionXls } from '../../lib/exportXls'
 import type { LigneExtractionLettrage } from '../../lib/exportXls'
@@ -132,7 +133,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
               disabled={chargement}
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap"
             >
-              {chargement ? '⟳ Chargement…' : '🔍 Rechercher'}
+              {chargement ? '⟳ Chargement…' : <><IcSearch size={13} className="inline-block mr-1.5" />Rechercher</>}
             </button>
           </div>
         </div>
@@ -159,7 +160,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer }: Props) {
                   onClick={() => exporterExtractionXls(lignes)}
                   className="flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition-colors"
                 >
-                  ⬇ Extraire XLS
+                  <IcDownload size={12} className="inline-block mr-1" /> Extraire XLS
                 </button>
               </div>
 

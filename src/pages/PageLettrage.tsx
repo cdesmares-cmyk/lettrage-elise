@@ -1,5 +1,6 @@
 // Onglet 2 — Lettrage : affectation des crédits bancaires aux factures (Sprint 2)
 import { useState, useEffect } from 'react'
+import { IcDownload, IcClock } from '../components/Icones'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
@@ -66,7 +67,7 @@ export function PageLettrage() {
           onClick={() => setExtractionOuverte(true)}
           className="flex items-center gap-2 text-sm font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 px-4 py-2 rounded-lg transition-colors"
         >
-          ⬇ Extraction
+          <IcDownload size={14} /> Extraction
         </button>
       </div>
 
@@ -119,7 +120,7 @@ export function PageLettrage() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <h3 className="text-base font-bold text-gray-900">📋 Historique des lettrages</h3>
+                <h3 className="text-base font-bold text-gray-900 flex items-center gap-2"><IcClock size={15} className="text-gray-400 flex-shrink-0" /> Historique des lettrages</h3>
                 {historique.lignes.length > 0 && !historique.recherche && (
                   <span className="text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
                     {historique.lignes.length} dernières actions

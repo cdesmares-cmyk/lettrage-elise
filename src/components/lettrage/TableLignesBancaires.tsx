@@ -1,5 +1,6 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
+import { IcSearch, IcClock } from '../Icones'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
 import { PAGE_SIZE } from '../../hooks/useLignesBancaires'
 
@@ -64,7 +65,7 @@ export function TableLignesBancaires({
         <div className="flex items-center gap-2 flex-wrap">
           {/* Recherche */}
           <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-            <span className="text-gray-400 text-xs flex-shrink-0">🔍</span>
+            <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
             <input
               type="text"
               value={recherche}
@@ -104,9 +105,9 @@ export function TableLignesBancaires({
 
           <button
             onClick={onHistorique}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
           >
-            📋 Historique
+            <IcClock size={12} className="flex-shrink-0" /> Historique
           </button>
         </div>
 
