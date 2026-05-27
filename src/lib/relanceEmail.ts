@@ -60,6 +60,83 @@ function buildRow(f: FactureLigne): string {
     </tr>`
 }
 
+// Résout les balises textuelles (sauf [Tableau Factures] qui reste en place)
+export function resolveBalises(texte: string, ctx: {
+  nomClient: string
+  codeClient: string
+  montantDu: number
+}): string {
+  const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  return texte
+    .replace(/\[Nom client\]/gi, ctx.nomClient)
+    .replace(/\[Code client\]/gi, ctx.codeClient)
+    .replace(/\[Montant dû\]/gi, _fmtEurosEmail.format(ctx.montantDu))
+    .replace(/\[Date du jour\]/gi, dateJour)
+}
+
+// Convertit le texte brut (avec \n) en blocs <p> HTML pour email
+function textToHtmlBlocs(texte: string): string {
+  return texte
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p =>
+      `<p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${
+        p.trim().replace(/\n/g, '<br>')
+      }</p>`
+    )
+    .join('')
+}
+
+// Construit le HTML email depuis un scénario (corps_texte avec [Tableau Factures])
+export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], signature: string | null): string {
+  const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
+  const rows = factures.map(buildRow).join('')
+
+  const tableBlock = `
+  <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#E6F7F5;">
+          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Facture</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Restant dû</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Échéance</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
+          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Total à régler</td>
+          <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
+            <span style="font-size:17px;font-weight:800;color:#DC2626;letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
+          </td>
+          <td style="padding:13px 16px;"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`
+
+  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <a href="https://www.ockham-finance.com" style="color:#9CA3AF;font-weight:600;text-decoration:none;" target="_blank">Ockham Finance</a></p>`
+
+  const sig = signature
+    ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${signature}</div>`
+    : ''
+
+  // Découper sur [Tableau Factures] et injecter le bloc HTML
+  const segments = corps.split(/\[Tableau Factures\]/i)
+  let bodyHtml = ''
+  segments.forEach((seg, i) => {
+    bodyHtml += textToHtmlBlocs(seg)
+    if (i < segments.length - 1) bodyHtml += tableBlock + notePdf
+  })
+
+  return `
+<div style="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;color:#374151;max-width:600px;line-height:1.75;">
+  <div style="height:4px;background:linear-gradient(90deg,#0E1A2B 0%,#4CC5BB 100%);border-radius:4px 4px 0 0;margin-bottom:28px;"></div>
+  ${bodyHtml}
+  ${sig}
+</div>`
+}
+
 export function buildHtml(factures: FactureLigne[], signature: string | null): string {
   const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
   const rows = factures.map(buildRow).join('')

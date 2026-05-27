@@ -10,9 +10,10 @@ import { ModalApiAxonaut } from './ModalApiAxonaut'
 import { ModalReinitialisation } from './ModalReinitialisation'
 import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 import { ModalAlertesParametres } from './ModalAlertesParametres'
-import { IcUsers, IcSliders, IcClock, IcEdit, IcLink, IcNewspaper, IcBell, IcTrash, IcLogOut } from '../Icones'
+import { ModalScenariosRelance } from './ModalScenariosRelance'
+import { IcUsers, IcSliders, IcClock, IcEdit, IcLink, IcNewspaper, IcBell, IcTrash, IcLogOut, IcFileText } from '../Icones'
 
-type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'alertes' | 'reset'
+type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'alertes' | 'scenarios' | 'reset'
 
 function getInitiales(email: string): string {
   const nom = email.split('@')[0]
@@ -114,6 +115,9 @@ export function MenuAdmin() {
             {peutModifier && (
               <Item label="Alertes & Scoring" icon={<IcBell size={14} />} onClick={() => ouvrir('alertes')} />
             )}
+            {peutModifier && (
+              <Item label="Scénarios de relance" icon={<IcFileText size={14} />} onClick={() => ouvrir('scenarios')} />
+            )}
             {isAdmin && (
               <Item label="Réinitialisation" icon={<IcTrash size={14} />} onClick={() => ouvrir('reset')} danger separator />
             )}
@@ -130,6 +134,7 @@ export function MenuAdmin() {
       {modal === 'axonaut'     && <ModalApiAxonaut           onClose={() => setModal(null)} />}
       {modal === 'bodacc'      && <ModalVeilleBodacc          onClose={() => setModal(null)} />}
       {modal === 'alertes'     && <ModalAlertesParametres    onClose={() => setModal(null)} />}
+      {modal === 'scenarios'   && <ModalScenariosRelance     onClose={() => setModal(null)} />}
       {modal === 'reset'       && <ModalReinitialisation     onClose={() => setModal(null)} />}
     </>
   )
