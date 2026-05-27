@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
-import { useScenariosRelance } from '../../hooks/useScenariosRelance'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
@@ -30,7 +29,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { utilisateur } = useAuth()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives } = useAppData()
-  const { scenarios } = useScenariosRelance()
+  const { scenarios } = useAppData()
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
 
   const impayees = facturesActives.filter(f =>

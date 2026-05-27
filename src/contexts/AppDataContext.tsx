@@ -24,6 +24,14 @@ interface OptsClientLocal {
   siret?: string | null
 }
 
+export interface ScenarioRelance {
+  id: string
+  nom: string
+  niveau: number
+  objet: string
+  corps_texte: string
+}
+
 interface AppDataContextType {
   clients: CompteClient[]
   facturesActives: FactureDetail[]    // impayées + avoirs non soldés
@@ -35,6 +43,8 @@ interface AppDataContextType {
   mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
   moisMaxFactures: string   // YYYY-MM, mois de la facture la plus récente en base
   ca12Mois: number          // Σ montant_ttc sur la fenêtre moisMax-11 → moisMax
+  scenarios: ScenarioRelance[]
+  rechargerScenarios: () => Promise<void>
 }
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
@@ -43,11 +53,21 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
+  const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
   const [chargement, setChargement] = useState(true)
   const [moisMaxFactures, setMoisMaxFactures] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
+
+  const rechargerScenarios = useCallback(async () => {
+    const { data } = await supabase
+      .from('scenarios_relance')
+      .select('id, nom, niveau, objet, corps_texte')
+      .order('niveau', { ascending: true })
+      .order('nom', { ascending: true })
+    setScenarios((data as ScenarioRelance[]) ?? [])
+  }, [])
 
   const rafraichir = useCallback(async () => {
     if (!initialLoadDoneRef.current) setChargement(true)
@@ -142,9 +162,9 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
 
   // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
-    if (session) { rafraichir() }
-    else { setClients([]); setFacturesActives([]); setMoisMaxFactures(''); setCa12Mois(0); setChargement(false) }
-  }, [session, rafraichir])
+    if (session) { rafraichir(); rechargerScenarios() }
+    else { setClients([]); setFacturesActives([]); setScenarios([]); setMoisMaxFactures(''); setCa12Mois(0); setChargement(false) }
+  }, [session, rafraichir, rechargerScenarios])
 
   // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
   // Maintient les données à jour pour les équipes multi-utilisateurs sans Realtime
@@ -204,7 +224,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois, scenarios, rechargerScenarios }}>
       {children}
     </AppDataContext.Provider>
   )

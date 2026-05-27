@@ -4,7 +4,6 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import { buildHtml, buildHtmlFromScenario, resolveBalises } from '../../lib/relanceEmail'
-import { useScenariosRelance } from '../../hooks/useScenariosRelance'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import type { Contact } from '../../hooks/useContacts'
@@ -47,9 +46,8 @@ interface Resultat {
 
 export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, onFini }: Props) {
   const { utilisateur } = useAuth()
-  const { facturesActives } = useAppData()
+  const { facturesActives, scenarios } = useAppData()
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
-  const { scenarios } = useScenariosRelance()
 
   const [etats, setEtats] = useState<EtatClient[]>(clients.map(c => ({ client: c, contacts: [], nomForm: '', emailForm: '', ajoutEnCours: false })))
   const [chargementContacts, setChargementContacts] = useState(true)
