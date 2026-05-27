@@ -3,12 +3,11 @@ import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useAppData } from '../../contexts/AppDataContext'
-import { buildHtml } from '../../lib/relanceEmail'
+import { buildHtml, buildHtmlFromScenario, resolveBalises } from '../../lib/relanceEmail'
+import { useScenariosRelance } from '../../hooks/useScenariosRelance'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import type { Contact } from '../../hooks/useContacts'
-
-const SUJET_PREFIXE = '[ Elise Lyon ] - Relance factures impayées'
 
 function fmtEncours(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
@@ -50,11 +49,30 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const { utilisateur } = useAuth()
   const { facturesActives } = useAppData()
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const { scenarios } = useScenariosRelance()
 
   const [etats, setEtats] = useState<EtatClient[]>(clients.map(c => ({ client: c, contacts: [], nomForm: '', emailForm: '', ajoutEnCours: false })))
   const [chargementContacts, setChargementContacts] = useState(true)
-  const [sujet, setSujet] = useState(SUJET_PREFIXE)
+  const [scenarioId, setScenarioId] = useState<string | null>(null)
+  const [sujet, setSujet] = useState('')
   const [progression, setProgression] = useState<{ enCours: boolean; current: number; total: number; resultats: Resultat[]; termine: boolean }>({ enCours: false, current: 0, total: 0, resultats: [], termine: false })
+
+  // Sélectionne le scénario niveau 1 par défaut dès que les scénarios sont chargés
+  useEffect(() => {
+    if (!scenarios.length || scenarioId !== null) return
+    const defaut = scenarios.find(s => s.niveau === 1) ?? scenarios[0]
+    setScenarioId(defaut.id)
+    setSujet(defaut.objet)
+  }, [scenarios])
+
+  // Pré-remplit le sujet quand l'opérateur change de scénario
+  function changerScenario(id: string) {
+    setScenarioId(id)
+    const s = scenarios.find(sc => sc.id === id)
+    if (s) setSujet(s.objet)
+  }
+
+  const scenarioCourant = scenarios.find(s => s.id === scenarioId) ?? null
 
   // Chargement des contacts pour tous les clients en une seule requête
   useEffect(() => {
@@ -123,8 +141,13 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       }
 
       const factureLignes = impayees.map(f => ({ numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du, echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url }))
-      const corpsHtml     = buildHtml(factureLignes, signature)
-      const objetClient   = `${sujet.trim()} - ${e.client.nom} - ${e.client.code_dso}`
+      const montantDu     = impayees.reduce((s, f) => s + f.reste_du, 0)
+      const ctx           = { nomClient: e.client.nom, codeClient: e.client.code_dso, montantDu }
+      const objetResolu   = resolveBalises(sujet.trim() || e.client.nom, ctx)
+      const objetClient   = objetResolu.includes(e.client.code_dso) ? objetResolu : `${objetResolu} — ${e.client.nom} (${e.client.code_dso})`
+      const corpsHtml     = scenarioCourant
+        ? buildHtmlFromScenario(resolveBalises(scenarioCourant.corps_texte, ctx), factureLignes, signature)
+        : buildHtml(factureLignes, signature)
 
       let gmailThreadId: string | undefined
       if (estConnecte) {
@@ -203,18 +226,40 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                 </div>
               )}
 
+              {/* Scénario */}
+              <div>
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2">
+                  <span className="text-ockham-navy/40 mr-1">1 —</span>Scénario de relance
+                </label>
+                {scenarios.length > 0 ? (
+                  <select
+                    value={scenarioId ?? ''}
+                    onChange={e => changerScenario(e.target.value)}
+                    disabled={progression.enCours || progression.termine}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal disabled:opacity-50 cursor-pointer"
+                  >
+                    {scenarios.map(s => (
+                      <option key={s.id} value={s.id}>{s.nom}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-gray-400 italic">Aucun scénario configuré — créez-en un dans Admin → Scénarios de relance.</p>
+                )}
+              </div>
+
               {/* Sujet */}
               <div>
                 <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2">
-                  <span className="text-ockham-navy/40 mr-1">1 —</span>Sujet commun
+                  <span className="text-ockham-navy/40 mr-1">2 —</span>Sujet commun
                 </label>
                 <input
                   value={sujet}
                   onChange={e => setSujet(e.target.value)}
                   disabled={progression.enCours || progression.termine}
+                  placeholder="Objet de l'email…"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal disabled:opacity-50"
                 />
-                <p className="text-[10px] text-gray-400 mt-1">Le nom et le code client seront ajoutés automatiquement par email.</p>
+                <p className="text-[10px] text-gray-400 mt-1">Les balises [Nom client] / [Code client] sont résolues automatiquement par email.</p>
               </div>
 
               {/* Info */}
@@ -272,7 +317,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
             {/* Colonne droite — liste clients */}
             <div className="w-3/5 overflow-y-auto px-5 py-4">
               <p className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-3">
-                <span className="text-ockham-navy/40 mr-1">2 —</span>Clients sélectionnés
+                <span className="text-ockham-navy/40 mr-1">3 —</span>Clients sélectionnés
               </p>
 
               {chargementContacts ? (
