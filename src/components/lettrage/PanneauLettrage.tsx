@@ -1,12 +1,13 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
 import { useRef, useState } from 'react'
-import { IcCursor, IcWarning, IcEdit } from '../Icones'
+import { IcCursor, IcWarning, IcEdit, IcSearch } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
 
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
+  onOuvrirNavigateur: () => void
   remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
 }
@@ -27,7 +28,7 @@ export function PanneauLettrage(props: Props) {
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
-    onOuvrirCorrection, remisesEnAttente, onEncaisser,
+    onOuvrirCorrection, onOuvrirNavigateur, remisesEnAttente, onEncaisser,
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -363,7 +364,7 @@ export function PanneauLettrage(props: Props) {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-2 px-5 pb-5">
+      <div className="flex gap-2 px-5 pb-3">
         <button
           onClick={annuler}
           disabled={chargement}
@@ -377,6 +378,15 @@ export function PanneauLettrage(props: Props) {
           className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
           {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider le lettrage'}
+        </button>
+      </div>
+      <div className="px-5 pb-5">
+        <button
+          onClick={onOuvrirNavigateur}
+          disabled={chargement}
+          className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-ockham-teal border border-ockham-teal/30 hover:border-ockham-teal hover:bg-ockham-teal-muted disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
+        >
+          <IcSearch size={13} className="flex-shrink-0" /> Naviguer dans les factures
         </button>
       </div>
     </div>

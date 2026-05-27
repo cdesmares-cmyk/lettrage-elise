@@ -50,6 +50,21 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
 
   function ajouterLigne() { setLignesForme(prev => [...prev, nouvelleLigne()]) }
 
+  function injecterFactures(factures: { numero_facture: string; montant: number; code_client: string; nom_client: string | null }[]) {
+    const nouvelles: LigneForme[] = factures.map(f => ({
+      _key: cle(),
+      classe: 'facture' as const,
+      numero_facture: f.numero_facture,
+      montant: String(Math.round(f.montant * 100) / 100),
+      info_facture: { reste_du: f.montant, code_client: f.code_client, nom_client: f.nom_client, statut_paiement: 'partiel' },
+      chargement: false,
+    }))
+    setLignesForme(prev => {
+      const nonVides = prev.filter(l => l.numero_facture.trim() !== '')
+      return [...nonVides, ...nouvelles]
+    })
+  }
+
   function supprimerLigne(key: string) {
     setLignesForme(prev => prev.filter(l => l._key !== key))
   }
@@ -162,6 +177,11 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
         idLigneBancaire: ligneActive.id_operation,
         montantTotal: Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100,
       })
+      // Alimente le dictionnaire auto-apprenant si toutes les factures sont d'un même client
+      const codesUniques = [...new Set(inserts.filter(i => i.code_client !== 'AUTRES').map(i => i.code_client))]
+      if (codesUniques.length === 1 && ligneActive.libelle) {
+        supabase.rpc('fn_upsert_libelle_sepa', { p_libelle: ligneActive.libelle, p_code_client: codesUniques[0] }).then()
+      }
       annuler()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors du lettrage.')
@@ -181,7 +201,7 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
     ligneActive, lettragesExistants, lignesForme,
     modeAlerte, chargement,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
-    modifierLigne, chercherInfoFacture, valider, peutValider,
+    modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
     creditDisponible, montantAttribue, restant,
   }
 }

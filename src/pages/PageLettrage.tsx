@@ -7,6 +7,7 @@ import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
+import { ModalNavigateurFactures } from '../components/lettrage/ModalNavigateurFactures'
 import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
@@ -18,6 +19,7 @@ export function PageLettrage() {
   const [correctionOuverte, setCorrectionOuverte] = useState(false)
   const [extractionOuverte, setExtractionOuverte] = useState(false)
   const [remisesOuverte, setRemisesOuverte] = useState(false)
+  const [navigateurOuvert, setNavigateurOuvert] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients } = useAppData()
   const liste = useLignesBancaires()
@@ -106,6 +108,7 @@ export function PageLettrage() {
         <PanneauLettrage
           {...forme}
           onOuvrirCorrection={() => setCorrectionOuverte(true)}
+          onOuvrirNavigateur={() => setNavigateurOuvert(true)}
           remisesEnAttente={remisesEnAttente}
           onEncaisser={handleEncaisser}
         />
@@ -160,6 +163,14 @@ export function PageLettrage() {
       <ModalExtractionLettrage
         ouvert={extractionOuverte}
         onFermer={() => setExtractionOuverte(false)}
+      />
+
+      {/* Modal navigateur factures */}
+      <ModalNavigateurFactures
+        ouvert={navigateurOuvert}
+        ligneActive={forme.ligneActive}
+        onFermer={() => setNavigateurOuvert(false)}
+        onInjecter={forme.injecterFactures}
       />
 
       {/* Modal remises Chèque / LCR */}
