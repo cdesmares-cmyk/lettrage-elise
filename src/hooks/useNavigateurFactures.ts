@@ -70,17 +70,16 @@ async function fetchHistorique(ligne: LigneBancaireAvecStatut): Promise<FactureN
   const lignesPareil = (lignesPareilRaw as { id_operation: string }[] | null)
   if (!lignesPareil?.length) return []
 
-  const { data: lettrages } = await supabase
+  const { data: lettragesRaw } = await supabase
     .from('lettrages')
     .select('numero_facture')
     .in('id_ligne_bancaire', lignesPareil.map(l => l.id_operation))
     .not('numero_facture', 'is', null)
     .limit(15)
+  const lettrages = lettragesRaw as unknown as { numero_facture: string }[] | null
   if (!lettrages?.length) return []
 
-  const numsFact = [...new Set(
-    (lettrages as { numero_facture: string }[]).map(l => l.numero_facture).filter(Boolean)
-  )]
+  const numsFact = [...new Set(lettrages.map(l => l.numero_facture).filter(Boolean))]
   if (!numsFact.length) return []
 
   const { data } = await supabase

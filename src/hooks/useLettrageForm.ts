@@ -180,8 +180,8 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
       // Alimente le dictionnaire auto-apprenant si toutes les factures sont d'un même client
       const codesUniques = [...new Set(inserts.filter(i => i.code_client !== 'AUTRES').map(i => i.code_client))]
       if (codesUniques.length === 1 && ligneActive.libelle) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        supabase.rpc('fn_upsert_libelle_sepa' as any, { p_libelle: ligneActive.libelle, p_code_client: codesUniques[0] }).then()
+        // @ts-expect-error fn_upsert_libelle_sepa absente du schéma généré
+        supabase.rpc('fn_upsert_libelle_sepa', { p_libelle: ligneActive.libelle, p_code_client: codesUniques[0] }).then()
       }
       annuler()
     } catch (err) {
