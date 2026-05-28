@@ -84,14 +84,14 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
     // Lettrages de la période
     const { data: lettData } = await supabase
       .from('lettrages')
-      .select('date_lettrage, id_ligne_bancaire, numero_facture, montant, mode')
+      .select('date_lettrage, id_ligne_bancaire, numero_facture, montant, mode, commentaire')
       .eq('code_client', selection)
       .gte('date_lettrage', dateDebut)
       .lte('date_lettrage', dateFin)
       .order('date_lettrage', { ascending: true })
 
     // Libellés + dates bancaires pour les id réels (sans -C)
-    const lettrages = (lettData ?? []) as { date_lettrage: string; id_ligne_bancaire: string | null; numero_facture: string | null; montant: number; mode: string }[]
+    const lettrages = (lettData ?? []) as { date_lettrage: string; id_ligne_bancaire: string | null; numero_facture: string | null; montant: number; mode: string; commentaire: string | null }[]
     const idsReels = [...new Set(
       lettrages.map(l => l.id_ligne_bancaire)
         .filter((id): id is string => !!id && !id.endsWith('-C'))
@@ -143,6 +143,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
         type: isAvoir ? 'Avoir' : 'Facture',
         ref_paiement: '',
         libelle: isAvoir ? 'Avoir' : 'Facture',
+        commentaire: '',
         numero_piece: f.numero_piece,
         ref: refLettres,
         debit: isAvoir ? null : f.montant_ttc,
@@ -152,22 +153,30 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
     }
 
     for (const l of lettrages) {
-      const isCorrection = !l.id_ligne_bancaire || l.id_ligne_bancaire.endsWith('-C')
-      const idBase = l.id_ligne_bancaire?.replace(/-C$/, '') ?? null
+      const isImport     = l.mode === 'import'
+      const isCorrection = l.mode === 'manuel' || l.mode === 'remboursement'
+      const type = isImport ? 'Import' : isCorrection ? 'Correction' : 'Règlement'
+
+      const idBase  = l.id_ligne_bancaire?.replace(/-C$/, '') ?? null
       const bancaire = idBase ? bancaireMap[idBase] : null
-      const dateAffichee = (!isCorrection && bancaire) ? bancaire.date_operation : l.date_lettrage
-      const libelle = isCorrection
-        ? (bancaire ? `Correction (${bancaire.libelle})` : 'Correction manuelle')
-        : (bancaire?.libelle ?? l.id_ligne_bancaire ?? '')
+      const dateAffichee = (!isImport && !isCorrection && bancaire) ? bancaire.date_operation : l.date_lettrage
+
+      const libelle = isImport
+        ? (l.commentaire ?? 'Import')
+        : isCorrection
+          ? (bancaire ? `Correction (${bancaire.libelle})` : 'Correction')
+          : (bancaire?.libelle ?? l.id_ligne_bancaire ?? '')
+
       const lettre = idBase ? (refMap[idBase] ?? '') : ''
 
       rows.push({
         _date: dateAffichee,
         _ordre: 1,
         date: fmtDate(dateAffichee),
-        type: isCorrection ? 'Correction' : 'Règlement',
+        type,
         ref_paiement: l.id_ligne_bancaire ?? '',
         libelle,
+        commentaire: isImport ? '' : (l.commentaire ?? ''),
         numero_piece: l.numero_facture ?? '',
         ref: lettre,
         debit: l.montant < 0 ? Math.abs(l.montant) : null,

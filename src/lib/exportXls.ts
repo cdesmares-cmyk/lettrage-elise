@@ -153,12 +153,13 @@ export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFich
 // ── Grand Livre client ────────────────────────────────────────────────────────
 export interface LigneGrandLivre {
   date: string          // DD/MM/YYYY
-  type: string          // Facture | Avoir | Règlement | Correction
+  type: string          // Facture | Avoir | Règlement | Import | Correction
   ref_paiement: string  // id_ligne_bancaire (avec -C si correction)
-  libelle: string       // libellé bancaire ou label correction
+  libelle: string       // libellé bancaire, description import, ou label correction
+  commentaire: string   // commentaire opérateur (lettrages.commentaire)
   numero_piece: string
   ref: string           // lettre A/B/C... regroupant les lignes d'un même virement
-  debit: number | null  // valeur positive (affiché en négatif dans l'export)
+  debit: number | null
   credit: number | null
   solde: number
 }
@@ -172,17 +173,17 @@ export function exporterGrandLivreXls(
   lignes: LigneGrandLivre[],
   nomFichier = 'grand_livre'
 ) {
-  // 9 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Débit | Crédit | Solde
+  // 10 colonnes : Date | Type | Réf. | Réf paiement | Libellé | Commentaire | N° Pièce | Débit | Crédit | Solde
   // Débit : facture émise (dette augmente) — valeur positive
-  // Crédit : règlement / avoir / correction (dette diminue) — valeur positive
+  // Crédit : règlement / avoir / correction / import (dette diminue) — valeur positive
   const totalDebit  = lignes.reduce((s, l) => s + (l.debit  ?? 0), 0)
   const totalCredit = lignes.reduce((s, l) => s + (l.credit ?? 0), 0)
   const soldeFinal  = lignes.length > 0 ? lignes[lignes.length - 1].solde : soldeOuverture
 
   const aoa: (string | number | null)[][] = [
-    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null, null],
-    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
-    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, null, soldeOuverture],
+    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null, null, null],
+    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'Commentaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
+    [dateDebut, 'Solde d\'ouverture', '', '', '', '', '', null, null, soldeOuverture],
   ]
 
   for (const l of lignes) {
@@ -192,6 +193,7 @@ export function exporterGrandLivreXls(
       l.ref,
       l.ref_paiement,
       l.libelle,
+      l.commentaire,
       l.numero_piece,
       l.debit,
       l.credit,
@@ -199,12 +201,12 @@ export function exporterGrandLivreXls(
     ])
   }
 
-  aoa.push(['', 'TOTAL', '', '', '', '', totalDebit, totalCredit, soldeFinal])
+  aoa.push(['', 'TOTAL', '', '', '', '', '', totalDebit, totalCredit, soldeFinal])
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!cols'] = [
-    { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 18 }, { wch: 38 }, { wch: 18 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 18 }, { wch: 36 },
+    { wch: 28 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
   ]
 
   const wsRef = ws['!ref']
@@ -221,10 +223,10 @@ export function exporterGrandLivreXls(
           ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
         } else if (r === lastRow) {
           ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true }, fill: { fgColor: { rgb: 'F1F5F9' } } }
-          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
+          if ([7, 8, 9].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
         } else {
           ws[addr].s = { font: { name: 'Calibri', sz: 12 } }
-          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
+          if ([7, 8, 9].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
         }
       }
     }
