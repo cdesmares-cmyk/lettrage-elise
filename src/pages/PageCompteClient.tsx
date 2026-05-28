@@ -1,5 +1,5 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
@@ -41,6 +41,8 @@ export function PageCompteClient() {
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
   const [exportSelectionEnCours, setExportSelectionEnCours] = useState(false)
+  const [factureDateDebut, setFactureDateDebut] = useState('')
+  const [factureDateFin, setFactureDateFin] = useState('')
 
   const comptes = useComptesClients()
   const factures = useFacturesClient()
@@ -93,6 +95,23 @@ export function PageCompteClient() {
     setExportSelectionEnCours(false)
   }
 
+  // KPIs dynamiques en vue "factures" selon la plage de dates sélectionnée
+  const kpisVueFiltree = useMemo(() => {
+    if (vue !== 'factures' || (!factureDateDebut && !factureDateFin)) return comptes.kpis
+    const allCodes = comptes.clients.map(c => c.code_dso)
+    let facs = factures.getFactures(allCodes)
+    if (factureDateDebut) facs = facs.filter(f => (f.date_emission ?? '') >= factureDateDebut)
+    if (factureDateFin)   facs = facs.filter(f => (f.date_emission ?? '') <= factureDateFin)
+    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir)
+    return {
+      nbClientsActifs: new Set(impayees.map(f => f.code_client)).size,
+      encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
+      encoursTotalAvoirs: facs.filter(f => f.est_avoir && f.reste_du < -0.005).reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      nbFacturesAttente: impayees.length,
+      dsoRoulant: null,
+    }
+  }, [vue, factureDateDebut, factureDateFin, comptes.clients, comptes.kpis, factures])
+
   function fmtEncours(n: number) {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
     if (n >= 10_000)    return `${Math.round(n / 1_000)} k€`
@@ -128,7 +147,7 @@ export function PageCompteClient() {
       </div>
 
       {/* KPIs */}
-      <BarreKpis kpis={comptes.kpis} chargement={comptes.chargement} />
+      <BarreKpis kpis={kpisVueFiltree} chargement={comptes.chargement} />
 
       {/* Toolbar : toggle vue + recherche */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -261,6 +280,10 @@ export function PageCompteClient() {
           onHistorique={setFacHistorique}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
+          dateDebut={factureDateDebut}
+          dateFin={factureDateFin}
+          onDateDebutChange={setFactureDateDebut}
+          onDateFinChange={setFactureDateFin}
         />
       )}
 

@@ -179,8 +179,11 @@ export function useDashboard() {
   const nbImpayeesEchues = impayeesEchues.length
   const nbClientsEchus = useMemo(() => new Set(impayeesEchues.map(f => f.code_client)).size, [impayeesEchues])
 
-  const encoursCourant = useMemo(() => clients.reduce((s, c) => s + c.encours_total, 0), [clients])
-  // Numérateur DSO : Σ reste_dû des factures dans la fenêtre moisMaxFactures-11 → moisMaxFactures
+  // Encours et DSO réactifs au toggle — calculés sur facsFiltrees
+  const encoursCourant = useMemo(
+    () => facsFiltrees.filter(f => f.reste_du > 0.005).reduce((s, f) => s + f.reste_du, 0),
+    [facsFiltrees]
+  )
   const encours12Mois = useMemo(() => {
     if (!moisMaxFactures) return 0
     const yr = parseInt(moisMaxFactures.slice(0, 4)), mo = parseInt(moisMaxFactures.slice(5, 7))
@@ -189,12 +192,12 @@ export function useDashboard() {
     const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
     const lastDay = new Date(yr, mo, 0).getDate()
     const moisMaxEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    return factures
+    return facsFiltrees
       .filter(f => f.reste_du > 0.005
         && (f.date_emission ?? '') >= il12MoisStr
         && (f.date_emission ?? '') <= moisMaxEndStr)
       .reduce((s, f) => s + f.reste_du, 0)
-  }, [factures, moisMaxFactures])
+  }, [facsFiltrees, moisMaxFactures])
   const dsoRoulant = ca12Mois > 0 ? encours12Mois / ca12Mois * 365 : null
   console.log('[DSO-DB] moisMaxFactures:', moisMaxFactures, '| ca12Mois:', ca12Mois, '| encours12Mois:', encours12Mois, '| dso:', dsoRoulant)
 

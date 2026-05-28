@@ -29,12 +29,14 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
+  dateDebut: string
+  dateFin: string
+  onDateDebutChange: (v: string) => void
+  onDateFinChange: (v: string) => void
 }
 
-export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire }: Props) {
+export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange }: Props) {
   const codes = clients.map(c => c.code_dso)
-  const [dateDebut, setDateDebut] = useState('')
-  const [dateFin, setDateFin] = useState('')
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState('date_emission')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -74,9 +76,9 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
 
   function toggleAnnee(y: string) {
     if (anneeActive === y) {
-      setDateDebut(''); setDateFin('')
+      onDateDebutChange(''); onDateFinChange('')
     } else {
-      setDateDebut(`${y}-01-01`); setDateFin(`${y}-12-31`)
+      onDateDebutChange(`${y}-01-01`); onDateFinChange(`${y}-12-31`)
     }
     setPage(0)
   }
@@ -118,7 +120,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
               value={anneeActive ?? ''}
               onChange={e => {
                 const y = e.target.value
-                if (!y) { setDateDebut(''); setDateFin(''); setPage(0) }
+                if (!y) { onDateDebutChange(''); onDateFinChange(''); setPage(0) }
                 else toggleAnnee(y)
               }}
               className={`border rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors ${
@@ -141,7 +143,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
           <input
             type="date"
             value={dateDebut}
-            onChange={e => { setDateDebut(e.target.value); setPage(0) }}
+            onChange={e => { onDateDebutChange(e.target.value); setPage(0) }}
             className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors"
           />
         </div>
@@ -150,13 +152,13 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
           <input
             type="date"
             value={dateFin}
-            onChange={e => { setDateFin(e.target.value); setPage(0) }}
+            onChange={e => { onDateFinChange(e.target.value); setPage(0) }}
             className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors"
           />
         </div>
         {(dateDebut || dateFin) && (
           <button
-            onClick={() => { setDateDebut(''); setDateFin(''); setPage(0) }}
+            onClick={() => { onDateDebutChange(''); onDateFinChange(''); setPage(0) }}
             className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors self-end"
           >
             ✕ Effacer
