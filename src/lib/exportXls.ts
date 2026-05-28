@@ -172,16 +172,20 @@ export function exporterGrandLivreXls(
   lignes: LigneGrandLivre[],
   nomFichier = 'grand_livre'
 ) {
-  // 8 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Mouvement | Solde
-  // Mouvement : + = facture émise (dette augmente) / - = règlement reçu (dette diminue)
+  // 9 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Débit | Crédit | Solde
+  // Débit : facture émise (dette augmente) — valeur positive
+  // Crédit : règlement / avoir / correction (dette diminue) — valeur positive
+  const totalDebit  = lignes.reduce((s, l) => s + (l.debit  ?? 0), 0)
+  const totalCredit = lignes.reduce((s, l) => s + (l.credit ?? 0), 0)
+  const soldeFinal  = lignes.length > 0 ? lignes[lignes.length - 1].solde : soldeOuverture
+
   const aoa: (string | number | null)[][] = [
-    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null],
-    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Mouvement', 'Solde'],
-    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, soldeOuverture],
+    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null, null],
+    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
+    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, null, soldeOuverture],
   ]
 
   for (const l of lignes) {
-    const mouvement = (l.debit ?? 0) - (l.credit ?? 0)
     aoa.push([
       l.date,
       l.type,
@@ -189,20 +193,24 @@ export function exporterGrandLivreXls(
       l.ref_paiement,
       l.libelle,
       l.numero_piece,
-      mouvement !== 0 ? mouvement : null,
+      l.debit,
+      l.credit,
       l.solde,
     ])
   }
 
+  aoa.push(['', 'TOTAL', '', '', '', '', totalDebit, totalCredit, soldeFinal])
+
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!cols'] = [
     { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 18 }, { wch: 38 }, { wch: 18 },
-    { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 },
   ]
 
   const wsRef = ws['!ref']
   if (wsRef) {
     const range = XLSX.utils.decode_range(wsRef)
+    const lastRow = range.e.r
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         const addr = XLSX.utils.encode_cell({ r, c })
@@ -211,11 +219,12 @@ export function exporterGrandLivreXls(
           ws[addr].s = { font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
         } else if (r === 1) {
           ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
+        } else if (r === lastRow) {
+          ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true }, fill: { fgColor: { rgb: 'F1F5F9' } } }
+          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
         } else {
           ws[addr].s = { font: { name: 'Calibri', sz: 12 } }
-          if ([6, 7].includes(c) && typeof ws[addr].v === 'number') {
-            ws[addr].z = '#,##0.00'
-          }
+          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') ws[addr].z = '#,##0.00'
         }
       }
     }
