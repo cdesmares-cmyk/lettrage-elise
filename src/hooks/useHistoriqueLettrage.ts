@@ -17,13 +17,15 @@ export interface LigneHistorique {
 
 export const HISTORIQUE_PAGE_SIZE = 50
 
-function mapRow(r: Record<string, unknown>): LigneHistorique {
+function mapRow(r: Record<string, unknown>, libelleMap: Record<string, string> = {}): LigneHistorique {
+  const idLigne = r.id_ligne_bancaire as string | null
+  const idBase = idLigne?.endsWith('-C') ? idLigne.slice(0, -2) : idLigne
   return {
     id: r.id as string,
     created_at: r.created_at as string,
     date_lettrage: r.date_lettrage as string,
-    id_ligne_bancaire: r.id_ligne_bancaire as string | null,
-    libelle_bancaire: (r.lignes_bancaires as { libelle: string } | null)?.libelle ?? null,
+    id_ligne_bancaire: idLigne,
+    libelle_bancaire: (idBase ? libelleMap[idBase] : null) ?? null,
     code_client: r.code_client as string,
     numero_facture: r.numero_facture as string | null,
     montant: r.montant as number,
@@ -33,7 +35,19 @@ function mapRow(r: Record<string, unknown>): LigneHistorique {
   }
 }
 
-const SELECT = 'id, created_at, date_lettrage, id_ligne_bancaire, code_client, numero_facture, montant, mode, commentaire, operateur, lignes_bancaires(libelle)'
+async function fetchLibelleMap(rows: Record<string, unknown>[]): Promise<Record<string, string>> {
+  const ids = [...new Set(
+    rows.map(r => r.id_ligne_bancaire as string | null)
+      .filter((id): id is string => !!id && !id.endsWith('-C'))
+  )]
+  if (!ids.length) return {}
+  const { data } = await supabase.from('lignes_bancaires').select('id_operation, libelle').in('id_operation', ids)
+  const map: Record<string, string> = {}
+  for (const b of (data ?? []) as { id_operation: string; libelle: string }[]) map[b.id_operation] = b.libelle
+  return map
+}
+
+const SELECT = 'id, created_at, date_lettrage, id_ligne_bancaire, code_client, numero_facture, montant, mode, commentaire, operateur'
 
 export function useHistoriqueLettrage() {
   const [lignes, setLignes] = useState<LigneHistorique[]>([])
@@ -54,7 +68,9 @@ export function useHistoriqueLettrage() {
       .order('created_at', { ascending: false })
       .limit(200)
     if (!error && data) {
-      const rows = data.map(r => mapRow(r as Record<string, unknown>))
+      const raw = data as Record<string, unknown>[]
+      const libelleMap = await fetchLibelleMap(raw)
+      const rows = raw.map(r => mapRow(r, libelleMap))
       setLignes(rows)
       lignesRef.current = rows
     }
@@ -71,9 +87,11 @@ export function useHistoriqueLettrage() {
       .order('created_at', { ascending: false })
       .limit(50)
     if (!error && data) {
+      const raw = data as Record<string, unknown>[]
+      const libelleMap = await fetchLibelleMap(raw)
       const localIds = new Set(lignesRef.current.map(l => l.id))
       setLignesServeur(
-        data.map(r => mapRow(r as Record<string, unknown>)).filter(r => !localIds.has(r.id))
+        raw.map(r => mapRow(r, libelleMap)).filter(r => !localIds.has(r.id))
       )
     }
     setChargementServeur(false)
