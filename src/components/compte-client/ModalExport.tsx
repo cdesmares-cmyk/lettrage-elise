@@ -107,12 +107,35 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
       }
     }
 
+    // Référence lettre A/B/C... par ligne bancaire unique (ordre chronologique d'apparition)
+    function toLetter(n: number): string {
+      if (n < 26) return String.fromCharCode(65 + n)
+      return String.fromCharCode(64 + Math.floor(n / 26)) + String.fromCharCode(65 + (n % 26))
+    }
+    const refMap: Record<string, string> = {}
+    let refIdx = 0
+    for (const l of lettrages) {
+      const idBase = l.id_ligne_bancaire?.replace(/-C$/, '') ?? null
+      if (idBase && !(idBase in refMap)) refMap[idBase] = toLetter(refIdx++)
+    }
+    // Facture → ensemble de lettres des virements qui l'ont lettrée dans la période
+    const factureRefs = new Map<string, Set<string>>()
+    for (const l of lettrages) {
+      if (!l.numero_facture) continue
+      const idBase = l.id_ligne_bancaire?.replace(/-C$/, '') ?? null
+      const lettre = idBase ? refMap[idBase] : null
+      if (!lettre) continue
+      if (!factureRefs.has(l.numero_facture)) factureRefs.set(l.numero_facture, new Set())
+      factureRefs.get(l.numero_facture)!.add(lettre)
+    }
+
     // Construction des lignes avec solde cumulé
     type RawLigne = { _date: string; _ordre: number } & LigneGrandLivre
     const rows: RawLigne[] = []
 
     for (const f of (factData ?? []) as { numero_piece: string; date_emission: string; montant_ttc: number; est_avoir: boolean }[]) {
       const isAvoir = f.est_avoir || f.montant_ttc < 0
+      const refLettres = [...(factureRefs.get(f.numero_piece) ?? [])].join('/')
       rows.push({
         _date: f.date_emission,
         _ordre: 0,
@@ -121,9 +144,10 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
         ref_paiement: '',
         libelle: isAvoir ? 'Avoir' : 'Facture',
         numero_piece: f.numero_piece,
+        ref: refLettres,
         debit: isAvoir ? null : f.montant_ttc,
         credit: isAvoir ? Math.abs(f.montant_ttc) : null,
-        solde: 0, // calculé après tri
+        solde: 0,
       })
     }
 
@@ -135,6 +159,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
       const libelle = isCorrection
         ? (bancaire ? `Correction (${bancaire.libelle})` : 'Correction manuelle')
         : (bancaire?.libelle ?? l.id_ligne_bancaire ?? '')
+      const lettre = idBase ? (refMap[idBase] ?? '') : ''
 
       rows.push({
         _date: dateAffichee,
@@ -144,6 +169,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
         ref_paiement: l.id_ligne_bancaire ?? '',
         libelle,
         numero_piece: l.numero_facture ?? '',
+        ref: lettre,
         debit: l.montant < 0 ? Math.abs(l.montant) : null,
         credit: l.montant > 0 ? l.montant : null,
         solde: 0,

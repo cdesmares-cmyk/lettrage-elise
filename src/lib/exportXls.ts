@@ -157,7 +157,8 @@ export interface LigneGrandLivre {
   ref_paiement: string  // id_ligne_bancaire (avec -C si correction)
   libelle: string       // libellé bancaire ou label correction
   numero_piece: string
-  debit: number | null
+  ref: string           // lettre A/B/C... regroupant les lignes d'un même virement
+  debit: number | null  // valeur positive (affiché en négatif dans l'export)
   credit: number | null
   solde: number
 }
@@ -171,34 +172,36 @@ export function exporterGrandLivreXls(
   lignes: LigneGrandLivre[],
   nomFichier = 'grand_livre'
 ) {
+  // 9 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Débit | Crédit | Solde
   const aoa: (string | number | null)[][] = [
-    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null],
-    ['Date', 'Type', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
-    [dateDebut, 'Solde d\'ouverture', '', '', '', null, null, soldeOuverture],
+    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null, null],
+    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
+    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, null, soldeOuverture],
   ]
 
   for (const l of lignes) {
     aoa.push([
       l.date,
       l.type,
+      l.ref,
       l.ref_paiement,
       l.libelle,
       l.numero_piece,
-      l.debit,
+      l.debit !== null ? -l.debit : null, // affiché en négatif : facture = charge
       l.credit,
       l.solde,
     ])
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
-  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 38 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }]
+  ws['!cols'] = [
+    { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 18 }, { wch: 38 }, { wch: 18 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 },
+  ]
 
-  // Ligne 0 : titre fusionné visuellement (gras, fond navy)
-  // Ligne 1 : entêtes colonnes (même style que les autres exports)
-  // Ligne 2+ : données
-  const ref = ws['!ref']
-  if (ref) {
-    const range = XLSX.utils.decode_range(ref)
+  const wsRef = ws['!ref']
+  if (wsRef) {
+    const range = XLSX.utils.decode_range(wsRef)
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         const addr = XLSX.utils.encode_cell({ r, c })
@@ -209,7 +212,7 @@ export function exporterGrandLivreXls(
           ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
         } else {
           ws[addr].s = { font: { name: 'Calibri', sz: 12 } }
-          if ([5, 6, 7].includes(c) && typeof ws[addr].v === 'number') {
+          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') {
             ws[addr].z = '#,##0.00'
           }
         }
