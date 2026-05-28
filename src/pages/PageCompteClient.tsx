@@ -1,5 +1,5 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
