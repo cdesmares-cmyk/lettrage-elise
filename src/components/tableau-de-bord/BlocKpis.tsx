@@ -136,22 +136,22 @@ export function BlocKpis({
 
         <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${montantMoisPrec > 0 ? 'border-amber-100' : 'border-gray-100'}`}>
           <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
-            Impayés — {libelleMoisPrec} (M-1)
+            Impayés (hors avoirs) — {libelleMoisPrec}
           </span>
           <span className={`font-extrabold tabular-nums leading-tight ${montantMoisPrec > 0 ? 'text-amber-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
             {fmtEuro(montantMoisPrec)}
           </span>
-          <span className="text-[11px] text-gray-400">Factures du mois précédent encore ouvertes</span>
+          <span className="text-[11px] text-gray-400">Restant dû à ce jour</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4 flex flex-col gap-2">
           <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
-            Impayés — {libelleMoisAnPrec} (N-1)
+            Impayés (hors avoirs) — {libelleMoisAnPrec}
           </span>
           <span className={`font-extrabold tabular-nums leading-tight ${montantAnPrec > 0 ? 'text-amber-700' : 'text-gray-400'}`} style={{ fontSize: 22 }}>
             {fmtEuro(montantAnPrec)}
           </span>
-          <span className="text-[11px] text-gray-400">Même mois l'année passée, encore ouvertes</span>
+          <span className="text-[11px] text-gray-400">Restant dû à ce jour</span>
         </div>
 
         <div className={`bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2 ${montantSeuilMois > 0 ? 'border-red-100' : 'border-gray-100'}`}>

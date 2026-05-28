@@ -28,7 +28,10 @@ function nbJoursRetard(f: FactureDetail): number {
   return e < TODAY ? Math.floor((TODAY.getTime() - e.getTime()) / 86400000) : 0
 }
 function estEchu(f: FactureDetail): boolean { return echeanceEff(f) < TODAY }
-function isoMois(d: Date): string { return d.toISOString().slice(0, 7) }
+// Heure locale — évite le décalage UTC qui décale les mois en France (UTC+1/+2)
+function isoMois(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 function computeTopClients(factures: FactureDetail[], n: number): TopClient[] {
   const map = new Map<string, TopClient>()
@@ -154,11 +157,10 @@ export function useDashboard() {
     [facturesActives]
   )
 
-  // moisMax = mois de la facture la plus récente → référence "mois en cours"
-  const moisMax = useMemo(
-    () => factures.reduce((mx, f) => { const m = f.date_emission?.slice(0, 7) ?? ''; return m > mx ? m : mx }, ''),
-    [factures]
-  )
+  // moisMax = moisMaxFactures depuis AppDataContext (déjà M-1 corrigé, issu du vrai max BDD)
+  // On n'utilise plus le max des impayées en mémoire qui peut être en retard si tous les
+  // derniers mois sont soldés, et qui causerait un DSO incohérent avec le toggle exclureDernierMois
+  const moisMax = moisMaxFactures
 
   // M-1 et N-1 calculés par rapport à moisMax, pas au calendrier
   const moisRefYear = moisMax ? parseInt(moisMax.slice(0, 4)) : TODAY.getFullYear()
