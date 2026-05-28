@@ -79,7 +79,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const [clientsPage0, page0] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
-          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+          .or('reste_du.gt.0.005,reste_du.lt.-0.005,numero_piece.like.%_compte')
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(0, PAGE - 1),
@@ -106,7 +106,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       let offset = PAGE
       while (toutes.length === offset) {
         const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
-          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+          .or('reste_du.gt.0.005,reste_du.lt.-0.005,numero_piece.like.%_compte')
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(offset, offset + PAGE - 1)
@@ -210,7 +210,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           if (m === undefined) return f
           return { ...f, reste_du: Math.round((f.reste_du - m) * 100) / 100 }
         })
-        .filter(f => Math.abs(f.reste_du) > 0.005)
+        .filter(f => Math.abs(f.reste_du) > 0.005 || f.numero_piece.endsWith('_compte'))
     )
 
     // Mise à jour ciblée de encours_total par client — évite un rafraichir() complet
