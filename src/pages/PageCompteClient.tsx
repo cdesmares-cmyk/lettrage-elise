@@ -155,7 +155,10 @@ export function PageCompteClient() {
             placeholder="Code, client, n° facture…"
             className="text-xs text-gray-700 placeholder-gray-400 outline-none w-full bg-transparent"
           />
-          {comptes.recherche && (
+          {comptes.chargementServeur && (
+            <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal animate-pulse flex-shrink-0" title="Recherche étendue…" />
+          )}
+          {comptes.recherche && !comptes.chargementServeur && (
             <button onClick={() => comptes.setRecherche('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
           )}
         </div>

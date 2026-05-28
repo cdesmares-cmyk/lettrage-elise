@@ -1,5 +1,5 @@
 // Données agrégées clients — lit depuis AppDataContext (chargé une fois au démarrage)
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppData } from '../contexts/AppDataContext'
 import toast from 'react-hot-toast'
@@ -7,17 +7,43 @@ import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique }
 
 export function useComptesClients() {
   const { clients: raw, facturesActives, chargement, rafraichir, mettreAJourClientLocal, moisMaxFactures, ca12Mois } = useAppData()
-  const [recherche, setRecherche] = useState('')
+  const [recherche, setRechercheState] = useState('')
+  // Codes clients trouvés côté serveur (factures soldées hors cache)
+  const [codesFallback, setCodesFallback] = useState<Set<string>>(new Set())
+  const [chargementServeur, setChargementServeur] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const rechercherServeur = useCallback(async (terme: string) => {
+    if (terme.length < 2) { setCodesFallback(new Set()); return }
+    setChargementServeur(true)
+    const { data } = await supabase
+      .from('factures')
+      .select('code_client')
+      .ilike('numero_piece', `%${terme}%`)
+      .limit(200)
+    setCodesFallback(new Set(((data ?? []) as { code_client: string }[]).map(r => r.code_client)))
+    setChargementServeur(false)
+  }, [])
+
+  function setRecherche(terme: string) {
+    setRechercheState(terme)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (terme.length < 2) { setCodesFallback(new Set()); return }
+    debounceRef.current = setTimeout(() => rechercherServeur(terme), 350)
+  }
 
   const clients = useMemo((): CompteClient[] => {
     if (!recherche.trim()) return raw
     const q = recherche.toLowerCase()
-    // Recherche par numéro de facture — retrouve les clients concernés
+    // Cache local d'abord
     const codesAvecFacture = new Set(
       facturesActives
         .filter(f => f.numero_piece.toLowerCase().includes(q))
         .map(f => f.code_client)
     )
+    // Union avec les codes trouvés côté serveur (factures soldées)
+    for (const code of codesFallback) codesAvecFacture.add(code)
+
     return raw.filter(c =>
       c.code_dso.toLowerCase().includes(q) ||
       c.nom.toLowerCase().includes(q) ||
@@ -25,7 +51,7 @@ export function useComptesClients() {
       (c.code_groupement ?? '').toLowerCase().includes(q) ||
       codesAvecFacture.has(c.code_dso)
     )
-  }, [raw, recherche, facturesActives])
+  }, [raw, recherche, facturesActives, codesFallback])
 
   const kpis = useMemo((): KpisCompteClient => {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
@@ -120,5 +146,5 @@ export function useComptesClients() {
     return true
   }
 
-  return { clients, chargement, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions }
+  return { clients, chargement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions }
 }
