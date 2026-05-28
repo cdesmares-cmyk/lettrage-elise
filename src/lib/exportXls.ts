@@ -172,14 +172,16 @@ export function exporterGrandLivreXls(
   lignes: LigneGrandLivre[],
   nomFichier = 'grand_livre'
 ) {
-  // 9 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Débit | Crédit | Solde
+  // 8 colonnes : Date | Type | Réf. | Réf paiement | Libellé | N° Pièce | Mouvement | Solde
+  // Mouvement : + = facture émise (dette augmente) / - = règlement reçu (dette diminue)
   const aoa: (string | number | null)[][] = [
-    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null, null],
-    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
-    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, null, soldeOuverture],
+    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null],
+    ['Date', 'Type', 'Réf.', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Mouvement', 'Solde'],
+    [dateDebut, 'Solde d\'ouverture', '', '', '', '', null, soldeOuverture],
   ]
 
   for (const l of lignes) {
+    const mouvement = (l.debit ?? 0) - (l.credit ?? 0)
     aoa.push([
       l.date,
       l.type,
@@ -187,8 +189,7 @@ export function exporterGrandLivreXls(
       l.ref_paiement,
       l.libelle,
       l.numero_piece,
-      l.debit !== null ? -l.debit : null, // affiché en négatif : facture = charge
-      l.credit,
+      mouvement !== 0 ? mouvement : null,
       l.solde,
     ])
   }
@@ -196,7 +197,7 @@ export function exporterGrandLivreXls(
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!cols'] = [
     { wch: 12 }, { wch: 14 }, { wch: 6 }, { wch: 18 }, { wch: 38 }, { wch: 18 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 },
   ]
 
   const wsRef = ws['!ref']
@@ -212,7 +213,7 @@ export function exporterGrandLivreXls(
           ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
         } else {
           ws[addr].s = { font: { name: 'Calibri', sz: 12 } }
-          if ([6, 7, 8].includes(c) && typeof ws[addr].v === 'number') {
+          if ([6, 7].includes(c) && typeof ws[addr].v === 'number') {
             ws[addr].z = '#,##0.00'
           }
         }
