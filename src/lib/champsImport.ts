@@ -115,6 +115,24 @@ export const CHAMPS_LETTRAGES: ChampCible[] = [
     aliases: ['nom client', 'nom', 'raison sociale', 'societe', 'client'],
     hint: 'Affiché dans l\'aperçu uniquement — non stocké en base',
   },
+  {
+    cle: 'libelle_bancaire',
+    label: 'Libellé bancaire',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['libelle bancaire', 'libelle', 'libelle virement', 'intitule', 'description virement', 'wording', 'motif virement'],
+    hint: 'Optionnel — apparaît dans le Grand Livre comme libellé de l\'opération',
+  },
+  {
+    cle: 'commentaire',
+    label: 'Commentaire',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    aliases: ['commentaire', 'note', 'observation', 'remarque', 'info', 'precision'],
+    hint: 'Optionnel — note libre visible dans l\'historique et le Grand Livre',
+  },
 ]
 
 export const CHAMPS_GROUPEMENTS: ChampCible[] = [

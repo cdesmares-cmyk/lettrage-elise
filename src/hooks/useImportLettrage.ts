@@ -93,7 +93,9 @@ export function useImportLettrage() {
     }
 
 
-    const colCodeClient = mapping.find(m => m.champ_cible === 'code_client')?.colonne_source
+    const colCodeClient   = mapping.find(m => m.champ_cible === 'code_client')?.colonne_source
+    const colLibelle      = mapping.find(m => m.champ_cible === 'libelle_bancaire')?.colonne_source
+    const colCommentaire  = mapping.find(m => m.champ_cible === 'commentaire')?.colonne_source
 
     // Construit les lignes valides et identifie les invalides
     const lignesAInserer: Record<string, unknown>[] = []
@@ -116,12 +118,16 @@ export function useImportLettrage() {
         continue
       }
 
+      const libelle     = colLibelle     ? (ligne[colLibelle]     ?? '').trim() : ''
+      const commentaire = colCommentaire ? (ligne[colCommentaire] ?? '').trim() : ''
+      const commentaireFinal = [libelle, commentaire].filter(Boolean).join(' · ') || labelTexte || null
+
       lignesAInserer.push({
         numero_facture: numFact,
         code_client: codeClientFichier || codeClientFacture,
         montant: Math.round(montant * 100) / 100,
         date_lettrage: dateParsee ?? today,
-        commentaire: labelTexte,
+        commentaire: commentaireFinal,
         mode: 'import',
       })
     }

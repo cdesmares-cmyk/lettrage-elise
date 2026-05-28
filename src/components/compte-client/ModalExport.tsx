@@ -176,7 +176,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
         type,
         ref_paiement: l.id_ligne_bancaire ?? '',
         libelle,
-        commentaire: isImport ? '' : (l.commentaire ?? ''),
+        commentaire: l.commentaire ?? '',
         numero_piece: l.numero_facture ?? '',
         ref: lettre,
         debit: l.montant < 0 ? Math.abs(l.montant) : null,
