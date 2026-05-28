@@ -149,3 +149,75 @@ export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFich
   XLSX.utils.book_append_sheet(wb, ws, 'Lettrages')
   dlXlsx(wb, nomFichier)
 }
+
+// ── Grand Livre client ────────────────────────────────────────────────────────
+export interface LigneGrandLivre {
+  date: string          // DD/MM/YYYY
+  type: string          // Facture | Avoir | Règlement | Correction
+  ref_paiement: string  // id_ligne_bancaire (avec -C si correction)
+  libelle: string       // libellé bancaire ou label correction
+  numero_piece: string
+  debit: number | null
+  credit: number | null
+  solde: number
+}
+
+export function exporterGrandLivreXls(
+  nomClient: string,
+  codeClient: string,
+  dateDebut: string,
+  dateFin: string,
+  soldeOuverture: number,
+  lignes: LigneGrandLivre[],
+  nomFichier = 'grand_livre'
+) {
+  const aoa: (string | number | null)[][] = [
+    [`Grand Livre — ${nomClient} (${codeClient}) — Période : ${dateDebut} → ${dateFin}`, null, null, null, null, null, null, null],
+    ['Date', 'Type', 'Réf paiement', 'Libellé bancaire', 'N° Pièce', 'Débit', 'Crédit', 'Solde'],
+    [dateDebut, 'Solde d\'ouverture', '', '', '', null, null, soldeOuverture],
+  ]
+
+  for (const l of lignes) {
+    aoa.push([
+      l.date,
+      l.type,
+      l.ref_paiement,
+      l.libelle,
+      l.numero_piece,
+      l.debit,
+      l.credit,
+      l.solde,
+    ])
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa)
+  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 38 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 14 }]
+
+  // Ligne 0 : titre fusionné visuellement (gras, fond navy)
+  // Ligne 1 : entêtes colonnes (même style que les autres exports)
+  // Ligne 2+ : données
+  const ref = ws['!ref']
+  if (ref) {
+    const range = XLSX.utils.decode_range(ref)
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const addr = XLSX.utils.encode_cell({ r, c })
+        if (!ws[addr]) continue
+        if (r === 0) {
+          ws[addr].s = { font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
+        } else if (r === 1) {
+          ws[addr].s = { font: { name: 'Calibri', sz: 12, bold: true, color: { rgb: 'FFFFFF' } }, fill: { fgColor: { rgb: '0F172A' } } }
+        } else {
+          ws[addr].s = { font: { name: 'Calibri', sz: 12 } }
+          if ([5, 6, 7].includes(c) && typeof ws[addr].v === 'number') {
+            ws[addr].z = '#,##0.00'
+          }
+        }
+      }
+    }
+  }
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Grand Livre')
+  dlXlsx(wb, nomFichier)
+}

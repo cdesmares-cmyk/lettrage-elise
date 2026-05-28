@@ -86,19 +86,95 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
     setChargement(true)
     try {
       const today = new Date().toISOString().split('T')[0]
-      const inserts = lignes.map(l => ({
-        id_ligne_bancaire: null,
-        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
-        code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
-        montant: Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
-        mode: 'manuel' as const,
-        commentaire: l.classe === 'autres'
-          ? (l.numero_facture.trim() || null)
-          : `Correction — ${parseFloat(l.montant) < 0 ? 'délettrage' : 'relettering'}`,
-        cree_par: utilisateur?.id ?? null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
+
+      // Fetch source bank lines for each negative facture (délettrage)
+      type SourceInfo = { id_ligne_bancaire: string; montant: number; proportion: number }
+      const sourceMap = new Map<string, SourceInfo[]>()
+
+      for (const neg of lignes.filter(l => l.classe === 'facture' && (parseFloat(l.montant) || 0) < 0 && l.info_facture)) {
+        const numero = neg.numero_facture.trim()
+        const { data } = await supabase
+          .from('lettrages')
+          .select('id_ligne_bancaire, montant')
+          .eq('numero_facture', numero)
+          .gt('montant', 0)
+          .not('id_ligne_bancaire', 'is', null)
+        const sources = ((data ?? []) as { id_ligne_bancaire: string | null; montant: number }[])
+          .filter((r): r is { id_ligne_bancaire: string; montant: number } =>
+            !!r.id_ligne_bancaire && !r.id_ligne_bancaire.endsWith('-C')
+          )
+        const total = sources.reduce((s, r) => s + r.montant, 0)
+        sourceMap.set(numero, sources.map(s => ({
+          id_ligne_bancaire: s.id_ligne_bancaire,
+          montant: s.montant,
+          proportion: total > 0 ? s.montant / total : 1 / sources.length,
+        })))
+      }
+
+      // Unique sources across all negative lines (for distributing positive lines)
+      const seenIds = new Set<string>()
+      const allSources: SourceInfo[] = []
+      for (const sources of sourceMap.values()) {
+        for (const src of sources) {
+          if (!seenIds.has(src.id_ligne_bancaire)) {
+            seenIds.add(src.id_ligne_bancaire)
+            allSources.push(src)
+          }
+        }
+      }
+      const totalAll = allSources.reduce((s, src) => s + src.montant, 0)
+      const globalSources: SourceInfo[] = allSources.map(src => ({
+        ...src,
+        proportion: totalAll > 0 ? src.montant / totalAll : 1 / allSources.length,
       }))
+
+      type InsertRow = {
+        id_ligne_bancaire: string | null; numero_facture: string | null; code_client: string
+        montant: number; date_lettrage: string; mode: string
+        commentaire: string | null; cree_par: string | null; operateur: string | null
+      }
+
+      function makeRow(l: LigneCorr, montant: number, idLigne: string | null): InsertRow {
+        return {
+          id_ligne_bancaire: idLigne,
+          numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
+          code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+          montant: Math.round(montant * 100) / 100,
+          date_lettrage: today,
+          mode: 'manuel',
+          commentaire: l.classe === 'autres'
+            ? (l.numero_facture.trim() || null)
+            : `Correction — ${montant < 0 ? 'délettrage' : 'relettering'}`,
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        }
+      }
+
+      // Split a montant across sources, last one absorbs rounding diff
+      function splitAcross(m: number, sources: SourceInfo[], l: LigneCorr): InsertRow[] {
+        if (sources.length === 0) return [makeRow(l, m, null)]
+        if (sources.length === 1) return [makeRow(l, m, sources[0].id_ligne_bancaire + '-C')]
+        let remaining = m
+        return sources.map((src, i) => {
+          const isLast = i === sources.length - 1
+          const split = isLast ? remaining : Math.round(m * src.proportion * 100) / 100
+          remaining -= split
+          return makeRow(l, split, src.id_ligne_bancaire + '-C')
+        })
+      }
+
+      const inserts: InsertRow[] = []
+      for (const ligne of lignes) {
+        const m = Math.round((parseFloat(ligne.montant) || 0) * 100) / 100
+        if (ligne.classe === 'autres') {
+          inserts.push(makeRow(ligne, m, null))
+        } else if (m < 0 && ligne.info_facture) {
+          inserts.push(...splitAcross(m, sourceMap.get(ligne.numero_facture.trim()) ?? [], ligne))
+        } else {
+          inserts.push(...splitAcross(m, globalSources, ligne))
+        }
+      }
+
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
       toast.success('Correction enregistrée.')
