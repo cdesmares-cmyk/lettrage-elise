@@ -136,11 +136,11 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offset += PAGE
       }
 
-      // moisMax + CA 12 mois (moisMax et moisMax-1) — recalculés à chaque import
-      const { data: maxData } = await supabase.from('factures')
-        .select('date_emission').eq('est_avoir', false)
-        .order('date_emission', { ascending: false }).limit(1)
-      const moisMax = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
+      // moisMaxBrut dérivé des factures chargées en mémoire (non-avoir)
+      // → toujours cohérent avec facturesActives, corrigé automatiquement après annulation d'import
+      const moisMax = toutes
+        .filter(f => !f.est_avoir)
+        .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
       if (moisMax) {
         const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
         const yrPrec = mo === 1 ? yr - 1 : yr
