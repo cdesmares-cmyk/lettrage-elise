@@ -41,10 +41,30 @@ interface AppDataContextType {
   mettreAJourClientLocal: (codeDso: string, opts: OptsClientLocal) => void
   // Mise à jour optimiste après lettrage : réduit reste_du sans recharger tout le dataset
   mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
-  moisMaxFactures: string   // YYYY-MM, mois de la facture la plus récente en base
-  ca12Mois: number          // Σ montant_ttc sur la fenêtre moisMax-11 → moisMax
+  moisMaxBrut: string    // YYYY-MM, vrai mois de la facture la plus récente
+  ca12Mois: number       // Σ montant_ttc sur les 12 mois se terminant à moisMaxBrut
+  ca12MoisPrec: number   // Σ montant_ttc sur les 12 mois se terminant à moisMaxBrut-1 (toggle)
   scenarios: ScenarioRelance[]
   rechargerScenarios: () => Promise<void>
+}
+
+async function fetchCA12(yr: number, mo: number): Promise<number> {
+  let startMo = mo - 11; let startYr = yr
+  if (startMo <= 0) { startMo += 12; startYr -= 1 }
+  const lastDay = new Date(yr, mo, 0).getDate()
+  const dateDebut = `${startYr}-${String(startMo).padStart(2, '0')}-01`
+  const dateFin = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+  let ca = 0; let offset = 0
+  while (true) {
+    const { data } = await supabase.from('factures').select('montant_ttc')
+      .gte('date_emission', dateDebut).lte('date_emission', dateFin)
+      .eq('est_avoir', false).range(offset, offset + 999)
+    if (!data?.length) break
+    ca += (data as { montant_ttc: number | null }[]).reduce((s, r) => s + (Number(r.montant_ttc) || 0), 0)
+    if (data.length < 1000) break
+    offset += 1000
+  }
+  return ca
 }
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
@@ -55,8 +75,9 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
   const [chargement, setChargement] = useState(true)
-  const [moisMaxFactures, setMoisMaxFactures] = useState('')
+  const [moisMaxBrut, setMoisMaxBrut] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
+  const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
 
@@ -115,37 +136,19 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offset += PAGE
       }
 
-      // moisMax + CA 12 mois paginé — référence DSO, recalculé à chaque import
+      // moisMax + CA 12 mois (moisMax et moisMax-1) — recalculés à chaque import
       const { data: maxData } = await supabase.from('factures')
         .select('date_emission').eq('est_avoir', false)
         .order('date_emission', { ascending: false }).limit(1)
-      const moisMaxBrut = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
-      if (moisMaxBrut) {
-        // M-1 : le mois le plus récent est souvent incomplet → on recule d'un mois
-        const yrBrut = parseInt(moisMaxBrut.slice(0, 4)), moBrut = parseInt(moisMaxBrut.slice(5, 7))
-        const moRef = moBrut === 1 ? 12 : moBrut - 1
-        const yrRef = moBrut === 1 ? yrBrut - 1 : yrBrut
-        const moisMax = `${yrRef}-${String(moRef).padStart(2, '0')}`
-        setMoisMaxFactures(moisMax)
-        // Calcul pure string — évite le décalage UTC/heure locale
-        const yr = yrRef, mo = moRef
-        let startMo = mo - 11; let startYr = yr
-        if (startMo <= 0) { startMo += 12; startYr -= 1 }
-        const lastDay = new Date(yr, mo, 0).getDate()
-        const dateDebut = `${startYr}-${String(startMo).padStart(2, '0')}-01`
-        const dateFin = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-        let ca = 0; let caOffset = 0; const CA_PAGE = 1000
-        while (true) {
-          const { data: caData } = await supabase.from('factures').select('montant_ttc')
-            .gte('date_emission', dateDebut).lte('date_emission', dateFin)
-            .eq('est_avoir', false).range(caOffset, caOffset + CA_PAGE - 1)
-          if (!caData?.length) break
-          ca += (caData as { montant_ttc: number | null }[]).reduce((s, r) => s + (Number(r.montant_ttc) || 0), 0)
-          if (caData.length < CA_PAGE) break
-          caOffset += CA_PAGE
-        }
+      const moisMax = (maxData?.[0] as { date_emission: string } | undefined)?.date_emission?.slice(0, 7) ?? ''
+      if (moisMax) {
+        const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
+        const yrPrec = mo === 1 ? yr - 1 : yr
+        const moPrec = mo === 1 ? 12 : mo - 1
+        const [ca, caPrec] = await Promise.all([fetchCA12(yr, mo), fetchCA12(yrPrec, moPrec)])
+        setMoisMaxBrut(moisMax)
         setCa12Mois(ca)
-        console.log('[DSO-CTX] moisMaxBrut:', moisMaxBrut, '| moisMax (M-1):', moisMax, '| dateDebut:', dateDebut, '| dateFin:', dateFin, '| ca12Mois:', ca)
+        setCa12MoisPrec(caPrec)
       }
 
       setClients(tousClients.map(r => ({
@@ -163,7 +166,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
     if (session) { rafraichir(); rechargerScenarios() }
-    else { setClients([]); setFacturesActives([]); setScenarios([]); setMoisMaxFactures(''); setCa12Mois(0); setChargement(false) }
+    else { setClients([]); setFacturesActives([]); setScenarios([]); setMoisMaxBrut(''); setCa12Mois(0); setCa12MoisPrec(0); setChargement(false) }
   }, [session, rafraichir, rechargerScenarios])
 
   // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
@@ -224,7 +227,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxFactures, ca12Mois, scenarios, rechargerScenarios }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
       {children}
     </AppDataContext.Provider>
   )

@@ -131,7 +131,7 @@ function computeEncaissements(
 }
 
 export function useDashboard() {
-  const { facturesActives, clients, moisMaxFactures, ca12Mois } = useAppData()
+  const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec } = useAppData()
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
@@ -157,19 +157,23 @@ export function useDashboard() {
     [facturesActives]
   )
 
-  // moisMax = moisMaxFactures depuis AppDataContext (déjà M-1 corrigé, issu du vrai max BDD)
-  // On n'utilise plus le max des impayées en mémoire qui peut être en retard si tous les
-  // derniers mois sont soldés, et qui causerait un DSO incohérent avec le toggle exclureDernierMois
-  const moisMax = moisMaxFactures
+  // moisMax = vrai mois le plus récent en BDD, mis à jour à chaque import
+  const moisMax = moisMaxBrut
+  const moisMaxPrec = useMemo(() => {
+    if (!moisMaxBrut) return ''
+    const yr = parseInt(moisMaxBrut.slice(0, 4)), mo = parseInt(moisMaxBrut.slice(5, 7))
+    return isoMois(new Date(mo === 1 ? yr - 1 : yr, mo === 1 ? 11 : mo - 2, 1))
+  }, [moisMaxBrut])
 
-  // M-1 et N-1 calculés par rapport à moisMax, pas au calendrier
+  // M-1 et N-1 par rapport à moisMax
   const moisRefYear = moisMax ? parseInt(moisMax.slice(0, 4)) : TODAY.getFullYear()
-  const moisRefMonth = moisMax ? parseInt(moisMax.slice(5, 7)) : TODAY.getMonth() + 1  // 1-indexed
-  const moisPrecDate = new Date(moisRefYear, moisRefMonth - 2, 1)   // mois avant moisMax
-  const moisAnPrecDate = new Date(moisRefYear - 1, moisRefMonth - 1, 1)  // même mois, an-1
+  const moisRefMonth = moisMax ? parseInt(moisMax.slice(5, 7)) : TODAY.getMonth() + 1
+  const moisPrecDate = new Date(moisRefYear, moisRefMonth - 2, 1)
+  const moisAnPrecDate = new Date(moisRefYear - 1, moisRefMonth - 1, 1)
   const moisPrecStr = isoMois(moisPrecDate)
   const moisAnPrecStr = isoMois(moisAnPrecDate)
 
+  // Toggle ON → exclut moisMax des données (mois potentiellement incomplet)
   const facsFiltrees = useMemo(
     () => exclureDernierMois ? factures.filter(f => (f.date_emission?.slice(0, 7) ?? '') < moisMax) : factures,
     [factures, exclureDernierMois, moisMax]
@@ -179,27 +183,31 @@ export function useDashboard() {
   const nbImpayeesEchues = impayeesEchues.length
   const nbClientsEchus = useMemo(() => new Set(impayeesEchues.map(f => f.code_client)).size, [impayeesEchues])
 
-  // Encours et DSO réactifs au toggle — calculés sur facsFiltrees
   const encoursCourant = useMemo(
     () => facsFiltrees.filter(f => f.reste_du > 0.005).reduce((s, f) => s + f.reste_du, 0),
     [facsFiltrees]
   )
+
+  // DSO : fenêtre 12 mois glissante — toggle ON décale d'un mois en arrière (+ CA matching)
   const encours12Mois = useMemo(() => {
-    if (!moisMaxFactures) return 0
-    const yr = parseInt(moisMaxFactures.slice(0, 4)), mo = parseInt(moisMaxFactures.slice(5, 7))
+    const refMois = exclureDernierMois ? moisMaxPrec : moisMax
+    if (!refMois) return 0
+    const yr = parseInt(refMois.slice(0, 4)), mo = parseInt(refMois.slice(5, 7))
     let startMo = mo - 11; let startYr = yr
     if (startMo <= 0) { startMo += 12; startYr -= 1 }
     const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
     const lastDay = new Date(yr, mo, 0).getDate()
-    const moisMaxEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    const moisEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
     return facsFiltrees
       .filter(f => f.reste_du > 0.005
         && (f.date_emission ?? '') >= il12MoisStr
-        && (f.date_emission ?? '') <= moisMaxEndStr)
+        && (f.date_emission ?? '') <= moisEndStr)
       .reduce((s, f) => s + f.reste_du, 0)
-  }, [facsFiltrees, moisMaxFactures])
-  const dsoRoulant = ca12Mois > 0 ? encours12Mois / ca12Mois * 365 : null
-  console.log('[DSO-DB] moisMaxFactures:', moisMaxFactures, '| ca12Mois:', ca12Mois, '| encours12Mois:', encours12Mois, '| dso:', dsoRoulant)
+  }, [facsFiltrees, moisMax, moisMaxPrec, exclureDernierMois])
+
+  const dsoRoulant = exclureDernierMois
+    ? (ca12MoisPrec > 0 ? encours12Mois / ca12MoisPrec * 365 : null)
+    : (ca12Mois > 0 ? encours12Mois / ca12Mois * 365 : null)
 
   const montantMoisPrec = useMemo(
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisPrecStr).reduce((s, f) => s + f.reste_du, 0),

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
 export function useComptesClients() {
-  const { clients: raw, facturesActives, chargement, rafraichir, mettreAJourClientLocal, moisMaxFactures, ca12Mois } = useAppData()
+  const { clients: raw, facturesActives, chargement, rafraichir, mettreAJourClientLocal, moisMaxBrut, ca12Mois } = useAppData()
   const [recherche, setRechercheState] = useState('')
   // Codes clients trouvés côté serveur (factures soldées hors cache)
   const [codesFallback, setCodesFallback] = useState<Set<string>>(new Set())
@@ -56,8 +56,8 @@ export function useComptesClients() {
   const kpis = useMemo((): KpisCompteClient => {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     let encours12 = 0
-    if (moisMaxFactures) {
-      const yr = parseInt(moisMaxFactures.slice(0, 4)), mo = parseInt(moisMaxFactures.slice(5, 7))
+    if (moisMaxBrut) {
+      const yr = parseInt(moisMaxBrut.slice(0, 4)), mo = parseInt(moisMaxBrut.slice(5, 7))
       let startMo = mo - 11; let startYr = yr
       if (startMo <= 0) { startMo += 12; startYr -= 1 }
       const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
@@ -76,7 +76,7 @@ export function useComptesClients() {
       nbFacturesAttente: impayees.length,
       dsoRoulant: ca12Mois > 0 ? encours12 / ca12Mois * 365 : null,
     }
-  }, [clients, facturesActives, ca12Mois, moisMaxFactures])
+  }, [clients, facturesActives, ca12Mois, moisMaxBrut])
 
   const nebuleuse = useMemo((): GroupeNebuleuse[] => {
     // Uniquement les clients avec un code_groupement explicite
