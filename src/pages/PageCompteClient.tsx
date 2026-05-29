@@ -253,6 +253,8 @@ export function PageCompteClient() {
           modeSelection={modeSelection}
           selection={selection}
           onToggleSelection={toggleSelection}
+          creditParClient={comptes.creditParClient}
+          nbPiecesParClient={comptes.nbPiecesParClient}
         />
       )}
 

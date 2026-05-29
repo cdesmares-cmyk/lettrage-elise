@@ -24,6 +24,8 @@ interface Props {
   modeSelection?: boolean
   selection?: Set<string>
   onToggleSelection?: (code: string) => void
+  creditParClient?: Map<string, number>
+  nbPiecesParClient?: Map<string, number>
 }
 
 const PAGE_SIZE = 25
@@ -86,7 +88,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, creditParClient, nbPiecesParClient }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -133,7 +135,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Code" col="code_dso" {...thProps} align="left" />
             <ColTh label="Nom" col="nom" {...thProps} align="left" />
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
-            <ColTh label="Fac. impayées" col="nb_impayees" {...thProps} align="center" />
+            <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
             <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
             <ColTh label="Plateforme" col="plateforme" {...thProps} align="left" />
             <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
@@ -149,6 +151,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             // nb_factures_total - nb_impayees = factures entièrement réglées (stats SQL, indépendant du cache)
             const nbReglees = c.nb_factures_total - c.nb_impayees
             const estSelectionne = selection.has(c.code_dso)
+            const credit = creditParClient?.get(c.code_dso) ?? 0
+            const soldeNet = c.encours_total - credit
+            const nbPieces = nbPiecesParClient?.get(c.code_dso) ?? c.nb_impayees
             return (
               <>
                 <tr
@@ -179,10 +184,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${c.encours_total > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(c.encours_total)}</span>
+                    <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <span className={`text-sm font-bold tabular-nums ${c.nb_impayees > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{c.nb_impayees}</span>
+                    <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{nbPieces}</span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
