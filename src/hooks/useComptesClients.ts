@@ -146,5 +146,25 @@ export function useComptesClients() {
     return true
   }
 
-  return { clients, chargement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions }
+  // Avoirs + sur-lettrages par client (reste_du < 0, hors _compte) — pour affichage solde net
+  const creditParClient = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const f of facturesActives) {
+      if (f.reste_du >= -0.005 || f.numero_piece.endsWith('_compte')) continue
+      map.set(f.code_client, (map.get(f.code_client) ?? 0) + Math.abs(f.reste_du))
+    }
+    return map
+  }, [facturesActives])
+
+  // Nb pièces actives par client : abs(reste_du) > 0, hors _compte (avoirs inclus)
+  const nbPiecesParClient = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const f of facturesActives) {
+      if (Math.abs(f.reste_du) <= 0.005 || f.numero_piece.endsWith('_compte')) continue
+      map.set(f.code_client, (map.get(f.code_client) ?? 0) + 1)
+    }
+    return map
+  }, [facturesActives])
+
+  return { clients, chargement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions, creditParClient, nbPiecesParClient }
 }
