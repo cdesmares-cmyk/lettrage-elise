@@ -248,7 +248,7 @@ export function useImportContacts() {
           })
           const { error } = await supabase
             .from('contacts_client')
-            .upsert(lot as never, { onConflict: 'email,code_client', ignoreDuplicates: false })
+            .upsert(lot as never, { onConflict: 'organisation_id,email,code_client', ignoreDuplicates: false })
           if (error) throw error
         }
       } catch (err) {

@@ -232,7 +232,7 @@ export function useImportFactures() {
       if (clientsUniques.length > 0) {
         const { error: errClients } = await supabase
           .from('clients')
-          .upsert(clientsUniques as never, { onConflict: 'code_dso', ignoreDuplicates: true })
+          .upsert(clientsUniques as never, { onConflict: 'organisation_id,code_dso', ignoreDuplicates: true })
         if (errClients) throw errClients
 
         // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
@@ -250,7 +250,7 @@ export function useImportFactures() {
         for (let i = 0; i < facturesTampon.length; i += 500) {
           const { error } = await supabase
             .from('factures')
-            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'numero_piece', ignoreDuplicates: true })
+            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
           if (error) throw error
         }
       }

@@ -164,7 +164,7 @@ export function useImportClients() {
           })
           const { error } = await supabase
             .from('clients')
-            .upsert(lot as never, { onConflict: 'code_dso', ignoreDuplicates: false })
+            .upsert(lot as never, { onConflict: 'organisation_id,code_dso', ignoreDuplicates: false })
           if (error) throw error
         }
 
@@ -185,7 +185,7 @@ export function useImportClients() {
         for (let i = 0; i < facturesTampon.length; i += 500) {
           const { error } = await supabase
             .from('factures')
-            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'numero_piece', ignoreDuplicates: true })
+            .upsert(facturesTampon.slice(i, i + 500) as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
           if (error) throw error
         }
       } catch (err) {
