@@ -1,7 +1,6 @@
 // Onglet 1 — Dépôt : import des fichiers CSV bancaires et XLSX factures (section 5.1 du CDC)
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { BanniereJarvis } from '../components/depot/BanniereJarvis'
 import { EtapeType } from '../components/depot/EtapeType'
 import { EtapeUpload } from '../components/depot/EtapeUpload'
 import { EtapeMapping } from '../components/depot/EtapeMapping'
@@ -120,8 +119,6 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
 
   return (
     <div>
-      <BanniereJarvis />
-
       {/* En-tête de page */}
       {!hideEnTete && (
       <div className="flex items-center justify-between mb-6">
