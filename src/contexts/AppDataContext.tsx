@@ -139,7 +139,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       // moisMaxBrut dérivé des factures chargées en mémoire (non-avoir)
       // → toujours cohérent avec facturesActives, corrigé automatiquement après annulation d'import
       const moisMax = toutes
-        .filter(f => !f.est_avoir)
+        .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
         .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
       if (moisMax) {
         const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
