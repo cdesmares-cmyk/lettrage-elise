@@ -17,6 +17,7 @@ export function useCompteurRelances() {
     supabase
       .from('relances')
       .select('id', { count: 'exact', head: true })
+      .eq('archivee', false)
       .or(`statut.eq.sans_reponse,and(statut.eq.envoyee,envoyee_le.lt.${seuil.toISOString()})`)
       .then(({ count }) => setNb(count ?? 0))
   }, [utilisateur])
