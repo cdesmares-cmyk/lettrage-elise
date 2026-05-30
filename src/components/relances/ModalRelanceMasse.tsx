@@ -8,6 +8,10 @@ import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import type { Contact } from '../../hooks/useContacts'
 
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 function fmtEncours(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
   if (n >= 10_000)    return `${Math.round(n / 1_000)} k€`
@@ -54,6 +58,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const [scenarioId, setScenarioId] = useState<string | null>(null)
   const [sujet, setSujet] = useState('')
   const [progression, setProgression] = useState<{ enCours: boolean; current: number; total: number; resultats: Resultat[]; termine: boolean }>({ enCours: false, current: 0, total: 0, resultats: [], termine: false })
+  const [enArrierePlan, setEnArrierePlan] = useState(false)
 
   // Sélectionne le scénario niveau 1 par défaut dès que les scénarios sont chargés
   useEffect(() => {
@@ -177,6 +182,11 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       const r: Resultat = error ? { nom: e.client.nom, succes: false, raison: 'Erreur enregistrement' } : { nom: e.client.nom, succes: true }
       resultats.push(r)
       setProgression(prev => ({ ...prev, current: prev.current + 1, resultats: [...prev.resultats, r] }))
+
+      // Délai 2-5 secondes entre chaque envoi (sauf après le dernier)
+      if (e !== cibles[cibles.length - 1]) {
+        await sleep(2000 + Math.random() * 3000)
+      }
     }
 
     const nbSucces = resultats.filter(r => r.succes).length
@@ -187,6 +197,24 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
 
   return (
     <>
+      {/* Barre de progression arrière-plan (bas droite) */}
+      {progression.enCours && enArrierePlan && (
+        <div className="fixed bottom-6 right-6 z-[9999] bg-white border border-gray-200 rounded-2xl shadow-2xl px-5 py-4 w-72 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-ockham-navy">Relance en cours…</p>
+            <span className="text-[11px] font-semibold tabular-nums text-ockham-teal">{progression.current}/{progression.total}</span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-ockham-teal rounded-full transition-all duration-500"
+              style={{ width: `${progression.total > 0 ? (progression.current / progression.total) * 100 : 0}%` }}
+            />
+          </div>
+          <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
+        </div>
+      )}
+
+      <div className={enArrierePlan ? 'hidden' : ''}>
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={!progression.enCours ? onFermer : undefined} />
       <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[72px] pb-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-88px)] flex flex-col overflow-hidden">
@@ -401,13 +429,21 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             {!progression.termine ? (
               <>
-                <button
-                  onClick={onFermer}
-                  disabled={progression.enCours}
-                  className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 disabled:opacity-40 transition-colors"
-                >
-                  Annuler
-                </button>
+                {progression.enCours ? (
+                  <button
+                    onClick={() => setEnArrierePlan(true)}
+                    className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-ockham-teal hover:text-ockham-teal transition-colors"
+                  >
+                    Continuer en arrière-plan
+                  </button>
+                ) : (
+                  <button
+                    onClick={onFermer}
+                    className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                )}
                 <button
                   onClick={handleEnvoyer}
                   disabled={!peutEnvoyer}
@@ -430,6 +466,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
             )}
           </div>
         </div>
+      </div>
       </div>
     </>
   )

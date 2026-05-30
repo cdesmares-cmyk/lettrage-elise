@@ -214,13 +214,18 @@ export function PageCompteClient() {
                 Tout désélectionner
               </button>
             )}
-            <button
-              onClick={() => setRelanceMasseOuverte(true)}
-              disabled={clientsSelectionnes.length === 0}
-              className="text-xs font-semibold px-3 py-1.5 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white rounded-lg transition-colors"
-            >
-              ✉ Relancer ({clientsSelectionnes.length})
-            </button>
+            <div className="flex flex-col items-end gap-0.5">
+              <button
+                onClick={() => setRelanceMasseOuverte(true)}
+                disabled={clientsSelectionnes.length === 0}
+                className="text-xs font-semibold px-3 py-1.5 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white rounded-lg transition-colors"
+              >
+                ✉ Relancer ({Math.min(clientsSelectionnes.length, 25)}{clientsSelectionnes.length > 25 ? '/25' : ''})
+              </button>
+              {clientsSelectionnes.length > 25 && (
+                <span className="text-[10px] text-amber-300">Max 25 par session</span>
+              )}
+            </div>
             <button
               onClick={exporterSelection}
               disabled={selection.size === 0 || exportSelectionEnCours}
@@ -333,7 +338,7 @@ export function PageCompteClient() {
       {/* Modal Relance Massive */}
       {relanceMasseOuverte && (
         <ModalRelanceMasse
-          clients={clientsSelectionnes}
+          clients={clientsSelectionnes.slice(0, 25)}
           gmailAuth={gmailAuth}
           commentaires={commentaires}
           onFermer={() => setRelanceMasseOuverte(false)}
