@@ -41,9 +41,12 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
   const [mode, setMode] = useState<ModePriorite>('score')
   const { clients, facturesActives } = useAppData()
 
+  const SEUIL_ALERTE = 10
+
   const priorites = useMemo(() => {
     const derniereRelance: Record<string, string> = {}
     const clientsAvecSansReponse = new Set<string>()
+    const clientsEnAlerte = new Set<string>()
 
     for (const r of relances) {
       if (r.statut === 'sans_reponse') clientsAvecSansReponse.add(r.code_client)
@@ -51,6 +54,12 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
         if (!derniereRelance[r.code_client] || r.envoyee_le > derniereRelance[r.code_client]) {
           derniereRelance[r.code_client] = r.envoyee_le
         }
+      }
+      if (
+        r.statut === 'sans_reponse' ||
+        (r.statut === 'envoyee' && r.envoyee_le != null && joursDepuis(r.envoyee_le) > SEUIL_ALERTE)
+      ) {
+        clientsEnAlerte.add(r.code_client)
       }
     }
 
@@ -66,6 +75,7 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
           : 0
         const joursSansRelance = derniereRelance[c.code_dso] ? joursDepuis(derniereRelance[c.code_dso]) : 365
         const hasSansReponse = clientsAvecSansReponse.has(c.code_dso)
+        const estEnAlerte = clientsEnAlerte.has(c.code_dso)
         const hasStatut = factures.some(f => f.statut_facture != null)
         const hasCommentaire = commentaires ? factures.some(f => commentaires.has(f.numero_piece)) : false
         return {
@@ -74,15 +84,21 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
           joursSansRelance,
           jamsRelance: !derniereRelance[c.code_dso],
           hasSansReponse,
+          estEnAlerte,
           hasStatut,
           hasCommentaire,
           score: scorePriorite(c.encours_total, Math.max(0, ancMax), joursSansRelance, hasSansReponse),
         }
       })
 
-    if (mode === 'score')      liste.sort((a, b) => b.score - a.score)
-    if (mode === 'encours')    liste.sort((a, b) => b.encours_total - a.encours_total)
-    if (mode === 'anciennete') liste.sort((a, b) => b.ancMax - a.ancMax)
+    liste.sort((a, b) => {
+      // Clients en alerte remontent en premier dans tous les modes
+      if (a.estEnAlerte !== b.estEnAlerte) return a.estEnAlerte ? -1 : 1
+      if (mode === 'score')      return b.score - a.score
+      if (mode === 'encours')    return b.encours_total - a.encours_total
+      if (mode === 'anciennete') return b.ancMax - a.ancMax
+      return 0
+    })
 
     return liste.slice(0, 10)
   }, [clients, facturesActives, relances, commentaires, mode])
@@ -115,9 +131,12 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
               key={c.code_dso}
               className={`flex items-center gap-3 px-4 py-2.5 transition-colors group ${c.hasSansReponse ? 'bg-amber-50/40 hover:bg-amber-50' : 'hover:bg-gray-50/40'}`}
             >
-              <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-ockham-teal text-white' : 'bg-gray-100 text-gray-500'}`}>
-                {i + 1}
-              </span>
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                {c.estEnAlerte && <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />}
+                <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-shrink-0 ${i === 0 ? 'bg-ockham-teal text-white' : 'bg-gray-100 text-gray-500'}`}>
+                  {i + 1}
+                </span>
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-gray-800 truncate">{c.nom}</p>
                 <div className="flex items-center gap-1.5 mt-0.5">

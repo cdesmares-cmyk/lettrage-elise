@@ -71,6 +71,11 @@ function initiales(nom: string): string {
 
 const SEUIL_ALERTE = 10
 
+function estEnAlerte(r: Relance): boolean {
+  return r.statut === 'sans_reponse' ||
+    (r.statut === 'envoyee' && r.envoyee_le != null && joursDepuis(r.envoyee_le) > SEUIL_ALERTE)
+}
+
 interface Props {
   relances: Relance[]
   chargement: boolean
@@ -138,6 +143,11 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   const affichees = useMemo(() => {
     return [...filtrees].sort((a, b) => {
+      // Relances en alerte remontent en premier dans tous les cas
+      const aAlert = estEnAlerte(a) ? 0 : 1
+      const bAlert = estEnAlerte(b) ? 0 : 1
+      if (aAlert !== bAlert) return aAlert - bAlert
+
       let cmp = 0
       switch (tri) {
         case 'code_client':  cmp = a.code_client.localeCompare(b.code_client); break
@@ -263,6 +273,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
               {affichees.map(r => {
                 const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
                 const enRetard = jours !== null && jours >= SEUIL_ALERTE && r.statut === 'envoyee'
+                const alerte = estEnAlerte(r)
                 const nomClient = clientsMap.get(r.code_client) ?? '—'
                 const montant = getMontant(r)
                 const opNom = opMap.get(r.operateur_id) ?? ''
@@ -279,7 +290,12 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                       onClick={() => setLigneOuverte(ouvert ? null : r.id)}
                       className={`transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 ${rowCls}`}
                     >
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-500">{r.code_client}</td>
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          {alerte && <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />}
+                          {r.code_client}
+                        </div>
+                      </td>
                       <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[160px] truncate">{nomClient}</td>
                       <td className="px-3 py-2.5 text-xs text-gray-400 tabular-nums whitespace-nowrap">
                         {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
