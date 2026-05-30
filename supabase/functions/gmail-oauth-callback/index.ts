@@ -31,6 +31,20 @@ Deno.serve(async (req: Request) => {
 
   console.log('oauth-callback: userId=', userId, 'returnUrl=', returnUrl)
 
+  // Vérifie que le userId du state correspond à un compte OCKHAM réel
+  // Empêche de lier un compte Google à un userId arbitraire forgé dans le state
+  const supabaseCheck = createClient(SUPABASE_URL, SERVICE_KEY)
+  const { data: userCheck } = await supabaseCheck
+    .from('utilisateurs')
+    .select('id')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (!userCheck) {
+    console.error('oauth-callback: userId introuvable dans utilisateurs —', userId)
+    return Response.redirect(`${returnUrl}?gmail=error`, 302)
+  }
+
   // Échange du code contre les tokens Google
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method:  'POST',
