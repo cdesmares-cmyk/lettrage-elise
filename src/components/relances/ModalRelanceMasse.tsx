@@ -432,9 +432,9 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                 {progression.enCours ? (
                   <button
                     onClick={() => setEnArrierePlan(true)}
-                    className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-ockham-teal hover:text-ockham-teal transition-colors"
+                    className="flex-1 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-lg transition-colors"
                   >
-                    Continuer en arrière-plan
+                    ✓ Retourner à la navigation
                   </button>
                 ) : (
                   <button
