@@ -104,10 +104,12 @@ const EXEMPLES_XLSX_NOMBRES = new Set(['montant_ht', 'montant_ttc', 'credit', 'd
 function telechargerModele(typeFichier: TypeFichier) {
   const config = CONFIG[typeFichier]
   const champs = CHAMPS_PAR_TYPE[typeFichier]
-  const enTetes = champs.map(c => c.label)
 
   if (config.modeleXlsx) {
-    // Template XLSX : nombres stockés en tant que nombres réels → zéro ambiguïté décimale
+    // Template XLSX : en-têtes = premier alias du champ (correspond exactement aux alias de détection)
+    // On évite ainsi les collisions de mapping (ex. "Date d'émission" et "Date d'échéance"
+    // normalisées identiquement matchaient toutes deux sur date_emission via l'alias "date").
+    const enTetesAlias = champs.map(c => c.aliases[0])
     const exemples = champs.map(c => {
       const raw = EXEMPLES[c.cle] ?? ''
       if (EXEMPLES_XLSX_NOMBRES.has(c.cle) && raw) {
@@ -116,16 +118,17 @@ function telechargerModele(typeFichier: TypeFichier) {
       }
       return raw
     })
-    const ws = XLSX.utils.aoa_to_sheet([enTetes, exemples])
+    const ws = XLSX.utils.aoa_to_sheet([enTetesAlias, exemples])
     // Largeur des colonnes
-    ws['!cols'] = enTetes.map(() => ({ wch: 20 }))
+    ws['!cols'] = enTetesAlias.map(() => ({ wch: 20 }))
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Factures')
     XLSX.writeFile(wb, config.nomModele)
   } else {
-    // Template CSV pour les autres types
+    // Template CSV : en-têtes = premier alias (fiable pour l'auto-détection)
+    const enTetesAlias = champs.map(c => c.aliases[0])
     const exemples = champs.map(c => EXEMPLES[c.cle] ?? '')
-    const csv = [enTetes, exemples].map(row => row.map(v => `"${v}"`).join(';')).join('\r\n')
+    const csv = [enTetesAlias, exemples].map(row => row.map(v => `"${v}"`).join(';')).join('\r\n')
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
