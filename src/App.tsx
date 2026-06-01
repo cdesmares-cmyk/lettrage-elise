@@ -14,6 +14,7 @@ import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageImportExport } from './pages/PageImportExport'
 import { PageRelances } from './pages/PageRelances'
+import { PageSuperAdmin } from './pages/PageSuperAdmin'
 
 function SplashChargement({ nom }: { nom?: string }) {
   return (
@@ -83,6 +84,7 @@ function AppRoutes() {
 
   return (
     <Routes>
+      <Route path="/superadmin" element={<PageSuperAdmin />} />
       <Route
         path="/connexion"
         element={session ? <Navigate to="/tableau-de-bord" replace /> : <PageConnexion />}

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useRole } from '../contexts/RoleContext'
+import { useAuth } from '../contexts/AuthContext'
 import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
 import { IcSun, IcMoon } from './Icones'
@@ -17,6 +18,7 @@ const ONGLETS_TOUS = [
 export function Layout() {
   const { theme, toggleTheme } = useTheme()
   const { isCommercial } = useRole()
+  const { profil } = useAuth()
   const nbRelancesEnAttente = useCompteurRelances()
   const onglets = ONGLETS_TOUS.filter(o => !isCommercial || o.commercial)
 
@@ -78,8 +80,21 @@ export function Layout() {
           </span>
         )}
 
+        {/* Lien Super Admin — visible uniquement pour le superadmin */}
+        {profil?.role === 'superadmin' && (
+          <a
+            href="/superadmin"
+            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-semibold text-ockham-teal border border-ockham-teal/30 hover:bg-ockham-teal/10 transition-colors"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+            </svg>
+            Super Admin
+          </a>
+        )}
+
         {/* Profil + menu compte */}
-        <div className="ml-auto flex items-center gap-2">
+        <div className={`${profil?.role === 'superadmin' ? '' : 'ml-auto'} flex items-center gap-2`}>
           <button
             onClick={toggleTheme}
             className="text-slate-500 hover:text-slate-300 px-2 py-1.5 rounded transition-colors flex items-center justify-center"
