@@ -48,17 +48,14 @@ Deno.serve(async (req: Request) => {
         { data: orgs },
         { data: users },
         { data: statsClients },
-        { data: statsRelances },
       ] = await Promise.all([
         supabase.from('organisations').select('id, nom, slug, actif, cree_le').order('cree_le'),
         supabase.from('utilisateurs').select('id, organisation_id, role, email, nom_affiche, cree_le'),
         supabase.rpc('superadmin_stats_clients'),
-        supabase.rpc('superadmin_stats_relances'),
       ])
 
-      const usersByOrg    = new Map<string, typeof users>()
-      const clientsByOrg  = new Map<string, { count: number; encours: number }>()
-      const relancesByOrg = new Map<string, number>()
+      const usersByOrg   = new Map<string, typeof users>()
+      const clientsByOrg = new Map<string, { count: number; encours: number }>()
 
       for (const u of users ?? []) {
         if (!u.organisation_id) continue
@@ -68,16 +65,12 @@ Deno.serve(async (req: Request) => {
       for (const c of (statsClients ?? []) as { organisation_id: string; nb_clients: number; encours_total: number }[]) {
         clientsByOrg.set(c.organisation_id, { count: c.nb_clients, encours: c.encours_total ?? 0 })
       }
-      for (const r of (statsRelances ?? []) as { organisation_id: string; nb_relances: number }[]) {
-        relancesByOrg.set(r.organisation_id, r.nb_relances)
-      }
 
       const organisations = (orgs ?? []).map(org => ({
         ...org,
         nb_utilisateurs: usersByOrg.get(org.id)?.length ?? 0,
         nb_clients:      clientsByOrg.get(org.id)?.count ?? 0,
         encours_total:   clientsByOrg.get(org.id)?.encours ?? 0,
-        nb_relances:     relancesByOrg.get(org.id) ?? 0,
         utilisateurs:    usersByOrg.get(org.id) ?? [],
       }))
 

@@ -19,7 +19,6 @@ export interface OrganisationSA {
   nb_utilisateurs: number
   nb_clients: number
   encours_total: number
-  nb_relances: number
   utilisateurs: UtilisateurSA[]
 }
 

@@ -138,9 +138,6 @@ function LigneOrganisation({ org, onToggle }: {
           <span className="text-sm font-semibold text-gray-800">{formaterEuros(org.encours_total)}</span>
         </td>
         <td className="py-3 px-4 text-center">
-          <span className="text-sm font-medium text-gray-700">{org.nb_relances}</span>
-        </td>
-        <td className="py-3 px-4 text-center">
           <span className="text-[11px] text-gray-400">{formaterDate(org.cree_le)}</span>
         </td>
         <td className="py-3 px-4 text-center">
@@ -160,7 +157,7 @@ function LigneOrganisation({ org, onToggle }: {
 
       {ouvert && (
         <tr className="bg-ockham-teal-muted/40 border-b border-ockham-teal/10">
-          <td colSpan={7} className="px-10 py-3">
+          <td colSpan={6} className="px-10 py-3">
             {org.utilisateurs.length === 0 ? (
               <p className="text-xs text-gray-400 italic">Aucun utilisateur dans cette organisation.</p>
             ) : (
@@ -364,10 +361,9 @@ function BlocMetriquesGlobales({ organisations }: { organisations: OrganisationS
   const actives = organisations.filter(o => o.actif).length
   const totalClients = organisations.reduce((s, o) => s + o.nb_clients, 0)
   const totalEncours = organisations.reduce((s, o) => s + o.encours_total, 0)
-  const totalRelances = organisations.reduce((s, o) => s + o.nb_relances, 0)
 
   return (
-    <div className="grid grid-cols-4 gap-3 mb-6">
+    <div className="grid grid-cols-3 gap-3 mb-6">
       <CarteMetrique
         label="Organisations actives"
         valeur={`${actives} / ${organisations.length}`}
@@ -385,12 +381,6 @@ function BlocMetriquesGlobales({ organisations }: { organisations: OrganisationS
         valeur={formaterEuros(totalEncours)}
         icone={<IcEuro />}
         couleur="bg-purple-50 border-purple-100 text-purple-700"
-      />
-      <CarteMetrique
-        label="Relances actives"
-        valeur={totalRelances}
-        icone={<IcBuilding />}
-        couleur="bg-amber-50 border-amber-100 text-amber-700"
       />
     </div>
   )
@@ -491,7 +481,6 @@ export function PageSuperAdmin() {
                   <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Utilisateurs</th>
                   <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Clients</th>
                   <th className="py-2.5 px-4 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Encours</th>
-                  <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Relances</th>
                   <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Créée le</th>
                   <th className="py-2.5 px-4 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Actif</th>
                 </tr>
@@ -502,7 +491,7 @@ export function PageSuperAdmin() {
               ) : erreur ? (
                 <tbody>
                   <tr>
-                    <td colSpan={7} className="py-16 text-center">
+                    <td colSpan={6} className="py-16 text-center">
                       <p className="text-sm text-red-500 font-medium">{erreur}</p>
                       <button
                         onClick={chargerDashboard}
@@ -516,7 +505,7 @@ export function PageSuperAdmin() {
               ) : organisations.length === 0 ? (
                 <tbody>
                   <tr>
-                    <td colSpan={7} className="py-16 text-center">
+                    <td colSpan={6} className="py-16 text-center">
                       <p className="text-sm text-gray-400">Aucune organisation trouvée.</p>
                       <button
                         onClick={() => setModalOuvert(true)}
