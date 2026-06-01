@@ -48,7 +48,7 @@ Deno.serve(async (req: Request) => {
       const [{ data: orgs }, { data: users }, { data: clients }, { data: relances }] = await Promise.all([
         supabase.from('organisations').select('id, nom, slug, actif, cree_le').order('cree_le'),
         supabase.from('utilisateurs').select('id, organisation_id, role, email, nom_affiche, cree_le'),
-        supabase.from('clients').select('organisation_id, encours_total, nb_impayees').throwOnError(),
+        supabase.from('v_comptes_clients').select('organisation_id, encours_total').throwOnError(),
         supabase.from('relances').select('organisation_id, statut, archivee').eq('archivee', false),
       ])
 
