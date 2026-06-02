@@ -114,11 +114,35 @@ function WidgetConcentration({ clients }: Props) {
   )
 }
 
-function WidgetAnnotees({ factures }: Props) {
-  const litiges    = useMemo(() => factures.filter(f => f.statut_facture === 'litige'), [factures])
-  const provisions = useMemo(() => factures.filter(f => f.statut_facture === 'provisionne'), [factures])
-  const totalLitige = litiges.reduce((s, f) => s + f.reste_du, 0)
-  const totalProv   = provisions.reduce((s, f) => s + f.reste_du, 0)
+interface FactureAnnotee {
+  numero_piece: string
+  nom_client: string | null
+  code_client: string
+  reste_du: number
+  statut_facture: string
+}
+
+function WidgetAnnotees(_: Props) {
+  const { profil } = useAuth()
+  const [litiges,    setLitiges]    = useState<FactureAnnotee[]>([])
+  const [provisions, setProvisions] = useState<FactureAnnotee[]>([])
+
+  useEffect(() => {
+    if (!profil?.organisation_id) return
+    supabase
+      .from('factures')
+      .select('numero_piece, nom_client, code_client, reste_du, statut_facture')
+      .eq('organisation_id', profil.organisation_id)
+      .in('statut_facture', ['litige', 'provisionne'])
+      .then(({ data }) => {
+        const rows = (data ?? []) as FactureAnnotee[]
+        setLitiges(rows.filter(f => f.statut_facture === 'litige'))
+        setProvisions(rows.filter(f => f.statut_facture === 'provisionne'))
+      })
+  }, [profil?.organisation_id])
+
+  const totalLitige = litiges.reduce((s, f) => s + (f.reste_du ?? 0), 0)
+  const totalProv   = provisions.reduce((s, f) => s + (f.reste_du ?? 0), 0)
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
