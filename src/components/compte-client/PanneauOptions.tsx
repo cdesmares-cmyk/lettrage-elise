@@ -207,7 +207,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       const nb = (data as { alertes_inserees?: number })?.alertes_inserees ?? 0
       setSyncAlertes(nb)
       setEtatSync(nb > 0 ? 'alerte' : 'ok')
-      écrireCooldown(client.code_dso, siretNormalisé)
+      écrireCooldown(client!.code_dso, siretNormalisé)
     } catch { setEtatSync('erreur') }
   }
 
