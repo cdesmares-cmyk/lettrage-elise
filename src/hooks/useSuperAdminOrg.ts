@@ -165,12 +165,7 @@ export function useSuperAdminOrg() {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      setDetail(prev => prev ? {
-        ...prev,
-        integrations: prev.integrations.map(i =>
-          i.provider === provider ? { ...i, verifie_le: new Date().toISOString() } : i
-        ),
-      } : prev)
+      await chargerDetail(organisation_id)
       toast.success('Connexion vérifiée')
       return true
     } catch (err) {
@@ -187,6 +182,7 @@ export function useSuperAdminOrg() {
       if (error) throw error
       if (data?.error) throw new Error(data.error)
       toast.success(`Sync ${provider} déclenchée (${data.nb_traite ?? 0} éléments)`)
+      await chargerDetail(organisation_id)
       return true
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur déclenchement sync')
