@@ -54,9 +54,9 @@ function LigneUtilisateur({ u, actions }: {
 
   return (
     <tr className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
-      <td className="py-2.5 px-3">
-        <p className="text-sm font-semibold text-gray-900 leading-tight">{u.nom_affiche || '—'}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{u.email}</p>
+      <td className="py-2.5 px-3 overflow-hidden">
+        <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{u.nom_affiche || '—'}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5 truncate">{u.email}</p>
       </td>
       <td className="py-2.5 px-3">
         <select
@@ -70,7 +70,7 @@ function LigneUtilisateur({ u, actions }: {
         </select>
       </td>
       <td className="py-2.5 px-3 text-xs text-gray-500">{formaterDate(u.derniere_connexion)}</td>
-      <td className="py-2.5 px-3">
+      <td className="py-2.5 px-3 whitespace-nowrap">
         {u.suspendu ? (
           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600">Suspendu</span>
         ) : u.invitation_en_attente ? (
@@ -80,7 +80,7 @@ function LigneUtilisateur({ u, actions }: {
         )}
       </td>
       <td className="py-2.5 px-3">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-nowrap">
           {u.invitation_en_attente ? (
             <button className={btnCls} onClick={() => handleAction('invite')} disabled={enCours === 'invite'}>
               <IcMail /> Renvoyer invitation
@@ -149,7 +149,7 @@ export function ModalOrg({ org, onFermer, onToggle }: {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onFermer}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl flex flex-col overflow-hidden"
         style={{ maxHeight: '90vh' }}
         onClick={e => e.stopPropagation()}
       >
@@ -249,7 +249,14 @@ export function ModalOrg({ org, onFermer, onToggle }: {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full table-fixed">
+                  <colgroup>
+                    <col className="w-[24%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[13%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[34%]" />
+                  </colgroup>
                   <thead>
                     <tr className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
                       <th className="text-left pb-2 px-3">Utilisateur</th>
