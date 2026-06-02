@@ -434,6 +434,27 @@ Deno.serve(async (req: Request) => {
       return json(résumé)
     }
 
+    // ── MODE RECALCULER_STATUT : recalcul sans appel BODACC ──────────────────
+    if (action === 'recalculer_statut') {
+      const codeDso = typeof body.code_dso === 'string' ? body.code_dso : null
+      if (!codeDso) return json({ error: 'code_dso requis' }, 400)
+
+      const orgCible = (orgId ?? profil.organisation_id) as string
+      if (profil.role !== 'superadmin' && orgCible !== profil.organisation_id)
+        return json({ error: 'Accès non autorisé' }, 403)
+
+      await mettreAJourStatutClient(supabase, orgCible, codeDso)
+
+      const { data: row } = await supabase
+        .from('clients')
+        .select('statut_juridique')
+        .eq('organisation_id', orgCible)
+        .eq('code_dso', codeDso)
+        .maybeSingle()
+
+      return json({ ok: true, statut_juridique: (row as { statut_juridique: string | null } | null)?.statut_juridique ?? null })
+    }
+
     // ── MODE MASQUER_ALERTE : faux positif ────────────────────────────────────
     if (action === 'masquer_alerte') {
       const alerteId = typeof body.alerte_id === 'string' ? body.alerte_id : null

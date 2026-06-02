@@ -148,8 +148,17 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       .eq('code_client', client.code_dso)
       .eq('masquee', false)
       .order('date_parution', { ascending: false })
-    setAlertesBodacc((data ?? []) as AlerteBodacc[])
+    const alertes = (data ?? []) as AlerteBodacc[]
+    setAlertesBodacc(alertes)
     setAlertesBodaccChargement(false)
+
+    // Si des alertes existent mais que le statut n'est pas encore renseigné, recalcule
+    if (alertes.length > 0 && !client.statut_juridique) {
+      const { data: res } = await supabase.functions.invoke('bodacc-sync', {
+        body: { action: 'recalculer_statut', code_dso: client.code_dso },
+      })
+      if (res?.statut_juridique) setStatut(res.statut_juridique as StatutJuridique)
+    }
   }
 
   async function refreshStatut() {
