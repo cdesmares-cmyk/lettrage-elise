@@ -1,5 +1,5 @@
 // Volet latéral coulissant — édition des infos client + contacts
-import { useState, useEffect, useId } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
@@ -140,6 +140,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [alertesBodacc, setAlertesBodacc]           = useState<AlerteBodacc[]>([])
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
+  const clientCodeRef = useRef<string | null>(null)
 
   async function chargerAlertesBodacc() {
     if (!client) return
@@ -179,22 +180,28 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
   useEffect(() => {
     if (client) {
+      const switching = clientCodeRef.current !== client.code_dso
+      clientCodeRef.current = client.code_dso
+
       setStatut(client.statut_juridique ?? '')
       setCommercial(client.commercial ?? '')
       setOperateur(client.operateur ?? '')
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
       setSiret(client.siret ?? '')
-      setDelaiAlerte('')
-      setEtatSync('idle')
-      setSyncAlertes(0)
-      setAlertesBodacc([])
-      setMasquageEnCours(new Set())
-      supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
-        .maybeSingle().then(({ data }) => {
-          const row = data as { delai_alerte_jours: number | null } | null
-          setDelaiAlerte(row?.delai_alerte_jours != null ? String(row.delai_alerte_jours) : '')
-        })
+
+      if (switching) {
+        setDelaiAlerte('')
+        setEtatSync('idle')
+        setSyncAlertes(0)
+        setAlertesBodacc([])
+        setMasquageEnCours(new Set())
+        supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
+          .maybeSingle().then(({ data }) => {
+            const row = data as { delai_alerte_jours: number | null } | null
+            setDelaiAlerte(row?.delai_alerte_jours != null ? String(row.delai_alerte_jours) : '')
+          })
+      }
     }
   }, [client])
 
