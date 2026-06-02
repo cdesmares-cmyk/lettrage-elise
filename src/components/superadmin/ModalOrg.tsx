@@ -63,9 +63,12 @@ function LigneUtilisateur({ u, actions }: {
         <td className="py-2.5 px-3">
           <select value={u.role} onChange={e => actions.updateUserRole(u.id, e.target.value)}
             className="border border-gray-200 rounded-md px-2 py-1 text-xs font-semibold font-[inherit] cursor-pointer focus:outline-none focus:ring-1 focus:ring-ockham-teal/40 w-full">
-            {['admin', 'commercial', 'lecteur', 'responsable_poste_client'].map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
+            {[
+              { value: 'admin', label: 'Admin' },
+              { value: 'commercial', label: 'Commercial' },
+              { value: 'responsable_poste_client', label: 'Crédit Manager' },
+              ...(u.role === 'lecteur' ? [{ value: 'lecteur', label: 'Lecteur seul (legacy)' }] : []),
+            ].map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
         </td>
         <td className="py-2.5 px-3 text-xs text-gray-500 whitespace-nowrap">{formaterDate(u.derniere_connexion)}</td>
@@ -236,9 +239,9 @@ export function ModalOrg({ org, onFermer, onToggle }: {
                   <label className="block text-[10px] font-semibold text-gray-500 mb-1">Rôle</label>
                   <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                     className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-[inherit] focus:outline-none cursor-pointer">
-                    <option value="admin">admin</option>
-                    <option value="commercial">commercial</option>
-                    <option value="lecteur">lecteur</option>
+                    <option value="admin">Admin</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="responsable_poste_client">Crédit Manager</option>
                   </select>
                 </div>
                 <div className="flex gap-2">
