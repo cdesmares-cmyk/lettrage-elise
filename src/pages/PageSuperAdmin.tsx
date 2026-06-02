@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useSuperAdmin } from '../hooks/useSuperAdmin'
+import { useSuperAdmin, type OrganisationSA } from '../hooks/useSuperAdmin'
 import { ModalNouvelleOrg } from '../components/superadmin/ModalNouvelleOrg'
 import { CarteOrg } from '../components/superadmin/CarteOrg'
 import { SectionMonitoring } from '../components/superadmin/SectionMonitoring'
+import { ModalOrg } from '../components/superadmin/ModalOrg'
 
 const PAGE_SIZE = 20
 
@@ -55,9 +56,10 @@ export function PageSuperAdmin() {
   const { profil, chargement: chargementAuth } = useAuth()
   const { organisations, runs, chargement, erreur, chargerDashboard, creerOrganisation, toggleOrg } = useSuperAdmin()
 
-  const [modalOuvert, setModalOuvert] = useState(false)
-  const [recherche, setRecherche]     = useState('')
-  const [page, setPage]               = useState(1)
+  const [modalOuvert, setModalOuvert]   = useState(false)
+  const [orgDetail, setOrgDetail]       = useState<OrganisationSA | null>(null)
+  const [recherche, setRecherche]       = useState('')
+  const [page, setPage]                 = useState(1)
 
   useEffect(() => {
     if (profil?.role === 'superadmin') chargerDashboard()
@@ -190,7 +192,7 @@ export function PageSuperAdmin() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {slice.map(org => (
-                <CarteOrg key={org.id} org={org} runs={runs} fonctionsPerOrg={fonctionsPerOrg} onToggle={toggleOrg} />
+                <CarteOrg key={org.id} org={org} runs={runs} fonctionsPerOrg={fonctionsPerOrg} onToggle={toggleOrg} onOuvrir={setOrgDetail} />
               ))}
             </div>
 
@@ -221,6 +223,14 @@ export function PageSuperAdmin() {
       </main>
 
       <ModalNouvelleOrg ouvert={modalOuvert} onFermer={() => setModalOuvert(false)} onCreer={creerOrganisation} />
+
+      {orgDetail && (
+        <ModalOrg
+          org={orgDetail}
+          onFermer={() => setOrgDetail(null)}
+          onToggle={(id, actif) => { toggleOrg(id, actif); setOrgDetail(prev => prev ? { ...prev, actif } : prev) }}
+        />
+      )}
     </div>
   )
 }

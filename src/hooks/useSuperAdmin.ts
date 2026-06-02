@@ -20,6 +20,8 @@ export interface OrganisationSA {
   nb_clients: number
   encours_total: number
   utilisateurs: UtilisateurSA[]
+  axonaut_actif: boolean
+  axonaut_verifie_le: string | null
 }
 
 export interface CronRun {
