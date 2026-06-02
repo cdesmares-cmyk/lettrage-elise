@@ -272,7 +272,7 @@ Deno.serve(async (req: Request) => {
         .select('api_key').eq('organisation_id', organisation_id).eq('provider', provider).single()
       if (!integ?.api_key) return json({ error: 'Clé API non configurée' }, 400)
       if (provider === 'axonaut') {
-        const resp = await fetch('https://app.axonaut.com/api/v1/companies?size=1', {
+        const resp = await fetch('https://axonaut.com/api/v1/companies?size=1', {
           headers: { userApiKey: integ.api_key },
         })
         if (!resp.ok) return json({ error: `Axonaut HTTP ${resp.status}` }, 400)
@@ -293,7 +293,7 @@ Deno.serve(async (req: Request) => {
       const debut = Date.now()
       if (provider === 'axonaut') {
         try {
-          const resp = await fetch('https://app.axonaut.com/api/v1/invoices?page=1', {
+          const resp = await fetch('https://axonaut.com/api/v1/invoices?page=1', {
             headers: { userApiKey: integ.api_key },
           })
           if (!resp.ok) throw new Error(`Axonaut HTTP ${resp.status}`)
