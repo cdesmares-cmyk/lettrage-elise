@@ -415,6 +415,17 @@ Deno.serve(async (req: Request) => {
         const rows = (clientsMatchés ?? []) as ClientRow[]
         if (!rows.length) continue
 
+        // Masquer les alertes d'un ancien SIRET pour éviter les fantômes après correction
+        for (const client of rows) {
+          await supabase
+            .from('alertes_risque')
+            .update({ masquee: true })
+            .eq('organisation_id', client.organisation_id)
+            .eq('code_client', client.code_dso)
+            .neq('siret', siret)
+            .eq('masquee', false)
+        }
+
         const alertes = construireAlertes(records, rows)
         if (alertes.length > 0) {
           const { error } = await supabase
