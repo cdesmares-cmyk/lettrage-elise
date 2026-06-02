@@ -364,7 +364,11 @@ Deno.serve(async (req: Request) => {
       }
     } catch { /* body vide = mode quotidien */ }
 
-    // Un admin ne peut lancer l'onboarding que pour sa propre org
+    // Mode quotidien (cross-org) : superadmin uniquement
+    if (!orgId && profil.role !== 'superadmin')
+      return json({ error: 'Le mode quotidien est réservé au superadmin' }, 403)
+
+    // Mode onboarding : admin limité à sa propre org
     if (orgId && profil.role === 'admin' && orgId !== profil.organisation_id)
       return json({ error: 'Accès non autorisé à cette organisation' }, 403)
 
