@@ -32,20 +32,23 @@ function badgeAnc(j: number) {
   return 'bg-red-100 text-red-700'
 }
 
+const IcLitige = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+const IcProv   = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
-  { val: 'litige', label: '⚠ Litige' },
-  { val: 'provisionne', label: '📦 Provisionné' },
-  { val: null, label: '✕ Effacer' },
+  { val: 'litige',      label: 'Litige'      },
+  { val: 'provisionne', label: 'Provisionné' },
+  { val: null,          label: '✕ Effacer'   },
 ]
 
 function StatutBadge({ statut, estSolde, onClick }: { statut: StatutFacture | null; estSolde: boolean; onClick: (e: React.MouseEvent) => void }) {
   if (estSolde)
     return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">✓ Payée</span>
   if (statut === 'litige')
-    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">⚠ Litige</span>
+    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200"><IcLitige /> Litige</span>
   if (statut === 'provisionne')
-    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200">📦 Provisionné</span>
-  return <span onClick={onClick} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600">— statut</span>
+    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200"><IcProv /> Provisionné</span>
+  return <span onClick={onClick} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600">Statut</span>
 }
 
 type SortDir = 'asc' | 'desc'

@@ -123,12 +123,18 @@ function WidgetAnnotees({ factures }: Props) {
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-red-50 border border-red-100 rounded-lg p-3">
-          <p className="text-[10px] font-semibold text-red-700 uppercase tracking-wider mb-1">⚠ Litige</p>
+          <p className="text-[10px] font-semibold text-red-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Litige
+          </p>
           <p className="text-lg font-bold text-red-700 tabular-nums">{litiges.length}</p>
           <p className="text-[10px] text-red-500 font-mono">{fmtEuro(totalLitige)}</p>
         </div>
         <div className="bg-orange-50 border border-orange-100 rounded-lg p-3">
-          <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wider mb-1">📦 Provisionné</p>
+          <p className="text-[10px] font-semibold text-orange-700 uppercase tracking-wider mb-1 flex items-center gap-1">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Provisionné
+          </p>
           <p className="text-lg font-bold text-orange-700 tabular-nums">{provisions.length}</p>
           <p className="text-[10px] text-orange-500 font-mono">{fmtEuro(totalProv)}</p>
         </div>
