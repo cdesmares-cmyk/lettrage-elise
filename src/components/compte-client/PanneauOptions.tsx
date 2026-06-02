@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 
 type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
+type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc'
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000
 
@@ -23,14 +24,21 @@ function écrireCooldown(codeDso: string, siret: string) {
   localStorage.setItem(`bodacc_sync_${codeDso}`, JSON.stringify({ ts: Date.now(), siret }))
 }
 
-type Onglet = 'infos' | 'contacts' | 'relances'
-
 interface NoteRelance {
   id: string
   note: string | null
   note_operateur: string | null
   note_archivee_le: string | null
   cree_le: string
+}
+
+interface AlerteBodacc {
+  id: string
+  type_procedure: string
+  date_parution: string | null
+  date_jugement: string | null
+  tribunal: string | null
+  description: string | null
 }
 
 interface Props {
@@ -46,11 +54,15 @@ interface Props {
   }) => Promise<boolean>
 }
 
-const STATUT_BODACC: Record<StatutJuridique, { label: string; couleur: string }> = {
-  sauvegarde:   { label: '📁 Sauvegarde',   couleur: 'bg-amber-50 text-amber-800 border-amber-300' },
-  liquidation:  { label: '🚫 Liquidation',  couleur: 'bg-red-50 text-red-800 border-red-300' },
-  redressement: { label: '🔄 Redressement', couleur: 'bg-orange-50 text-orange-800 border-orange-300' },
-  cloture:      { label: '✅ Clôture',       couleur: 'bg-gray-50 text-gray-600 border-gray-300' },
+const STATUT_BODACC: Record<StatutJuridique, { label: string; couleur: string; badge: string }> = {
+  liquidation:  { label: 'Liquidation',  couleur: 'bg-red-50 text-red-800 border-red-300',       badge: 'bg-red-100 text-red-700' },
+  redressement: { label: 'Redressement', couleur: 'bg-orange-50 text-orange-800 border-orange-300', badge: 'bg-orange-100 text-orange-700' },
+  sauvegarde:   { label: 'Sauvegarde',   couleur: 'bg-amber-50 text-amber-800 border-amber-300',  badge: 'bg-amber-100 text-amber-700' },
+  cloture:      { label: 'Clôture',      couleur: 'bg-gray-50 text-gray-600 border-gray-300',     badge: 'bg-gray-100 text-gray-500' },
+}
+
+function badgeProcedure(type: string): string {
+  return STATUT_BODACC[type as StatutJuridique]?.badge ?? 'bg-slate-100 text-slate-500'
 }
 
 function classeScore(note: number) {
@@ -110,19 +122,45 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
   const { peutModifier } = useRole()
 
-  const [statut, setStatut] = useState<StatutJuridique | ''>('')
-  const [commercial, setCommercial] = useState('')
-  const [operateur, setOperateur] = useState('')
-  const [plateforme, setPlateforme] = useState('')
-  const [groupement, setGroupement] = useState('')
-  const [siret, setSiret] = useState('')
+  const [statut, setStatut]           = useState<StatutJuridique | ''>('')
+  const [commercial, setCommercial]   = useState('')
+  const [operateur, setOperateur]     = useState('')
+  const [plateforme, setPlateforme]   = useState('')
+  const [groupement, setGroupement]   = useState('')
+  const [siret, setSiret]             = useState('')
   const [delaiAlerte, setDelaiAlerte] = useState<string>('')
   const [enregistrement, setEnregistrement] = useState(false)
-  const [etatSync, setEtatSync] = useState<EtatSync>('idle')
+  const [etatSync, setEtatSync]       = useState<EtatSync>('idle')
   const [syncAlertes, setSyncAlertes] = useState(0)
-  const [onglet, setOnglet] = useState<Onglet>('infos')
-  const [notesRelances, setNotesRelances] = useState<NoteRelance[]>([])
+  const [onglet, setOnglet]           = useState<Onglet>('infos')
+  const [notesRelances, setNotesRelances]     = useState<NoteRelance[]>([])
   const [notesChargement, setNotesChargement] = useState(false)
+  const [alertesBodacc, setAlertesBodacc]           = useState<AlerteBodacc[]>([])
+  const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
+  const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
+
+  async function chargerAlertesBodacc() {
+    if (!client) return
+    setAlertesBodaccChargement(true)
+    const { data } = await supabase
+      .from('alertes_risque')
+      .select('id, type_procedure, date_parution, date_jugement, tribunal, description')
+      .eq('code_client', client.code_dso)
+      .eq('masquee', false)
+      .order('date_parution', { ascending: false })
+    setAlertesBodacc((data ?? []) as AlerteBodacc[])
+    setAlertesBodaccChargement(false)
+  }
+
+  async function refreshStatut() {
+    if (!client) return
+    const { data } = await supabase
+      .from('clients')
+      .select('statut_juridique')
+      .eq('code_dso', client.code_dso)
+      .maybeSingle()
+    setStatut((data as { statut_juridique: StatutJuridique | null } | null)?.statut_juridique ?? '')
+  }
 
   useEffect(() => {
     if (client) {
@@ -135,7 +173,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setDelaiAlerte('')
       setEtatSync('idle')
       setSyncAlertes(0)
-      // Charge le seuil alerte client si défini
+      setAlertesBodacc([])
+      setMasquageEnCours(new Set())
       supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
         .maybeSingle().then(({ data }) => {
           const row = data as { delai_alerte_jours: number | null } | null
@@ -161,6 +200,11 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       })
   }, [onglet, client])
 
+  useEffect(() => {
+    if (onglet !== 'bodacc' || !client) return
+    chargerAlertesBodacc()
+  }, [onglet, client])
+
   if (!client) return null
 
   function fermerEtReset() { setOnglet('infos'); onFermer() }
@@ -168,7 +212,6 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   async function handleSauvegarder() {
     setEnregistrement(true)
 
-    // Auto-création dans ref_valeurs si la valeur est nouvelle (sans doublon)
     const valCommercial = commercial.trim()
     const valPlateforme = plateforme.trim()
     if (valCommercial && !commerciaux.includes(valCommercial)) {
@@ -208,15 +251,41 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setSyncAlertes(nb)
       setEtatSync(nb > 0 ? 'alerte' : 'ok')
       écrireCooldown(client!.code_dso, siretNormalisé)
+      await refreshStatut()
+      await chargerAlertesBodacc()
     } catch { setEtatSync('erreur') }
   }
 
+  async function masquerAlerte(alerteId: string) {
+    setMasquageEnCours(prev => new Set(prev).add(alerteId))
+    try {
+      const { error } = await supabase.functions.invoke('bodacc-sync', {
+        body: { action: 'masquer_alerte', alerte_id: alerteId },
+      })
+      if (!error) {
+        setAlertesBodacc(prev => prev.filter(a => a.id !== alerteId))
+        await refreshStatut()
+      }
+    } finally {
+      setMasquageEnCours(prev => { const s = new Set(prev); s.delete(alerteId); return s })
+    }
+  }
+
   const sc = classeScore(client.note_risque)
+
+  const LABELS_ONGLETS: Record<Onglet, string> = {
+    infos:    'Informations',
+    contacts: 'Contacts',
+    relances: 'Relances',
+    bodacc:   'BODACC',
+  }
 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={fermerEtReset} />
       <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
+
+        {/* En-tête client */}
         <div className="flex items-start justify-between px-5 py-4 bg-ockham-navy">
           <div>
             <p className="text-sm font-bold text-slate-100">{client.nom}</p>
@@ -226,27 +295,31 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
         </div>
 
         {/* Onglets */}
-        <div className="flex gap-2 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
-          {(['infos', 'contacts', 'relances'] as Onglet[]).map(o => (
+        <div className="flex gap-1.5 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
+          {(['infos', 'contacts', 'relances', 'bodacc'] as Onglet[]).map(o => (
             <button
               key={o}
               onClick={() => setOnglet(o)}
-              className={`flex-1 py-2 text-xs font-semibold rounded-md border transition-colors ${
+              className={`flex-1 py-2 text-[11px] font-semibold rounded-md border transition-colors ${
                 onglet === o
                   ? 'bg-white/15 border-white/50 text-white'
                   : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
               }`}
             >
-              {o === 'infos' ? 'Informations' : o === 'contacts' ? 'Contacts' : 'Relances'}
+              {LABELS_ONGLETS[o]}
             </button>
           ))}
         </div>
 
+        {/* Contenu */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* ── CONTACTS ── */}
           {onglet === 'contacts' && <SectionContacts codeClient={client.code_dso} />}
+
+          {/* ── RELANCES ── */}
           {onglet === 'relances' && (
             <div className="space-y-3">
-              {/* Seuil alerte — override discret, admin + responsable uniquement */}
               {peutModifier && (
                 <div className="pb-3 border-b border-gray-100">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
@@ -313,145 +386,221 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               )}
             </div>
           )}
-          {onglet === 'infos' && <>
-          {/* Statut juridique — lecture seule, alimenté par la veille BODACC */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut juridique</label>
-            {statut && STATUT_BODACC[statut as StatutJuridique] ? (
-              <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${STATUT_BODACC[statut as StatutJuridique].couleur}`}>
-                {STATUT_BODACC[statut as StatutJuridique].label}
-                <span className="ml-auto text-[10px] opacity-60">BODACC</span>
+
+          {/* ── BODACC ── */}
+          {onglet === 'bodacc' && (
+            <div className="space-y-4">
+
+              {/* Statut actuel */}
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut juridique actuel</label>
+                {statut && STATUT_BODACC[statut as StatutJuridique] ? (
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${STATUT_BODACC[statut as StatutJuridique].couleur}`}>
+                    {STATUT_BODACC[statut as StatutJuridique].label}
+                    <span className="ml-auto text-[10px] opacity-60">BODACC</span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50 text-xs text-emerald-700 font-medium">
+                    Aucune procédure collective active
+                  </div>
+                )}
               </div>
-            ) : (
-              <p className="text-xs text-gray-400 italic px-1">Aucune procédure collective détectée</p>
-            )}
-          </div>
 
-          {/* Commercial — combobox : saisie libre + auto-création dans ref_valeurs */}
-          <ComboRef
-            label="Commercial"
-            valeur={commercial}
-            setValeur={setCommercial}
-            options={commerciaux}
-            placeholder="Ex : Jean Dupont"
-          />
-
-          {/* Opérateur — dropdown strict (géré par l'admin uniquement) */}
-          <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
-
-          {/* Plateforme — combobox : saisie libre + auto-création dans ref_valeurs */}
-          <ComboRef
-            label="Plateforme d'envoi"
-            valeur={plateforme}
-            setValeur={setPlateforme}
-            options={plateformes}
-            placeholder="Ex : Chorus, Cegedim…"
-          />
-
-          {/* Code groupement */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Code groupement <span className="text-gray-300 normal-case font-normal">(nébuleuse)</span></label>
-            <input
-              type="text"
-              value={groupement}
-              onChange={e => setGroupement(e.target.value)}
-              placeholder="Ex : GRP-01, HOLDING-A…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
-            />
-            <p className="text-[10px] text-gray-400 mt-1.5">Texte ou chiffre libre. Les clients partageant ce code seront regroupés dans la vue Nébuleuse.</p>
-          </div>
-
-          {/* SIRET */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">SIRET <span className="text-gray-300 normal-case font-normal">(veille BODACC)</span></label>
-            <input
-              type="text"
-              value={siret}
-              onChange={e => { setSiret(e.target.value.replace(/\D/g, '').slice(0, 14)); setEtatSync('idle') }}
-              placeholder="14 chiffres"
-              className={`w-full border rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors ${
-                !siretManquant && !siretValide ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
-              }`}
-            />
-            {!siretManquant && !siretValide && (
-              <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                SIRET invalide — 14 chiffres attendus ({siretNormalisé.length}/14)
-              </p>
-            )}
-
-            {/* Bouton synchronisation BODACC — admin + responsable uniquement */}
-            {peutModifier && (
-              <div className="mt-2.5 space-y-2">
-                <button
-                  onClick={lancerSyncBodacc}
-                  disabled={siretManquant || etatSync === 'loading' || cooldownActif}
-                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    siretManquant || cooldownActif
-                      ? 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
-                      : etatSync === 'loading'
-                      ? 'border-ockham-teal/30 text-ockham-teal bg-ockham-teal-muted cursor-wait'
-                      : 'border-ockham-teal/40 text-ockham-teal bg-ockham-teal-muted hover:bg-ockham-teal/10 cursor-pointer'
-                  }`}
-                  title={siretManquant ? 'Renseignez un SIRET pour lancer la vérification' : cooldownActif ? 'Déjà synchronisé dans les dernières 24h' : undefined}
-                >
-                  {etatSync === 'loading' ? (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                      Vérification en cours…
-                    </>
-                  ) : cooldownActif ? (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                      Synchronisé (24h)
-                    </>
-                  ) : (
-                    <>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                      Synchroniser BODACC
-                    </>
+              {/* Bouton synchronisation */}
+              {siretManquant ? (
+                <p className="text-[11px] text-gray-400 italic">
+                  Renseignez un SIRET dans l'onglet Informations pour activer la surveillance BODACC.
+                </p>
+              ) : !siretValide ? (
+                <p className="text-[11px] text-amber-600 flex items-center gap-1.5">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  SIRET invalide — corrigez-le dans l'onglet Informations.
+                </p>
+              ) : peutModifier ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-gray-400 font-mono">{siretNormalisé}</p>
+                    <button
+                      onClick={lancerSyncBodacc}
+                      disabled={etatSync === 'loading' || cooldownActif}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        cooldownActif
+                          ? 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
+                          : etatSync === 'loading'
+                          ? 'border-ockham-teal/30 text-ockham-teal bg-ockham-teal-muted cursor-wait'
+                          : 'border-ockham-teal/40 text-ockham-teal bg-ockham-teal-muted hover:bg-ockham-teal/10 cursor-pointer'
+                      }`}
+                    >
+                      {etatSync === 'loading' ? (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                          Vérification…
+                        </>
+                      ) : cooldownActif ? (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          Synchronisé (24h)
+                        </>
+                      ) : (
+                        <>
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                          Synchroniser BODACC
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {etatSync === 'ok' && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-medium">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                      Aucune nouvelle procédure détectée
+                    </div>
                   )}
-                </button>
-
-                {etatSync === 'ok' && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-medium">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-                    Aucune procédure collective détectée
-                  </div>
-                )}
-                {etatSync === 'alerte' && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                    {syncAlertes} procédure{syncAlertes > 1 ? 's' : ''} collective{syncAlertes > 1 ? 's' : ''} détectée{syncAlertes > 1 ? 's' : ''}
-                  </div>
-                )}
-                {etatSync === 'erreur' && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    Erreur lors de la vérification — réessayez
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Score risque (lecture seule) */}
-          <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Note de risque (calculée)</label>
-            <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
-              <span className={`text-3xl font-extrabold tabular-nums ${sc.txt}`}>{client.note_risque}</span>
-              <div className="flex-1">
-                <p className={`text-xs font-bold ${sc.txt}`}>{sc.label}</p>
-                <div className="w-full h-2 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
-                  <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${client.note_risque}%` }} />
+                  {etatSync === 'alerte' && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      {syncAlertes} procédure{syncAlertes > 1 ? 's' : ''} détectée{syncAlertes > 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {etatSync === 'erreur' && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      Erreur lors de la vérification — réessayez
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-1">Calculé chaque matin — retard, tendance, % échu, BODACC</p>
+              ) : null}
+
+              {/* Historique procédures */}
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Procédures détectées</label>
+                {alertesBodaccChargement ? (
+                  <div className="space-y-2">
+                    {[1, 2].map(i => (
+                      <div key={i} className="h-14 rounded-lg bg-gray-100 animate-pulse" />
+                    ))}
+                  </div>
+                ) : alertesBodacc.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic px-1">
+                    Aucune procédure collective enregistrée.
+                    {siretValide && !cooldownActif && peutModifier && ' Cliquez sur Synchroniser pour lancer une vérification.'}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {alertesBodacc.map(a => (
+                      <div key={a.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badgeProcedure(a.type_procedure)}`}>
+                              {STATUT_BODACC[a.type_procedure as StatutJuridique]?.label ?? a.type_procedure}
+                            </span>
+                            {a.date_parution && (
+                              <span className="text-[10px] text-gray-400">
+                                {new Date(a.date_parution).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </div>
+                          {a.tribunal && (
+                            <p className="text-[11px] text-gray-500 truncate">{a.tribunal}</p>
+                          )}
+                        </div>
+                        {peutModifier && (
+                          <button
+                            onClick={() => masquerAlerte(a.id)}
+                            disabled={masquageEnCours.has(a.id)}
+                            title="Masquer ce faux positif — l'alerte ne sera plus prise en compte"
+                            className="flex-shrink-0 text-[10px] text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 py-0.5 px-1.5 rounded border border-transparent hover:border-red-200 hover:bg-red-50"
+                          >
+                            {masquageEnCours.has(a.id) ? '…' : 'Masquer'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
+
+          {/* ── INFORMATIONS ── */}
+          {onglet === 'infos' && <>
+            {/* Statut juridique — lecture seule, alimenté par BODACC */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut juridique</label>
+              {statut && STATUT_BODACC[statut as StatutJuridique] ? (
+                <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold ${STATUT_BODACC[statut as StatutJuridique].couleur}`}>
+                  {STATUT_BODACC[statut as StatutJuridique].label}
+                  <span className="ml-auto text-[10px] opacity-60">BODACC</span>
+                  <button
+                    onClick={() => setOnglet('bodacc')}
+                    className="ml-1 text-[10px] underline underline-offset-2 opacity-60 hover:opacity-100"
+                  >
+                    Détail
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 italic px-1">Aucune procédure collective détectée</p>
+              )}
+            </div>
+
+            <ComboRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} placeholder="Ex : Jean Dupont" />
+            <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
+            <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Code groupement <span className="text-gray-300 normal-case font-normal">(nébuleuse)</span></label>
+              <input
+                type="text"
+                value={groupement}
+                onChange={e => setGroupement(e.target.value)}
+                placeholder="Ex : GRP-01, HOLDING-A…"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+              />
+              <p className="text-[10px] text-gray-400 mt-1.5">Texte ou chiffre libre. Les clients partageant ce code seront regroupés dans la vue Nébuleuse.</p>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">SIRET <span className="text-gray-300 normal-case font-normal">(veille BODACC)</span></label>
+              <input
+                type="text"
+                value={siret}
+                onChange={e => { setSiret(e.target.value.replace(/\D/g, '').slice(0, 14)); setEtatSync('idle') }}
+                placeholder="14 chiffres"
+                className={`w-full border rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors ${
+                  !siretManquant && !siretValide ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+                }`}
+              />
+              {!siretManquant && !siretValide && (
+                <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  SIRET invalide — 14 chiffres attendus ({siretNormalisé.length}/14)
+                </p>
+              )}
+              {siretValide && peutModifier && (
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  Synchronisation BODACC disponible dans l'onglet{' '}
+                  <button onClick={() => setOnglet('bodacc')} className="text-ockham-teal underline underline-offset-2">BODACC</button>.
+                </p>
+              )}
+            </div>
+
+            {/* Score risque (lecture seule) */}
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Note de risque (calculée)</label>
+              <div className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+                <span className={`text-3xl font-extrabold tabular-nums ${sc.txt}`}>{client.note_risque}</span>
+                <div className="flex-1">
+                  <p className={`text-xs font-bold ${sc.txt}`}>{sc.label}</p>
+                  <div className="w-full h-2 bg-gray-200 rounded-full mt-1.5 overflow-hidden">
+                    <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${client.note_risque}%` }} />
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-1">Calculé chaque matin — retard, tendance, % échu, BODACC</p>
+                </div>
+              </div>
+            </div>
           </>}
         </div>
 
+        {/* Pied de page */}
         {onglet === 'infos' && (
           <div className="flex gap-2 px-5 py-4 border-t border-gray-100">
             <button onClick={fermerEtReset} disabled={enregistrement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
@@ -462,7 +611,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             </button>
           </div>
         )}
-        {(onglet === 'contacts' || onglet === 'relances') && (
+        {(onglet === 'contacts' || onglet === 'relances' || onglet === 'bodacc') && (
           <div className="px-5 py-4 border-t border-gray-100">
             <button onClick={fermerEtReset} className="w-full text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">
               Fermer

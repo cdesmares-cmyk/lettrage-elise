@@ -1,4 +1,4 @@
-// Edge Function — Veille BODACC v3
+// Edge Function — Veille BODACC v4
 // ─────────────────────────────────────────────────────────────────────────────
 // Mode quotidien  (sans org_id) : approche inversée
 //   BODACC → tous les SIRENs du jour → match clients → alertes + statuts
@@ -7,6 +7,9 @@
 // Mode onboarding (avec org_id) : scan historique client-par-client
 //   date_min auto = date de la facture la plus ancienne du tenant
 //   Exécuté une seule fois à l'arrivée d'un nouveau tenant
+//
+// Mode client_unique : vérification à la demande pour un ou plusieurs SIRETs
+//   Déclenché depuis le panneau client (bouton Synchroniser BODACC)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -104,7 +107,7 @@ function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
-// Pagine l'API BODACC sans limite — prend tout ce qui est publié depuis dateMin
+// Pagine l'API BODACC sans limite — prend tout ce qui correspond au filtre
 async function fetchAllBodacc(filtre: string): Promise<BodaccRecord[]> {
   const all: BodaccRecord[] = []
   let offset = 0
@@ -141,7 +144,6 @@ async function fetchAllBodacc(filtre: string): Promise<BodaccRecord[]> {
 
 // Construit les alertes à insérer à partir des records BODACC et des clients matchés
 function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Record<string, unknown>[] {
-  // Index records par SIREN (format sans espaces)
   const recordsBySiren: Record<string, BodaccRecord[]> = {}
   for (const r of records) {
     const sirens = (r.registre ?? []).map(s => s.replace(/\s/g, '')).filter(s => /^\d{9}$/.test(s))
@@ -168,16 +170,45 @@ function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Recor
         date_jugement:   parseJugement(r.jugement)?.date ?? null,
         date_parution:   r.dateparution ?? null,
         description:     buildDescription(r),
-        // notifie_le : null par défaut → Phase 4 emails lira WHERE notifie_le IS NULL
       })
     }
   }
   return alertes
 }
 
-// Lit toutes les alertes et met à jour statut_juridique (priorité : liquidation > redressement > sauvegarde > cloture)
+// Recalcule statut_juridique pour un client précis à partir de ses alertes actives (non masquées)
+async function mettreAJourStatutClient(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  codeDso: string
+): Promise<void> {
+  const { data: alertes, error: errLecture } = await supabase
+    .from('alertes_risque')
+    .select('type_procedure')
+    .eq('organisation_id', orgId)
+    .eq('code_client', codeDso)
+    .eq('masquee', false)
+
+  if (errLecture) {
+    console.warn(`[bodacc-sync] lecture alertes ${codeDso}:`, errLecture.message)
+    return
+  }
+
+  const meilleur = ((alertes ?? []) as { type_procedure: string }[])
+    .sort((a, b) => (PRIORITE[a.type_procedure] ?? 99) - (PRIORITE[b.type_procedure] ?? 99))[0]
+
+  const { error: errMaj } = await supabase
+    .from('clients')
+    .update({ statut_juridique: meilleur?.type_procedure ?? null } as never)
+    .eq('organisation_id', orgId)
+    .eq('code_dso', codeDso)
+
+  if (errMaj) console.warn(`[bodacc-sync] update statut ${codeDso}:`, errMaj.message)
+}
+
+// Lit toutes les alertes actives (non masquées) et met à jour statut_juridique en batch
+// Utilisé par les modes quotidien et onboarding (volumétrie importante)
 async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Promise<number> {
-  // Pagination pour dépasser la limite PostgREST de 1000 lignes
   const alertes: Array<{ organisation_id: string; code_client: string; type_procedure: string }> = []
   const PAGE = 1000
   let offset = 0
@@ -185,6 +216,7 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
     const { data, error } = await supabase
       .from('alertes_risque')
       .select('organisation_id, code_client, type_procedure')
+      .eq('masquee', false)
       .range(offset, offset + PAGE - 1)
     if (error || !data?.length) break
     alertes.push(...(data as typeof alertes))
@@ -195,7 +227,7 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
   if (!alertes.length) return 0
 
   const parClient: Record<string, { org: string; code: string; type: string }> = {}
-  for (const a of alertes as Array<{ organisation_id: string; code_client: string; type_procedure: string }>) {
+  for (const a of alertes) {
     const key = `${a.organisation_id}__${a.code_client}`
     const actuel = parClient[key]
     if (!actuel || (PRIORITE[a.type_procedure] ?? 99) < (PRIORITE[actuel.type] ?? 99)) {
@@ -218,7 +250,11 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
         .update({ statut_juridique: type } as never)
         .eq('organisation_id', org)
         .in('code_dso', codes.slice(i, i + 500))
-      if (!error) nbMaj += codes.slice(i, i + 500).length
+      if (error) {
+        console.warn(`[bodacc-sync] update statut batch org=${org} type=${type}:`, error.message)
+      } else {
+        nbMaj += codes.slice(i, i + 500).length
+      }
     }
   }
   return nbMaj
@@ -229,18 +265,14 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
   const dateMin = dateHier()
   const filtre  = `familleavis="collective" AND dateparution>="${dateMin}"`
 
-  // 1. Toutes les publications BODACC depuis hier (pagination automatique, sans limite)
   const records = await fetchAllBodacc(filtre)
   if (!records.length) return { mode: 'quotidien', alertes_insérées: 0, statuts_mis_a_jour: 0 }
 
-  // 2. SIRENs uniques trouvés dans le batch (format 9 chiffres sans espaces)
   const sirens = [...new Set(
     records.flatMap(r => (r.registre ?? []).map(s => s.replace(/\s/g, '')).filter(s => /^\d{9}$/.test(s)))
   )]
   console.log(`[bodacc-sync] ${sirens.length} SIRENs uniques dans le batch BODACC`)
 
-  // 3. Un seul appel SQL : tous les clients de toutes les orgs qui matchent ces SIRENs
-  // Un SIREN peut matcher plusieurs orgs → tous sont retournés (multi-tenant)
   const { data: clients, error: errClients } = await supabase
     .rpc('match_clients_par_siren', { sirens })
   if (errClients) throw new Error(errClients.message)
@@ -248,7 +280,6 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
   const rows = (clients ?? []) as ClientRow[]
   console.log(`[bodacc-sync] ${rows.length} clients matchés (toutes orgs)`)
 
-  // 4. Construire et insérer les alertes
   const alertes = construireAlertes(records, rows)
   let nbInsérées = 0
   for (let i = 0; i < alertes.length; i += 500) {
@@ -258,7 +289,6 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
     if (!error) nbInsérées += alertes.slice(i, i + 500).length
   }
 
-  // 5. Mise à jour statut_juridique
   const nbStatuts = await mettreAJourStatuts(supabase)
 
   return { mode: 'quotidien', records_bodacc: records.length, sirens_uniques: sirens.length, clients_matchés: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
@@ -266,7 +296,6 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
 
 // ─── MODE ONBOARDING : scan historique client-par-client pour un tenant ──────
 async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: string, dateMinParam: string | null) {
-  // date_min = paramètre fourni OU date de la facture la plus ancienne du tenant
   let dateMin = dateMinParam
   if (!dateMin) {
     const { data: oldest } = await supabase
@@ -281,7 +310,6 @@ async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: 
   }
   console.log(`[bodacc-sync] onboarding org=${orgId} depuis ${dateMin}`)
 
-  // Pagination pour dépasser la limite PostgREST de 1000 lignes
   const rows: ClientRow[] = []
   const PAGE = 1000
   let offset = 0
@@ -334,7 +362,6 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    // Vérification du token appelant
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Non autorisé' }, 401)
 
@@ -351,7 +378,7 @@ Deno.serve(async (req: Request) => {
       .select('role, organisation_id')
       .eq('id', user.id)
       .single()
-    if (!profil || !['admin', 'superadmin'].includes(profil.role))
+    if (!profil || !['admin', 'responsable_poste_client', 'superadmin'].includes(profil.role))
       return json({ error: 'Accès réservé aux administrateurs' }, 403)
 
     let body: Record<string, unknown> = {}
@@ -361,7 +388,7 @@ Deno.serve(async (req: Request) => {
     const orgId   = typeof body.org_id   === 'string' ? body.org_id : null
     const dateMin = typeof body.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min) ? body.date_min : null
 
-    // ── MODE CLIENT_UNIQUE : vérification BODACC à la demande ────────────────
+    // ── MODE CLIENT_UNIQUE : vérification à la demande ────────────────────────
     if (action === 'client_unique') {
       const sirets = Array.isArray(body.sirets)
         ? (body.sirets as string[]).filter(s => typeof s === 'string' && s.length > 0)
@@ -389,17 +416,52 @@ Deno.serve(async (req: Request) => {
         if (!rows.length) continue
 
         const alertes = construireAlertes(records, rows)
-        if (!alertes.length) continue
-        const { error } = await supabase
-          .from('alertes_risque')
-          .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
-        if (!error) nbInsérées += alertes.length
+        if (alertes.length > 0) {
+          const { error } = await supabase
+            .from('alertes_risque')
+            .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+          if (!error) nbInsérées += alertes.length
+        }
+
+        // Recalcul ciblé du statut pour chaque client concerné
+        for (const client of rows) {
+          await mettreAJourStatutClient(supabase, client.organisation_id, client.code_dso)
+        }
       }
 
-      const nbStatuts = await mettreAJourStatuts(supabase)
-      const résumé = { mode: 'client_unique', sirets_traités: sirets.length, alertes_inserees: nbInsérées, statuts_mis_a_jour: nbStatuts }
+      const résumé = { mode: 'client_unique', sirets_traités: sirets.length, alertes_inserees: nbInsérées }
       console.log('[bodacc-sync] terminé :', résumé)
       return json(résumé)
+    }
+
+    // ── MODE MASQUER_ALERTE : faux positif ────────────────────────────────────
+    if (action === 'masquer_alerte') {
+      const alerteId = typeof body.alerte_id === 'string' ? body.alerte_id : null
+      if (!alerteId) return json({ error: 'alerte_id requis' }, 400)
+
+      const { data: alerte } = await supabase
+        .from('alertes_risque')
+        .select('organisation_id, code_client')
+        .eq('id', alerteId)
+        .maybeSingle()
+      if (!alerte) return json({ error: 'Alerte introuvable' }, 404)
+
+      if (profil.role !== 'superadmin' && alerte.organisation_id !== profil.organisation_id)
+        return json({ error: 'Accès non autorisé' }, 403)
+
+      const { error: errMasque } = await supabase
+        .from('alertes_risque')
+        .update({ masquee: true })
+        .eq('id', alerteId)
+      if (errMasque) return json({ error: errMasque.message }, 400)
+
+      await mettreAJourStatutClient(
+        supabase,
+        alerte.organisation_id as string,
+        alerte.code_client as string
+      )
+
+      return json({ ok: true })
     }
 
     // Mode quotidien (cross-org) : superadmin uniquement
