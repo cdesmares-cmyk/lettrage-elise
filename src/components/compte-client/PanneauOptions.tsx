@@ -156,8 +156,10 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
     // Si des alertes existent mais que le statut n'est pas encore renseigné, recalcule
     if (alertes.length > 0 && !client.statut_juridique) {
+      const { data: { session } } = await supabase.auth.getSession()
       const { data: res } = await supabase.functions.invoke('bodacc-sync', {
         body: { action: 'recalculer_statut', code_dso: client.code_dso },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       })
       if (res?.statut_juridique) setStatut(res.statut_juridique as StatutJuridique)
     }
@@ -256,8 +258,10 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     setEtatSync('loading')
     setSyncAlertes(0)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const { data, error } = await supabase.functions.invoke('bodacc-sync', {
         body: { action: 'client_unique', sirets: [siretNormalisé] },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       })
       if (error || data?.error) { setEtatSync('erreur'); return }
       const nb = (data as { alertes_inserees?: number })?.alertes_inserees ?? 0
@@ -272,8 +276,10 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   async function masquerAlerte(alerteId: string) {
     setMasquageEnCours(prev => new Set(prev).add(alerteId))
     try {
+      const { data: { session } } = await supabase.auth.getSession()
       const { error } = await supabase.functions.invoke('bodacc-sync', {
         body: { action: 'masquer_alerte', alerte_id: alerteId },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
       })
       if (!error) {
         setAlertesBodacc(prev => prev.filter(a => a.id !== alerteId))
