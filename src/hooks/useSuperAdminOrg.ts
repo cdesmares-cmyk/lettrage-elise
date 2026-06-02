@@ -18,6 +18,7 @@ export interface IntegrationSA {
   provider: string
   actif: boolean
   verifie_le: string | null
+  api_key_masked: string | null
 }
 
 export interface OrgDetail {
@@ -141,9 +142,77 @@ export function useSuperAdminOrg() {
     }
   }
 
+  async function setIntegrationKey(organisation_id: string, provider: string, api_key: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('superadmin-data', {
+        body: { action: 'set_integration_key', organisation_id, provider, api_key },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      await chargerDetail(organisation_id)
+      toast.success('Clé API enregistrée')
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur enregistrement clé')
+      return false
+    }
+  }
+
+  async function testIntegration(organisation_id: string, provider: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('superadmin-data', {
+        body: { action: 'test_integration', organisation_id, provider },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setDetail(prev => prev ? {
+        ...prev,
+        integrations: prev.integrations.map(i =>
+          i.provider === provider ? { ...i, verifie_le: new Date().toISOString() } : i
+        ),
+      } : prev)
+      toast.success('Connexion vérifiée')
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur test connexion')
+      return false
+    }
+  }
+
+  async function triggerSync(organisation_id: string, provider: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('superadmin-data', {
+        body: { action: 'trigger_sync', organisation_id, provider },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      toast.success(`Sync ${provider} déclenchée (${data.nb_traite ?? 0} éléments)`)
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur déclenchement sync')
+      return false
+    }
+  }
+
+  async function updateOrg(organisation_id: string, nom: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('superadmin-data', {
+        body: { action: 'update_org', organisation_id, nom },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      toast.success('Organisation mise à jour')
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur mise à jour org')
+      return false
+    }
+  }
+
   return {
     detail, chargement, chargerDetail,
     updateUserRole, resetUserPassword, resendInvitation,
     setTempPassword, suspendUser, inviteUser,
+    setIntegrationKey, testIntegration, triggerSync, updateOrg,
   }
 }

@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
       const [{ data: users }, { data: integs }, { data: runs }] = await Promise.all([
         supabase.from('utilisateurs').select('id, email, nom_affiche, role, cree_le').eq('organisation_id', organisation_id),
-        supabase.from('integrations').select('provider, actif, verifie_le').eq('organisation_id', organisation_id),
+        supabase.from('integrations').select('provider, actif, verifie_le, api_key').eq('organisation_id', organisation_id),
         supabase.rpc('superadmin_get_monitoring', { nb: 5 }),
       ])
 
@@ -120,7 +120,13 @@ Deno.serve(async (req: Request) => {
         r.organisation_id === organisation_id || r.organisation_id === null
       )
 
-      return json({ utilisateurs, integrations: integs ?? [], runs: orgRuns })
+      type RawInteg = { provider: string; actif: boolean; verifie_le: string | null; api_key: string | null }
+      const integrations = (integs ?? []).map((i: RawInteg) => ({
+        provider: i.provider, actif: i.actif, verifie_le: i.verifie_le,
+        api_key_masked: i.api_key ? `••••••${i.api_key.slice(-4)}` : null,
+      }))
+
+      return json({ utilisateurs, integrations, runs: orgRuns })
     }
 
     // ── CREATE_ORG ────────────────────────────────────────────────────────────
@@ -243,6 +249,80 @@ Deno.serve(async (req: Request) => {
       const { data, error } = await supabase.rpc('superadmin_get_monitoring', { nb: 5 })
       if (error) return json({ error: error.message }, 400)
       return json({ runs: data ?? [] })
+    }
+
+    // ── SET_INTEGRATION_KEY ───────────────────────────────────────────────────
+    if (action === 'set_integration_key') {
+      const { organisation_id, provider, api_key } = body
+      if (!organisation_id || !provider || !api_key)
+        return json({ error: 'organisation_id, provider et api_key requis' }, 400)
+      const { error } = await supabase.from('integrations').upsert(
+        { organisation_id, provider, api_key, actif: true },
+        { onConflict: 'organisation_id,provider' }
+      )
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true })
+    }
+
+    // ── TEST_INTEGRATION ──────────────────────────────────────────────────────
+    if (action === 'test_integration') {
+      const { organisation_id, provider } = body
+      if (!organisation_id || !provider) return json({ error: 'organisation_id et provider requis' }, 400)
+      const { data: integ } = await supabase.from('integrations')
+        .select('api_key').eq('organisation_id', organisation_id).eq('provider', provider).single()
+      if (!integ?.api_key) return json({ error: 'Clé API non configurée' }, 400)
+      if (provider === 'axonaut') {
+        const resp = await fetch('https://app.axonaut.com/api/v1/companies?size=1', {
+          headers: { userApiKey: integ.api_key },
+        })
+        if (!resp.ok) return json({ error: `Axonaut HTTP ${resp.status}` }, 400)
+        await supabase.from('integrations').update({ verifie_le: new Date().toISOString() })
+          .eq('organisation_id', organisation_id).eq('provider', provider)
+        return json({ ok: true })
+      }
+      return json({ error: `Test non implémenté pour ${provider}` }, 400)
+    }
+
+    // ── TRIGGER_SYNC ──────────────────────────────────────────────────────────
+    if (action === 'trigger_sync') {
+      const { organisation_id, provider } = body
+      if (!organisation_id || !provider) return json({ error: 'organisation_id et provider requis' }, 400)
+      const { data: integ } = await supabase.from('integrations')
+        .select('api_key').eq('organisation_id', organisation_id).eq('provider', provider).single()
+      if (!integ?.api_key) return json({ error: 'Clé API non configurée' }, 400)
+      const debut = Date.now()
+      if (provider === 'axonaut') {
+        try {
+          const resp = await fetch('https://app.axonaut.com/api/v1/invoices?page=1', {
+            headers: { userApiKey: integ.api_key },
+          })
+          if (!resp.ok) throw new Error(`Axonaut HTTP ${resp.status}`)
+          const data = await resp.json()
+          const nb_traite = Array.isArray(data) ? data.length : 0
+          await supabase.from('cron_runs').insert({
+            fonction: 'axonaut-sync', organisation_id, statut: 'ok',
+            nb_traite, duree_ms: Date.now() - debut,
+          })
+          return json({ ok: true, nb_traite })
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Erreur'
+          await supabase.from('cron_runs').insert({
+            fonction: 'axonaut-sync', organisation_id, statut: 'erreur',
+            nb_traite: 0, message, duree_ms: Date.now() - debut,
+          })
+          return json({ error: message }, 400)
+        }
+      }
+      return json({ error: `Sync non implémenté pour ${provider}` }, 400)
+    }
+
+    // ── UPDATE_ORG ────────────────────────────────────────────────────────────
+    if (action === 'update_org') {
+      const { organisation_id, nom } = body
+      if (!organisation_id || !nom?.trim()) return json({ error: 'organisation_id et nom requis' }, 400)
+      const { error } = await supabase.from('organisations').update({ nom: nom.trim() }).eq('id', organisation_id)
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true })
     }
 
     return json({ error: 'Action inconnue' }, 400)
