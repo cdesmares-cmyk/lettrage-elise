@@ -22,21 +22,48 @@ export interface OrganisationSA {
   utilisateurs: UtilisateurSA[]
 }
 
+export interface CronRun {
+  id: string
+  fonction: string
+  organisation_id: string | null
+  org_nom: string | null
+  statut: 'ok' | 'erreur' | 'partiel'
+  nb_traite: number
+  message: string | null
+  duree_ms: number | null
+  cree_le: string
+  rang: number
+}
+
+export type DotStatut = 'ok' | 'erreur' | 'silencieux' | 'jamais'
+
+export function dotStatut(runs: CronRun[], fonction: string, orgId: string | null): DotStatut {
+  const relevant = runs.filter(r => r.fonction === fonction && r.organisation_id === orgId && r.rang === 1)
+  if (!relevant.length) return 'jamais'
+  const last = relevant[0]
+  if (last.statut === 'erreur') return 'erreur'
+  const ageH = (Date.now() - new Date(last.cree_le).getTime()) / 3_600_000
+  return ageH > 48 ? 'silencieux' : 'ok'
+}
+
 export function useSuperAdmin() {
   const [organisations, setOrganisations] = useState<OrganisationSA[]>([])
-  const [chargement, setChargement] = useState(false)
-  const [erreur, setErreur] = useState<string | null>(null)
+  const [runs, setRuns]                   = useState<CronRun[]>([])
+  const [chargement, setChargement]       = useState(false)
+  const [erreur, setErreur]               = useState<string | null>(null)
 
   const chargerDashboard = useCallback(async () => {
     setChargement(true)
     setErreur(null)
     try {
-      const { data, error } = await supabase.functions.invoke('superadmin-data', {
-        body: { action: 'get_dashboard' },
-      })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      setOrganisations(data.organisations ?? [])
+      const [resOrgs, resMon] = await Promise.all([
+        supabase.functions.invoke('superadmin-data', { body: { action: 'get_dashboard' } }),
+        supabase.functions.invoke('superadmin-data', { body: { action: 'get_monitoring' } }),
+      ])
+      if (resOrgs.error) throw resOrgs.error
+      if (resOrgs.data?.error) throw new Error(resOrgs.data.error)
+      setOrganisations(resOrgs.data.organisations ?? [])
+      setRuns((resMon.data?.runs ?? []) as CronRun[])
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erreur chargement dashboard'
       setErreur(msg)
@@ -47,10 +74,7 @@ export function useSuperAdmin() {
   }, [])
 
   async function creerOrganisation(params: {
-    nom: string
-    slug: string
-    email_admin: string
-    nom_admin?: string
+    nom: string; slug: string; email_admin: string; nom_admin?: string
   }): Promise<boolean> {
     try {
       const { data, error } = await supabase.functions.invoke('superadmin-data', {
@@ -74,14 +98,12 @@ export function useSuperAdmin() {
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      setOrganisations(prev =>
-        prev.map(o => o.id === organisation_id ? { ...o, actif } : o)
-      )
+      setOrganisations(prev => prev.map(o => o.id === organisation_id ? { ...o, actif } : o))
       toast.success(actif ? 'Organisation activée' : 'Organisation désactivée')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur toggle organisation')
     }
   }
 
-  return { organisations, chargement, erreur, chargerDashboard, creerOrganisation, toggleOrg }
+  return { organisations, runs, chargement, erreur, chargerDashboard, creerOrganisation, toggleOrg }
 }

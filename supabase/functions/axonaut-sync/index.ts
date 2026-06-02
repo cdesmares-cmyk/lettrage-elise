@@ -64,6 +64,7 @@ Deno.serve(async (req: Request) => {
 
     // ── sync ────────────────────────────────────────────────────────────────
     if (action === 'sync') {
+      const tDébut = Date.now()
       const pageDebut: number = body.page_debut ?? 1
       const nbPages:   number = body.nb_pages   ?? 10
       let nbMaj = 0
@@ -97,6 +98,11 @@ Deno.serve(async (req: Request) => {
           .update({ verifie_le: new Date().toISOString() })
           .eq('provider', 'axonaut')
           .eq('organisation_id', orgId)
+        await supabaseAdmin.from('cron_runs').insert({
+          fonction: 'axonaut-sync', organisation_id: orgId, statut: 'ok',
+          nb_traite: nbMaj, message: `Pages 1-${pageDebut + nbPages - 1} · ${nbMaj} factures MAJ`,
+          duree_ms: Date.now() - tDébut,
+        })
       }
 
       return json({ ok: true, nb_mises_a_jour: nbMaj, termine, prochaine_page: pageDebut + nbPages })

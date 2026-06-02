@@ -262,11 +262,18 @@ async function mettreAJourStatuts(supabase: ReturnType<typeof createClient>): Pr
 
 // ─── MODE QUOTIDIEN : approche inversée ──────────────────────────────────────
 async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
+  const tDébut  = Date.now()
   const dateMin = dateHier()
   const filtre  = `familleavis="collective" AND dateparution>="${dateMin}"`
 
   const records = await fetchAllBodacc(filtre)
-  if (!records.length) return { mode: 'quotidien', alertes_insérées: 0, statuts_mis_a_jour: 0 }
+  if (!records.length) {
+    await supabase.from('cron_runs').insert({
+      fonction: 'bodacc-sync', statut: 'ok', nb_traite: 0,
+      message: 'Aucune publication BODACC collective ce jour', duree_ms: Date.now() - tDébut,
+    })
+    return { mode: 'quotidien', alertes_insérées: 0, statuts_mis_a_jour: 0 }
+  }
 
   const sirens = [...new Set(
     records.flatMap(r => (r.registre ?? []).map(s => s.replace(/\s/g, '')).filter(s => /^\d{9}$/.test(s)))
@@ -290,6 +297,12 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
   }
 
   const nbStatuts = await mettreAJourStatuts(supabase)
+
+  await supabase.from('cron_runs').insert({
+    fonction: 'bodacc-sync', statut: nbInsérées > 0 ? 'ok' : 'ok', nb_traite: nbInsérées,
+    message: `${records.length} publications · ${sirens.length} SIRENs · ${rows.length} clients matchés · ${nbInsérées} alertes · ${nbStatuts} statuts MAJ`,
+    duree_ms: Date.now() - tDébut,
+  })
 
   return { mode: 'quotidien', records_bodacc: records.length, sirens_uniques: sirens.length, clients_matchés: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
 }

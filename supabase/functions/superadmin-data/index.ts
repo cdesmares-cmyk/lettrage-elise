@@ -131,6 +131,13 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true })
     }
 
+    // ── GET_MONITORING ────────────────────────────────────────────────────────
+    if (action === 'get_monitoring') {
+      const { data, error } = await supabase.rpc('superadmin_get_monitoring', { nb: 5 })
+      if (error) return json({ error: error.message }, 400)
+      return json({ runs: data ?? [] })
+    }
+
     return json({ error: 'Action inconnue' }, 400)
   } catch (err) {
     return json({ error: err instanceof Error ? err.message : 'Erreur interne' }, 500)
