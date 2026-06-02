@@ -30,7 +30,7 @@ const VUES: { val: VueMode; label: string; icon: React.ReactNode }[] = [
 export function PageCompteClient() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [vue, setVue] = useState<VueMode>('clients')
-  const [clientOptions, setClientOptions] = useState<CompteClient | null>(null)
+  const [clientOptionsDso, setClientOptionsDso] = useState<string | null>(null)
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
@@ -45,6 +45,7 @@ export function PageCompteClient() {
   const [factureDateFin, setFactureDateFin] = useState('')
 
   const comptes = useComptesClients()
+  const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
   const { relances } = useRelances()
@@ -250,7 +251,7 @@ export function PageCompteClient() {
           estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
           onStatutChange={factures.mettreAJourStatut}
           onHistorique={setFacHistorique}
-          onOptions={setClientOptions}
+          onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
@@ -306,7 +307,7 @@ export function PageCompteClient() {
       {/* Panneau Options */}
       <PanneauOptions
         client={clientOptions}
-        onFermer={() => setClientOptions(null)}
+        onFermer={() => setClientOptionsDso(null)}
         onSauvegarder={comptes.sauvegarderOptions}
       />
 

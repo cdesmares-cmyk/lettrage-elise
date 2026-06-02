@@ -5,6 +5,7 @@ import { useRefValeurs } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
+import { useAppData } from '../../contexts/AppDataContext'
 
 type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
 type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc'
@@ -121,6 +122,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
   const { peutModifier } = useRole()
+  const { mettreAJourClientLocal } = useAppData()
 
   const [statut, setStatut]           = useState<StatutJuridique | ''>('')
   const [commercial, setCommercial]   = useState('')
@@ -168,7 +170,9 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       .select('statut_juridique')
       .eq('code_dso', client.code_dso)
       .maybeSingle()
-    setStatut((data as { statut_juridique: StatutJuridique | null } | null)?.statut_juridique ?? '')
+    const nouveau = (data as { statut_juridique: StatutJuridique | null } | null)?.statut_juridique ?? null
+    setStatut(nouveau ?? '')
+    mettreAJourClientLocal(client.code_dso, { statut_juridique: nouveau })
   }
 
   useEffect(() => {
