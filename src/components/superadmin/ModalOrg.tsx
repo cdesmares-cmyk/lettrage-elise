@@ -23,9 +23,8 @@ function formaterDate(iso: string | null) {
 
 // ── Ligne utilisateur ────────────────────────────────────────────────────────
 
-function LigneUtilisateur({ u, orgId, actions }: {
+function LigneUtilisateur({ u, actions }: {
   u: UtilisateurDetailSA
-  orgId: string
   actions: ReturnType<typeof useSuperAdminOrg>
 }) {
   const [tempPwd, setTempPwd]     = useState<string | null>(null)
@@ -262,7 +261,7 @@ export function ModalOrg({ org, onFermer, onToggle }: {
                   </thead>
                   <tbody>
                     {(detail?.utilisateurs ?? []).map(u => (
-                      <LigneUtilisateur key={u.id} u={u} orgId={org.id} actions={orgActions} />
+                      <LigneUtilisateur key={u.id} u={u} actions={orgActions} />
                     ))}
                     {detail?.utilisateurs.length === 0 && (
                       <tr><td colSpan={5} className="py-6 text-center text-sm text-gray-400 italic">Aucun utilisateur dans cette organisation.</td></tr>
