@@ -334,7 +334,25 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
+    // Vérification du token appelant
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) return json({ error: 'Non autorisé' }, 401)
+
+    const supabaseUser = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    const { data: { user } } = await supabaseUser.auth.getUser()
+    if (!user) return json({ error: 'Non authentifié' }, 401)
+
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
+
+    const { data: profil } = await supabase
+      .from('utilisateurs')
+      .select('role, organisation_id')
+      .eq('id', user.id)
+      .single()
+    if (!profil || !['admin', 'superadmin'].includes(profil.role))
+      return json({ error: 'Accès réservé aux administrateurs' }, 403)
 
     let orgId: string | null    = null
     let dateMin: string | null  = null
@@ -345,6 +363,10 @@ Deno.serve(async (req: Request) => {
         dateMin = body.date_min
       }
     } catch { /* body vide = mode quotidien */ }
+
+    // Un admin ne peut lancer l'onboarding que pour sa propre org
+    if (orgId && profil.role === 'admin' && orgId !== profil.organisation_id)
+      return json({ error: 'Accès non autorisé à cette organisation' }, 403)
 
     const résumé = orgId
       ? await scanOnboarding(supabase, orgId, dateMin)
