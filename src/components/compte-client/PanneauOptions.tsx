@@ -6,6 +6,23 @@ import { SectionContacts } from './SectionContacts'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 
+type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
+
+const COOLDOWN_MS = 24 * 60 * 60 * 1000
+
+function lireCooldown(codeDso: string, siret: string): boolean {
+  try {
+    const raw = localStorage.getItem(`bodacc_sync_${codeDso}`)
+    if (!raw) return false
+    const { ts, siret: siretSauvé } = JSON.parse(raw) as { ts: number; siret: string }
+    return siretSauvé === siret && Date.now() - ts < COOLDOWN_MS
+  } catch { return false }
+}
+
+function écrireCooldown(codeDso: string, siret: string) {
+  localStorage.setItem(`bodacc_sync_${codeDso}`, JSON.stringify({ ts: Date.now(), siret }))
+}
+
 type Onglet = 'infos' | 'contacts' | 'relances'
 
 interface NoteRelance {
@@ -101,6 +118,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [siret, setSiret] = useState('')
   const [delaiAlerte, setDelaiAlerte] = useState<string>('')
   const [enregistrement, setEnregistrement] = useState(false)
+  const [etatSync, setEtatSync] = useState<EtatSync>('idle')
+  const [syncAlertes, setSyncAlertes] = useState(0)
   const [onglet, setOnglet] = useState<Onglet>('infos')
   const [notesRelances, setNotesRelances] = useState<NoteRelance[]>([])
   const [notesChargement, setNotesChargement] = useState(false)
@@ -114,6 +133,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setGroupement(client.code_groupement ?? '')
       setSiret(client.siret ?? '')
       setDelaiAlerte('')
+      setEtatSync('idle')
+      setSyncAlertes(0)
       // Charge le seuil alerte client si défini
       supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
         .maybeSingle().then(({ data }) => {
@@ -167,6 +188,27 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     })
     setEnregistrement(false)
     if (ok) onFermer()
+  }
+
+  const siretNormalisé = siret.replace(/\D/g, '')
+  const siretValide    = siretNormalisé.length === 14
+  const siretManquant  = siretNormalisé.length === 0
+  const cooldownActif  = !siretManquant && lireCooldown(client.code_dso, siretNormalisé)
+
+  async function lancerSyncBodacc() {
+    if (!siretNormalisé || etatSync === 'loading') return
+    setEtatSync('loading')
+    setSyncAlertes(0)
+    try {
+      const { data, error } = await supabase.functions.invoke('bodacc-sync', {
+        body: { action: 'client_unique', sirets: [siretNormalisé] },
+      })
+      if (error || data?.error) { setEtatSync('erreur'); return }
+      const nb = (data as { alertes_inserees?: number })?.alertes_inserees ?? 0
+      setSyncAlertes(nb)
+      setEtatSync(nb > 0 ? 'alerte' : 'ok')
+      écrireCooldown(client.code_dso, siretNormalisé)
+    } catch { setEtatSync('erreur') }
   }
 
   const sc = classeScore(client.note_risque)
@@ -325,10 +367,72 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             <input
               type="text"
               value={siret}
-              onChange={e => setSiret(e.target.value.replace(/\D/g, '').slice(0, 14))}
+              onChange={e => { setSiret(e.target.value.replace(/\D/g, '').slice(0, 14)); setEtatSync('idle') }}
               placeholder="14 chiffres"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+              className={`w-full border rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal transition-colors ${
+                !siretManquant && !siretValide ? 'border-amber-300 bg-amber-50' : 'border-gray-200'
+              }`}
             />
+            {!siretManquant && !siretValide && (
+              <p className="text-[11px] text-amber-600 mt-1.5 flex items-center gap-1">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                SIRET invalide — 14 chiffres attendus ({siretNormalisé.length}/14)
+              </p>
+            )}
+
+            {/* Bouton synchronisation BODACC — admin + responsable uniquement */}
+            {peutModifier && (
+              <div className="mt-2.5 space-y-2">
+                <button
+                  onClick={lancerSyncBodacc}
+                  disabled={siretManquant || etatSync === 'loading' || cooldownActif}
+                  className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold border transition-colors ${
+                    siretManquant || cooldownActif
+                      ? 'border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed'
+                      : etatSync === 'loading'
+                      ? 'border-ockham-teal/30 text-ockham-teal bg-ockham-teal-muted cursor-wait'
+                      : 'border-ockham-teal/40 text-ockham-teal bg-ockham-teal-muted hover:bg-ockham-teal/10 cursor-pointer'
+                  }`}
+                  title={siretManquant ? 'Renseignez un SIRET pour lancer la vérification' : cooldownActif ? 'Déjà synchronisé dans les dernières 24h' : undefined}
+                >
+                  {etatSync === 'loading' ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Vérification en cours…
+                    </>
+                  ) : cooldownActif ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      Synchronisé (24h)
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      Synchroniser BODACC
+                    </>
+                  )}
+                </button>
+
+                {etatSync === 'ok' && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-700 font-medium">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    Aucune procédure collective détectée
+                  </div>
+                )}
+                {etatSync === 'alerte' && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    {syncAlertes} procédure{syncAlertes > 1 ? 's' : ''} collective{syncAlertes > 1 ? 's' : ''} détectée{syncAlertes > 1 ? 's' : ''}
+                  </div>
+                )}
+                {etatSync === 'erreur' && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Erreur lors de la vérification — réessayez
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Score risque (lecture seule) */}

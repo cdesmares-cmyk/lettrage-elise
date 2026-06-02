@@ -354,15 +354,53 @@ Deno.serve(async (req: Request) => {
     if (!profil || !['admin', 'superadmin'].includes(profil.role))
       return json({ error: 'Accès réservé aux administrateurs' }, 403)
 
-    let orgId: string | null    = null
-    let dateMin: string | null  = null
-    try {
-      const body = await req.json() as Record<string, unknown>
-      if (typeof body?.org_id === 'string')   orgId   = body.org_id
-      if (typeof body?.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min)) {
-        dateMin = body.date_min
+    let body: Record<string, unknown> = {}
+    try { body = await req.json() as Record<string, unknown> } catch { /* body vide = mode quotidien */ }
+
+    const action  = typeof body.action   === 'string' ? body.action : null
+    const orgId   = typeof body.org_id   === 'string' ? body.org_id : null
+    const dateMin = typeof body.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min) ? body.date_min : null
+
+    // ── MODE CLIENT_UNIQUE : vérification BODACC à la demande ────────────────
+    if (action === 'client_unique') {
+      const sirets = Array.isArray(body.sirets)
+        ? (body.sirets as string[]).filter(s => typeof s === 'string' && s.length > 0)
+        : []
+      if (!sirets.length) return json({ error: 'sirets (array non vide) requis' }, 400)
+
+      const orgCible = (orgId ?? profil.organisation_id) as string
+      if (profil.role === 'admin' && orgCible !== profil.organisation_id)
+        return json({ error: 'Accès non autorisé à cette organisation' }, 403)
+
+      let nbInsérées = 0
+      for (const siret of sirets) {
+        const siren      = siretToSiren(siret)
+        const sirenSpace = sirenAvecEspaces(siren)
+        const filtre     = `familleavis="collective" AND (registre="${siren}" OR registre="${sirenSpace}")`
+        const records    = await fetchAllBodacc(filtre)
+
+        const { data: clientsMatchés } = await supabase
+          .from('clients')
+          .select('code_dso, siret, organisation_id')
+          .eq('organisation_id', orgCible)
+          .eq('siret', siret)
+          .limit(10)
+        const rows = (clientsMatchés ?? []) as ClientRow[]
+        if (!rows.length) continue
+
+        const alertes = construireAlertes(records, rows)
+        if (!alertes.length) continue
+        const { error } = await supabase
+          .from('alertes_risque')
+          .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+        if (!error) nbInsérées += alertes.length
       }
-    } catch { /* body vide = mode quotidien */ }
+
+      const nbStatuts = await mettreAJourStatuts(supabase)
+      const résumé = { mode: 'client_unique', sirets_traités: sirets.length, alertes_inserees: nbInsérées, statuts_mis_a_jour: nbStatuts }
+      console.log('[bodacc-sync] terminé :', résumé)
+      return json(résumé)
+    }
 
     // Mode quotidien (cross-org) : superadmin uniquement
     if (!orgId && profil.role !== 'superadmin')
