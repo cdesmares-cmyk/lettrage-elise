@@ -218,7 +218,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      {peutModifier && c.nb_impayees > 0 && (() => {
+                      {peutModifier && (() => {
+                        if (c.nb_impayees === 0) return (
+                          <button disabled
+                            className="text-[10px] font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed"
+                            title="Aucune facture impayée"
+                          >
+                            ✉ Relancer
+                          </button>
+                        )
                         const derniere = dernieresRelances?.get(c.code_dso)
                         const recente = derniere
                           ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
@@ -231,7 +239,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                                 ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
                                 : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
                             }`}
-                            title={recente ? `Relancé il y a moins de 30 jours` : undefined}
+                            title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
                           >
                             ✉ Relancer
                           </button>
