@@ -54,7 +54,7 @@ export function useComptesClients() {
   }, [raw, recherche, facturesActives, codesFallback])
 
   const kpis = useMemo((): KpisCompteClient => {
-    const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir && !f.numero_piece.endsWith('_compte'))
+    const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     let encours12 = 0
     if (moisMaxBrut) {
       const yr = parseInt(moisMaxBrut.slice(0, 4)), mo = parseInt(moisMaxBrut.slice(5, 7))

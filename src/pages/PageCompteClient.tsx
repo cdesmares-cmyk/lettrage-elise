@@ -105,7 +105,7 @@ export function PageCompteClient() {
     let facs = facturesActives
     if (factureDateDebut) facs = facs.filter(f => (f.date_emission ?? '') >= factureDateDebut)
     if (factureDateFin)   facs = facs.filter(f => (f.date_emission ?? '') <= factureDateFin)
-    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir && !f.numero_piece.endsWith('_compte'))
+    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     return {
       nbClientsActifs: new Set(impayees.map(f => f.code_client)).size,
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),

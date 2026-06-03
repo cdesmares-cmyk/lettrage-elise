@@ -48,23 +48,15 @@ interface AppDataContextType {
   rechargerScenarios: () => Promise<void>
 }
 
-async function fetchCA12(yr: number, mo: number): Promise<number> {
+function ca12Dates(yr: number, mo: number): { debut: string; fin: string } {
+  const pad = (n: number) => String(n).padStart(2, '0')
   let startMo = mo - 11; let startYr = yr
   if (startMo <= 0) { startMo += 12; startYr -= 1 }
   const lastDay = new Date(yr, mo, 0).getDate()
-  const dateDebut = `${startYr}-${String(startMo).padStart(2, '0')}-01`
-  const dateFin = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-  let ca = 0; let offset = 0
-  while (true) {
-    const { data } = await supabase.from('factures').select('montant_ttc')
-      .gte('date_emission', dateDebut).lte('date_emission', dateFin)
-      .eq('est_avoir', false).range(offset, offset + 999)
-    if (!data?.length) break
-    ca += (data as { montant_ttc: number | null }[]).reduce((s, r) => s + (Number(r.montant_ttc) || 0), 0)
-    if (data.length < 1000) break
-    offset += 1000
+  return {
+    debut: `${startYr}-${pad(startMo)}-01`,
+    fin: `${yr}-${pad(mo)}-${pad(lastDay)}`,
   }
-  return ca
 }
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
@@ -80,8 +72,8 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
-  // Empreinte légère du dernier chargement — évite de déclencher des re-renders si rien n'a changé
-  const dataHashRef = useRef<{ count: number; sum: number; moisMax: string }>({ count: -1, sum: -1, moisMax: '' })
+  // moisMax du dernier calcul CA12 — évite de re-calculer si rien n'a changé entre deux polls
+  const moisMaxCA12Ref = useRef('')
 
   const rechargerScenarios = useCallback(async () => {
     const { data } = await supabase
@@ -109,8 +101,20 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       ])
 
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
+      if (page0.error) { return }
 
       let tousClients: RowCompteClient[] = (clientsPage0.data as unknown as RowCompteClient[]) ?? []
+      let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
+
+      // Affichage immédiat dès la page 0 — l'UI devient interactive sans attendre la pagination complète
+      if (!initialLoadDoneRef.current) {
+        setClients(tousClients.map(r => ({ ...r, statut_juridique: r.statut_juridique as StatutJuridique | null, note_risque: r.score_risque ?? 0 })))
+        setFacturesActives(toutes)
+        setChargement(false)
+        initialLoadDoneRef.current = true
+      }
+
+      // Pagination en arrière-plan (clients)
       let offsetClients = PAGE
       while (tousClients.length === offsetClients) {
         const { data, error } = await supabase.from('v_comptes_clients').select('*')
@@ -121,11 +125,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offsetClients += PAGE
       }
 
-      if (page0.error) { return }
-
-      let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
-
-      // Charger les pages suivantes si la première était pleine (pagination automatique)
+      // Pagination en arrière-plan (factures)
       let offset = PAGE
       while (toutes.length === offset) {
         const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
@@ -138,29 +138,26 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offset += PAGE
       }
 
-      // moisMaxBrut dérivé des factures chargées en mémoire (non-avoir)
-      // → toujours cohérent avec facturesActives, corrigé automatiquement après annulation d'import
+      // moisMaxBrut dérivé des factures en mémoire — toujours cohérent avec facturesActives
       const moisMax = toutes
         .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
         .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
 
-      // Empreinte légère : si count + somme_restant + moisMax sont identiques, rien n'a changé
-      // → on évite de mettre à jour le state et de déclencher une cascade de re-renders
-      const newSum = Math.round(toutes.reduce((s, f) => s + f.reste_du, 0) * 100)
-      const h = dataHashRef.current
-      if (initialLoadDoneRef.current && toutes.length === h.count && newSum === h.sum && moisMax === h.moisMax) {
-        return
-      }
-      dataHashRef.current = { count: toutes.length, sum: newSum, moisMax }
-
-      if (moisMax) {
+      // CA12 recalculé par RPC uniquement si moisMax a changé (nouvel import ou premier chargement)
+      if (moisMax && moisMax !== moisMaxCA12Ref.current) {
         const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
         const yrPrec = mo === 1 ? yr - 1 : yr
         const moPrec = mo === 1 ? 12 : mo - 1
-        const [ca, caPrec] = await Promise.all([fetchCA12(yr, mo), fetchCA12(yrPrec, moPrec)])
+        const d  = ca12Dates(yr, mo)
+        const dP = ca12Dates(yrPrec, moPrec)
+        const [rca, rcaPrec] = await Promise.all([
+          supabase.rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
+          supabase.rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
+        ])
+        moisMaxCA12Ref.current = moisMax
         setMoisMaxBrut(moisMax)
-        setCa12Mois(ca)
-        setCa12MoisPrec(caPrec)
+        setCa12Mois((rca.data as number) ?? 0)
+        setCa12MoisPrec((rcaPrec.data as number) ?? 0)
       }
 
       setClients(tousClients.map(r => ({
