@@ -151,13 +151,13 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         const d  = ca12Dates(yr, mo)
         const dP = ca12Dates(yrPrec, moPrec)
         const [rca, rcaPrec] = await Promise.all([
-          supabase.rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
-          supabase.rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
+          supabase.rpc('get_ca_periode' as never, { p_debut: d.debut, p_fin: d.fin }),
+          supabase.rpc('get_ca_periode' as never, { p_debut: dP.debut, p_fin: dP.fin }),
         ])
         moisMaxCA12Ref.current = moisMax
         setMoisMaxBrut(moisMax)
-        setCa12Mois((rca.data as number) ?? 0)
-        setCa12MoisPrec((rcaPrec.data as number) ?? 0)
+        setCa12Mois(Number((rca.data as unknown as number) ?? 0))
+        setCa12MoisPrec(Number((rcaPrec.data as unknown as number) ?? 0))
       }
 
       setClients(tousClients.map(r => ({
