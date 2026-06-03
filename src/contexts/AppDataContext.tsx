@@ -90,7 +90,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
       const PAGE = 1000
 
-      // Première page clients + première page factures en parallèle
+      // Page 0 — clients et factures en parallèle
       const [clientsPage0, page0] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
@@ -106,15 +106,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       let tousClients: RowCompteClient[] = (clientsPage0.data as unknown as RowCompteClient[]) ?? []
       let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
 
-      // Affichage immédiat dès la page 0 — l'UI devient interactive sans attendre la pagination complète
-      if (!initialLoadDoneRef.current) {
-        setClients(tousClients.map(r => ({ ...r, statut_juridique: r.statut_juridique as StatutJuridique | null, note_risque: r.score_risque ?? 0 })))
-        setFacturesActives(toutes)
-        setChargement(false)
-        initialLoadDoneRef.current = true
-      }
-
-      // Pagination en arrière-plan (clients)
+      // Pagination complète clients
       let offsetClients = PAGE
       while (tousClients.length === offsetClients) {
         const { data, error } = await supabase.from('v_comptes_clients').select('*')
@@ -125,7 +117,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offsetClients += PAGE
       }
 
-      // Pagination en arrière-plan (factures)
+      // Pagination complète factures (impayées + avoirs + _compte ≠ 0)
       let offset = PAGE
       while (toutes.length === offset) {
         const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
@@ -143,15 +135,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
         .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
 
-      // Mise à jour de l'état complet — toujours exécutée, indépendamment du CA12
-      setClients(tousClients.map(r => ({
-        ...r,
-        statut_juridique: r.statut_juridique as StatutJuridique | null,
-        note_risque: r.score_risque ?? 0,
-      })))
-      setFacturesActives(toutes)
-
-      // CA12 recalculé par RPC uniquement si moisMax a changé — isolé pour ne pas bloquer l'état
+      // CA12 — RPC uniquement si moisMax a changé (nouvel import ou premier chargement)
       if (moisMax && moisMax !== moisMaxCA12Ref.current) {
         try {
           const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
@@ -174,6 +158,14 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           setMoisMaxBrut(moisMax)
         }
       }
+
+      // Mise à jour état — une seule fois, données complètes garanties
+      setClients(tousClients.map(r => ({
+        ...r,
+        statut_juridique: r.statut_juridique as StatutJuridique | null,
+        note_risque: r.score_risque ?? 0,
+      })))
+      setFacturesActives(toutes)
     } finally {
       setChargement(false)
       initialLoadDoneRef.current = true
