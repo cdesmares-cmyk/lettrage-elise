@@ -51,6 +51,39 @@ interface AppDataContextType {
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
 
+const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
+const PAGE = 1000
+
+async function paginateClients(initial: RowCompteClient[]): Promise<RowCompteClient[]> {
+  let all = initial
+  let offset = PAGE
+  while (all.length === offset) {
+    const { data, error } = await supabase.from('v_comptes_clients').select('*')
+      .order('nom', { ascending: true })
+      .range(offset, offset + PAGE - 1)
+    if (error || !data?.length) break
+    all = [...all, ...(data as unknown as RowCompteClient[])]
+    offset += PAGE
+  }
+  return all
+}
+
+async function paginateFactures(initial: FactureDetail[]): Promise<FactureDetail[]> {
+  let all = initial
+  let offset = PAGE
+  while (all.length === offset) {
+    const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
+      .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+      .order('code_client', { ascending: true })
+      .order('date_emission', { ascending: false })
+      .range(offset, offset + PAGE - 1)
+    if (error || !data?.length) break
+    all = [...all, ...(data as unknown as FactureDetail[])]
+    offset += PAGE
+  }
+  return all
+}
+
 export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const { session } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
@@ -60,8 +93,11 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [moisMaxBrut, setMoisMaxBrut] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
   const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
-  // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
+  // Verrou : empêche deux rafraichir() simultanés (timer 60s + focus event)
+  const isFetchingRef = useRef(false)
+  // Horodatage du dernier fetch complet — cooldown 30s sur les focus events
+  const lastFetchAtRef = useRef(0)
 
   const rechargerScenarios = useCallback(async () => {
     const { data } = await supabase
@@ -73,11 +109,10 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }, [])
 
   const rafraichir = useCallback(async () => {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
     if (!initialLoadDoneRef.current) setChargement(true)
     try {
-      const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
-      const PAGE = 1000
-
       // Page 0 — clients, factures et organisation en parallèle
       const [clientsPage0, page0, orgRow] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
@@ -92,39 +127,18 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
       if (page0.error) { return }
 
-      let tousClients: RowCompteClient[] = (clientsPage0.data as unknown as RowCompteClient[]) ?? []
-      let toutes: FactureDetail[] = (page0.data as unknown as FactureDetail[]) ?? []
+      // Pagination clients et factures en parallèle
+      const [tousClients, toutes] = await Promise.all([
+        paginateClients((clientsPage0.data as unknown as RowCompteClient[]) ?? []),
+        paginateFactures((page0.data as unknown as FactureDetail[]) ?? []),
+      ])
 
-      // Pagination complète clients
-      let offsetClients = PAGE
-      while (tousClients.length === offsetClients) {
-        const { data, error } = await supabase.from('v_comptes_clients').select('*')
-          .order('nom', { ascending: true })
-          .range(offsetClients, offsetClients + PAGE - 1)
-        if (error || !data?.length) break
-        tousClients = [...tousClients, ...(data as unknown as RowCompteClient[])]
-        offsetClients += PAGE
-      }
-
-      // Pagination complète factures (impayées + avoirs + _compte ≠ 0)
-      let offset = PAGE
-      while (toutes.length === offset) {
-        const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
-          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
-          .order('code_client', { ascending: true })
-          .order('date_emission', { ascending: false })
-          .range(offset, offset + PAGE - 1)
-        if (error || !data?.length) break
-        toutes = [...toutes, ...(data as unknown as FactureDetail[])]
-        offset += PAGE
-      }
-
-      // CA12 lu depuis organisations (mis à jour à chaque import via recalculer_ca12_org)
+      // CA12 lu depuis organisations
       const org = orgRow.data as { mois_ref: string; ca12_mois: number; ca12_mois_prec: number } | null
       if (org?.mois_ref) {
         setMoisMaxBrut(org.mois_ref)
-        setCa12Mois(Number(org.ca12_mois) ?? 0)
-        setCa12MoisPrec(Number(org.ca12_mois_prec) ?? 0)
+        setCa12Mois(Number(org.ca12_mois) || 0)
+        setCa12MoisPrec(Number(org.ca12_mois_prec) || 0)
       }
 
       // Mise à jour état — une seule fois, données complètes garanties
@@ -134,24 +148,36 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         note_risque: r.score_risque ?? 0,
       })))
       setFacturesActives(toutes)
+      lastFetchAtRef.current = Date.now()
     } finally {
       setChargement(false)
       initialLoadDoneRef.current = true
+      isFetchingRef.current = false
     }
   }, [])
 
   // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
     if (session) { rafraichir(); rechargerScenarios() }
-    else { setClients([]); setFacturesActives([]); setScenarios([]); setMoisMaxBrut(''); setCa12Mois(0); setCa12MoisPrec(0); setChargement(false) }
+    else {
+      setClients([]); setFacturesActives([]); setScenarios([])
+      setMoisMaxBrut(''); setCa12Mois(0); setCa12MoisPrec(0)
+      setChargement(false)
+      initialLoadDoneRef.current = false
+      isFetchingRef.current = false
+      lastFetchAtRef.current = 0
+    }
   }, [session, rafraichir, rechargerScenarios])
 
   // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
-  // Maintient les données à jour pour les équipes multi-utilisateurs sans Realtime
+  // Focus limité à 1 appel par tranche de 30s pour éviter les doubles rechargements
   useEffect(() => {
     if (!session) return
     const timer = setInterval(() => { rafraichir() }, 60_000)
-    const onFocus = () => { rafraichir() }
+    const onFocus = () => {
+      if (Date.now() - lastFetchAtRef.current < 30_000) return
+      rafraichir()
+    }
     window.addEventListener('focus', onFocus)
     return () => {
       clearInterval(timer)
