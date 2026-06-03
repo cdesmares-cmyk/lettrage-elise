@@ -143,31 +143,37 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
         .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
 
-      // CA12 recalculé par RPC uniquement si moisMax a changé (nouvel import ou premier chargement)
-      if (moisMax && moisMax !== moisMaxCA12Ref.current) {
-        const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
-        const yrPrec = mo === 1 ? yr - 1 : yr
-        const moPrec = mo === 1 ? 12 : mo - 1
-        const d  = ca12Dates(yr, mo)
-        const dP = ca12Dates(yrPrec, moPrec)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
-        const [rca, rcaPrec] = await Promise.all([
-          rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
-          rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
-        ])
-        moisMaxCA12Ref.current = moisMax
-        setMoisMaxBrut(moisMax)
-        setCa12Mois(Number((rca.data as unknown as number) ?? 0))
-        setCa12MoisPrec(Number((rcaPrec.data as unknown as number) ?? 0))
-      }
-
+      // Mise à jour de l'état complet — toujours exécutée, indépendamment du CA12
       setClients(tousClients.map(r => ({
         ...r,
         statut_juridique: r.statut_juridique as StatutJuridique | null,
         note_risque: r.score_risque ?? 0,
       })))
       setFacturesActives(toutes)
+
+      // CA12 recalculé par RPC uniquement si moisMax a changé — isolé pour ne pas bloquer l'état
+      if (moisMax && moisMax !== moisMaxCA12Ref.current) {
+        try {
+          const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
+          const yrPrec = mo === 1 ? yr - 1 : yr
+          const moPrec = mo === 1 ? 12 : mo - 1
+          const d  = ca12Dates(yr, mo)
+          const dP = ca12Dates(yrPrec, moPrec)
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
+          const [rca, rcaPrec] = await Promise.all([
+            rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
+            rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
+          ])
+          moisMaxCA12Ref.current = moisMax
+          setMoisMaxBrut(moisMax)
+          setCa12Mois(Number((rca.data as unknown as number) ?? 0))
+          setCa12MoisPrec(Number((rcaPrec.data as unknown as number) ?? 0))
+        } catch (err) {
+          console.warn('[CA12] RPC get_ca_periode indisponible, DSO non calculé:', err)
+          setMoisMaxBrut(moisMax)
+        }
+      }
     } finally {
       setChargement(false)
       initialLoadDoneRef.current = true
