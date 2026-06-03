@@ -38,8 +38,8 @@ export function BarreKpis({ kpis, chargement }: Props) {
       {/* Factures en attente */}
       <div className="bg-white border border-red-100 rounded-xl px-4 py-3 shadow-sm">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Factures en attente</p>
-        <p className="text-xl font-extrabold tabular-nums text-red-600">{kpis.nbFacturesAttente}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">pièces · restant dû &gt; 0</p>
+        <p className="text-xl font-extrabold tabular-nums text-red-600">{fmt(kpis.encoursTotalTtc)}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">{kpis.nbFacturesAttente} pièce{kpis.nbFacturesAttente > 1 ? 's' : ''} · restant dû &gt; 0</p>
       </div>
 
       {/* Avoirs non soldés */}
