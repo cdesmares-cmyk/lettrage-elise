@@ -150,9 +150,11 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         const moPrec = mo === 1 ? 12 : mo - 1
         const d  = ca12Dates(yr, mo)
         const dP = ca12Dates(yrPrec, moPrec)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const rpc = supabase.rpc as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
         const [rca, rcaPrec] = await Promise.all([
-          supabase.rpc('get_ca_periode' as never, { p_debut: d.debut, p_fin: d.fin }),
-          supabase.rpc('get_ca_periode' as never, { p_debut: dP.debut, p_fin: dP.fin }),
+          rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
+          rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
         ])
         moisMaxCA12Ref.current = moisMax
         setMoisMaxBrut(moisMax)
