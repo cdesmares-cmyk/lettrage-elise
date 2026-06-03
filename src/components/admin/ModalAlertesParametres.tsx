@@ -12,6 +12,8 @@ interface UserRow {
   email: string
   role: string
   recoit_digest_alertes: boolean
+  notif_bodacc: boolean
+  notif_import: boolean
 }
 
 export function ModalAlertesParametres({ onClose }: Props) {
@@ -38,7 +40,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
 
     supabase
       .from('utilisateurs')
-      .select('id, email, role, recoit_digest_alertes')
+      .select('id, email, role, recoit_digest_alertes, notif_bodacc, notif_import')
       .eq('organisation_id', profil.organisation_id)
       .then(({ data }) => { if (data) setUsers(data as UserRow[]) })
   }, [profil?.organisation_id])
@@ -71,6 +73,14 @@ export function ModalAlertesParametres({ onClose }: Props) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, recoit_digest_alertes: valeur } : u))
   }
 
+  async function toggleNotif(userId: string, champ: 'notif_bodacc' | 'notif_import', valeur: boolean) {
+    await supabase
+      .from('utilisateurs')
+      .update({ [champ]: valeur } as never)
+      .eq('id', userId)
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, [champ]: valeur } : u))
+  }
+
   const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== utilisateur?.id)
 
   return (
@@ -91,20 +101,44 @@ export function ModalAlertesParametres({ onClose }: Props) {
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Mes notifications
             </label>
-            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <div>
-                <p className="text-sm text-gray-700">Recevoir le digest email quotidien</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Récapitulatif des alertes envoyé chaque matin à 7h30</p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <div>
+                  <p className="text-sm text-gray-700">Digest alertes quotidien</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Récapitulatif des alertes envoyé chaque matin à 7h30</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={moiMeme.recoit_digest_alertes}
+                    onChange={e => toggleDigest(moiMeme.id, e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                </label>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
-                <input
-                  type="checkbox"
-                  checked={moiMeme.recoit_digest_alertes}
-                  onChange={e => toggleDigest(moiMeme.id, e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
-              </label>
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <div>
+                  <p className="text-sm text-gray-700">Alertes BODACC</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Email immédiat lors d'une procédure collective sur un client</p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    checked={moiMeme.notif_bodacc}
+                    onChange={e => toggleNotif(moiMeme.id, 'notif_bodacc', e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                </label>
+              </div>
+              <div className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 opacity-50">
+                <div>
+                  <p className="text-sm text-gray-500">Confirmations de sync ERP</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Axonaut, Pennylane… — disponible prochainement</p>
+                </div>
+                <div className="w-9 h-5 bg-gray-200 rounded-full flex-shrink-0 ml-3" />
+              </div>
             </div>
           </div>
         )}

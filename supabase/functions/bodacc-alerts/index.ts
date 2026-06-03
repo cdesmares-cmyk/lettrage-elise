@@ -230,12 +230,14 @@ Deno.serve(async (req: Request) => {
         .rpc('encours_client', { p_code_client: a.code_client, p_organisation_id: a.organisation_id })
         .single()
 
-      // Email(s) admin de l'org
+      // Destinataires : admin ou credit_manager, compte activé, notif_bodacc activée
       const { data: admins } = await supabase
         .from('utilisateurs')
         .select('email')
         .eq('organisation_id', a.organisation_id)
-        .eq('role', 'admin')
+        .in('role', ['admin', 'credit_manager'])
+        .eq('invitation_en_attente', false)
+        .eq('notif_bodacc', true)
 
       const emails = (admins as { email: string }[] | null)?.map(u => u.email) ?? []
       if (!emails.length) {
