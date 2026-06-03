@@ -63,7 +63,7 @@ function LigneUtilisateur({ u, actions }: {
             {[
               { value: 'admin', label: 'Admin' },
               { value: 'commercial', label: 'Commercial' },
-              { value: 'responsable_poste_client', label: 'Crédit Manager' },
+              { value: 'responsable_poste_client', label: 'Credit Manager' },
               ...(u.role === 'lecteur' ? [{ value: 'lecteur', label: 'Lecteur seul (legacy)' }] : []),
             ].map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
           </select>
@@ -180,7 +180,7 @@ export function TabUtilisateurs({ orgId, actions }: {
               className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-[inherit] focus:outline-none cursor-pointer">
               <option value="admin">Admin</option>
               <option value="commercial">Commercial</option>
-              <option value="responsable_poste_client">Crédit Manager</option>
+              <option value="responsable_poste_client">Credit Manager</option>
             </select>
           </div>
           <div className="flex gap-2">

@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
         .from('utilisateurs')
         .select('email')
         .eq('organisation_id', a.organisation_id)
-        .in('role', ['admin', 'credit_manager'])
+        .in('role', ['admin', 'responsable_poste_client'])
         .eq('invitation_en_attente', false)
         .eq('notif_bodacc', true)
 

@@ -15,7 +15,7 @@ interface Utilisateur {
 
 const LABELS_ROLE: Record<Role, string> = {
   admin: 'Administrateur',
-  responsable_poste_client: 'Crédit manager',
+  responsable_poste_client: 'Credit Manager',
   commercial: 'Commercial',
 }
 
@@ -145,7 +145,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
                 onChange={e => setInviteRole(e.target.value as Role)}
                 className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal bg-white transition-colors"
               >
-                <option value="responsable_poste_client">Crédit manager</option>
+                <option value="responsable_poste_client">Credit Manager</option>
                 <option value="commercial">Commercial</option>
                 <option value="admin">Administrateur</option>
               </select>
@@ -187,7 +187,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
                     autoFocus
                     onBlur={() => setEditRole(null)}
                   >
-                    <option value="responsable_poste_client">Crédit manager</option>
+                    <option value="responsable_poste_client">Credit Manager</option>
                     <option value="commercial">Commercial</option>
                     <option value="admin">Administrateur</option>
                   </select>

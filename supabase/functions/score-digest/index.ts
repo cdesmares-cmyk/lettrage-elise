@@ -181,18 +181,16 @@ Deno.serve(async (req: Request) => {
     let nbEnvoyés = 0
 
     for (const [orgId, rows] of parOrg) {
-      // Destinataires : admin + responsable_poste_client toujours + commercial opt-in
+      // Destinataires : admin ou Credit Manager, compte activé, opt-in digest
       const { data: users } = await supabase
         .from('utilisateurs')
-        .select('email, role, recoit_digest_alertes')
+        .select('email')
         .eq('organisation_id', orgId)
+        .in('role', ['admin', 'responsable_poste_client'])
+        .eq('invitation_en_attente', false)
+        .eq('recoit_digest_alertes', true)
 
-      const emails = ((users ?? []) as { email: string; role: string; recoit_digest_alertes: boolean }[])
-        .filter(u =>
-          (u.role === 'admin' || u.role === 'responsable_poste_client') &&
-          u.recoit_digest_alertes === true
-        )
-        .map(u => u.email)
+      const emails = ((users ?? []) as { email: string }[]).map(u => u.email)
 
       if (!emails.length) continue
 
