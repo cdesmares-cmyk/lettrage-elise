@@ -80,6 +80,8 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
+  // Empreinte légère du dernier chargement — évite de déclencher des re-renders si rien n'a changé
+  const dataHashRef = useRef<{ count: number; sum: number; moisMax: string }>({ count: -1, sum: -1, moisMax: '' })
 
   const rechargerScenarios = useCallback(async () => {
     const { data } = await supabase
@@ -141,6 +143,16 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const moisMax = toutes
         .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
         .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
+
+      // Empreinte légère : si count + somme_restant + moisMax sont identiques, rien n'a changé
+      // → on évite de mettre à jour le state et de déclencher une cascade de re-renders
+      const newSum = Math.round(toutes.reduce((s, f) => s + f.reste_du, 0) * 100)
+      const h = dataHashRef.current
+      if (initialLoadDoneRef.current && toutes.length === h.count && newSum === h.sum && moisMax === h.moisMax) {
+        return
+      }
+      dataHashRef.current = { count: toutes.length, sum: newSum, moisMax }
+
       if (moisMax) {
         const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
         const yrPrec = mo === 1 ? yr - 1 : yr

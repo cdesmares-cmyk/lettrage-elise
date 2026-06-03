@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
+import { useAppData } from '../contexts/AppDataContext'
 import { useRelances } from '../hooks/useRelances'
 import { useFacturesClient } from '../hooks/useFacturesClient'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
@@ -44,6 +45,7 @@ export function PageCompteClient() {
   const [factureDateDebut, setFactureDateDebut] = useState('')
   const [factureDateFin, setFactureDateFin] = useState('')
 
+  const { facturesActives } = useAppData()
   const comptes = useComptesClients()
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
@@ -97,13 +99,13 @@ export function PageCompteClient() {
   }
 
   // KPIs dynamiques en vue "factures" selon la plage de dates sélectionnée
+  // Utilise facturesActives directement (même source que l'export) pour garantir la cohérence
   const kpisVueFiltree = useMemo(() => {
     if (vue !== 'factures' || (!factureDateDebut && !factureDateFin)) return comptes.kpis
-    const allCodes = comptes.clients.map(c => c.code_dso)
-    let facs = factures.getFactures(allCodes)
+    let facs = facturesActives
     if (factureDateDebut) facs = facs.filter(f => (f.date_emission ?? '') >= factureDateDebut)
     if (factureDateFin)   facs = facs.filter(f => (f.date_emission ?? '') <= factureDateFin)
-    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir)
+    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir && !f.numero_piece.endsWith('_compte'))
     return {
       nbClientsActifs: new Set(impayees.map(f => f.code_client)).size,
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
@@ -111,7 +113,7 @@ export function PageCompteClient() {
       nbFacturesAttente: impayees.length,
       dsoRoulant: null,
     }
-  }, [vue, factureDateDebut, factureDateFin, comptes.clients, comptes.kpis, factures])
+  }, [vue, factureDateDebut, factureDateFin, facturesActives, comptes.kpis])
 
   function fmtEncours(n: number) {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
