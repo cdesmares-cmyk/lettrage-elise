@@ -111,7 +111,6 @@ export function PageCompteClient() {
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalAvoirs: facs.filter(f => f.est_avoir && f.reste_du < -0.005).reduce((s, f) => s + Math.abs(f.reste_du), 0),
       nbFacturesAttente: impayees.length,
-      dsoRoulant: null,
     }
   }, [vue, factureDateDebut, factureDateFin, facturesActives, comptes.kpis])
 
