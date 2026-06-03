@@ -12,6 +12,8 @@ import { useImportLettrage } from '../hooks/useImportLettrage'
 import { useImportClients } from '../hooks/useImportClients'
 import { useImportContacts } from '../hooks/useImportContacts'
 import { useAppData } from '../contexts/AppDataContext'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
 import type { TypeFichier, LigneMapping, ResultatAnalyse, ResultatValidation } from '../types/import'
 
 function msgErr(err: unknown, fallback: string): string {
@@ -45,6 +47,7 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
   const [compteurRafraichissement, setCompteurRafraichissement] = useState(0)
 
   const { rafraichir: rafraichirDonnees } = useAppData()
+  const { profil } = useAuth()
   const hookBancaire = useImportBancaire()
   const hookFactures = useImportFactures()
   const hookLettrage = useImportLettrage()
@@ -100,7 +103,13 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
     try {
       const resultat = await hook.executerImport(validation)
       setCompteurRafraichissement(c => c + 1)
-      // Attendre que le cache soit à jour avant d'afficher le succès
+      // Recalcul CA12 en base avant de rafraîchir le cache local
+      if (profil?.organisation_id) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<unknown>)(
+          'recalculer_ca12_org', { p_org_id: profil.organisation_id }
+        )
+      }
       await rafraichirDonnees()
       setEtape('succes')
       toast.success(`Import réussi — ${resultat.nb_inserees.toLocaleString('fr-FR')} lignes ajoutées.`)

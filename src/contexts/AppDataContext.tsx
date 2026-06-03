@@ -48,16 +48,6 @@ interface AppDataContextType {
   rechargerScenarios: () => Promise<void>
 }
 
-function ca12Dates(yr: number, mo: number): { debut: string; fin: string } {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  let startMo = mo - 11; let startYr = yr
-  if (startMo <= 0) { startMo += 12; startYr -= 1 }
-  const lastDay = new Date(yr, mo, 0).getDate()
-  return {
-    debut: `${startYr}-${pad(startMo)}-01`,
-    fin: `${yr}-${pad(mo)}-${pad(lastDay)}`,
-  }
-}
 
 const AppDataContext = createContext<AppDataContextType | null>(null)
 
@@ -72,8 +62,6 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
   // Après le premier chargement réussi, rafraichir() tourne silencieusement sans bloquer l'UI
   const initialLoadDoneRef = useRef(false)
-  // moisMax du dernier calcul CA12 — évite de re-calculer si rien n'a changé entre deux polls
-  const moisMaxCA12Ref = useRef('')
 
   const rechargerScenarios = useCallback(async () => {
     const { data } = await supabase
@@ -90,14 +78,15 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
       const PAGE = 1000
 
-      // Page 0 — clients et factures en parallèle
-      const [clientsPage0, page0] = await Promise.all([
+      // Page 0 — clients, factures et organisation en parallèle
+      const [clientsPage0, page0, orgRow] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
           .or('reste_du.gt.0.005,reste_du.lt.-0.005')
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(0, PAGE - 1),
+        supabase.from('organisations').select('mois_ref, ca12_mois, ca12_mois_prec').single(),
       ])
 
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
@@ -130,33 +119,12 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         offset += PAGE
       }
 
-      // moisMaxBrut dérivé des factures en mémoire — toujours cohérent avec facturesActives
-      const moisMax = toutes
-        .filter(f => !f.est_avoir && !f.numero_piece.endsWith('_compte'))
-        .reduce((mx, f) => { const m = (f.date_emission ?? '').slice(0, 7); return m > mx ? m : mx }, '')
-
-      // CA12 — RPC uniquement si moisMax a changé (nouvel import ou premier chargement)
-      if (moisMax && moisMax !== moisMaxCA12Ref.current) {
-        try {
-          const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
-          const yrPrec = mo === 1 ? yr - 1 : yr
-          const moPrec = mo === 1 ? 12 : mo - 1
-          const d  = ca12Dates(yr, mo)
-          const dP = ca12Dates(yrPrec, moPrec)
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
-          const [rca, rcaPrec] = await Promise.all([
-            rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
-            rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
-          ])
-          moisMaxCA12Ref.current = moisMax
-          setMoisMaxBrut(moisMax)
-          setCa12Mois(Number((rca.data as unknown as number) ?? 0))
-          setCa12MoisPrec(Number((rcaPrec.data as unknown as number) ?? 0))
-        } catch (err) {
-          console.warn('[CA12] RPC get_ca_periode indisponible, DSO non calculé:', err)
-          setMoisMaxBrut(moisMax)
-        }
+      // CA12 lu depuis organisations (mis à jour à chaque import via recalculer_ca12_org)
+      const org = orgRow.data as { mois_ref: string; ca12_mois: number; ca12_mois_prec: number } | null
+      if (org?.mois_ref) {
+        setMoisMaxBrut(org.mois_ref)
+        setCa12Mois(Number(org.ca12_mois) ?? 0)
+        setCa12MoisPrec(Number(org.ca12_mois_prec) ?? 0)
       }
 
       // Mise à jour état — une seule fois, données complètes garanties
