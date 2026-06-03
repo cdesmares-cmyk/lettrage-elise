@@ -151,7 +151,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         const d  = ca12Dates(yr, mo)
         const dP = ca12Dates(yrPrec, moPrec)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const rpc = supabase.rpc as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
+        const rpc = supabase.rpc as unknown as (fn: string, args: Record<string, string>) => Promise<{ data: unknown }>
         const [rca, rcaPrec] = await Promise.all([
           rpc('get_ca_periode', { p_debut: d.debut, p_fin: d.fin }),
           rpc('get_ca_periode', { p_debut: dP.debut, p_fin: dP.fin }),
