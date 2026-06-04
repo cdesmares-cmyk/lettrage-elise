@@ -234,7 +234,7 @@ export function useLettrageForm(
       // Marquer la ligne en attente 471
       const { error: errUpdate } = await supabase
         .from('lignes_bancaires')
-        .update({ en_attente_471: true })
+        .update({ en_attente_471: true } as never)
         .eq('id_operation', ligneActive.id_operation)
       if (errUpdate) throw errUpdate
       on471Success?.(ligneActive.id_operation, numerosLettres)

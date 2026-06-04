@@ -116,7 +116,7 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
       // Retirer le flag 471 et marquer comme lettrée normalement
       const { error: errUpdate } = await supabase
         .from('lignes_bancaires')
-        .update({ en_attente_471: false })
+        .update({ en_attente_471: false } as never)
         .eq('id_operation', ligneActive.id_operation)
       if (errUpdate) throw errUpdate
 
