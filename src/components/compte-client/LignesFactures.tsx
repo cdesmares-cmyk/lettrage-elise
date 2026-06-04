@@ -165,7 +165,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
         </thead>
         <tbody>
           {facturesTries.map(f => {
-            const estCompte = f.numero_piece.endsWith('_compte')
+            const estCompte = f.numero_piece.startsWith('411_')
             const estSolde     = Math.abs(f.reste_du) <= 0.005
             const estNegatif   = f.reste_du < -0.005
             const estImpayeTotal = !f.est_avoir && !estCompte && !estNegatif && !estSolde && f.montant_ttc > 0.005 && (f.reste_du / f.montant_ttc) >= 0.995

@@ -137,7 +137,7 @@ export function useComptesClients() {
   const creditParClient = useMemo(() => {
     const map = new Map<string, number>()
     for (const f of facturesActives) {
-      if (f.reste_du >= -0.005 || f.numero_piece.endsWith('_compte')) continue
+      if (f.reste_du >= -0.005 || f.numero_piece.startsWith('411_')) continue
       map.set(f.code_client, (map.get(f.code_client) ?? 0) + Math.abs(f.reste_du))
     }
     return map
@@ -147,7 +147,7 @@ export function useComptesClients() {
   const nbPiecesParClient = useMemo(() => {
     const map = new Map<string, number>()
     for (const f of facturesActives) {
-      if (Math.abs(f.reste_du) <= 0.005 || f.numero_piece.endsWith('_compte')) continue
+      if (Math.abs(f.reste_du) <= 0.005 || f.numero_piece.startsWith('411_')) continue
       map.set(f.code_client, (map.get(f.code_client) ?? 0) + 1)
     }
     return map

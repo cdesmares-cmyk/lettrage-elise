@@ -238,7 +238,7 @@ export function useImportFactures() {
         // Crée la facture tampon _compte pour chaque client (ON CONFLICT DO NOTHING — préserve si déjà existant)
         const today = new Date().toISOString().split('T')[0]
         const facturesTampon = clientsUniques.map(c => ({
-          numero_piece: `${c.code_dso}_compte`,
+          numero_piece: `411_${c.code_dso}`,
           code_client: c.code_dso,
           nom_client: c.nom,
           date_emission: today,

@@ -23,8 +23,8 @@ export function useFacturesClient() {
       ...historique,
       ...actives.filter(f => !numsHistorique.has(f.numero_piece)),
     ].sort((a, b) => {
-      const aC = a.numero_piece.endsWith('_compte')
-      const bC = b.numero_piece.endsWith('_compte')
+      const aC = a.numero_piece.startsWith('411_')
+      const bC = b.numero_piece.startsWith('411_')
       if (aC && !bC) return -1
       if (!aC && bC) return 1
       return (b.date_emission ?? '').localeCompare(a.date_emission ?? '')

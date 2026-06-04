@@ -14,7 +14,7 @@ interface Props {
 
 export function ModalClientTdb({ code, nom, onClose }: Props) {
   const { facturesActives, mettreAJourStatutLocal } = useAppData()
-  const factures = facturesActives.filter(f => f.code_client === code && !f.numero_piece.endsWith('_compte'))
+  const factures = facturesActives.filter(f => f.code_client === code && !f.numero_piece.startsWith('411_'))
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }

@@ -173,7 +173,7 @@ export function useImportClients() {
         const facturesTampon = resultat.lignes_a_inserer
           .filter(l => l['code_dso'])
           .map(l => ({
-            numero_piece: `${l['code_dso']}_compte`,
+            numero_piece: `411_${l['code_dso']}`,
             code_client: l['code_dso'] as string,
             nom_client: (l['nom'] as string | null) ?? null,
             date_emission: today,

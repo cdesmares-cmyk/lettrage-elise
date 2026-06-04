@@ -153,7 +153,7 @@ export function useDashboard() {
   }, [])
 
   const factures = useMemo(
-    () => facturesActives.filter(f => !f.numero_piece.endsWith('_compte') && !f.est_avoir),
+    () => facturesActives.filter(f => !f.numero_piece.startsWith('411_') && !f.est_avoir),
     [facturesActives]
   )
 
