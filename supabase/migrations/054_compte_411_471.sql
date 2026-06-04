@@ -4,15 +4,24 @@
 
 BEGIN;
 
--- Renommage dans lettrages en premier (FK vers factures.numero_piece)
+-- Suspension temporaire de la FK pour permettre la mise à jour des deux tables
+ALTER TABLE lettrages DROP CONSTRAINT lettrages_facture_fk;
+
+-- Renommage dans factures
+UPDATE factures
+SET numero_piece = '411_' || SUBSTRING(numero_piece, 1, LENGTH(numero_piece) - 7)
+WHERE numero_piece LIKE '%\_compte';
+
+-- Renommage dans lettrages
 UPDATE lettrages
 SET numero_facture = '411_' || SUBSTRING(numero_facture, 1, LENGTH(numero_facture) - 7)
 WHERE numero_facture LIKE '%\_compte';
 
--- Renommage dans factures (après mise à jour des références)
-UPDATE factures
-SET numero_piece = '411_' || SUBSTRING(numero_piece, 1, LENGTH(numero_piece) - 7)
-WHERE numero_piece LIKE '%\_compte';
+-- Restauration de la FK
+ALTER TABLE lettrages
+  ADD CONSTRAINT lettrages_facture_fk
+  FOREIGN KEY (organisation_id, numero_facture)
+  REFERENCES factures(organisation_id, numero_piece);
 
 -- Mise à jour recalculer_ca12_org : exclut désormais les 411_ au lieu des _compte
 CREATE OR REPLACE FUNCTION recalculer_ca12_org(p_org_id uuid)
