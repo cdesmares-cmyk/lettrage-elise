@@ -4,8 +4,10 @@
 ALTER TABLE lignes_bancaires
   ADD COLUMN IF NOT EXISTS en_attente_471 BOOLEAN NOT NULL DEFAULT false;
 
--- Vue recréée avec priorité au statut 471 dans le CASE
-CREATE OR REPLACE VIEW v_lignes_bancaires_avec_statut
+-- Drop nécessaire : CREATE OR REPLACE ne peut pas ajouter de colonne en position arbitraire
+DROP VIEW IF EXISTS v_lignes_bancaires_avec_statut;
+
+CREATE VIEW v_lignes_bancaires_avec_statut
 WITH (security_invoker = true)
 AS
 SELECT
