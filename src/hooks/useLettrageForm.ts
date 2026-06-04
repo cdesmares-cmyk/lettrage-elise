@@ -103,22 +103,33 @@ export function useLettrageForm(
 
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length) return false
-    // Calcul inline pour éviter toute ambiguïté sur les consts déclarées en bas
     const disp = ligneActive.restant ?? 0
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > disp + 0.005) return false // surcharge bloquée
+    if (attribue > disp + 0.005) return false
+    const restantCalc = Math.round((disp - attribue) * 100) / 100
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
       }
-      // "Autres" : description obligatoire, montant optionnel (auto-calculé)
+      if (l.classe === 'compte_client') return !!l.client_411 && restantCalc > 0.005
+      if (l.classe === 'compte_attente') return restantCalc > 0.005
       return !!l.numero_facture.trim()
     })
   }
 
   async function valider() {
     if (!ligneActive || !peutValider()) return
+    const ligneCompteClient = lignesForme.find(l => l.classe === 'compte_client')
+    const ligneCompteAttente = lignesForme.find(l => l.classe === 'compte_attente')
+    if (ligneCompteClient?.client_411) {
+      await affecterEn411(ligneCompteClient.client_411.code_dso, ligneCompteClient.client_411.nom)
+      return
+    }
+    if (ligneCompteAttente) {
+      await affecterEn471()
+      return
+    }
     setChargement(true)
     try {
       // Vérification live : s'assurer que le reste_du est encore suffisant en base
@@ -207,8 +218,9 @@ export function useLettrageForm(
     setChargement(true)
     try {
       const today = new Date().toISOString().split('T')[0]
-      // Insérer les lignes valides du formulaire (mix autorisé)
+      // Insérer les lignes valides du formulaire (mix autorisé, lignes compte exclues)
       const valides = lignesForme.filter(l => {
+        if (l.classe === 'compte_client' || l.classe === 'compte_attente') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
@@ -275,8 +287,9 @@ export function useLettrageForm(
     if (!ligneActive) return
     setChargement(true)
     try {
-      // Insérer les lignes valides du formulaire (mix autorisé)
+      // Insérer les lignes valides du formulaire (mix autorisé, lignes compte exclues)
       const valides = lignesForme.filter(l => {
+        if (l.classe === 'compte_client' || l.classe === 'compte_attente') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
@@ -321,7 +334,6 @@ export function useLettrageForm(
     modeAlerte, chargement,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
-    affecterEn411, affecterEn471,
     creditDisponible, montantAttribue, restant,
   }
 }

@@ -9,7 +9,6 @@ import type { CompteClient } from '../../types/client'
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
   onOuvrirNavigateur: () => void
-  onAffecterEn471: () => void
   remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
   clients: CompteClient[]
@@ -29,37 +28,22 @@ export function PanneauLettrage(props: Props) {
     ligneActive, lettragesExistants, lignesForme,
     modeAlerte, chargement,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
-    chercherInfoFacture, valider, peutValider, affecterEn411,
+    chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
-    onOuvrirCorrection, onOuvrirNavigateur, onAffecterEn471, remisesEnAttente, onEncaisser, clients,
+    onOuvrirCorrection, onOuvrirNavigateur, remisesEnAttente, onEncaisser, clients,
   } = props
-
-  const [recherche411, setRecherche411] = useState('')
-  const [client411, setClient411] = useState<CompteClient | null>(null)
-  const [dropdown411Ouvert, setDropdown411Ouvert] = useState(false)
-
-  const clientsFiltres411 = recherche411.length >= 2
-    ? clients.filter(c =>
-        c.nom.toLowerCase().includes(recherche411.toLowerCase()) ||
-        c.code_dso.toLowerCase().includes(recherche411.toLowerCase())
-      ).slice(0, 8)
-    : []
-
-  function selectionnerClient411(c: CompteClient) {
-    setClient411(c)
-    setRecherche411(c.nom)
-    setDropdown411Ouvert(false)
-  }
-
-  function handleAffecterEn411() {
-    if (!client411) return
-    affecterEn411(client411.code_dso, client411.nom)
-    setClient411(null)
-    setRecherche411('')
-  }
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [confirmEncaissement, setConfirmEncaissement] = useState<string | null>(null)
+  const [openDropdown411Key, setOpenDropdown411Key] = useState<string | null>(null)
+
+  function clientsFiltres(recherche: string) {
+    if (recherche.length < 2) return []
+    return clients.filter(c =>
+      c.nom.toLowerCase().includes(recherche.toLowerCase()) ||
+      c.code_dso.toLowerCase().includes(recherche.toLowerCase())
+    ).slice(0, 8)
+  }
 
   function handleNumeroChange(key: string, value: string) {
     modifierLigne(key, { numero_facture: value, info_facture: null })
@@ -69,6 +53,12 @@ export function PanneauLettrage(props: Props) {
 
   const pct = creditDisponible > 0 ? Math.min(100, Math.round((montantAttribue / creditDisponible) * 100)) : 0
   const surPaiement = restant < -0.005
+  const hasCompteClient = lignesForme.some(l => l.classe === 'compte_client')
+  const hasCompteAttente = lignesForme.some(l => l.classe === 'compte_attente')
+  const hasCompteLigne = hasCompteClient || hasCompteAttente
+  const labelBouton = hasCompteClient ? 'Affecter au Compte Client'
+    : hasCompteAttente ? 'Affecter au Compte Attente'
+    : '✓ Valider le lettrage'
 
   // ── État vide ──
   if (!ligneActive) {
@@ -280,7 +270,8 @@ export function PanneauLettrage(props: Props) {
                     value={ligne.classe}
                     onChange={e => {
                       clearTimeout(debounceRefs.current[ligne._key])
-                      modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', montant: '', info_facture: null, chargement: false })
+                      modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', montant: '', info_facture: null, chargement: false, client_411: undefined })
+                      setOpenDropdown411Key(null)
                     }}
                     className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
@@ -288,41 +279,94 @@ export function PanneauLettrage(props: Props) {
                     <option value="cheque">CHQ</option>
                     <option value="lcr">LCR</option>
                     <option value="autres">Autres</option>
+                    <option value="compte_client">Cpte Client</option>
+                    <option value="compte_attente">Cpte Attente</option>
                   </select>
                   <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
 
-                {/* N° Facture ou Commentaire (Autres) */}
+                {/* Champ central : autocomplete client (compte_client), label (compte_attente), ou N° facture */}
                 <div className="relative">
-                  <input
-                    type="text"
-                    value={ligne.numero_facture}
-                    onChange={e => {
-                      if (ligne.classe === 'autres') {
-                        modifierLigne(ligne._key, { numero_facture: e.target.value })
-                      } else {
-                        handleNumeroChange(ligne._key, e.target.value)
-                      }
-                    }}
-                    placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
-                  />
-                  {ligne.chargement && ligne.classe !== 'autres' && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
+                  {ligne.classe === 'compte_client' ? (
+                    <>
+                      <input
+                        type="text"
+                        value={ligne.numero_facture}
+                        onChange={e => {
+                          modifierLigne(ligne._key, { numero_facture: e.target.value, client_411: undefined })
+                          setOpenDropdown411Key(ligne._key)
+                        }}
+                        onFocus={() => setOpenDropdown411Key(ligne._key)}
+                        onBlur={() => setTimeout(() => setOpenDropdown411Key(null), 150)}
+                        placeholder="Rechercher un client…"
+                        className={`w-full border rounded-md px-2.5 py-1.5 text-xs outline-none pr-6 ${
+                          ligne.client_411 ? 'border-indigo-300 bg-indigo-50/50 text-indigo-700 font-semibold' : 'border-gray-200 focus:border-indigo-400 text-gray-700'
+                        }`}
+                      />
+                      {ligne.numero_facture && (
+                        <button
+                          onMouseDown={() => modifierLigne(ligne._key, { numero_facture: '', client_411: undefined })}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs"
+                        >✕</button>
+                      )}
+                      {openDropdown411Key === ligne._key && clientsFiltres(ligne.numero_facture).length > 0 && (
+                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {clientsFiltres(ligne.numero_facture).map(c => (
+                            <button
+                              key={c.code_dso}
+                              onMouseDown={() => {
+                                modifierLigne(ligne._key, { numero_facture: c.nom, client_411: { code_dso: c.code_dso, nom: c.nom } })
+                                setOpenDropdown411Key(null)
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors"
+                            >
+                              <span className="font-semibold text-gray-800">{c.nom}</span>
+                              <span className="text-gray-400 ml-2">{c.code_dso}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : ligne.classe === 'compte_attente' ? (
+                    <div className="w-full border border-gray-100 rounded-md px-2.5 py-1.5 text-xs text-gray-400 bg-gray-50 cursor-not-allowed">
+                      Compte Attente 471
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={ligne.numero_facture}
+                        onChange={e => {
+                          if (ligne.classe === 'autres') {
+                            modifierLigne(ligne._key, { numero_facture: e.target.value })
+                          } else {
+                            handleNumeroChange(ligne._key, e.target.value)
+                          }
+                        }}
+                        placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
+                        className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
+                      />
+                      {ligne.chargement && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
+                      )}
+                    </>
                   )}
                 </div>
 
-                {/* Montant — grisé pour "Autres" (auto-calculé) */}
+                {/* Montant — auto pour "Autres", "Compte Client", "Compte Attente" */}
                 <input
                   type="number"
-                  value={ligne.montant}
+                  value={ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'
+                    ? restant > 0.005 ? String(Math.round(restant * 100) / 100) : ''
+                    : ligne.montant
+                  }
                   onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
-                  placeholder={ligne.classe === 'autres' ? '— auto' : '0,00'}
+                  placeholder="— auto"
                   step="0.01"
-                  disabled={ligne.classe === 'autres'}
+                  disabled={ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'}
                   className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
-                    ligne.classe === 'autres'
-                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                    ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'
+                      ? `border-gray-100 bg-gray-50 cursor-not-allowed ${ligne.classe === 'compte_client' ? 'text-indigo-400' : ligne.classe === 'compte_attente' ? 'text-orange-400' : 'text-gray-300'}`
                       : 'border-gray-200 focus:border-ockham-teal'
                   }`}
                 />
@@ -336,7 +380,12 @@ export function PanneauLettrage(props: Props) {
                 </button>
               </div>
 
-              {/* Info facture auto-remplie (Facture, CHQ, LCR) */}
+              {/* Info sous la ligne : facture validée ou client 411 sélectionné */}
+              {ligne.classe === 'compte_client' && ligne.client_411 && (
+                <div className="mt-1 ml-[88px] text-[10px] text-indigo-600 font-medium">
+                  ✓ {ligne.client_411.nom ?? ligne.client_411.code_dso} · Compte Client 411
+                </div>
+              )}
               {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && ligne.info_facture && (
                 <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
@@ -355,12 +404,14 @@ export function PanneauLettrage(props: Props) {
           ))}
         </div>
 
-        <button
-          onClick={ajouterLigne}
-          className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
-        >
-          <span className="mx-auto">+ Ajouter une ligne</span>
-        </button>
+        {!hasCompteLigne && (
+          <button
+            onClick={ajouterLigne}
+            className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
+          >
+            <span className="mx-auto">+ Ajouter une ligne</span>
+          </button>
+        )}
       </div>
 
       {/* Totaux */}
@@ -404,7 +455,7 @@ export function PanneauLettrage(props: Props) {
           disabled={!peutValider() || chargement}
           className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider le lettrage'}
+          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : labelBouton}
         </button>
       </div>
       <div className="px-5 pb-3">
@@ -417,63 +468,6 @@ export function PanneauLettrage(props: Props) {
         </button>
       </div>
 
-      {/* Section Affecter ce paiement — visible si restant > 0 et pas de surpaiement */}
-      {restant > 0.005 && !surPaiement && (
-        <div className="px-5 pb-5 pt-3 border-t border-gray-100">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Affecter ce paiement</p>
-
-          {/* Compte Client 411 */}
-          <div className="mb-2">
-            <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1.5">Compte Client 411</p>
-            <div className="relative mb-1.5">
-              <input
-                type="text"
-                value={recherche411}
-                onChange={e => { setRecherche411(e.target.value); setClient411(null); setDropdown411Ouvert(true) }}
-                onFocus={() => setDropdown411Ouvert(true)}
-                placeholder="Rechercher un client…"
-                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-indigo-400 pr-6"
-              />
-              {recherche411 && (
-                <button onClick={() => { setRecherche411(''); setClient411(null) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs">✕</button>
-              )}
-              {dropdown411Ouvert && clientsFiltres411.length > 0 && (
-                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                  {clientsFiltres411.map(c => (
-                    <button
-                      key={c.code_dso}
-                      onMouseDown={() => selectionnerClient411(c)}
-                      className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors"
-                    >
-                      <span className="font-semibold text-gray-800">{c.nom}</span>
-                      <span className="text-gray-400 ml-2">{c.code_dso}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button
-              onClick={handleAffecterEn411}
-              disabled={!client411 || chargement}
-              className="w-full text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
-            >
-              Affecter en Compte Client 411
-            </button>
-          </div>
-
-          {/* Compte Attente 471 */}
-          <div className="mt-3 pt-3 border-t border-gray-100">
-            <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wide mb-1.5">Compte Attente 471</p>
-            <button
-              onClick={onAffecterEn471}
-              disabled={chargement}
-              className="w-full text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:border-orange-400 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
-            >
-              Placer en compte attente 471
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

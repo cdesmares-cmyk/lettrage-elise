@@ -176,7 +176,6 @@ export function PageLettrage() {
             {...forme}
             onOuvrirCorrection={() => setCorrectionOuverte(true)}
             onOuvrirNavigateur={() => setNavigateurOuvert(true)}
-            onAffecterEn471={forme.affecterEn471}
             remisesEnAttente={remisesEnAttente}
             onEncaisser={handleEncaisser}
             clients={clients}

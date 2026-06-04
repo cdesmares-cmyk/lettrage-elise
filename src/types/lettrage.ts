@@ -1,7 +1,7 @@
 // Types pour le module de lettrage (Sprint 2)
 
 export type StatutLettrage = 'debit' | 'non_lettre' | 'partiel' | 'lettre' | 'en_attente_471'
-export type ClasseLettrage = 'facture' | 'autres' | 'cheque' | 'lcr'
+export type ClasseLettrage = 'facture' | 'autres' | 'cheque' | 'lcr' | 'compte_client' | 'compte_attente'
 
 export interface LigneBancaireAvecStatut {
   id_operation: string
@@ -43,4 +43,5 @@ export interface LigneForme {
   montant: string
   info_facture: InfoFacture | null
   chargement: boolean
+  client_411?: { code_dso: string; nom: string | null }
 }
