@@ -4,6 +4,7 @@ import { IcDownload, IcClock } from '../components/Icones'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
+import { PanneauDispatch471 } from '../components/lettrage/PanneauDispatch471'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
@@ -11,6 +12,7 @@ import { ModalNavigateurFactures } from '../components/lettrage/ModalNavigateurF
 import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
+import { useDispatch471 } from '../hooks/useDispatch471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useRemises } from '../hooks/useRemises'
 import { useAppData } from '../contexts/AppDataContext'
@@ -24,11 +26,20 @@ export function PageLettrage() {
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
-  const forme = useLettrageForm((data) => {
-    // Mise à jour locale ciblée — uniquement les factures et le client concernés
+  const forme = useLettrageForm(
+    (data) => {
+      mettreAJourResteDuLocal(data.numerosLettres)
+      liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
+      liste.rafraichirSilencieux()
+      if (historique.visible) historique.charger()
+    },
+    (_idLB, numerosLettres) => {
+      if (numerosLettres.length > 0) mettreAJourResteDuLocal(numerosLettres)
+      liste.rafraichirSilencieux()
+    },
+  )
+  const dispatch471 = useDispatch471((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
-    liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
-    // Resync silencieux des lignes bancaires (pas de spinner, ~1s en arrière-plan)
     liste.rafraichirSilencieux()
     if (historique.visible) historique.charger()
   })
@@ -49,12 +60,26 @@ export function PageLettrage() {
   }
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
-    // Si on clique sur la ligne déjà active → désélectionner
-    if (forme.ligneActive?.id_operation === ligne.id_operation) {
-      forme.annuler()
+    if (liste.filtre === 'compte') {
+      // Mode [Compte] : dispatch 471
+      if (dispatch471.ligneActive?.id_operation === ligne.id_operation) {
+        dispatch471.annuler()
+      } else {
+        dispatch471.selectionnerLigne(ligne)
+      }
     } else {
-      forme.selectionnerLigne(ligne)
+      if (forme.ligneActive?.id_operation === ligne.id_operation) {
+        forme.annuler()
+      } else {
+        forme.selectionnerLigne(ligne)
+      }
     }
+  }
+
+  function handleChangerFiltre(filtre: Parameters<typeof liste.setFiltre>[0]) {
+    forme.annuler()
+    dispatch471.annuler()
+    liste.setFiltre(filtre)
   }
 
   return (
@@ -88,7 +113,10 @@ export function PageLettrage() {
         <TableLignesBancaires
           lignes={liste.lignes}
           chargement={liste.chargement}
-          ligneActiveId={forme.ligneActive?.id_operation ?? null}
+          ligneActiveId={liste.filtre === 'compte'
+            ? dispatch471.ligneActive?.id_operation ?? null
+            : forme.ligneActive?.id_operation ?? null
+          }
           recherche={liste.recherche}
           filtre={liste.filtre}
           dateDebut={liste.dateDebut}
@@ -97,7 +125,7 @@ export function PageLettrage() {
           totalPages={liste.totalPages}
           totalLignes={liste.totalLignes}
           onRecherche={liste.setRecherche}
-          onFiltre={liste.setFiltre}
+          onFiltre={handleChangerFiltre}
           onDateDebut={liste.setDateDebut}
           onDateFin={liste.setDateFin}
           onPage={liste.setPage}
@@ -105,13 +133,18 @@ export function PageLettrage() {
           onHistorique={historique.toggle}
         />
 
-        <PanneauLettrage
-          {...forme}
-          onOuvrirCorrection={() => setCorrectionOuverte(true)}
-          onOuvrirNavigateur={() => setNavigateurOuvert(true)}
-          remisesEnAttente={remisesEnAttente}
-          onEncaisser={handleEncaisser}
-        />
+        {liste.filtre === 'compte' ? (
+          <PanneauDispatch471 {...dispatch471} />
+        ) : (
+          <PanneauLettrage
+            {...forme}
+            onOuvrirCorrection={() => setCorrectionOuverte(true)}
+            onOuvrirNavigateur={() => setNavigateurOuvert(true)}
+            onAffecterEn471={forme.affecterEn471}
+            remisesEnAttente={remisesEnAttente}
+            onEncaisser={handleEncaisser}
+          />
+        )}
       </div>
 
       {/* Modal historique */}

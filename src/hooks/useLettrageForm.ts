@@ -20,7 +20,10 @@ export interface LettrageValideData {
   montantTotal: number
 }
 
-export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
+export function useLettrageForm(
+  onSuccess: (data: LettrageValideData) => void,
+  on471Success?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
+) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
   const [lettragesExistants, setLettragesExistants] = useState<LettrageExistant[]>([])
@@ -198,11 +201,57 @@ export function useLettrageForm(onSuccess: (data: LettrageValideData) => void) {
   ) / 100
   const restant = Math.round((creditDisponible - montantAttribue) * 100) / 100
 
+  async function affecterEn471() {
+    if (!ligneActive) return
+    setChargement(true)
+    try {
+      // Insérer les lignes valides du formulaire (mix autorisé)
+      const valides = lignesForme.filter(l => {
+        if (l.classe === 'autres') return !!l.numero_facture.trim()
+        const m = parseFloat(l.montant)
+        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
+      })
+      const numerosLettres: { numeroPiece: string; montant: number }[] = []
+      if (valides.length > 0) {
+        const today = new Date().toISOString().split('T')[0]
+        const inserts = valides.map(l => ({
+          id_ligne_bancaire: ligneActive.id_operation,
+          numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
+          code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+          montant: Math.round(parseFloat(l.montant) * 100) / 100,
+          date_lettrage: today,
+          mode: 'manuel',
+          commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        }))
+        const { error } = await supabase.from('lettrages').insert(inserts as never)
+        if (error) throw error
+        inserts.filter(i => i.code_client !== 'AUTRES').forEach(i => {
+          numerosLettres.push({ numeroPiece: i.numero_facture ?? '', montant: i.montant })
+        })
+      }
+      // Marquer la ligne en attente 471
+      const { error: errUpdate } = await supabase
+        .from('lignes_bancaires')
+        .update({ en_attente_471: true })
+        .eq('id_operation', ligneActive.id_operation)
+      if (errUpdate) throw errUpdate
+      on471Success?.(ligneActive.id_operation, numerosLettres)
+      annuler()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 471.')
+    } finally {
+      setChargement(false)
+    }
+  }
+
   return {
     ligneActive, lettragesExistants, lignesForme,
     modeAlerte, chargement,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
+    affecterEn471,
     creditDisponible, montantAttribue, restant,
   }
 }

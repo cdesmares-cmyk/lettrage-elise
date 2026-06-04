@@ -35,9 +35,10 @@ function formatDate(iso: string) {
 }
 
 function DotStatut({ statut }: { statut: StatutLettrage }) {
-  if (statut === 'lettre')     return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
-  if (statut === 'partiel')    return <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_0_3px_rgba(245,158,11,0.2)]" />
-  if (statut === 'non_lettre') return <span className="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]" />
+  if (statut === 'lettre')          return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
+  if (statut === 'partiel')         return <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_0_3px_rgba(245,158,11,0.2)]" />
+  if (statut === 'non_lettre')      return <span className="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]" />
+  if (statut === 'en_attente_471')  return <span className="inline-block w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_0_3px_rgba(251,146,60,0.2)]" />
   return <span className="inline-block w-2 h-2 rounded-full bg-gray-300" />
 }
 
@@ -47,6 +48,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'partiel',    label: 'Partielles' },
   { val: 'lettre',     label: 'Lettrées' },
   { val: 'toutes',     label: 'Toutes' },
+  { val: 'compte',     label: 'Compte' },
 ]
 
 export function TableLignesBancaires({
@@ -132,6 +134,7 @@ export function TableLignesBancaires({
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Lettré</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />Attente 471</span>
           </div>
         </div>
       </div>
@@ -161,6 +164,7 @@ export function TableLignesBancaires({
             <tbody className="divide-y divide-gray-50">
               {lignes.map(ligne => {
                 const isDebit = ligne.statut_lettrage === 'debit'
+                const is471 = ligne.statut_lettrage === 'en_attente_471'
                 const isActive = ligne.id_operation === ligneActiveId
                 const isDimmed = hasActive && !isActive && !isDebit
 
@@ -170,6 +174,7 @@ export function TableLignesBancaires({
                     onClick={() => !isDebit && onSelectLigne(ligne)}
                     className={`transition-all ${
                       isDebit ? 'bg-gray-50/60 cursor-default' :
+                      isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400 cursor-pointer' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal cursor-pointer' :
                       isDimmed ? 'opacity-30 cursor-pointer' :
                       'hover:bg-gray-50 cursor-pointer'
@@ -193,6 +198,11 @@ export function TableLignesBancaires({
                       {isDebit && (
                         <span className="inline-flex items-center bg-red-50 text-red-400 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
                           Débit — lecture seule
+                        </span>
+                      )}
+                      {ligne.statut_lettrage === 'en_attente_471' && (
+                        <span className="inline-flex items-center bg-orange-50 text-orange-500 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
+                          En attente 471
                         </span>
                       )}
                     </td>

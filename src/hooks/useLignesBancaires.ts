@@ -9,11 +9,12 @@ interface RowLigne {
   debit: number | null; credit: number | null
   montant_lettre: number; restant: number
   statut_lettrage: string; derniere_date_lettrage: string | null
+  en_attente_471: boolean
 }
 
 interface RowTotaux { statut_lettrage: string; restant: number }
 
-export type FiltreStatut = 'a_lettrer' | 'non_lettre' | 'partiel' | 'lettre' | 'toutes'
+export type FiltreStatut = 'a_lettrer' | 'non_lettre' | 'partiel' | 'lettre' | 'toutes' | 'compte'
 
 export const PAGE_SIZE = 50
 
@@ -23,6 +24,7 @@ export function useLignesBancaires() {
   const [montantRestant, setMontantRestant] = useState(0)
   const [totalLignes, setTotalLignes] = useState(0)
   const [nbLignesGlobal, setNbLignesGlobal] = useState(0)
+  const [nbEnAttente471, setNbEnAttente471] = useState(0)
   const [chargement, setChargement] = useState(true)
   const [recherche, setRechercheUI] = useState('')
   const [filtre, setFiltre] = useState<FiltreStatut>('a_lettrer')
@@ -61,6 +63,7 @@ export function useLignesBancaires() {
         .range(from, to)
 
       if (filtre === 'a_lettrer') q = q.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
+      else if (filtre === 'compte') q = q.eq('statut_lettrage', 'en_attente_471')
       else if (filtre !== 'toutes') q = q.eq('statut_lettrage', filtre)
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
@@ -72,6 +75,7 @@ export function useLignesBancaires() {
         .select('id_operation', { count: 'exact', head: true })
 
       if (filtre === 'a_lettrer') qCount = qCount.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
+      else if (filtre === 'compte') qCount = qCount.eq('statut_lettrage', 'en_attente_471')
       else if (filtre !== 'toutes') qCount = qCount.eq('statut_lettrage', filtre)
       if (dateDebut) qCount = qCount.gte('date_operation', dateDebut)
       if (dateFin)   qCount = qCount.lte('date_operation', dateFin)
@@ -88,14 +92,16 @@ export function useLignesBancaires() {
       if (annule) return
 
       const rows = (data as unknown as RowLigne[]) ?? []
-      setLignes(rows.map(r => ({ ...r, statut_lettrage: r.statut_lettrage as StatutLettrage })))
+      setLignes(rows.map(r => ({ ...r, statut_lettrage: r.statut_lettrage as StatutLettrage, en_attente_471: r.en_attente_471 ?? false })))
       setTotalLignes(count ?? 0)
 
       const totaux = (dataTotaux as unknown as RowTotaux[]) ?? []
       const nonDebits = totaux.filter(r => r.statut_lettrage !== 'debit')
       setNbLignesGlobal(nonDebits.length)
-      setNbNonLettres(nonDebits.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
-      setMontantRestant(nonDebits.reduce((s, r) => s + Math.max(0, r.restant), 0))
+      setNbEnAttente471(nonDebits.filter(r => r.statut_lettrage === 'en_attente_471').length)
+      const nonDebitsActifs = nonDebits.filter(r => r.statut_lettrage !== 'en_attente_471')
+      setNbNonLettres(nonDebitsActifs.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
+      setMontantRestant(nonDebitsActifs.reduce((s, r) => s + Math.max(0, r.restant), 0))
 
       setChargement(false)
     }
@@ -139,6 +145,7 @@ export function useLignesBancaires() {
     dateDebut, setDateDebut: setDateDebutEtReset,
     dateFin, setDateFin: setDateFinEtReset,
     page, setPage, totalPages, totalLignes,
-    rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale, nbNonLettres, montantRestant, nbLignesGlobal,
+    rafraichir, rafraichirSilencieux, mettreAJourLigneBancaireLocale,
+    nbNonLettres, montantRestant, nbLignesGlobal, nbEnAttente471,
   }
 }

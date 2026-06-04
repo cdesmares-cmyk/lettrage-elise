@@ -8,6 +8,7 @@ import type { Remise } from '../../types/remise'
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
   onOuvrirNavigateur: () => void
+  onAffecterEn471: () => void
   remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
 }
@@ -28,7 +29,7 @@ export function PanneauLettrage(props: Props) {
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
-    onOuvrirCorrection, onOuvrirNavigateur, remisesEnAttente, onEncaisser,
+    onOuvrirCorrection, onOuvrirNavigateur, onAffecterEn471, remisesEnAttente, onEncaisser,
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -380,7 +381,7 @@ export function PanneauLettrage(props: Props) {
           {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider le lettrage'}
         </button>
       </div>
-      <div className="px-5 pb-5">
+      <div className="px-5 pb-3">
         <button
           onClick={onOuvrirNavigateur}
           disabled={chargement}
@@ -389,6 +390,23 @@ export function PanneauLettrage(props: Props) {
           <IcSearch size={13} className="flex-shrink-0" /> Naviguer dans les factures
         </button>
       </div>
+
+      {/* Section Affecter ce paiement — visible si restant > 0 et pas de surpaiement */}
+      {restant > 0.005 && !surPaiement && (
+        <div className="px-5 pb-5 pt-2 border-t border-orange-100 bg-orange-50/30">
+          <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">Affecter ce paiement</p>
+          <button
+            onClick={onAffecterEn471}
+            disabled={chargement}
+            className="w-full text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:border-orange-400 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-lg transition-all"
+          >
+            Placer en compte attente 471
+          </button>
+          <p className="text-[10px] text-orange-400 mt-1.5 text-center">
+            Le solde restant ({restant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €) sera dispatché ultérieurement
+          </p>
+        </div>
+      )}
     </div>
   )
 }
