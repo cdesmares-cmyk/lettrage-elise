@@ -4,6 +4,7 @@ import { IcCursor, IcWarning, IcEdit, IcSearch } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
+import type { CompteClient } from '../../types/client'
 
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
@@ -11,6 +12,7 @@ type Props = ReturnType<typeof useLettrageForm> & {
   onAffecterEn471: () => void
   remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
+  clients: CompteClient[]
 }
 
 function fmt(n: number) {
@@ -27,10 +29,34 @@ export function PanneauLettrage(props: Props) {
     ligneActive, lettragesExistants, lignesForme,
     modeAlerte, chargement,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
-    chercherInfoFacture, valider, peutValider,
+    chercherInfoFacture, valider, peutValider, affecterEn411,
     creditDisponible, montantAttribue, restant,
-    onOuvrirCorrection, onOuvrirNavigateur, onAffecterEn471, remisesEnAttente, onEncaisser,
+    onOuvrirCorrection, onOuvrirNavigateur, onAffecterEn471, remisesEnAttente, onEncaisser, clients,
   } = props
+
+  const [recherche411, setRecherche411] = useState('')
+  const [client411, setClient411] = useState<CompteClient | null>(null)
+  const [dropdown411Ouvert, setDropdown411Ouvert] = useState(false)
+
+  const clientsFiltres411 = recherche411.length >= 2
+    ? clients.filter(c =>
+        c.nom.toLowerCase().includes(recherche411.toLowerCase()) ||
+        c.code_dso.toLowerCase().includes(recherche411.toLowerCase())
+      ).slice(0, 8)
+    : []
+
+  function selectionnerClient411(c: CompteClient) {
+    setClient411(c)
+    setRecherche411(c.nom)
+    setDropdown411Ouvert(false)
+  }
+
+  function handleAffecterEn411() {
+    if (!client411) return
+    affecterEn411(client411.code_dso, client411.nom)
+    setClient411(null)
+    setRecherche411('')
+  }
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [confirmEncaissement, setConfirmEncaissement] = useState<string | null>(null)
@@ -393,18 +419,59 @@ export function PanneauLettrage(props: Props) {
 
       {/* Section Affecter ce paiement — visible si restant > 0 et pas de surpaiement */}
       {restant > 0.005 && !surPaiement && (
-        <div className="px-5 pb-5 pt-2 border-t border-orange-100 bg-orange-50/30">
-          <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">Affecter ce paiement</p>
-          <button
-            onClick={onAffecterEn471}
-            disabled={chargement}
-            className="w-full text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:border-orange-400 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-lg transition-all"
-          >
-            Placer en compte attente 471
-          </button>
-          <p className="text-[10px] text-orange-400 mt-1.5 text-center">
-            Le solde restant ({restant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €) sera dispatché ultérieurement
-          </p>
+        <div className="px-5 pb-5 pt-3 border-t border-gray-100">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Affecter ce paiement</p>
+
+          {/* Compte Client 411 */}
+          <div className="mb-2">
+            <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1.5">Compte Client 411</p>
+            <div className="relative mb-1.5">
+              <input
+                type="text"
+                value={recherche411}
+                onChange={e => { setRecherche411(e.target.value); setClient411(null); setDropdown411Ouvert(true) }}
+                onFocus={() => setDropdown411Ouvert(true)}
+                placeholder="Rechercher un client…"
+                className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-indigo-400 pr-6"
+              />
+              {recherche411 && (
+                <button onClick={() => { setRecherche411(''); setClient411(null) }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs">✕</button>
+              )}
+              {dropdown411Ouvert && clientsFiltres411.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                  {clientsFiltres411.map(c => (
+                    <button
+                      key={c.code_dso}
+                      onMouseDown={() => selectionnerClient411(c)}
+                      className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors"
+                    >
+                      <span className="font-semibold text-gray-800">{c.nom}</span>
+                      <span className="text-gray-400 ml-2">{c.code_dso}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleAffecterEn411}
+              disabled={!client411 || chargement}
+              className="w-full text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
+            >
+              Affecter en Compte Client 411
+            </button>
+          </div>
+
+          {/* Compte Attente 471 */}
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wide mb-1.5">Compte Attente 471</p>
+            <button
+              onClick={onAffecterEn471}
+              disabled={chargement}
+              className="w-full text-sm font-semibold text-orange-700 bg-orange-50 border border-orange-200 hover:border-orange-400 hover:bg-orange-100 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
+            >
+              Placer en compte attente 471
+            </button>
+          </div>
         </div>
       )}
     </div>

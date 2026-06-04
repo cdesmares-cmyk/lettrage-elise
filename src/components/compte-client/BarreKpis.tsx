@@ -10,7 +10,8 @@ export function BarreKpis({ kpis, chargement }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
   const encoursBrut  = kpis.encoursTotalTtc
   const avoirs       = kpis.encoursTotalAvoirs
-  const encoursNet   = Math.max(0, encoursBrut - avoirs)
+  const credits411   = kpis.encours411
+  const encoursNet   = Math.max(0, encoursBrut - avoirs - credits411)
 
   return (
     <div className={`grid gap-3 mb-5 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
@@ -25,7 +26,13 @@ export function BarreKpis({ kpis, chargement }: Props) {
           {fmt(encoursNet)}
         </p>
         <p className="text-[11px] text-gray-400 mt-1.5">
-          {avoirs > 0 ? `dont ${fmt(avoirs)} d'avoirs déduits` : 'encours brut · aucun avoir'}
+          {avoirs > 0 && credits411 > 0
+            ? `avoirs ${fmt(avoirs)} · crédits 411 ${fmt(credits411)}`
+            : avoirs > 0
+            ? `dont ${fmt(avoirs)} d'avoirs déduits`
+            : credits411 > 0
+            ? `dont ${fmt(credits411)} de crédits 411 déduits`
+            : 'encours brut · aucun avoir'}
         </p>
         <div style={{
           position: 'absolute', right: -30, top: -30,

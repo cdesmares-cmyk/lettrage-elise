@@ -23,6 +23,7 @@ export interface LettrageValideData {
 export function useLettrageForm(
   onSuccess: (data: LettrageValideData) => void,
   on471Success?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
+  on411Success?: (numerosLettres: { numeroPiece: string; montant: number }[]) => void,
 ) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
@@ -201,6 +202,75 @@ export function useLettrageForm(
   ) / 100
   const restant = Math.round((creditDisponible - montantAttribue) * 100) / 100
 
+  async function affecterEn411(codeClient: string, nomClient: string | null) {
+    if (!ligneActive) return
+    setChargement(true)
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      // Insérer les lignes valides du formulaire (mix autorisé)
+      const valides = lignesForme.filter(l => {
+        if (l.classe === 'autres') return !!l.numero_facture.trim()
+        const m = parseFloat(l.montant)
+        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
+      })
+      const numerosLettres: { numeroPiece: string; montant: number }[] = []
+      let montantMix = 0
+      if (valides.length > 0) {
+        const inserts = valides.map(l => ({
+          id_ligne_bancaire: ligneActive.id_operation,
+          numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
+          code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+          montant: Math.round(parseFloat(l.montant) * 100) / 100,
+          date_lettrage: today,
+          mode: 'manuel',
+          commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        }))
+        const { error } = await supabase.from('lettrages').insert(inserts as never)
+        if (error) throw error
+        montantMix = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
+        inserts.filter(i => i.code_client !== 'AUTRES').forEach(i => {
+          numerosLettres.push({ numeroPiece: i.numero_facture ?? '', montant: i.montant })
+        })
+      }
+      // Créer la pseudo-facture 411 si elle n'existe pas déjà
+      const numero411 = `411_${codeClient}`
+      await supabase.from('factures').upsert({
+        numero_piece: numero411,
+        code_client: codeClient,
+        nom_client: nomClient,
+        date_emission: today,
+        montant_ht: 0,
+        montant_ttc: 0,
+        reste_du: 0,
+        est_avoir: false,
+      } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
+      // Lettrage temporaire : ligne bancaire → 411_CLIENT pour le restant
+      const montant411 = Math.round((creditDisponible - montantMix) * 100) / 100
+      if (montant411 > 0.005) {
+        const { error } = await supabase.from('lettrages').insert({
+          id_ligne_bancaire: ligneActive.id_operation,
+          numero_facture: numero411,
+          code_client: codeClient,
+          montant: montant411,
+          date_lettrage: today,
+          mode: 'manuel',
+          commentaire: null,
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        } as never)
+        if (error) throw error
+      }
+      on411Success?.(numerosLettres)
+      annuler()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 411.')
+    } finally {
+      setChargement(false)
+    }
+  }
+
   async function affecterEn471() {
     if (!ligneActive) return
     setChargement(true)
@@ -251,7 +321,7 @@ export function useLettrageForm(
     modeAlerte, chargement,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
-    affecterEn471,
+    affecterEn411, affecterEn471,
     creditDisponible, montantAttribue, restant,
   }
 }

@@ -80,4 +80,5 @@ export interface KpisCompteClient {
   encoursTotalTtc: number
   encoursTotalAvoirs: number
   nbFacturesAttente: number
+  encours411: number
 }

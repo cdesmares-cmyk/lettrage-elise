@@ -5,6 +5,8 @@ import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
 import { PanneauDispatch471 } from '../components/lettrage/PanneauDispatch471'
+import { PanneauDispatch411 } from '../components/lettrage/PanneauDispatch411'
+import { TableCompte } from '../components/lettrage/TableCompte'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
@@ -13,6 +15,7 @@ import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueL
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
 import { useDispatch471 } from '../hooks/useDispatch471'
+import { useDispatch411 } from '../hooks/useDispatch411'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useRemises } from '../hooks/useRemises'
 import { useAppData } from '../contexts/AppDataContext'
@@ -23,7 +26,7 @@ export function PageLettrage() {
   const [remisesOuverte, setRemisesOuverte] = useState(false)
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
 
-  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients } = useAppData()
+  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients, facturesActives } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm(
@@ -37,12 +40,25 @@ export function PageLettrage() {
       if (numerosLettres.length > 0) mettreAJourResteDuLocal(numerosLettres)
       liste.rafraichirSilencieux()
     },
+    (numerosLettres) => {
+      if (numerosLettres.length > 0) mettreAJourResteDuLocal(numerosLettres)
+      liste.rafraichirSilencieux()
+      rafraichirDonnees()
+    },
   )
   const dispatch471 = useDispatch471((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
     liste.rafraichirSilencieux()
     if (historique.visible) historique.charger()
   })
+  const dispatch411 = useDispatch411((data) => {
+    mettreAJourResteDuLocal(data.numerosLettres)
+    liste.rafraichirSilencieux()
+    rafraichirDonnees()
+    if (historique.visible) historique.charger()
+  })
+
+  const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
@@ -61,7 +77,6 @@ export function PageLettrage() {
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     if (liste.filtre === 'compte') {
-      // Mode [Compte] : dispatch 471
       if (dispatch471.ligneActive?.id_operation === ligne.id_operation) {
         dispatch471.annuler()
       } else {
@@ -79,6 +94,7 @@ export function PageLettrage() {
   function handleChangerFiltre(filtre: Parameters<typeof liste.setFiltre>[0]) {
     forme.annuler()
     dispatch471.annuler()
+    dispatch411.annuler()
     liste.setFiltre(filtre)
   }
 
@@ -110,31 +126,51 @@ export function PageLettrage() {
 
       {/* Deux panneaux */}
       <div className="grid grid-cols-[1fr_360px] gap-4 items-start">
-        <TableLignesBancaires
-          lignes={liste.lignes}
-          chargement={liste.chargement}
-          ligneActiveId={liste.filtre === 'compte'
-            ? dispatch471.ligneActive?.id_operation ?? null
-            : forme.ligneActive?.id_operation ?? null
-          }
-          recherche={liste.recherche}
-          filtre={liste.filtre}
-          dateDebut={liste.dateDebut}
-          dateFin={liste.dateFin}
-          page={liste.page}
-          totalPages={liste.totalPages}
-          totalLignes={liste.totalLignes}
-          onRecherche={liste.setRecherche}
-          onFiltre={handleChangerFiltre}
-          onDateDebut={liste.setDateDebut}
-          onDateFin={liste.setDateFin}
-          onPage={liste.setPage}
-          onSelectLigne={handleSelectLigne}
-          onHistorique={historique.toggle}
-        />
+        {liste.filtre === 'compte' ? (
+          <TableCompte
+            factures411={factures411}
+            lignes471={liste.lignes.filter(l => l.en_attente_471)}
+            selectedId={dispatch411.factureActive?.numero_piece ?? dispatch471.ligneActive?.id_operation ?? null}
+            onSelect411={(f) => {
+              dispatch471.annuler()
+              if (dispatch411.factureActive?.numero_piece === f.numero_piece) dispatch411.annuler()
+              else dispatch411.selectionnerFacture411(f)
+            }}
+            onSelect471={(l) => {
+              dispatch411.annuler()
+              if (dispatch471.ligneActive?.id_operation === l.id_operation) dispatch471.annuler()
+              else dispatch471.selectionnerLigne(l)
+            }}
+            chargement={liste.chargement}
+          />
+        ) : (
+          <TableLignesBancaires
+            lignes={liste.lignes}
+            chargement={liste.chargement}
+            ligneActiveId={forme.ligneActive?.id_operation ?? null}
+            recherche={liste.recherche}
+            filtre={liste.filtre}
+            dateDebut={liste.dateDebut}
+            dateFin={liste.dateFin}
+            page={liste.page}
+            totalPages={liste.totalPages}
+            totalLignes={liste.totalLignes}
+            onRecherche={liste.setRecherche}
+            onFiltre={handleChangerFiltre}
+            onDateDebut={liste.setDateDebut}
+            onDateFin={liste.setDateFin}
+            onPage={liste.setPage}
+            onSelectLigne={handleSelectLigne}
+            onHistorique={historique.toggle}
+          />
+        )}
 
         {liste.filtre === 'compte' ? (
-          <PanneauDispatch471 {...dispatch471} />
+          dispatch411.factureActive ? (
+            <PanneauDispatch411 {...dispatch411} />
+          ) : (
+            <PanneauDispatch471 {...dispatch471} />
+          )
         ) : (
           <PanneauLettrage
             {...forme}
@@ -143,6 +179,7 @@ export function PageLettrage() {
             onAffecterEn471={forme.affecterEn471}
             remisesEnAttente={remisesEnAttente}
             onEncaisser={handleEncaisser}
+            clients={clients}
           />
         )}
       </div>
