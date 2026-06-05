@@ -43,12 +43,12 @@ function DotStatut({ statut }: { statut: StatutLettrage }) {
 }
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
-  { val: 'a_lettrer',  label: 'À lettrer' },
-  { val: 'non_lettre', label: 'Non lettrées' },
-  { val: 'partiel',    label: 'Partielles' },
-  { val: 'lettre',     label: 'Lettrées' },
-  { val: 'toutes',     label: 'Toutes' },
-  { val: 'compte',     label: 'Compte' },
+  { val: 'a_lettrer',        label: 'À lettrer' },
+  { val: 'partiel',          label: 'Partielles' },
+  { val: 'lettre',           label: 'Lettrées' },
+  { val: 'toutes',           label: 'Toutes' },
+  { val: 'compte',           label: 'Compte' },
+  { val: 'autres_virements', label: 'Autres Virements' },
 ]
 
 export function TableLignesBancaires({
@@ -134,7 +134,7 @@ export function TableLignesBancaires({
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Lettré</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
             <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />Attente 471</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />411 Attente</span>
           </div>
         </div>
       </div>

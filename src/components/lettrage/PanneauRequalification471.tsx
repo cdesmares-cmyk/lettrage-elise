@@ -1,17 +1,17 @@
-// Panneau droit — dispatch d'une ligne en attente 471 vers des factures réelles
+// Panneau droit — requalification d'un virement 471 vers des factures réelles
 import { useRef } from 'react'
 import { IcCursor } from '../Icones'
-import type { useDispatch471 } from '../../hooks/useDispatch471'
+import type { useRequalification471 } from '../../hooks/useRequalification471'
 
-type Props = ReturnType<typeof useDispatch471>
+type Props = ReturnType<typeof useRequalification471>
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-export function PanneauDispatch471(props: Props) {
+export function PanneauRequalification471(props: Props) {
   const {
-    ligneActive, lettragesExistants, lignesForme,
+    ligneActive, lettrages471, lignesForme,
     chargement,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
@@ -29,10 +29,10 @@ export function PanneauDispatch471(props: Props) {
 
   if (!ligneActive) {
     return (
-      <div className="bg-white border border-orange-100 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
-        <div className="mb-3 opacity-20 text-orange-400"><IcCursor size={40} /></div>
-        <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne en attente</p>
-        <p className="text-gray-400 text-xs">Cliquez sur une ligne 471 pour la dispatcher</p>
+      <div className="bg-white border border-violet-100 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
+        <div className="mb-3 opacity-20 text-violet-400"><IcCursor size={40} /></div>
+        <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez un virement 471</p>
+        <p className="text-gray-400 text-xs">Cliquez sur une ligne pour la requalifier</p>
       </div>
     )
   }
@@ -40,11 +40,11 @@ export function PanneauDispatch471(props: Props) {
   const pct = creditDisponible > 0 ? Math.min(100, Math.round((montantAttribue / creditDisponible) * 100)) : 0
 
   return (
-    <div className="bg-white border border-orange-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
+    <div className="bg-white border border-violet-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
       {/* En-tête */}
-      <div className="px-5 py-4 border-b border-orange-100" style={{ background: 'linear-gradient(135deg, #FFF7ED 0%, #fff 60%)' }}>
-        <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">411 Attente</p>
-        <p className="text-2xl font-extrabold tabular-nums text-orange-600 leading-none">{fmt(creditDisponible)}</p>
+      <div className="px-5 py-4 border-b border-violet-100" style={{ background: 'linear-gradient(135deg, #F5F3FF 0%, #fff 60%)' }}>
+        <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest mb-2">Virement 471 — Requalification</p>
+        <p className="text-2xl font-extrabold tabular-nums text-violet-600 leading-none">{fmt(creditDisponible)}</p>
         <p className="text-sm font-semibold text-gray-800 truncate mt-2">{ligneActive.libelle}</p>
         <p className="text-xs text-gray-400 mt-0.5">
           Virement du {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}
@@ -52,29 +52,25 @@ export function PanneauDispatch471(props: Props) {
         </p>
       </div>
 
-      {/* Lettrages déjà existants sur cette ligne (cas mix) */}
-      {lettragesExistants.length > 0 && (
+      {/* Lettrages 471 existants */}
+      {lettrages471.length > 0 && (
         <div className="px-5 pt-4 pb-1">
-          <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-2">Lettrages précédents</p>
+          <p className="text-[10px] font-semibold text-violet-500 uppercase tracking-wide mb-2">Lettrage 471 à corriger</p>
           <div className="space-y-1 mb-2">
-            {lettragesExistants.map(l => (
-              <div key={l.id} className="flex items-center justify-between text-xs bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
-                <div>
-                  {l.numero_facture
-                    ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
-                    : <span className="text-amber-600 font-semibold">Autres</span>
-                  }
-                  {l.commentaire && <span className="text-gray-400 ml-2 italic">{l.commentaire}</span>}
-                </div>
-                <span className="font-semibold text-amber-700">{fmt(l.montant)}</span>
+            {lettrages471.map(l => (
+              <div key={l.id} className="flex items-center justify-between text-xs bg-violet-50 border border-violet-100 rounded-lg px-3 py-1.5">
+                <span className="text-violet-700 font-semibold">
+                  471{l.commentaire ? ` · ${l.commentaire}` : ''}
+                </span>
+                <span className="font-semibold text-violet-700">{fmt(l.montant)}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Lignes de dispatch */}
-      <div className="px-5 pt-2 pb-2">
+      {/* Lignes de requalification */}
+      <div className="px-5 pt-3 pb-2">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Affecter à des factures</p>
         <div className="space-y-3 mb-3">
           {lignesForme.map(ligne => (
@@ -83,11 +79,8 @@ export function PanneauDispatch471(props: Props) {
                 <div className="relative">
                   <select
                     value={ligne.classe}
-                    onChange={e => {
-                      clearTimeout(debounceRefs.current[ligne._key])
-                      modifierLigne(ligne._key, { classe: e.target.value as 'facture' | 'autres', numero_facture: '', montant: '', info_facture: null, chargement: false })
-                    }}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-orange-400 appearance-none cursor-pointer"
+                    onChange={e => modifierLigne(ligne._key, { classe: e.target.value as 'facture' | 'autres', numero_facture: '', montant: '', info_facture: null, chargement: false })}
+                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-violet-400 appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
                     <option value="autres">Autres</option>
@@ -103,10 +96,10 @@ export function PanneauDispatch471(props: Props) {
                       else handleNumeroChange(ligne._key, e.target.value)
                     }}
                     placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-orange-400 pr-6"
+                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-violet-400 pr-6"
                   />
                   {ligne.chargement && ligne.classe !== 'autres' && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-orange-400 animate-pulse">⟳</span>
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-violet-400 animate-pulse">⟳</span>
                   )}
                 </div>
                 <input
@@ -119,7 +112,7 @@ export function PanneauDispatch471(props: Props) {
                   className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
                     ligne.classe === 'autres'
                       ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                      : 'border-gray-200 focus:border-orange-400'
+                      : 'border-gray-200 focus:border-violet-400'
                   }`}
                 />
                 <button
@@ -143,7 +136,7 @@ export function PanneauDispatch471(props: Props) {
         </div>
         <button
           onClick={ajouterLigne}
-          className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-orange-400/40 hover:text-orange-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
+          className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-violet-400/40 hover:text-violet-500 text-gray-400 text-xs font-medium py-2 rounded-lg transition-all"
         >
           <span className="mx-auto">+ Ajouter une ligne</span>
         </button>
@@ -152,7 +145,7 @@ export function PanneauDispatch471(props: Props) {
       {/* Totaux */}
       <div className="mx-5 mb-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm">
         <div className="flex justify-between items-center py-1">
-          <span className="text-xs text-gray-400">Montant à dispatcher</span>
+          <span className="text-xs text-gray-400">Montant 471</span>
           <span className="font-semibold tabular-nums text-gray-700">{fmt(creditDisponible)}</span>
         </div>
         <div className="flex justify-between items-center py-1">
@@ -162,13 +155,13 @@ export function PanneauDispatch471(props: Props) {
         <div className="flex justify-between items-center py-1 border-t border-gray-200 mt-1 pt-2">
           <span className="text-xs text-gray-500 font-medium">Restant</span>
           <div className="flex items-center gap-2">
-            <span className={`font-bold tabular-nums ${surPaiement ? 'text-red-600' : restant < 0.01 ? 'text-emerald-600' : 'text-orange-500'}`}>
+            <span className={`font-bold tabular-nums ${surPaiement ? 'text-red-600' : restant < 0.01 ? 'text-emerald-600' : 'text-violet-500'}`}>
               {fmt(Math.abs(restant))}
             </span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
               surPaiement ? 'bg-red-100 text-red-600' :
               restant < 0.01 ? 'bg-emerald-100 text-emerald-600' :
-              'bg-orange-100 text-orange-600'
+              'bg-violet-100 text-violet-600'
             }`}>
               {surPaiement ? '⚠ Dépassement' : restant < 0.01 ? '✓ 100 %' : `${pct} %`}
             </span>
@@ -188,9 +181,9 @@ export function PanneauDispatch471(props: Props) {
         <button
           onClick={valider}
           disabled={!peutValider() || chargement}
-          className="flex-[2] flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+          className="flex-[2] flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Dispatcher ce paiement'}
+          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Requalifier ce virement'}
         </button>
       </div>
     </div>

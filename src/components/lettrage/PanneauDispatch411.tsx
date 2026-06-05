@@ -12,7 +12,6 @@ function fmt(n: number) {
 export function PanneauDispatch411(props: Props) {
   const {
     factureActive, lignesForme,
-    dateLettrage, setDateLettrage,
     chargement, warningMultiClient,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
@@ -60,19 +59,6 @@ export function PanneauDispatch411(props: Props) {
           <span>Dispatch multi-client — assurez-vous que les montants sont corrects.</span>
         </div>
       )}
-
-      {/* Date de lettrage */}
-      <div className="px-5 pt-4 pb-2">
-        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">
-          Date de lettrage
-        </label>
-        <input
-          type="date"
-          value={dateLettrage}
-          onChange={e => setDateLettrage(e.target.value)}
-          className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-indigo-400 bg-white"
-        />
-      </div>
 
       {/* Lignes de dispatch */}
       <div className="px-5 pt-2 pb-2">

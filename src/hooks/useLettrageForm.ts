@@ -113,7 +113,8 @@ export function useLettrageForm(
         return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
       }
       if (l.classe === 'compte_client') return !!l.client_411 && restantCalc > 0.005
-      if (l.classe === 'compte_attente') return restantCalc > 0.005
+      if (l.classe === 'attente_411') return restantCalc > 0.005
+      if (l.classe === '471') return true
       return !!l.numero_facture.trim()
     })
   }
@@ -121,12 +122,12 @@ export function useLettrageForm(
   async function valider() {
     if (!ligneActive || !peutValider()) return
     const ligneCompteClient = lignesForme.find(l => l.classe === 'compte_client')
-    const ligneCompteAttente = lignesForme.find(l => l.classe === 'compte_attente')
+    const ligneAttente411 = lignesForme.find(l => l.classe === 'attente_411')
     if (ligneCompteClient?.client_411) {
       await affecterEn411(ligneCompteClient.client_411.code_dso, ligneCompteClient.client_411.nom)
       return
     }
-    if (ligneCompteAttente) {
+    if (ligneAttente411) {
       await affecterEn471()
       return
     }
@@ -160,7 +161,7 @@ export function useLettrageForm(
       // Pour les lignes "Autres" sans montant : utiliser le restant après les factures
       const montantFactures = Math.round(
         lignesForme
-          .filter(l => l.classe === 'facture')
+          .filter(l => l.classe !== 'autres' && l.classe !== '471')
           .reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
       ) / 100
       const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
@@ -172,14 +173,14 @@ export function useLettrageForm(
       }
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
-        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
-        code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
-        montant: l.classe === 'autres' && !l.montant
+        numero_facture: (l.classe === 'autres' || l.classe === '471') ? null : l.numero_facture.trim(),
+        code_client: l.classe === 'autres' ? 'AUTRES' : l.classe === '471' ? '471' : (l.info_facture?.code_client ?? ''),
+        montant: (l.classe === 'autres' || l.classe === '471') && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
         mode: modeDepuisClasse(l.classe),
-        commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
+        commentaire: (l.classe === 'autres' || l.classe === '471') ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
@@ -187,13 +188,13 @@ export function useLettrageForm(
       if (error) throw error
       onSuccess({
         numerosLettres: inserts
-          .filter(i => i.code_client !== 'AUTRES')
+          .filter(i => i.code_client !== 'AUTRES' && i.code_client !== '471')
           .map(i => ({ numeroPiece: i.numero_facture ?? '', montant: i.montant })),
         idLigneBancaire: ligneActive.id_operation,
         montantTotal: Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100,
       })
       // Alimente le dictionnaire auto-apprenant si toutes les factures sont d'un même client
-      const codesUniques = [...new Set(inserts.filter(i => i.code_client !== 'AUTRES').map(i => i.code_client))]
+      const codesUniques = [...new Set(inserts.filter(i => i.code_client !== 'AUTRES' && i.code_client !== '471').map(i => i.code_client))]
       if (codesUniques.length === 1 && ligneActive.libelle) {
         // @ts-expect-error fn_upsert_libelle_sepa absente du schéma généré
         supabase.rpc('fn_upsert_libelle_sepa', { p_libelle: ligneActive.libelle, p_code_client: codesUniques[0] }).then()
@@ -220,7 +221,7 @@ export function useLettrageForm(
       const today = new Date().toISOString().split('T')[0]
       // Insérer les lignes valides du formulaire (mix autorisé, lignes compte exclues)
       const valides = lignesForme.filter(l => {
-        if (l.classe === 'compte_client' || l.classe === 'compte_attente') return false
+        if (l.classe === 'compte_client' || l.classe === 'attente_411') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
@@ -289,7 +290,7 @@ export function useLettrageForm(
     try {
       // Insérer les lignes valides du formulaire (mix autorisé, lignes compte exclues)
       const valides = lignesForme.filter(l => {
-        if (l.classe === 'compte_client' || l.classe === 'compte_attente') return false
+        if (l.classe === 'compte_client' || l.classe === 'attente_411') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0

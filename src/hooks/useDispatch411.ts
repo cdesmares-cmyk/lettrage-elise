@@ -23,19 +23,16 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
   const { utilisateur } = useAuth()
   const [factureActive, setFactureActive] = useState<FactureDetail | null>(null)
   const [lignesForme, setLignesForme] = useState<LigneForme[]>([nouvelleLigne()])
-  const [dateLettrage, setDateLettrage] = useState('')
   const [chargement, setChargement] = useState(false)
 
   function selectionnerFacture411(facture: FactureDetail) {
     setFactureActive(facture)
-    setDateLettrage(facture.date_emission ?? new Date().toISOString().split('T')[0])
     setLignesForme([nouvelleLigne()])
   }
 
   function annuler() {
     setFactureActive(null)
     setLignesForme([nouvelleLigne()])
-    setDateLettrage('')
   }
 
   function ajouterLigne() { setLignesForme(prev => [...prev, nouvelleLigne()]) }
@@ -67,7 +64,7 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
   }
 
   function peutValider(): boolean {
-    if (!factureActive || !lignesForme.length || !dateLettrage) return false
+    if (!factureActive || !lignesForme.length) return false
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
     if (attribue > creditDisponible + 0.005) return false
     return lignesForme.every(l => {
@@ -99,7 +96,6 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
       // @ts-expect-error dispatch_411 absente du schéma généré
       const { error } = await supabase.rpc('dispatch_411', {
         p_numero_411: factureActive.numero_piece,
-        p_date_lettrage: dateLettrage,
         p_operateur: utilisateur?.email?.split('@')[0] ?? 'inconnu',
         p_lettrages: payload,
       })
@@ -125,13 +121,11 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
   const montantAttribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
   const restant = Math.round((creditDisponible - montantAttribue) * 100) / 100
 
-  // Clients multiples dans les lignes = warning non bloquant
   const clientsDispatches = [...new Set(lignesForme.map(l => l.info_facture?.code_client).filter(Boolean))]
   const warningMultiClient = clientsDispatches.length > 1
 
   return {
     factureActive, lignesForme,
-    dateLettrage, setDateLettrage,
     chargement, debounceRefs,
     selectionnerFacture411, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, valider, peutValider,

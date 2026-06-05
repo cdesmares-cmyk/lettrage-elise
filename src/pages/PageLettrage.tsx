@@ -6,6 +6,7 @@ import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaire
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
 import { PanneauDispatch471 } from '../components/lettrage/PanneauDispatch471'
 import { PanneauDispatch411 } from '../components/lettrage/PanneauDispatch411'
+import { PanneauRequalification471 } from '../components/lettrage/PanneauRequalification471'
 import { TableCompte } from '../components/lettrage/TableCompte'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
@@ -16,6 +17,7 @@ import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useLettrageForm } from '../hooks/useLettrageForm'
 import { useDispatch471 } from '../hooks/useDispatch471'
 import { useDispatch411 } from '../hooks/useDispatch411'
+import { useRequalification471 } from '../hooks/useRequalification471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useRemises } from '../hooks/useRemises'
 import { useAppData } from '../contexts/AppDataContext'
@@ -57,6 +59,12 @@ export function PageLettrage() {
     rafraichirDonnees()
     if (historique.visible) historique.charger()
   })
+  const requalification471 = useRequalification471((data) => {
+    mettreAJourResteDuLocal(data.numerosLettres)
+    liste.rafraichirSilencieux()
+    rafraichirDonnees()
+    if (historique.visible) historique.charger()
+  })
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
   // Remises : chargement initial pour le badge dans BarreResume
@@ -82,6 +90,12 @@ export function PageLettrage() {
       } else {
         dispatch471.selectionnerLigne(ligne)
       }
+    } else if (liste.filtre === 'autres_virements') {
+      if (requalification471.ligneActive?.id_operation === ligne.id_operation) {
+        requalification471.annuler()
+      } else {
+        requalification471.selectionnerLigne(ligne)
+      }
     } else {
       if (forme.ligneActive?.id_operation === ligne.id_operation) {
         forme.annuler()
@@ -95,6 +109,7 @@ export function PageLettrage() {
     forme.annuler()
     dispatch471.annuler()
     dispatch411.annuler()
+    requalification471.annuler()
     liste.setFiltre(filtre)
   }
 
@@ -147,7 +162,7 @@ export function PageLettrage() {
           <TableLignesBancaires
             lignes={liste.lignes}
             chargement={liste.chargement}
-            ligneActiveId={forme.ligneActive?.id_operation ?? null}
+            ligneActiveId={liste.filtre === 'autres_virements' ? requalification471.ligneActive?.id_operation ?? null : forme.ligneActive?.id_operation ?? null}
             recherche={liste.recherche}
             filtre={liste.filtre}
             dateDebut={liste.dateDebut}
@@ -171,6 +186,8 @@ export function PageLettrage() {
           ) : (
             <PanneauDispatch471 {...dispatch471} />
           )
+        ) : liste.filtre === 'autres_virements' ? (
+          <PanneauRequalification471 {...requalification471} />
         ) : (
           <PanneauLettrage
             {...forme}

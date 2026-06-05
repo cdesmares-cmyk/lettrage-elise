@@ -54,10 +54,10 @@ export function PanneauLettrage(props: Props) {
   const pct = creditDisponible > 0 ? Math.min(100, Math.round((montantAttribue / creditDisponible) * 100)) : 0
   const surPaiement = restant < -0.005
   const hasCompteClient = lignesForme.some(l => l.classe === 'compte_client')
-  const hasCompteAttente = lignesForme.some(l => l.classe === 'compte_attente')
-  const hasCompteLigne = hasCompteClient || hasCompteAttente
+  const hasAttente411 = lignesForme.some(l => l.classe === 'attente_411')
+  const hasCompteLigne = hasCompteClient || hasAttente411
   const labelBouton = hasCompteClient ? 'Affecter au Compte Client'
-    : hasCompteAttente ? 'Affecter au Compte Attente'
+    : hasAttente411 ? 'Affecter au 411 Attente'
     : '✓ Valider le lettrage'
 
   // ── État vide ──
@@ -279,8 +279,9 @@ export function PanneauLettrage(props: Props) {
                     <option value="cheque">CHQ</option>
                     <option value="lcr">LCR</option>
                     <option value="autres">Autres</option>
-                    <option value="compte_client">Cpte Client</option>
-                    <option value="compte_attente">Cpte Attente</option>
+                    <option value="compte_client">411 Client</option>
+                    <option value="attente_411">411 Attente</option>
+                    <option value="471">471 Virement</option>
                   </select>
                   <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
@@ -327,10 +328,18 @@ export function PanneauLettrage(props: Props) {
                         </div>
                       )}
                     </>
-                  ) : ligne.classe === 'compte_attente' ? (
+                  ) : ligne.classe === 'attente_411' ? (
                     <div className="w-full border border-gray-100 rounded-md px-2.5 py-1.5 text-xs text-gray-400 bg-gray-50 cursor-not-allowed">
-                      Compte Attente 471
+                      411 Attente (global)
                     </div>
+                  ) : ligne.classe === '471' ? (
+                    <input
+                      type="text"
+                      value={ligne.numero_facture}
+                      onChange={e => modifierLigne(ligne._key, { numero_facture: e.target.value })}
+                      placeholder="Commentaire (optionnel)…"
+                      className="w-full border border-violet-200 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-violet-400 bg-violet-50/40 text-gray-700"
+                    />
                   ) : (
                     <>
                       <input
@@ -353,20 +362,20 @@ export function PanneauLettrage(props: Props) {
                   )}
                 </div>
 
-                {/* Montant — auto pour "Autres", "Compte Client", "Compte Attente" */}
+                {/* Montant — auto pour "Autres", "411 Client", "411 Attente", "471" */}
                 <input
                   type="number"
-                  value={ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'
+                  value={ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'
                     ? restant > 0.005 ? String(Math.round(restant * 100) / 100) : ''
                     : ligne.montant
                   }
                   onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
                   placeholder="— auto"
                   step="0.01"
-                  disabled={ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'}
+                  disabled={ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'}
                   className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
-                    ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'compte_attente'
-                      ? `border-gray-100 bg-gray-50 cursor-not-allowed ${ligne.classe === 'compte_client' ? 'text-indigo-400' : ligne.classe === 'compte_attente' ? 'text-orange-400' : 'text-gray-300'}`
+                    ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'
+                      ? `border-gray-100 bg-gray-50 cursor-not-allowed ${ligne.classe === 'compte_client' ? 'text-indigo-400' : ligne.classe === 'attente_411' ? 'text-orange-400' : ligne.classe === '471' ? 'text-violet-400' : 'text-gray-300'}`
                       : 'border-gray-200 focus:border-ockham-teal'
                   }`}
                 />
