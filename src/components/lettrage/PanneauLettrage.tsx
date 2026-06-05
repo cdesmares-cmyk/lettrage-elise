@@ -260,12 +260,12 @@ export function PanneauLettrage(props: Props) {
           )
         })()}
 
-        <div className="space-y-3 mb-3">
+        <div className="space-y-4 mb-3">
           {lignesForme.map(ligne => (
             <div key={ligne._key}>
-              <div className="grid grid-cols-[80px_1fr_76px_24px] gap-2 items-center">
-                {/* Classe */}
-                <div className="relative">
+              {/* Ligne 1 : sélecteur de classe + supprimer */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="relative flex-1">
                   <select
                     value={ligne.classe}
                     onChange={e => {
@@ -273,21 +273,28 @@ export function PanneauLettrage(props: Props) {
                       modifierLigne(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', montant: '', info_facture: null, chargement: false, client_411: undefined })
                       setOpenDropdown411Key(null)
                     }}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
+                    className="w-full border border-gray-200 rounded-md pl-3 pr-6 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
                     <option value="cheque">CHQ</option>
                     <option value="lcr">LCR</option>
-                    <option value="autres">Autres</option>
                     <option value="compte_client">411 Client</option>
                     <option value="attente_411">411 Attente</option>
-                    <option value="471">471 Virement</option>
+                    <option value="471">471 Attente</option>
                   </select>
-                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
+                <button
+                  onClick={() => supprimerLigne(ligne._key)}
+                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
+                >
+                  ×
+                </button>
+              </div>
 
-                {/* Champ central : autocomplete client (compte_client), label (compte_attente), ou N° facture */}
-                <div className="relative">
+              {/* Ligne 2 : champ central + montant */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   {ligne.classe === 'compte_client' ? (
                     <>
                       <input
@@ -345,14 +352,8 @@ export function PanneauLettrage(props: Props) {
                       <input
                         type="text"
                         value={ligne.numero_facture}
-                        onChange={e => {
-                          if (ligne.classe === 'autres') {
-                            modifierLigne(ligne._key, { numero_facture: e.target.value })
-                          } else {
-                            handleNumeroChange(ligne._key, e.target.value)
-                          }
-                        }}
-                        placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
+                        onChange={e => handleNumeroChange(ligne._key, e.target.value)}
+                        placeholder="N° facture"
                         className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
                       />
                       {ligne.chargement && (
@@ -362,7 +363,7 @@ export function PanneauLettrage(props: Props) {
                   )}
                 </div>
 
-                {/* Montant — auto pour "Autres", "411 Client", "411 Attente", "471" */}
+                {/* Montant — auto pour 411 Client, 411 Attente, 471 */}
                 <input
                   type="number"
                   value={ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'
@@ -372,31 +373,23 @@ export function PanneauLettrage(props: Props) {
                   onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
                   placeholder="— auto"
                   step="0.01"
-                  disabled={ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'}
-                  className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
-                    ligne.classe === 'autres' || ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'
-                      ? `border-gray-100 bg-gray-50 cursor-not-allowed ${ligne.classe === 'compte_client' ? 'text-indigo-400' : ligne.classe === 'attente_411' ? 'text-orange-400' : ligne.classe === '471' ? 'text-violet-400' : 'text-gray-300'}`
+                  disabled={ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'}
+                  className={`w-20 flex-shrink-0 border rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
+                    ligne.classe === 'compte_client' || ligne.classe === 'attente_411' || ligne.classe === '471'
+                      ? `border-gray-100 bg-gray-50 cursor-not-allowed ${ligne.classe === 'compte_client' ? 'text-indigo-400' : ligne.classe === 'attente_411' ? 'text-orange-400' : 'text-violet-400'}`
                       : 'border-gray-200 focus:border-ockham-teal'
                   }`}
                 />
-
-                {/* Supprimer */}
-                <button
-                  onClick={() => supprimerLigne(ligne._key)}
-                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors"
-                >
-                  ×
-                </button>
               </div>
 
-              {/* Info sous la ligne : facture validée ou client 411 sélectionné */}
+              {/* Info sous la ligne */}
               {ligne.classe === 'compte_client' && ligne.client_411 && (
-                <div className="mt-1 ml-[88px] text-[10px] text-indigo-600 font-medium">
+                <div className="mt-1 text-[10px] text-indigo-600 font-medium">
                   ✓ {ligne.client_411.nom ?? ligne.client_411.code_dso} · Compte Client 411
                 </div>
               )}
               {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && ligne.info_facture && (
-                <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
+                <div className="mt-1 text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
                   {' · '}reste dû : {fmt(ligne.info_facture.reste_du)}
                   {ligne.info_facture.reste_du === 0 && (
@@ -405,7 +398,7 @@ export function PanneauLettrage(props: Props) {
                 </div>
               )}
               {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                <div className="mt-1 ml-[88px] text-[10px] text-red-400">
+                <div className="mt-1 text-[10px] text-red-400">
                   Facture introuvable
                 </div>
               )}

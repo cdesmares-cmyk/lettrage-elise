@@ -157,6 +157,8 @@ export function PageLettrage() {
               else dispatch471.selectionnerLigne(l)
             }}
             chargement={liste.chargement}
+            filtre={liste.filtre}
+            onFiltre={handleChangerFiltre}
           />
         ) : (
           <TableLignesBancaires
