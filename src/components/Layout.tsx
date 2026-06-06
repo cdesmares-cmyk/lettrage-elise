@@ -1,10 +1,41 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useTheme } from '../contexts/ThemeContext'
 import { useRole } from '../contexts/RoleContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useCorrectionContext } from '../contexts/CorrectionContext'
 import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
 import { IcSun, IcMoon } from './Icones'
+
+function ChipCorrection() {
+  const { minimise, lignesCorrection, restaurer, fermer } = useCorrectionContext()
+  const navigate = useNavigate()
+
+  if (!minimise) return null
+
+  const nbSaisies = lignesCorrection.filter(l => l.numero_facture.trim() || l.montant.trim()).length
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-amber-500 hover:bg-amber-600 text-white pl-4 pr-2 py-2.5 rounded-xl shadow-xl cursor-pointer transition-colors select-none"
+      onClick={() => { restaurer(); navigate('/lettrage') }}
+    >
+      <div>
+        <p className="text-xs font-bold leading-none">✏ Correction en cours</p>
+        {nbSaisies > 0 && (
+          <p className="text-[10px] opacity-80 mt-0.5">
+            {nbSaisies} ligne{nbSaisies > 1 ? 's' : ''} saisie{nbSaisies > 1 ? 's' : ''}
+          </p>
+        )}
+      </div>
+      <button
+        onClick={e => { e.stopPropagation(); fermer() }}
+        className="w-6 h-6 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center text-xs transition-colors flex-shrink-0"
+        title="Abandonner la correction"
+      >×</button>
+    </div>
+  )
+}
 
 const ONGLETS_TOUS = [
   { chemin: '/tableau-de-bord',  label: 'Tableau de bord', commercial: true },
@@ -109,6 +140,8 @@ export function Layout() {
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6 dark:bg-slate-950 min-h-screen">
         <Outlet />
       </main>
+
+      <ChipCorrection />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
+import { FournisseurCorrection } from './contexts/CorrectionContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
@@ -128,6 +129,7 @@ export default function App() {
     <FournisseurAuth>
       <RoleProvider>
       <FournisseurDonnees>
+      <FournisseurCorrection>
       <BrowserRouter>
         <DetecteurMobile>
           <AppRoutes />
@@ -140,6 +142,7 @@ export default function App() {
           }}
         />
       </BrowserRouter>
+      </FournisseurCorrection>
       </FournisseurDonnees>
       </RoleProvider>
     </FournisseurAuth>

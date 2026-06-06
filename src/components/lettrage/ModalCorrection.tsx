@@ -1,41 +1,26 @@
 // Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
 // + onglet Remboursement : insère un lettrage négatif sur une facture
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IcWarning, IcEdit, IcRefund } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { useCorrectionContext, nouvelleLigneCorr } from '../../contexts/CorrectionContext'
+import type { LigneCorr } from '../../contexts/CorrectionContext'
 import toast from 'react-hot-toast'
 import type { ClasseLettrage, InfoFacture } from '../../types/lettrage'
 
-interface Props {
-  ouvert: boolean
-  onFermer: () => void
-  onSuccess: () => void
-}
-
-interface LigneCorr {
-  _key: string
-  classe: ClasseLettrage
-  numero_facture: string
-  montant: string
-  info_facture: InfoFacture | null
-  chargement: boolean
-}
-
 interface RowFacture { reste_du: number; montant_ttc: number; code_client: string; nom_client: string | null; statut_paiement: string }
-
-let _ck = 100
-function cle() { return String(++_ck) }
-const nouvelleLigne = (): LigneCorr => ({ _key: cle(), classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false })
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
 // ── Onglet Correction ──────────────────────────────────────────────────────────
-function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuccess: () => void }) {
+function OngletCorrection({ onFermer }: { onFermer: () => void }) {
   const { utilisateur } = useAuth()
-  const [lignes, setLignes] = useState<LigneCorr[]>([nouvelleLigne(), nouvelleLigne()])
+  const { lignesCorrection: lignes, setLignesCorrection: setLignes, minimiser, declencherOnSuccess } = useCorrectionContext()
+  const navigate = useNavigate()
   const [chargement, setChargement] = useState(false)
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
@@ -43,7 +28,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
     setLignes(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
   }
 
-  function ajouter() { setLignes(prev => [...prev, nouvelleLigne()]) }
+  function ajouter() { setLignes(prev => [...prev, nouvelleLigneCorr()]) }
 
   function supprimer(key: string) {
     setLignes(prev => prev.length > 1 ? prev.filter(l => l._key !== key) : prev)
@@ -62,10 +47,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
   }
 
   function handleNumeroChange(key: string, value: string, classe: ClasseLettrage) {
-    if (classe === 'autres') {
-      modifier(key, { numero_facture: value })
-      return
-    }
+    if (classe === 'autres') { modifier(key, { numero_facture: value }); return }
     modifier(key, { numero_facture: value, info_facture: null })
     clearTimeout(debounceRefs.current[key])
     debounceRefs.current[key] = setTimeout(() => chercherFacture(key, value), 400)
@@ -87,7 +69,6 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
     try {
       const today = new Date().toISOString().split('T')[0]
 
-      // Fetch source bank lines for each negative facture (délettrage)
       type SourceInfo = { id_ligne_bancaire: string; montant: number; proportion: number }
       const sourceMap = new Map<string, SourceInfo[]>()
 
@@ -111,7 +92,6 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
         })))
       }
 
-      // Unique sources across all negative lines (for distributing positive lines)
       const seenIds = new Set<string>()
       const allSources: SourceInfo[] = []
       for (const sources of sourceMap.values()) {
@@ -150,7 +130,6 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
         }
       }
 
-      // Split a montant across sources, last one absorbs rounding diff
       function splitAcross(m: number, sources: SourceInfo[], l: LigneCorr): InsertRow[] {
         if (sources.length === 0) return [makeRow(l, m, null)]
         if (sources.length === 1) return [makeRow(l, m, sources[0].id_ligne_bancaire + '-C')]
@@ -178,7 +157,7 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
       toast.success('Correction enregistrée.')
-      onSuccess()
+      declencherOnSuccess()
       onFermer()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la correction.')
@@ -189,12 +168,23 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
 
   return (
     <div className="px-6 py-5">
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-xs text-amber-800">
+      {/* Bannière info */}
+      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-xs text-amber-800">
         <span className="flex-shrink-0 mt-0.5 text-amber-500"><IcWarning size={15} /></span>
         <span>
           Ajoutez une ligne <strong>négative</strong> (délettrage) puis une ligne <strong>positive</strong> (relettering).
           Le solde total doit être nul pour pouvoir valider.
         </span>
+      </div>
+
+      {/* Bouton identifier */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => { minimiser(); navigate('/compte-client') }}
+          className="text-xs text-amber-600 hover:text-amber-700 border border-amber-200 hover:border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
+        >
+          Identifier vos factures →
+        </button>
       </div>
 
       <div className="space-y-3 mb-3">
@@ -204,8 +194,9 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
           const isPos = m > 0
           return (
             <div key={ligne._key}>
-              <div className="grid grid-cols-[80px_1fr_80px_60px_24px] gap-2 items-center">
-                <div className="relative">
+              {/* Ligne 1 : type + supprimer */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="relative flex-1">
                   <select
                     value={ligne.classe}
                     onChange={e => {
@@ -219,7 +210,14 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                   </select>
                   <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
-                <div className="relative">
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center w-8 flex-shrink-0 ${isNeg ? 'bg-red-100 text-red-600' : isPos ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
+                  {isNeg ? '−' : isPos ? '+' : '±'}
+                </span>
+                <button onClick={() => supprimer(ligne._key)} className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0">×</button>
+              </div>
+              {/* Ligne 2 : champ + montant */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   <input
                     type="text"
                     value={ligne.numero_facture}
@@ -235,20 +233,16 @@ function OngletCorrection({ onFermer, onSuccess }: { onFermer: () => void; onSuc
                   onChange={e => modifier(ligne._key, { montant: e.target.value })}
                   placeholder="0,00"
                   step="0.01"
-                  className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal"
+                  className="w-20 flex-shrink-0 border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal"
                 />
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center ${isNeg ? 'bg-red-100 text-red-600' : isPos ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                  {isNeg ? '−' : isPos ? '+' : '±'}
-                </span>
-                <button onClick={() => supprimer(ligne._key)} className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors">×</button>
               </div>
               {ligne.classe === 'facture' && ligne.info_facture && (
-                <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
+                <div className="mt-1 text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
                 </div>
               )}
               {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                <div className="mt-1 ml-[88px] text-[10px] text-red-400">Facture introuvable</div>
+                <div className="mt-1 text-[10px] text-red-400">Facture introuvable</div>
               )}
             </div>
           )
@@ -359,7 +353,6 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
         </span>
       </div>
 
-      {/* N° facture */}
       <div className="mb-4">
         <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">N° de facture</label>
         <div className="relative">
@@ -386,7 +379,6 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
         )}
       </div>
 
-      {/* Montant */}
       <div className="mb-5">
         <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">Montant remboursé (€)</label>
         <input
@@ -423,25 +415,21 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
 }
 
 // ── Modal principale ───────────────────────────────────────────────────────────
-export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
-  const [onglet, setOnglet] = useState<'correction' | 'remboursement'>('correction')
+export function ModalCorrection() {
+  const { ouvert, minimise, onglet, setOnglet, fermer, declencherOnSuccess } = useCorrectionContext()
 
-  useEffect(() => {
-    if (!ouvert) setOnglet('correction')
-  }, [ouvert])
-
-  if (!ouvert) return null
+  if (!ouvert || minimise) return null
 
   return (
     <div
       className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) onFermer() }}
+      onClick={e => { if (e.target === e.currentTarget) fermer() }}
     >
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
         {/* En-tête */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100">
           <h3 className="text-base font-bold text-gray-900">Opération manuelle</h3>
-          <button onClick={onFermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
+          <button onClick={fermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
 
         {/* Onglets */}
@@ -461,8 +449,8 @@ export function ModalCorrection({ ouvert, onFermer, onSuccess }: Props) {
         </div>
 
         {onglet === 'correction'
-          ? <OngletCorrection onFermer={onFermer} onSuccess={onSuccess} />
-          : <OngletRemboursement onFermer={onFermer} onSuccess={onSuccess} />
+          ? <OngletCorrection onFermer={fermer} />
+          : <OngletRemboursement onFermer={fermer} onSuccess={declencherOnSuccess} />
         }
       </div>
     </div>

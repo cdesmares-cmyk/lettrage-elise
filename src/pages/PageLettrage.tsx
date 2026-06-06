@@ -1,5 +1,5 @@
 // Onglet 2 — Lettrage : affectation des crédits bancaires aux factures (Sprint 2)
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { IcDownload, IcClock } from '../components/Icones'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
@@ -21,9 +21,11 @@ import { useRequalification471 } from '../hooks/useRequalification471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useRemises } from '../hooks/useRemises'
 import { useAppData } from '../contexts/AppDataContext'
+import { useCorrectionContext } from '../contexts/CorrectionContext'
 
 export function PageLettrage() {
-  const [correctionOuverte, setCorrectionOuverte] = useState(false)
+  const corr = useCorrectionContext()
+  const corrOnSuccessRegistered = useRef(false)
   const [extractionOuverte, setExtractionOuverte] = useState(false)
   const [remisesOuverte, setRemisesOuverte] = useState(false)
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
@@ -73,6 +75,16 @@ export function PageLettrage() {
   useEffect(() => { remisesHook.charger() }, [])
 
   const remisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente')
+
+  // Enregistrer le callback de succès correction dès que la page est montée
+  useEffect(() => {
+    corr.enregistrerOnSuccess(() => {
+      liste.rafraichir()
+      if (historique.visible) historique.charger()
+    })
+    corrOnSuccessRegistered.current = true
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historique.visible])
 
   async function handleEncaisser(remiseId: string) {
     if (!forme.ligneActive) return
@@ -135,7 +147,7 @@ export function PageLettrage() {
         montantRestant={liste.montantRestant}
         nbRemisesEnAttente={nbRemisesEnAttente}
         nbLignesGlobal={liste.nbLignesGlobal}
-        onCorrection={() => setCorrectionOuverte(true)}
+        onCorrection={() => corr.ouvrir()}
         onOuvrirRemises={() => setRemisesOuverte(true)}
       />
 
@@ -240,12 +252,8 @@ export function PageLettrage() {
         </div>
       )}
 
-      {/* Modal correction */}
-      <ModalCorrection
-        ouvert={correctionOuverte}
-        onFermer={() => setCorrectionOuverte(false)}
-        onSuccess={() => { liste.rafraichir(); if (historique.visible) historique.charger() }}
-      />
+      {/* Modal correction — état géré par CorrectionContext */}
+      <ModalCorrection />
 
       {/* Modal extraction */}
       <ModalExtractionLettrage
