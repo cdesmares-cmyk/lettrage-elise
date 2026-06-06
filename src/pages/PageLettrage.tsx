@@ -205,7 +205,7 @@ export function PageLettrage() {
         ) : (
           <PanneauLettrage
             {...forme}
-            onOuvrirCorrection={() => setCorrectionOuverte(true)}
+            onOuvrirCorrection={() => corr.ouvrir()}
             onOuvrirNavigateur={() => setNavigateurOuvert(true)}
             remisesEnAttente={remisesEnAttente}
             onEncaisser={handleEncaisser}
