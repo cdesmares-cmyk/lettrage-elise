@@ -5,10 +5,10 @@ import { useNavigate } from 'react-router-dom'
 import { IcWarning, IcEdit, IcRefund } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import { useCorrectionContext, nouvelleLigneCorr } from '../../contexts/CorrectionContext'
+import { useCorrectionContext } from '../../contexts/CorrectionContext'
 import type { LigneCorr } from '../../contexts/CorrectionContext'
 import toast from 'react-hot-toast'
-import type { ClasseLettrage, InfoFacture } from '../../types/lettrage'
+import type { InfoFacture } from '../../types/lettrage'
 
 interface RowFacture { reste_du: number; montant_ttc: number; code_client: string; nom_client: string | null; statut_paiement: string }
 
@@ -16,22 +16,85 @@ function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
+function nouvelleLigneSimple(): LigneCorr {
+  return { _key: String(Date.now() + Math.random()), classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false }
+}
+
+// ── Ligne de saisie facture ────────────────────────────────────────────────────
+function LigneSaisie({
+  ligne, onModifier, onSupprimer, onNumeroChange,
+}: {
+  ligne: LigneCorr
+  onModifier: (key: string, champ: Partial<LigneCorr>) => void
+  onSupprimer: (key: string) => void
+  onNumeroChange: (key: string, value: string) => void
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={ligne.numero_facture}
+            onChange={e => onNumeroChange(ligne._key, e.target.value)}
+            placeholder="N° facture"
+            className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5"
+          />
+          {ligne.chargement && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
+          )}
+        </div>
+        <input
+          type="number"
+          value={ligne.montant}
+          onChange={e => onModifier(ligne._key, { montant: e.target.value })}
+          placeholder="0,00"
+          step="0.01"
+          min="0"
+          className="w-24 flex-shrink-0 border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal"
+        />
+        <button
+          onClick={() => onSupprimer(ligne._key)}
+          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
+        >×</button>
+      </div>
+      {ligne.info_facture && (
+        <p className="mt-1 text-[10px] text-emerald-600 font-medium">
+          ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
+          {' · '}TTC : {fmt(ligne.info_facture.montant_ttc)}
+        </p>
+      )}
+      {!ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
+        <p className="mt-1 text-[10px] text-red-400">Facture introuvable</p>
+      )}
+    </div>
+  )
+}
+
 // ── Onglet Correction ──────────────────────────────────────────────────────────
 function OngletCorrection({ onFermer }: { onFermer: () => void }) {
   const { utilisateur } = useAuth()
-  const { lignesCorrection: lignes, setLignesCorrection: setLignes, minimiser, declencherOnSuccess } = useCorrectionContext()
+  const { lignesCorrection, setLignesCorrection, minimiser, declencherOnSuccess } = useCorrectionContext()
   const navigate = useNavigate()
   const [chargement, setChargement] = useState(false)
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  function modifier(key: string, champ: Partial<LigneCorr>) {
-    setLignes(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
+  const lignesNeg = lignesCorrection.filter(l => l._key.startsWith('neg-'))
+  const lignesPos = lignesCorrection.filter(l => l._key.startsWith('pos-'))
+
+  function ajouterNeg() {
+    setLignesCorrection(prev => [...prev, { ...nouvelleLigneSimple(), _key: `neg-${Date.now()}` }])
   }
-
-  function ajouter() { setLignes(prev => [...prev, nouvelleLigneCorr()]) }
-
-  function supprimer(key: string) {
-    setLignes(prev => prev.length > 1 ? prev.filter(l => l._key !== key) : prev)
+  function ajouterPos() {
+    setLignesCorrection(prev => [...prev, { ...nouvelleLigneSimple(), _key: `pos-${Date.now()}` }])
+  }
+  function supprimer(key: string, groupe: 'neg' | 'pos') {
+    const liste = groupe === 'neg' ? lignesNeg : lignesPos
+    if (liste.length <= 1) return
+    setLignesCorrection(prev => prev.filter(l => l._key !== key))
+  }
+  function modifier(key: string, champ: Partial<LigneCorr>) {
+    setLignesCorrection(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
   }
 
   async function chercherFacture(key: string, numero: string) {
@@ -43,25 +106,28 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       .eq('numero_piece', numero)
       .maybeSingle()
     const row = data as unknown as RowFacture | null
-    modifier(key, { chargement: false, info_facture: row as InfoFacture | null })
+    modifier(key, {
+      chargement: false,
+      info_facture: row as InfoFacture | null,
+      montant: row ? String(Math.abs(row.montant_ttc)) : '',
+    })
   }
 
-  function handleNumeroChange(key: string, value: string, classe: ClasseLettrage) {
-    if (classe === 'autres') { modifier(key, { numero_facture: value }); return }
-    modifier(key, { numero_facture: value, info_facture: null })
+  function handleNumeroChange(key: string, value: string) {
+    modifier(key, { numero_facture: value, info_facture: null, montant: '' })
     clearTimeout(debounceRefs.current[key])
     debounceRefs.current[key] = setTimeout(() => chercherFacture(key, value), 400)
   }
 
-  const solde = Math.round(lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-  const soldeNul = Math.abs(solde) < 0.01
+  const totalNeg = Math.round(lignesNeg.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
+  const totalPos = Math.round(lignesPos.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
+  const equilibre = Math.abs(totalNeg - totalPos) < 0.01
 
-  const peutValider = soldeNul && lignes.every(l => {
+  const lignesValides = (ls: LigneCorr[]) => ls.every(l => {
     const m = parseFloat(l.montant)
-    if (!l.montant || isNaN(m) || m === 0) return false
-    if (l.classe === 'facture') return !!l.info_facture
-    return !!l.numero_facture.trim()
+    return !!l.numero_facture.trim() && !!l.info_facture && !isNaN(m) && m > 0
   })
+  const peutValider = equilibre && totalNeg > 0 && lignesValides(lignesNeg) && lignesValides(lignesPos)
 
   async function valider() {
     if (!peutValider) return
@@ -72,7 +138,7 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       type SourceInfo = { id_ligne_bancaire: string; montant: number; proportion: number }
       const sourceMap = new Map<string, SourceInfo[]>()
 
-      for (const neg of lignes.filter(l => l.classe === 'facture' && (parseFloat(l.montant) || 0) < 0 && l.info_facture)) {
+      for (const neg of lignesNeg) {
         const numero = neg.numero_facture.trim()
         const { data } = await supabase
           .from('lettrages')
@@ -117,14 +183,12 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       function makeRow(l: LigneCorr, montant: number, idLigne: string | null): InsertRow {
         return {
           id_ligne_bancaire: idLigne,
-          numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
-          code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+          numero_facture: l.numero_facture.trim(),
+          code_client: l.info_facture?.code_client ?? '',
           montant: Math.round(montant * 100) / 100,
           date_lettrage: today,
           mode: 'manuel',
-          commentaire: l.classe === 'autres'
-            ? (l.numero_facture.trim() || null)
-            : `Correction — ${montant < 0 ? 'délettrage' : 'relettering'}`,
+          commentaire: `Correction — ${montant < 0 ? 'délettrage' : 'relettering'}`,
           cree_par: utilisateur?.id ?? null,
           operateur: utilisateur?.email?.split('@')[0] ?? null,
         }
@@ -143,15 +207,13 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       }
 
       const inserts: InsertRow[] = []
-      for (const ligne of lignes) {
-        const m = Math.round((parseFloat(ligne.montant) || 0) * 100) / 100
-        if (ligne.classe === 'autres') {
-          inserts.push(makeRow(ligne, m, null))
-        } else if (m < 0 && ligne.info_facture) {
-          inserts.push(...splitAcross(m, sourceMap.get(ligne.numero_facture.trim()) ?? [], ligne))
-        } else {
-          inserts.push(...splitAcross(m, globalSources, ligne))
-        }
+      for (const l of lignesNeg) {
+        const m = Math.round((parseFloat(l.montant) || 0) * 100) / 100
+        inserts.push(...splitAcross(-m, sourceMap.get(l.numero_facture.trim()) ?? [], l))
+      }
+      for (const l of lignesPos) {
+        const m = Math.round((parseFloat(l.montant) || 0) * 100) / 100
+        inserts.push(...splitAcross(m, globalSources, l))
       }
 
       const { error } = await supabase.from('lettrages').insert(inserts as never)
@@ -167,18 +229,9 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
   }
 
   return (
-    <div className="px-6 py-5">
-      {/* Bannière info */}
-      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-xs text-amber-800">
-        <span className="flex-shrink-0 mt-0.5 text-amber-500"><IcWarning size={15} /></span>
-        <span>
-          Ajoutez une ligne <strong>négative</strong> (délettrage) puis une ligne <strong>positive</strong> (relettering).
-          Le solde total doit être nul pour pouvoir valider.
-        </span>
-      </div>
-
+    <div className="px-6 py-5 space-y-4">
       {/* Bouton identifier */}
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end">
         <button
           onClick={() => { minimiser(); navigate('/compte-client') }}
           className="text-xs text-amber-600 hover:text-amber-700 border border-amber-200 hover:border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
@@ -187,84 +240,68 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
         </button>
       </div>
 
-      <div className="space-y-3 mb-3">
-        {lignes.map(ligne => {
-          const m = parseFloat(ligne.montant) || 0
-          const isNeg = m < 0
-          const isPos = m > 0
-          return (
-            <div key={ligne._key}>
-              {/* Ligne 1 : type + supprimer */}
-              <div className="flex items-center gap-2 mb-1.5">
-                <div className="relative flex-1">
-                  <select
-                    value={ligne.classe}
-                    onChange={e => {
-                      clearTimeout(debounceRefs.current[ligne._key])
-                      modifier(ligne._key, { classe: e.target.value as ClasseLettrage, numero_facture: '', info_facture: null, chargement: false })
-                    }}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-ockham-teal appearance-none cursor-pointer"
-                  >
-                    <option value="facture">Facture</option>
-                    <option value="autres">Autres</option>
-                  </select>
-                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
-                </div>
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded text-center w-8 flex-shrink-0 ${isNeg ? 'bg-red-100 text-red-600' : isPos ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                  {isNeg ? '−' : isPos ? '+' : '±'}
-                </span>
-                <button onClick={() => supprimer(ligne._key)} className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0">×</button>
-              </div>
-              {/* Ligne 2 : champ + montant */}
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={ligne.numero_facture}
-                    onChange={e => handleNumeroChange(ligne._key, e.target.value, ligne.classe)}
-                    placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5"
-                  />
-                  {ligne.chargement && ligne.classe !== 'autres' && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
-                </div>
-                <input
-                  type="number"
-                  value={ligne.montant}
-                  onChange={e => modifier(ligne._key, { montant: e.target.value })}
-                  placeholder="0,00"
-                  step="0.01"
-                  className="w-20 flex-shrink-0 border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal"
-                />
-              </div>
-              {ligne.classe === 'facture' && ligne.info_facture && (
-                <div className="mt-1 text-[10px] text-emerald-600 font-medium">
-                  ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
-                </div>
-              )}
-              {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                <div className="mt-1 text-[10px] text-red-400">Facture introuvable</div>
-              )}
-            </div>
-          )
-        })}
+      {/* Section Affectation à corriger */}
+      <div className="border border-red-100 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 bg-red-50 border-b border-red-100">
+          <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Affectation à corriger</p>
+          <p className="text-[10px] text-red-400 mt-0.5">Factures actuellement lettrées à désaffecter</p>
+        </div>
+        <div className="px-4 py-3 space-y-3">
+          {lignesNeg.map(l => (
+            <LigneSaisie
+              key={l._key}
+              ligne={l}
+              onModifier={modifier}
+              onSupprimer={key => supprimer(key, 'neg')}
+              onNumeroChange={handleNumeroChange}
+            />
+          ))}
+          <button
+            onClick={ajouterNeg}
+            className="flex items-center gap-1.5 w-full border border-dashed border-red-200 hover:border-red-400/50 hover:text-red-500 text-red-300 text-xs font-medium py-1.5 rounded-lg transition-all"
+          >
+            <span className="mx-auto">+ Ajouter une ligne</span>
+          </button>
+        </div>
       </div>
 
-      <button onClick={ajouter} className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
-        <span className="mx-auto">+ Ajouter une ligne</span>
-      </button>
-
-      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border mb-4 ${soldeNul ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-        <div>
-          <p className="text-xs text-gray-500">Solde de l'opération</p>
-          <p className={`text-[11px] font-medium mt-0.5 ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
-            {soldeNul ? '✓ Équilibré — prêt à valider' : 'Le solde doit être nul pour valider'}
-          </p>
+      {/* Section Nouvelle affectation */}
+      <div className="border border-emerald-100 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100">
+          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Nouvelle affectation</p>
+          <p className="text-[10px] text-emerald-500 mt-0.5">Factures à lettrer en remplacement</p>
         </div>
-        <span className={`text-lg font-bold tabular-nums ${soldeNul ? 'text-emerald-600' : 'text-amber-600'}`}>
-          {solde >= 0 ? '+' : ''}{fmt(solde)}
+        <div className="px-4 py-3 space-y-3">
+          {lignesPos.map(l => (
+            <LigneSaisie
+              key={l._key}
+              ligne={l}
+              onModifier={modifier}
+              onSupprimer={key => supprimer(key, 'pos')}
+              onNumeroChange={handleNumeroChange}
+            />
+          ))}
+          <button
+            onClick={ajouterPos}
+            className="flex items-center gap-1.5 w-full border border-dashed border-emerald-200 hover:border-emerald-400/50 hover:text-emerald-600 text-emerald-300 text-xs font-medium py-1.5 rounded-lg transition-all"
+          >
+            <span className="mx-auto">+ Ajouter une ligne</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Solde */}
+      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${equilibre && totalNeg > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="flex gap-6 text-xs">
+          <span className="text-gray-500">À corriger : <strong className="text-red-500 tabular-nums">{fmt(totalNeg)}</strong></span>
+          <span className="text-gray-500">À affecter : <strong className="text-emerald-600 tabular-nums">{fmt(totalPos)}</strong></span>
+        </div>
+        <span className={`text-[11px] font-semibold ${equilibre && totalNeg > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+          {equilibre && totalNeg > 0 ? '✓ Équilibré' : 'Non équilibré'}
         </span>
       </div>
 
+      {/* Actions */}
       <div className="flex gap-3">
         <button onClick={onFermer} disabled={chargement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 py-2.5 rounded-lg transition-colors disabled:opacity-40">
           Annuler
@@ -425,15 +462,15 @@ export function ModalCorrection() {
       className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) fermer() }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         {/* En-tête */}
-        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100">
+        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-base font-bold text-gray-900">Opération manuelle</h3>
           <button onClick={fermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
         </div>
 
         {/* Onglets */}
-        <div className="flex border-b border-gray-100">
+        <div className="flex border-b border-gray-100 sticky top-[73px] bg-white z-10">
           <button
             onClick={() => setOnglet('correction')}
             className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'correction' ? 'text-ockham-teal border-b-2 border-ockham-teal bg-ockham-teal-muted/30' : 'text-gray-400 hover:text-gray-600'}`}
