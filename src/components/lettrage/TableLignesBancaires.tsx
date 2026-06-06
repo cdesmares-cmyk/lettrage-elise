@@ -1,6 +1,6 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
-import { IcSearch, IcClock } from '../Icones'
+import { IcSearch, IcClock, IcX } from '../Icones'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
 import { PAGE_SIZE } from '../../hooks/useLignesBancaires'
 
@@ -22,6 +22,8 @@ interface Props {
   onPage: (p: number) => void
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
   onHistorique: () => void
+  onAnnulerLettrage: (l: LigneBancaireAvecStatut) => void
+  lignesExportees: Set<string>
 }
 
 function fmt(n: number | null) {
@@ -55,6 +57,7 @@ export function TableLignesBancaires({
   recherche, filtre, dateDebut, dateFin,
   page, totalPages, totalLignes,
   onRecherche, onFiltre, onDateDebut, onDateFin, onPage, onSelectLigne, onHistorique,
+  onAnnulerLettrage, lignesExportees,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -158,6 +161,7 @@ export function TableLignesBancaires({
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Débit</th>
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Crédit</th>
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Restant</th>
+                <th className="w-8 px-2 py-2" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -179,6 +183,7 @@ export function TableLignesBancaires({
                       'hover:bg-gray-50 cursor-pointer'
                     }`}
                   >
+
                     <td className="px-3 py-2.5 text-center">
                       <DotStatut statut={ligne.statut_lettrage} />
                     </td>
@@ -220,6 +225,26 @@ export function TableLignesBancaires({
                         <span className={ligne.statut_lettrage === 'partiel' ? 'text-amber-600' : 'text-blue-600'}>
                           {fmt(ligne.restant)}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel') && (
+                        lignesExportees.has(ligne.id_operation) ? (
+                          <span
+                            title="Export comptable effectué — correction via le module Correction"
+                            className="inline-flex items-center justify-center w-6 h-6 cursor-not-allowed"
+                          >
+                            <IcX size={13} className="text-gray-300" />
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => onAnnulerLettrage(ligne)}
+                            title="Annuler ce lettrage"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
+                          >
+                            <IcX size={13} />
+                          </button>
+                        )
                       )}
                     </td>
                   </tr>

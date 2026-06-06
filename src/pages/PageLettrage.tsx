@@ -1,6 +1,9 @@
 // Onglet 2 — Lettrage : affectation des crédits bancaires aux factures (Sprint 2)
 import { useState, useEffect, useRef } from 'react'
+import toast from 'react-hot-toast'
+import { supabase } from '../lib/supabase'
 import { IcDownload, IcClock } from '../components/Icones'
+import type { LigneBancaireAvecStatut } from '../types/lettrage'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
@@ -29,6 +32,8 @@ export function PageLettrage() {
   const [extractionOuverte, setExtractionOuverte] = useState(false)
   const [remisesOuverte, setRemisesOuverte] = useState(false)
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
+  const [confirmAnnulation, setConfirmAnnulation] = useState<LigneBancaireAvecStatut | null>(null)
+  const [annulationEnCours, setAnnulationEnCours] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients, facturesActives } = useAppData()
   const liste = useLignesBancaires()
@@ -117,6 +122,34 @@ export function PageLettrage() {
     }
   }
 
+  async function confirmerAnnulation() {
+    if (!confirmAnnulation) return
+    setAnnulationEnCours(true)
+    try {
+      const { error } = await supabase
+        .from('lettrages')
+        .update({ annule: true } as never)
+        .eq('id_ligne_bancaire', confirmAnnulation.id_operation)
+      if (error) throw error
+      if (confirmAnnulation.en_attente_471) {
+        await supabase
+          .from('lignes_bancaires')
+          .update({ en_attente_471: false } as never)
+          .eq('id_operation', confirmAnnulation.id_operation)
+      }
+      if (forme.ligneActive?.id_operation === confirmAnnulation.id_operation) forme.annuler()
+      if (dispatch471.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch471.annuler()
+      if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
+      liste.rafraichirSilencieux()
+      toast.success('Lettrage annulé')
+      setConfirmAnnulation(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation du lettrage')
+    } finally {
+      setAnnulationEnCours(false)
+    }
+  }
+
   function handleChangerFiltre(filtre: Parameters<typeof liste.setFiltre>[0]) {
     forme.annuler()
     dispatch471.annuler()
@@ -191,6 +224,8 @@ export function PageLettrage() {
             onPage={liste.setPage}
             onSelectLigne={handleSelectLigne}
             onHistorique={historique.toggle}
+            onAnnulerLettrage={setConfirmAnnulation}
+            lignesExportees={new Set<string>()}
           />
         )}
 
@@ -279,6 +314,34 @@ export function PageLettrage() {
           remisesHook.charger()
         }}
       />
+
+      {/* Confirmation annulation lettrage */}
+      {confirmAnnulation && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <p className="text-sm font-semibold text-gray-800">Annuler ce lettrage ?</p>
+            <p className="text-xs text-gray-500">
+              Toutes les affectations de la ligne <span className="font-medium text-gray-700">«&nbsp;{confirmAnnulation.libelle}&nbsp;»</span> seront supprimées. La ligne retournera dans «&nbsp;À lettrer&nbsp;».
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setConfirmAnnulation(null)}
+                disabled={annulationEnCours}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmerAnnulation}
+                disabled={annulationEnCours}
+                className="px-4 py-2 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {annulationEnCours ? 'En cours…' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
