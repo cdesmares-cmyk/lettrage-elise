@@ -2,7 +2,7 @@
 // + onglet Remboursement : insère un lettrage négatif sur une facture
 import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IcWarning, IcEdit, IcRefund } from '../Icones'
+import { IcEdit, IcRefund } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCorrectionContext } from '../../contexts/CorrectionContext'

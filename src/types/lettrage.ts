@@ -31,6 +31,7 @@ export interface LettrageExistant {
 // Info récupérée depuis v_factures_avec_reste_du lors du remplissage auto
 export interface InfoFacture {
   reste_du: number
+  montant_ttc: number
   code_client: string
   nom_client: string | null
   statut_paiement: string
