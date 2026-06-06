@@ -131,7 +131,7 @@ export function useLignesBancaires() {
           : newMontantLettre > 0.005 ? 'partiel' : 'non_lettre'
         return { ...l, montant_lettre: newMontantLettre, restant: newRestant, statut_lettrage: newStatut }
       })
-      if (filtre !== 'toutes' && filtre !== 'lettre') {
+      if (filtre !== 'lettre') {
         return updated.filter(l => l.statut_lettrage !== 'lettre')
       }
       return updated
