@@ -228,7 +228,7 @@ export function TableLignesBancaires({
                       )}
                     </td>
                     <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel') && (
+                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && (
                         lignesExportees.has(ligne.id_operation) ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"

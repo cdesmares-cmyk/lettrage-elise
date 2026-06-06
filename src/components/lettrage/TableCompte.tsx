@@ -2,6 +2,7 @@
 import type { FactureDetail } from '../../types/client'
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
+import { IcX } from '../Icones'
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'a_lettrer',        label: 'À lettrer' },
@@ -17,6 +18,8 @@ interface Props {
   selectedId: string | null
   onSelect411: (f: FactureDetail) => void
   onSelect471: (l: LigneBancaireAvecStatut) => void
+  onAnnuler411: (f: FactureDetail) => void
+  onAnnuler471: (l: LigneBancaireAvecStatut) => void
   chargement: boolean
   filtre: FiltreStatut
   onFiltre: (v: FiltreStatut) => void
@@ -30,7 +33,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 }
 
-export function TableCompte({ factures411, lignes471, selectedId, onSelect411, onSelect471, chargement, filtre, onFiltre }: Props) {
+export function TableCompte({ factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471, chargement, filtre, onFiltre }: Props) {
   const rien = factures411.length === 0 && lignes471.length === 0
 
   return (
@@ -90,9 +93,18 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
                           <p className="text-[11px] font-mono text-indigo-400">{f.numero_piece}</p>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(montant)}</p>
-                        <p className="text-[10px] text-gray-400">à dispatcher</p>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                        <div className="text-right">
+                          <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(montant)}</p>
+                          <p className="text-[10px] text-gray-400">à dispatcher</p>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); onAnnuler411(f) }}
+                          title="Annuler ce lettrage 411"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                        >
+                          <IcX size={13} />
+                        </button>
                       </div>
                     </div>
                   )
@@ -130,9 +142,18 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
                           </p>
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-3">
-                        <p className="text-sm font-bold tabular-nums text-orange-600">{fmt(l.restant)}</p>
-                        <p className="text-[10px] text-gray-400">à dispatcher</p>
+                      <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                        <div className="text-right">
+                          <p className="text-sm font-bold tabular-nums text-orange-600">{fmt(l.restant)}</p>
+                          <p className="text-[10px] text-gray-400">à dispatcher</p>
+                        </div>
+                        <button
+                          onClick={e => { e.stopPropagation(); onAnnuler471(l) }}
+                          title="Annuler ce lettrage en attente"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                        >
+                          <IcX size={13} />
+                        </button>
                       </div>
                     </div>
                   )

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { IcDownload, IcClock } from '../components/Icones'
 import type { LigneBancaireAvecStatut } from '../types/lettrage'
+import type { FactureDetail } from '../types/client'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
@@ -33,6 +34,7 @@ export function PageLettrage() {
   const [remisesOuverte, setRemisesOuverte] = useState(false)
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
   const [confirmAnnulation, setConfirmAnnulation] = useState<LigneBancaireAvecStatut | null>(null)
+  const [confirmAnnulation411, setConfirmAnnulation411] = useState<FactureDetail | null>(null)
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients, facturesActives } = useAppData()
@@ -126,25 +128,92 @@ export function PageLettrage() {
     if (!confirmAnnulation) return
     setAnnulationEnCours(true)
     try {
+      // Récupérer les références 411 avant annulation
+      const { data: lettragesRaw } = await supabase
+        .from('lettrages')
+        .select('numero_facture')
+        .eq('id_ligne_bancaire', confirmAnnulation.id_operation)
+        .eq('annule', false)
+      const nums411 = [...new Set(
+        (lettragesRaw as { numero_facture: string | null }[] ?? [])
+          .map(l => l.numero_facture)
+          .filter((n): n is string => !!n && n.startsWith('411_'))
+      )]
+
       const { error } = await supabase
         .from('lettrages')
         .update({ annule: true } as never)
         .eq('id_ligne_bancaire', confirmAnnulation.id_operation)
       if (error) throw error
+
       if (confirmAnnulation.en_attente_471) {
         await supabase
           .from('lignes_bancaires')
           .update({ en_attente_471: false } as never)
           .eq('id_operation', confirmAnnulation.id_operation)
       }
+
+      // Supprimer les pseudo-factures 411 sans lettrage actif restant
+      for (const num411 of nums411) {
+        const { count } = await supabase
+          .from('lettrages')
+          .select('id', { count: 'exact', head: true })
+          .eq('numero_facture', num411)
+          .eq('annule', false)
+        if (count === 0) {
+          await supabase.from('factures').delete().eq('numero_piece', num411)
+        }
+      }
+
       if (forme.ligneActive?.id_operation === confirmAnnulation.id_operation) forme.annuler()
       if (dispatch471.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch471.annuler()
       if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
       liste.rafraichirSilencieux()
+      if (nums411.length > 0) rafraichirDonnees()
       toast.success('Lettrage annulé')
       setConfirmAnnulation(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation du lettrage')
+    } finally {
+      setAnnulationEnCours(false)
+    }
+  }
+
+  async function confirmerAnnulation411() {
+    if (!confirmAnnulation411) return
+    setAnnulationEnCours(true)
+    try {
+      const numeroPiece = confirmAnnulation411.numero_piece
+
+      // Trouver toutes les lignes bancaires liées à ce compte 411
+      const { data: rows } = await supabase
+        .from('lettrages')
+        .select('id_ligne_bancaire')
+        .eq('numero_facture', numeroPiece)
+        .eq('annule', false)
+      const idLignes = [...new Set((rows as { id_ligne_bancaire: string }[] ?? []).map(r => r.id_ligne_bancaire))]
+
+      // Annuler tous les lettrages de ces lignes bancaires
+      if (idLignes.length > 0) {
+        const { error } = await supabase
+          .from('lettrages')
+          .update({ annule: true } as never)
+          .in('id_ligne_bancaire', idLignes)
+        if (error) throw error
+      }
+
+      // Supprimer la pseudo-facture 411
+      await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
+
+      if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
+      if (idLignes.includes(dispatch471.ligneActive?.id_operation ?? '')) dispatch471.annuler()
+
+      liste.rafraichirSilencieux()
+      rafraichirDonnees()
+      toast.success('Compte 411 annulé')
+      setConfirmAnnulation411(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation')
     } finally {
       setAnnulationEnCours(false)
     }
@@ -201,6 +270,8 @@ export function PageLettrage() {
               if (dispatch471.ligneActive?.id_operation === l.id_operation) dispatch471.annuler()
               else dispatch471.selectionnerLigne(l)
             }}
+            onAnnuler411={setConfirmAnnulation411}
+            onAnnuler471={setConfirmAnnulation}
             chargement={liste.chargement}
             filtre={liste.filtre}
             onFiltre={handleChangerFiltre}
@@ -314,6 +385,34 @@ export function PageLettrage() {
           remisesHook.charger()
         }}
       />
+
+      {/* Confirmation annulation compte 411 */}
+      {confirmAnnulation411 && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <p className="text-sm font-semibold text-gray-800">Annuler ce compte 411 ?</p>
+            <p className="text-xs text-gray-500">
+              Le compte <span className="font-medium text-gray-700">«&nbsp;{confirmAnnulation411.nom_client ?? confirmAnnulation411.numero_piece}&nbsp;»</span> sera supprimé et la ligne bancaire associée retournera dans «&nbsp;À lettrer&nbsp;».
+            </p>
+            <div className="flex gap-2 justify-end pt-1">
+              <button
+                onClick={() => setConfirmAnnulation411(null)}
+                disabled={annulationEnCours}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={confirmerAnnulation411}
+                disabled={annulationEnCours}
+                className="px-4 py-2 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {annulationEnCours ? 'En cours…' : 'Confirmer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation annulation lettrage */}
       {confirmAnnulation && (
