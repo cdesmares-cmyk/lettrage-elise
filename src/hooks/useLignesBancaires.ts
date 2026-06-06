@@ -14,7 +14,7 @@ interface RowLigne {
 
 interface RowTotaux { statut_lettrage: string; restant: number }
 
-export type FiltreStatut = 'a_lettrer' | 'partiel' | 'lettre' | 'toutes' | 'compte' | 'autres_virements'
+export type FiltreStatut = 'a_lettrer' | 'partiel' | 'lettre' | 'compte' | 'autres_virements'
 
 export const PAGE_SIZE = 50
 
@@ -65,7 +65,7 @@ export function useLignesBancaires() {
       if (filtre === 'a_lettrer') q = q.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
       else if (filtre === 'compte') q = q.eq('statut_lettrage', 'en_attente_471')
       else if (filtre === 'autres_virements') q = q.eq('est_virement_471', true)
-      else if (filtre !== 'toutes') q = q.eq('statut_lettrage', filtre)
+      else q = q.eq('statut_lettrage', filtre)
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
       if (term)      q = q.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
@@ -78,7 +78,7 @@ export function useLignesBancaires() {
       if (filtre === 'a_lettrer') qCount = qCount.or('statut_lettrage.eq.non_lettre,statut_lettrage.eq.partiel')
       else if (filtre === 'compte') qCount = qCount.eq('statut_lettrage', 'en_attente_471')
       else if (filtre === 'autres_virements') qCount = qCount.eq('est_virement_471', true)
-      else if (filtre !== 'toutes') qCount = qCount.eq('statut_lettrage', filtre)
+      else qCount = qCount.eq('statut_lettrage', filtre)
       if (dateDebut) qCount = qCount.gte('date_operation', dateDebut)
       if (dateFin)   qCount = qCount.lte('date_operation', dateFin)
       if (term)      qCount = qCount.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)

@@ -7,7 +7,6 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'a_lettrer',        label: 'À lettrer' },
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
-  { val: 'toutes',           label: 'Toutes' },
   { val: 'compte',           label: 'Compte' },
   { val: 'autres_virements', label: 'Autres Virements' },
 ]
@@ -67,7 +66,7 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
             <div>
               <div className="px-4 py-2 bg-indigo-50/60 border-b border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
-                  Comptes 411 — {factures411.length} entrée{factures411.length > 1 ? 's' : ''}
+                  Compte 411 — {factures411.length} ligne{factures411.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
@@ -107,7 +106,7 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
             <div>
               <div className="px-4 py-2 bg-orange-50/60 border-b border-orange-100">
                 <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">
-                  411 Attente — {lignes471.length} ligne{lignes471.length > 1 ? 's' : ''}
+                  Compte 411 Attente — {lignes471.length} ligne{lignes471.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">

@@ -63,22 +63,32 @@ export function PanneauDispatch411(props: Props) {
       {/* Lignes de dispatch */}
       <div className="px-5 pt-2 pb-2">
         <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-3">Affecter à des factures</p>
-        <div className="space-y-3 mb-3">
+        <div className="space-y-4 mb-3">
           {lignesForme.map(ligne => (
             <div key={ligne._key}>
-              <div className="grid grid-cols-[80px_1fr_76px_24px] gap-2 items-center">
-                <div className="relative">
+              {/* Ligne 1 : sélecteur + supprimer */}
+              <div className="flex items-center gap-2 mb-1.5">
+                <div className="relative flex-1">
                   <select
                     value={ligne.classe}
                     onChange={e => modifierLigne(ligne._key, { classe: e.target.value as 'facture' | 'autres', numero_facture: '', montant: '', info_facture: null, chargement: false })}
-                    className="w-full border border-gray-200 rounded-md pl-2 pr-5 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-indigo-400 appearance-none cursor-pointer"
+                    className="w-full border border-gray-200 rounded-md pl-3 pr-6 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-indigo-400 appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
                     <option value="autres">Autres</option>
                   </select>
-                  <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
-                <div className="relative">
+                <button
+                  onClick={() => supprimerLigne(ligne._key)}
+                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
+                >
+                  ×
+                </button>
+              </div>
+              {/* Ligne 2 : champ + montant */}
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
                   <input
                     type="text"
                     value={ligne.numero_facture}
@@ -100,27 +110,21 @@ export function PanneauDispatch411(props: Props) {
                   placeholder={ligne.classe === 'autres' ? '— auto' : '0,00'}
                   step="0.01"
                   disabled={ligne.classe === 'autres'}
-                  className={`border rounded-md px-2.5 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
+                  className={`w-20 flex-shrink-0 border rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
                     ligne.classe === 'autres'
                       ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
                       : 'border-gray-200 focus:border-indigo-400'
                   }`}
                 />
-                <button
-                  onClick={() => supprimerLigne(ligne._key)}
-                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors"
-                >
-                  ×
-                </button>
               </div>
               {ligne.classe === 'facture' && ligne.info_facture && (
-                <div className="mt-1 ml-[88px] text-[10px] text-emerald-600 font-medium">
+                <div className="mt-1 text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
                   {' · '}reste dû : {fmt(ligne.info_facture.reste_du)}
                 </div>
               )}
               {ligne.classe === 'facture' && !ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                <div className="mt-1 ml-[88px] text-[10px] text-red-400">Facture introuvable</div>
+                <div className="mt-1 text-[10px] text-red-400">Facture introuvable</div>
               )}
             </div>
           ))}

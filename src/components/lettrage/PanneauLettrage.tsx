@@ -278,9 +278,9 @@ export function PanneauLettrage(props: Props) {
                     <option value="facture">Facture</option>
                     <option value="cheque">CHQ</option>
                     <option value="lcr">LCR</option>
-                    <option value="compte_client">411 Client</option>
-                    <option value="attente_411">411 Attente</option>
-                    <option value="471">471 Attente</option>
+                    <option value="compte_client">411 - Client</option>
+                    <option value="attente_411">411 - Attente</option>
+                    <option value="471">471 - Autres</option>
                   </select>
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
                 </div>
