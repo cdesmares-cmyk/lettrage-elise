@@ -41,6 +41,7 @@ interface AppDataContextType {
   mettreAJourClientLocal: (codeDso: string, opts: OptsClientLocal) => void
   // Mise à jour optimiste après lettrage : réduit reste_du sans recharger tout le dataset
   mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
+  supprimerFactureLocale: (numeroPiece: string) => void
   moisMaxBrut: string    // YYYY-MM, vrai mois de la facture la plus récente
   ca12Mois: number       // Σ montant_ttc sur les 12 mois se terminant à moisMaxBrut
   ca12MoisPrec: number   // Σ montant_ttc sur les 12 mois se terminant à moisMaxBrut-1 (toggle)
@@ -197,6 +198,10 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     ))
   }
 
+  function supprimerFactureLocale(numeroPiece: string) {
+    setFacturesActives(prev => prev.filter(f => f.numero_piece !== numeroPiece))
+  }
+
   function mettreAJourResteDuLocal(lettres: { numeroPiece: string; montant: number }[]) {
     if (!lettres.length) return
     const map = new Map(lettres.map(l => [l.numeroPiece, l.montant]))
@@ -230,7 +235,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
       {children}
     </AppDataContext.Provider>
   )

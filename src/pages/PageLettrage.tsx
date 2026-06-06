@@ -37,7 +37,7 @@ export function PageLettrage() {
   const [confirmAnnulation411, setConfirmAnnulation411] = useState<FactureDetail | null>(null)
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
 
-  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, clients, facturesActives } = useAppData()
+  const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm(
@@ -162,6 +162,7 @@ export function PageLettrage() {
           .eq('annule', false)
         if (count === 0) {
           await supabase.from('factures').delete().eq('numero_piece', num411)
+          supprimerFactureLocale(num411)
         }
       }
 
@@ -181,10 +182,13 @@ export function PageLettrage() {
 
   async function confirmerAnnulation411() {
     if (!confirmAnnulation411) return
+    const numeroPiece = confirmAnnulation411.numero_piece
+
+    // Mise à jour optimiste : supprimer immédiatement du state et fermer le modal
+    supprimerFactureLocale(numeroPiece)
+    setConfirmAnnulation411(null)
     setAnnulationEnCours(true)
     try {
-      const numeroPiece = confirmAnnulation411.numero_piece
-
       // Trouver toutes les lignes bancaires liées à ce compte 411
       const { data: rows } = await supabase
         .from('lettrages')
@@ -202,7 +206,6 @@ export function PageLettrage() {
         if (error) throw error
       }
 
-      // Supprimer la pseudo-facture 411
       await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
 
       if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
@@ -211,8 +214,9 @@ export function PageLettrage() {
       liste.rafraichir()
       rafraichirDonnees()
       toast.success('Compte 411 annulé')
-      setConfirmAnnulation411(null)
     } catch (err) {
+      // Rollback : recharger depuis la base pour rétablir l'état réel
+      rafraichirDonnees()
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation')
     } finally {
       setAnnulationEnCours(false)
