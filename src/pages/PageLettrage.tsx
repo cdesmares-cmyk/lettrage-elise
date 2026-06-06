@@ -168,7 +168,7 @@ export function PageLettrage() {
       if (forme.ligneActive?.id_operation === confirmAnnulation.id_operation) forme.annuler()
       if (dispatch471.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch471.annuler()
       if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
-      liste.rafraichirSilencieux()
+      liste.rafraichir()
       if (nums411.length > 0) rafraichirDonnees()
       toast.success('Lettrage annulé')
       setConfirmAnnulation(null)
@@ -208,7 +208,7 @@ export function PageLettrage() {
       if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
       if (idLignes.includes(dispatch471.ligneActive?.id_operation ?? '')) dispatch471.annuler()
 
-      liste.rafraichirSilencieux()
+      liste.rafraichir()
       rafraichirDonnees()
       toast.success('Compte 411 annulé')
       setConfirmAnnulation411(null)
