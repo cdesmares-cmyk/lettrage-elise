@@ -60,7 +60,7 @@ export function useLettrageForm(
       classe: 'facture' as const,
       numero_facture: f.numero_facture,
       montant: String(Math.round(f.montant * 100) / 100),
-      info_facture: { reste_du: f.montant, code_client: f.code_client, nom_client: f.nom_client, statut_paiement: 'partiel' },
+      info_facture: { reste_du: f.montant, montant_ttc: f.montant, code_client: f.code_client, nom_client: f.nom_client, statut_paiement: 'partiel' },
       chargement: false,
     }))
     setLignesForme(prev => {
