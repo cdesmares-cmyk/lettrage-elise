@@ -234,7 +234,7 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       <div className="flex justify-end">
         <button
           onClick={() => { minimiser(); navigate('/compte-client') }}
-          className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors font-medium"
+          className="text-xs text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/30 hover:border-ockham-teal/60 bg-ockham-teal-muted hover:bg-ockham-teal-muted/80 px-3 py-1.5 rounded-lg transition-colors font-medium"
         >
           Identifier vos factures
         </button>
