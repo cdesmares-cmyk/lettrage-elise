@@ -10,12 +10,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom', 'react-hot-toast'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-charts': ['recharts'],
-          'vendor-xlsx': ['xlsx'],
-          'vendor-utils': ['papaparse', 'html2canvas', '@tanstack/react-table'],
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          if (id.includes('xlsx')) return 'vendor-xlsx'
+          if (id.includes('recharts')) return 'vendor-charts'
+          if (id.includes('@supabase')) return 'vendor-supabase'
+          if (id.includes('react') || id.includes('react-router') || id.includes('react-hot-toast')) return 'vendor-react'
+          if (id.includes('papaparse') || id.includes('html2canvas') || id.includes('@tanstack')) return 'vendor-utils'
         },
       },
     },
