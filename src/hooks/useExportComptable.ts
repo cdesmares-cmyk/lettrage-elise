@@ -68,7 +68,8 @@ export function useExportComptable() {
   async function exporter(dateDebut: string, dateFin: string) {
     setChargement(true)
     try {
-      const { error } = await supabase.rpc('creer_export_comptable', {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('creer_export_comptable', {
         p_date_debut: dateDebut,
         p_date_fin:   dateFin,
       })
