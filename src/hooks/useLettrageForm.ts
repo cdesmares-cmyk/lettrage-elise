@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, LettrageExistant, LigneForme, InfoFacture } from '../types/lettrage'
 
 interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null }
@@ -105,15 +106,15 @@ export function useLettrageForm(
     if (!ligneActive || !lignesForme.length) return false
     const disp = ligneActive.restant ?? 0
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > disp + 0.005) return false
+    if (attribue > disp + TOLERANCE_CENT) return false
     const restantCalc = Math.round((disp - attribue) * 100) / 100
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         const m = parseFloat(l.montant)
         return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
       }
-      if (l.classe === 'compte_client') return !!l.client_411 && restantCalc > 0.005
-      if (l.classe === 'attente_411') return restantCalc > 0.005
+      if (l.classe === 'compte_client') return !!l.client_411 && restantCalc > TOLERANCE_CENT
+      if (l.classe === 'attente_411') return restantCalc > TOLERANCE_CENT
       if (l.classe === '471') return true
       return !!l.numero_facture.trim()
     })
@@ -149,7 +150,7 @@ export function useLettrageForm(
         for (const l of factureLignes) {
           const resteDuLive = freshMap.get(l.numero_facture.trim()) ?? 0
           const montant = parseFloat(l.montant) || 0
-          if (resteDuLive < montant - 0.005) {
+          if (resteDuLive < montant - TOLERANCE_CENT) {
             toast.error(`Facture ${l.numero_facture} : solde insuffisant (${resteDuLive.toFixed(2)} € restant). Elle a peut-être déjà été lettrée.`)
             setChargement(false)
             return
@@ -261,7 +262,7 @@ export function useLettrageForm(
       } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
       // Lettrage temporaire : ligne bancaire → 411_CLIENT pour le restant
       const montant411 = Math.round((creditDisponible - montantMix) * 100) / 100
-      if (montant411 > 0.005) {
+      if (montant411 > TOLERANCE_CENT) {
         const { error } = await supabase.from('lettrages').insert({
           id_ligne_bancaire: ligneActive.id_operation,
           numero_facture: numero411,

@@ -1,8 +1,9 @@
-// Logique de dispatch d'une ligne en attente 411 Attente vers des factures réelles
+// Logique de dispatch d'une ligne en attente 471 vers des factures réelles
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, LettrageExistant, LigneForme, InfoFacture } from '../types/lettrage'
 
 interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null }
@@ -74,7 +75,7 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length) return false
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > creditDisponible + 0.005) return false
+    if (attribue > creditDisponible + TOLERANCE_CENT) return false
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         const m = parseFloat(l.montant)
@@ -126,7 +127,7 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
       })
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 411 Attente.')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 471.')
     } finally {
       setChargement(false)
     }

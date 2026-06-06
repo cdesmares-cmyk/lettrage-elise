@@ -1,6 +1,7 @@
 // Chargement des lignes bancaires avec statut de lettrage calculé
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../types/lettrage'
 
 interface RowLigne {
@@ -127,8 +128,8 @@ export function useLignesBancaires() {
         const newMontantLettre = Math.round((l.montant_lettre + montantLettre) * 100) / 100
         const credit = l.credit ?? 0
         const newRestant = Math.max(0, Math.round((credit - newMontantLettre) * 100) / 100)
-        const newStatut: StatutLettrage = newRestant <= 0.005 ? 'lettre'
-          : newMontantLettre > 0.005 ? 'partiel' : 'non_lettre'
+        const newStatut: StatutLettrage = newRestant <= TOLERANCE_CENT ? 'lettre'
+          : newMontantLettre > TOLERANCE_CENT ? 'partiel' : 'non_lettre'
         return { ...l, montant_lettre: newMontantLettre, restant: newRestant, statut_lettrage: newStatut }
       })
       if (filtre !== 'lettre') {

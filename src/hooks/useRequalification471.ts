@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, LigneForme, InfoFacture } from '../types/lettrage'
 
 interface Lettrage471 { id: string; montant: number; commentaire: string | null }
@@ -75,7 +76,7 @@ export function useRequalification471(onSuccess: (data: Requalification471Data) 
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length || !lettrages471.length) return false
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > creditDisponible + 0.005) return false
+    if (attribue > creditDisponible + TOLERANCE_CENT) return false
     return lignesForme.every(l => {
       if (l.classe === 'facture') {
         const m = parseFloat(l.montant)
@@ -95,7 +96,7 @@ export function useRequalification471(onSuccess: (data: Requalification471Data) 
 
       const corrections = lettrages471.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
-        numero_facture: null as string | null,
+        numero_facture: null,
         code_client: '471',
         montant: -l.montant,
         date_lettrage: today,
@@ -112,14 +113,14 @@ export function useRequalification471(onSuccess: (data: Requalification471Data) 
 
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
-        numero_facture: l.classe === 'autres' ? null as string | null : l.numero_facture.trim(),
+        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
         code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
         mode: 'manuel',
-        commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null as string | null,
+        commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
         operateur,
       }))

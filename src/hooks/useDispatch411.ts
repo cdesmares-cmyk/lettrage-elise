@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { TOLERANCE_CENT } from '../lib/constantes'
 import type { FactureDetail } from '../types/client'
 import type { LigneForme, InfoFacture } from '../types/lettrage'
 
@@ -41,7 +42,6 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
     setLignesForme(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
   }
 
-  const debounceRefs: Record<string, ReturnType<typeof setTimeout>> = {}
   async function chercherInfoFacture(key: string, numero: string) {
     if (numero.length < 4) { modifierLigne(key, { info_facture: null, chargement: false }); return }
     modifierLigne(key, { chargement: true })
@@ -66,7 +66,7 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
   function peutValider(): boolean {
     if (!factureActive || !lignesForme.length) return false
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > creditDisponible + 0.005) return false
+    if (attribue > creditDisponible + TOLERANCE_CENT) return false
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         const m = parseFloat(l.montant)
@@ -126,7 +126,7 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
 
   return {
     factureActive, lignesForme,
-    chargement, debounceRefs,
+    chargement,
     selectionnerFacture411, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
