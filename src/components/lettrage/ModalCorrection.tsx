@@ -234,19 +234,19 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       <div className="flex justify-end">
         <button
           onClick={() => { minimiser(); navigate('/compte-client') }}
-          className="text-xs text-amber-600 hover:text-amber-700 border border-amber-200 hover:border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors font-medium"
+          className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors font-medium"
         >
-          Identifier vos factures →
+          Identifier vos factures
         </button>
       </div>
 
       {/* Section Affectation à corriger */}
-      <div className="border border-red-100 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-red-50 border-b border-red-100">
-          <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Affectation à corriger</p>
-          <p className="text-[10px] text-red-400 mt-0.5">Factures actuellement lettrées à désaffecter</p>
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 border-l-4 border-l-gray-400">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Affectation à corriger</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Factures actuellement lettrées à désaffecter</p>
         </div>
-        <div className="px-4 py-3 space-y-3">
+        <div className="px-4 py-3 space-y-3 border-l-4 border-l-gray-200">
           {lignesNeg.map(l => (
             <LigneSaisie
               key={l._key}
@@ -258,20 +258,27 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
           ))}
           <button
             onClick={ajouterNeg}
-            className="flex items-center gap-1.5 w-full border border-dashed border-red-200 hover:border-red-400/50 hover:text-red-500 text-red-300 text-xs font-medium py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-gray-400 hover:text-gray-600 text-gray-300 text-xs font-medium py-1.5 rounded-lg transition-all"
           >
             <span className="mx-auto">+ Ajouter une ligne</span>
           </button>
         </div>
       </div>
 
+      {/* Séparateur */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest whitespace-nowrap">↓ remplacée par</span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </div>
+
       {/* Section Nouvelle affectation */}
-      <div className="border border-emerald-100 rounded-xl overflow-hidden">
-        <div className="px-4 py-2.5 bg-emerald-50 border-b border-emerald-100">
-          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Nouvelle affectation</p>
-          <p className="text-[10px] text-emerald-500 mt-0.5">Factures à lettrer en remplacement</p>
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 border-l-4 border-l-ockham-teal">
+          <p className="text-[10px] font-bold text-ockham-teal uppercase tracking-widest">Nouvelle affectation</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Factures à lettrer en remplacement</p>
         </div>
-        <div className="px-4 py-3 space-y-3">
+        <div className="px-4 py-3 space-y-3 border-l-4 border-l-ockham-teal/20">
           {lignesPos.map(l => (
             <LigneSaisie
               key={l._key}
@@ -283,7 +290,7 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
           ))}
           <button
             onClick={ajouterPos}
-            className="flex items-center gap-1.5 w-full border border-dashed border-emerald-200 hover:border-emerald-400/50 hover:text-emerald-600 text-emerald-300 text-xs font-medium py-1.5 rounded-lg transition-all"
+            className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-300 text-xs font-medium py-1.5 rounded-lg transition-all"
           >
             <span className="mx-auto">+ Ajouter une ligne</span>
           </button>
@@ -291,12 +298,12 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
       </div>
 
       {/* Solde */}
-      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${equilibre && totalNeg > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
+      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${equilibre && totalNeg > 0 ? 'bg-ockham-teal-muted border-ockham-teal/30' : 'bg-gray-50 border-gray-200'}`}>
         <div className="flex gap-6 text-xs">
-          <span className="text-gray-500">À corriger : <strong className="text-red-500 tabular-nums">{fmt(totalNeg)}</strong></span>
-          <span className="text-gray-500">À affecter : <strong className="text-emerald-600 tabular-nums">{fmt(totalPos)}</strong></span>
+          <span className="text-gray-500">À corriger : <strong className="text-gray-700 tabular-nums">{fmt(totalNeg)}</strong></span>
+          <span className="text-gray-500">À affecter : <strong className="text-gray-700 tabular-nums">{fmt(totalPos)}</strong></span>
         </div>
-        <span className={`text-[11px] font-semibold ${equilibre && totalNeg > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+        <span className={`text-[11px] font-semibold ${equilibre && totalNeg > 0 ? 'text-ockham-teal' : 'text-gray-400'}`}>
           {equilibre && totalNeg > 0 ? '✓ Équilibré' : 'Non équilibré'}
         </span>
       </div>
@@ -309,7 +316,7 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
         <button
           onClick={valider}
           disabled={!peutValider || chargement}
-          className="flex-[2] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+          className="flex-[2] flex items-center justify-center gap-2 bg-ockham-navy hover:bg-ockham-navy/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
           {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider la correction'}
         </button>
@@ -458,10 +465,7 @@ export function ModalCorrection() {
   if (!ouvert || minimise) return null
 
   return (
-    <div
-      className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-      onClick={e => { if (e.target === e.currentTarget) fermer() }}
-    >
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
         {/* En-tête */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
