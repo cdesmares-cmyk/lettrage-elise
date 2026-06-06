@@ -24,6 +24,7 @@ import { useDispatch411 } from '../hooks/useDispatch411'
 import { useRequalification471 } from '../hooks/useRequalification471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
 import { useRemises } from '../hooks/useRemises'
+import { useExportComptable } from '../hooks/useExportComptable'
 import { useAppData } from '../contexts/AppDataContext'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
 
@@ -38,6 +39,7 @@ export function PageLettrage() {
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
+  const exportComptable = useExportComptable()
   const liste = useLignesBancaires()
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm(
@@ -80,6 +82,7 @@ export function PageLettrage() {
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
   useEffect(() => { remisesHook.charger() }, [])
+  useEffect(() => { exportComptable.charger() }, [])
 
   const remisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente')
 
@@ -300,7 +303,7 @@ export function PageLettrage() {
             onSelectLigne={handleSelectLigne}
             onHistorique={historique.toggle}
             onAnnulerLettrage={setConfirmAnnulation}
-            lignesExportees={new Set<string>()}
+            lignesExportees={exportComptable.lignesExportees}
           />
         )}
 
@@ -369,6 +372,11 @@ export function PageLettrage() {
       <ModalExtractionLettrage
         ouvert={extractionOuverte}
         onFermer={() => setExtractionOuverte(false)}
+        historique={exportComptable.historique}
+        chargementExport={exportComptable.chargement}
+        onApercu={exportComptable.apercu}
+        onExporter={exportComptable.exporter}
+        onRetelecharger={exportComptable.retelecharger}
       />
 
       {/* Modal navigateur factures */}
