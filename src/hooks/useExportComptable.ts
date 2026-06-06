@@ -52,16 +52,26 @@ export function useExportComptable() {
   }, [])
 
   async function apercu(dateDebut: string, dateFin: string) {
-    const { data } = await supabase
-      .from('v_lignes_bancaires_avec_statut')
-      .select('id_operation, credit')
-      .eq('statut_lettrage', 'lettre')
-      .gte('date_operation', dateDebut)
-      .lte('date_operation', dateFin)
-    const lignes = (data as { id_operation: string; credit: number | null }[]) ?? []
+    const [{ data: lettreesData }, { data: nonLettreesData }] = await Promise.all([
+      supabase
+        .from('v_lignes_bancaires_avec_statut')
+        .select('id_operation, credit')
+        .eq('statut_lettrage', 'lettre')
+        .gte('date_operation', dateDebut)
+        .lte('date_operation', dateFin),
+      supabase
+        .from('v_lignes_bancaires_avec_statut')
+        .select('id_operation')
+        .in('statut_lettrage', ['non_lettre', 'partiel', 'en_attente_471'])
+        .gte('date_operation', dateDebut)
+        .lte('date_operation', dateFin),
+    ])
+    const lettrees = (lettreesData as { id_operation: string; credit: number | null }[]) ?? []
+    const nonLettrees = (nonLettreesData as { id_operation: string }[]) ?? []
     return {
-      nbLignes: lignes.length,
-      montant: lignes.reduce((s, l) => s + (l.credit ?? 0), 0),
+      nbLignes: lettrees.length,
+      montant: lettrees.reduce((s, l) => s + (l.credit ?? 0), 0),
+      nbNonLettrees: nonLettrees.length,
     }
   }
 

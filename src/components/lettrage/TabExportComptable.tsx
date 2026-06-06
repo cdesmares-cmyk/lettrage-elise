@@ -7,7 +7,7 @@ import type { ExportComptable } from '../../hooks/useExportComptable'
 interface Props {
   historique: ExportComptable[]
   chargement: boolean
-  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number }>
+  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number }>
   onExporter: (d: string, f: string) => Promise<void>
   onRetelecharger: (exp: ExportComptable) => Promise<void>
 }
@@ -29,7 +29,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
   const [dateDebut, setDateDebut] = useState(debutMois)
   const [dateFin, setDateFin] = useState(today)
   const [etape, setEtape] = useState<Etape>('filtres')
-  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number } | null>(null)
+  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number; nbNonLettrees: number } | null>(null)
   const [calcul, setCalcul] = useState(false)
 
   async function handleApercu() {
@@ -37,7 +37,12 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
     setCalcul(true)
     try {
       const result = await onApercu(dateDebut, dateFin)
-      if (result.nbLignes === 0) { toast.error('Aucune ligne 100% lettrée sur cette période'); return }
+      if (result.nbLignes === 0 && result.nbNonLettrees === 0) {
+        toast.error('Aucune ligne bancaire trouvée sur cette période'); return
+      }
+      if (result.nbLignes === 0) {
+        toast.error('Aucune ligne 100% lettrée — lettrez d\'abord toutes les lignes de la période'); return
+      }
       setApercuData(result)
       setEtape('apercu')
     } catch {
@@ -118,6 +123,19 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
             </div>
             <p className="text-[11px] text-gray-400">Les lettrages déjà verrouillés dans cette période sont inclus dans l'export mais non re-verrouillés.</p>
           </div>
+
+          {apercuData.nbNonLettrees > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+              <p className="text-xs font-semibold text-orange-700 flex items-center gap-1.5">
+                <IcWarning size={13} className="flex-shrink-0" />
+                {apercuData.nbNonLettrees} ligne{apercuData.nbNonLettrees > 1 ? 's' : ''} non lettrée{apercuData.nbNonLettrees > 1 ? 's' : ''} sur la période
+              </p>
+              <p className="text-xs text-orange-600 mt-1">
+                Ces lignes ne seront pas incluses dans l'export. Pour un export exhaustif, lettrez-les d'abord dans le module Lettrage.
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2 justify-end">
             <button onClick={reset} className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
               Annuler

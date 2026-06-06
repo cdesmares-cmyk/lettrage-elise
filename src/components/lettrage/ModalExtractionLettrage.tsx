@@ -12,7 +12,7 @@ interface Props {
   onFermer: () => void
   historique: ExportComptable[]
   chargementExport: boolean
-  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number }>
+  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number }>
   onExporter: (d: string, f: string) => Promise<void>
   onRetelecharger: (exp: ExportComptable) => Promise<void>
 }
