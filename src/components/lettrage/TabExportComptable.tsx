@@ -141,7 +141,8 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
               Annuler
             </button>
             <button onClick={() => setEtape('confirmation')}
-              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 rounded-lg transition-colors">
+              disabled={apercuData.nbNonLettrees > 0}
+              className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               Bloquer et exporter →
             </button>
           </div>

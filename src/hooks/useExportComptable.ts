@@ -62,7 +62,7 @@ export function useExportComptable() {
       supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('id_operation')
-        .in('statut_lettrage', ['non_lettre', 'partiel', 'en_attente_471'])
+        .in('statut_lettrage', ['non_lettre', 'partiel'])
         .gte('date_operation', dateDebut)
         .lte('date_operation', dateFin),
     ])
