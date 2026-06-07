@@ -184,7 +184,7 @@ export function TableLignesBancaires({
                       isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
                       isDimmed ? 'opacity-30' :
-                      'hover:bg-gray-50'
+                      isDebit ? 'hover:bg-blue-50' : 'hover:bg-gray-50 hover:border-l-[3px] hover:border-ockham-teal/30'
                     }`}
                   >
 

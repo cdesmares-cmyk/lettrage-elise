@@ -1,6 +1,6 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
 import { useRef, useState } from 'react'
-import { IcCursor, IcEdit, IcSearch } from '../Icones'
+import { IcCursor, IcEdit, IcSearch, IcCheck, IcLoader, IcWarning } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
@@ -60,7 +60,7 @@ export function PanneauLettrage(props: Props) {
   const hasCompteLigne = hasCompteClient || hasAttente411
   const labelBouton = hasCompteClient ? 'Affecter au Compte Client'
     : hasAttente411 ? 'Affecter au 411 Attente'
-    : '✓ Valider le lettrage'
+    : 'Valider le lettrage'
 
   // ── État vide ──
   if (!ligneActive) {
@@ -203,8 +203,8 @@ export function PanneauLettrage(props: Props) {
                             }
                             <span className="text-xs font-semibold text-gray-700">N°{r.numero}</span>
                             {exact
-                              ? <span className="text-[10px] font-semibold text-emerald-600">✓ montant exact</span>
-                              : <span className="text-[10px] font-semibold text-red-500">⚠ écart {fmt(ecart)}</span>
+                              ? <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-600"><IcCheck size={10} /> montant exact</span>
+                              : <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-red-500"><IcWarning size={10} /> écart {fmt(ecart)}</span>
                             }
                           </div>
                           <span className="text-sm font-bold text-gray-900 tabular-nums">{fmt(total)}</span>
@@ -248,9 +248,9 @@ export function PanneauLettrage(props: Props) {
                             onClick={() => exact && setConfirmEncaissement(r.id)}
                             disabled={chargement || !exact}
                             title={!exact ? `Montant incompatible — écart de ${fmt(ecart)}` : undefined}
-                            className="w-full text-xs font-semibold bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white py-1.5 rounded-md transition-colors"
+                            className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white py-1.5 rounded-md transition-colors"
                           >
-                            ✓ Encaisser cette remise
+                            <IcCheck size={11} /> Encaisser cette remise
                           </button>
                         )}
                       </div>
@@ -359,7 +359,7 @@ export function PanneauLettrage(props: Props) {
                         className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-6"
                       />
                       {ligne.chargement && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={11} /></span>
                       )}
                     </>
                   )}
@@ -439,7 +439,7 @@ export function PanneauLettrage(props: Props) {
               restant < 0.01 ? 'bg-emerald-100 text-emerald-600' :
               'bg-amber-100 text-amber-700'
             }`}>
-              {surPaiement ? '⚠ Dépassement' : restant < 0.01 ? '✓ 100 %' : `${pct} %`}
+              {surPaiement ? <span className="inline-flex items-center gap-0.5"><IcWarning size={10} /> Dépassement</span> : restant < 0.01 ? <span className="inline-flex items-center gap-0.5"><IcCheck size={10} /> 100 %</span> : `${pct} %`}
             </span>
           </div>
         </div>
@@ -459,7 +459,7 @@ export function PanneauLettrage(props: Props) {
           disabled={!peutValider() || chargement}
           className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : labelBouton}
+          {chargement ? <><IcLoader size={13} /> En cours…</> : <><IcCheck size={13} /> {labelBouton}</>}
         </button>
       </div>
       <div className="px-5 pb-3">

@@ -98,10 +98,11 @@ export function useLignesBancaires() {
           : qCount.or(textFilters)
       }
 
-      // Requête KPI globale (sans filtre statut ni limite)
+      // Requête KPI globale (sans filtre statut ni limite, hors débits)
       let qTotaux = supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('statut_lettrage, restant')
+        .neq('statut_lettrage', 'debit')
       if (dateDebut) qTotaux = qTotaux.gte('date_operation', dateDebut)
       if (dateFin)   qTotaux = qTotaux.lte('date_operation', dateFin)
 
@@ -112,13 +113,12 @@ export function useLignesBancaires() {
       setLignes(rows.map(r => ({ ...r, statut_lettrage: r.statut_lettrage as StatutLettrage, en_attente_471: r.en_attente_471 ?? false, est_virement_471: r.est_virement_471 ?? false })))
       setTotalLignes(count ?? 0)
 
-      const totaux = (dataTotaux as unknown as RowTotaux[]) ?? []
-      const nonDebits = totaux.filter(r => r.statut_lettrage !== 'debit')
+      const nonDebits = (dataTotaux as unknown as RowTotaux[]) ?? []
       setNbLignesGlobal(nonDebits.length)
-      setNbEnAttente471(nonDebits.filter(r => r.statut_lettrage === 'en_attente_471').length)
-      const nonDebitsActifs = nonDebits.filter(r => r.statut_lettrage !== 'en_attente_471')
-      setNbNonLettres(nonDebitsActifs.filter(r => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
-      setMontantRestant(nonDebitsActifs.reduce((s, r) => s + Math.max(0, r.restant), 0))
+      setNbEnAttente471(nonDebits.filter((r: RowTotaux) => r.statut_lettrage === 'en_attente_471').length)
+      const nonDebitsActifs = nonDebits.filter((r: RowTotaux) => r.statut_lettrage !== 'en_attente_471')
+      setNbNonLettres(nonDebitsActifs.filter((r: RowTotaux) => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
+      setMontantRestant(nonDebitsActifs.reduce((s: number, r: RowTotaux) => s + Math.max(0, r.restant), 0))
 
       setChargement(false)
     }

@@ -113,6 +113,7 @@ export function PageLettrage() {
         }
         setLibelles411(result)
       })
+      .catch(() => { /* libelles411 reste vide, affiché sans libellé bancaire */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factures411.length])
   // Remises : chargement initial pour le badge dans BarreResume

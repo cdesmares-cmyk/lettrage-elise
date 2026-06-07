@@ -23,6 +23,8 @@ export interface LettrageValideData {
 
 export function useLettrageForm(
   onSuccess: (data: LettrageValideData) => void,
+  // on471Success a une signature différente de onSuccess/on411Success intentionnellement :
+  // le chemin 471 ne modifie pas les factures réelles → pas de rafraichirDonnees() côté appelant.
   on471Success?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
   on411Success?: (data: LettrageValideData) => void,
 ) {
