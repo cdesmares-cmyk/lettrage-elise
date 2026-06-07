@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import toast from 'react-hot-toast'
 
-type Categorie = 'commercial' | 'operateur' | 'plateforme'
+type Categorie = 'commercial' | 'operateur' | 'plateforme' | 'format_facture'
 
 interface RowRef { valeur: string }
 

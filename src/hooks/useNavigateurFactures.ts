@@ -23,10 +23,38 @@ export interface SuggestionNavigateur {
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
 
-function extraireNumerosDetail(detail: string | null, infosComp: string | null): string[] {
-  const texte = [detail, infosComp].filter(Boolean).join(' ')
-  if (!texte) return []
-  return [...new Set(texte.match(/\b\d{7,}\b/g) ?? [])]
+// Convertit un exemple de numéro de facture en RegExp.
+// Chaque séquence de chiffres est remplacée par \d{N} (longueur exacte).
+// Les caractères non-chiffres sont échappés comme littéraux.
+// Ex: "FAC-2026-001234" → /FAC\-\d{4}\-\d{6}/gi
+function exempleVersRegex(exemple: string): RegExp | null {
+  const trimmed = exemple.trim()
+  if (!trimmed) return null
+  const segments = trimmed.match(/(\d+)|([^\d]+)/g) ?? []
+  const pattern = segments.map(seg =>
+    /^\d+$/.test(seg)
+      ? `\\d{${seg.length}}`
+      : seg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  ).join('')
+  try { return new RegExp(pattern, 'gi') } catch { return null }
+}
+
+// Applique les patterns sur libellé + detail + infos_complementaires.
+// Retourne tous les matches distincts (multi-numéros dans la même ligne).
+function extraireNumerosTexte(
+  libelle: string | null,
+  detail: string | null,
+  infosComp: string | null,
+  patterns: RegExp[],
+): string[] {
+  const texte = [libelle, detail, infosComp].filter(Boolean).join(' ')
+  if (!texte || !patterns.length) return []
+  const resultats = new Set<string>()
+  for (const re of patterns) {
+    const matches = texte.matchAll(new RegExp(re.source, re.flags))
+    for (const m of matches) resultats.add(m[0])
+  }
+  return [...resultats]
 }
 
 async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
@@ -38,7 +66,7 @@ async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
       .or(nums.map(n => `numero_piece.ilike.%${n}%`).join(','))
       .gt('reste_du', TOLERANCE_CENT)
       .eq('est_avoir', false)
-      .limit(5)
+      .limit(10)
     return (data as FactureNavigateur[]) ?? []
   } catch { return [] }
 }
@@ -82,6 +110,7 @@ async function fetchHistorique(ligne: LigneBancaireAvecStatut): Promise<FactureN
       .select('numero_facture')
       .in('id_ligne_bancaire', lignesPareil.map(l => l.id_operation))
       .not('numero_facture', 'is', null)
+      .eq('annule', false)
       .limit(15)
     const lettrages = lettragesRaw as unknown as { numero_facture: string }[] | null
     if (!lettrages?.length) return []
@@ -110,6 +139,19 @@ export function useNavigateurFactures(
   const [chargementSugg, setChargementSugg] = useState(false)
   const [selection, setSelection] = useState<Map<string, FactureNavigateur>>(new Map())
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const formatsRef = useRef<string[]>([])
+
+  // Charge les formats de numéros de facture configurés par l'admin (une seule fois)
+  useEffect(() => {
+    supabase
+      .from('ref_valeurs')
+      .select('valeur')
+      .eq('categorie', 'format_facture')
+      .eq('actif', true)
+      .then(({ data }) => {
+        formatsRef.current = (data as { valeur: string }[] ?? []).map(r => r.valeur)
+      })
+  }, [])
 
   useEffect(() => {
     if (!ouvert) {
@@ -125,9 +167,16 @@ export function useNavigateurFactures(
   async function computeSuggestions(ligne: LigneBancaireAvecStatut) {
     setChargementSugg(true)
     try {
-      const detailNums = extraireNumerosDetail(ligne.detail, ligne.infos_complementaires)
+      const patterns = formatsRef.current
+        .map(exempleVersRegex)
+        .filter((r): r is RegExp => r !== null)
+
+      const numerosDetectes = extraireNumerosTexte(
+        ligne.libelle, ligne.detail, ligne.infos_complementaires, patterns
+      )
+
       const [facturesNum, sepaMatch, facturesHisto] = await Promise.all([
-        fetchParNums(detailNums),
+        fetchParNums(numerosDetectes),
         fetchSepaMatch(ligne.libelle),
         fetchHistorique(ligne),
       ])
