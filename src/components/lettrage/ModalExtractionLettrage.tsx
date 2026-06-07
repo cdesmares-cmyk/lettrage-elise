@@ -81,11 +81,69 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
       libelleMap = Object.fromEntries(bancaires.map(b => [b.id_operation, b.libelle]))
     }
 
-    setLignes(rows.map(r => ({
+    const lettragesLignes: LigneExtractionLettrage[] = rows.map(r => ({
       ...r,
       libelle_bancaire: r.id_ligne_bancaire ? (libelleMap[r.id_ligne_bancaire] ?? null) : null,
-    })))
+    }))
+
+    // Remboursements effectués sur la même période (date de la ligne Débit)
+    const rembLignes = await chargerRembEffectuesInterne(dateDebut, dateFin, filtreClient)
+
+    setLignes([...lettragesLignes, ...rembLignes])
     setChargement(false)
+  }
+
+  async function chargerRembEffectuesInterne(debut: string, fin: string, filtre: string): Promise<LigneExtractionLettrage[]> {
+    const { data: debitData } = await supabase
+      .from('lignes_bancaires')
+      .select('id_operation, libelle, date_operation')
+      .gte('date_operation', debut)
+      .lte('date_operation', fin)
+      .not('debit', 'is', null)
+      .gt('debit', 0)
+
+    const debitRows = (debitData as unknown as { id_operation: string; libelle: string; date_operation: string }[]) ?? []
+    if (!debitRows.length) return []
+
+    const debitMap = Object.fromEntries(debitRows.map(d => [d.id_operation, d]))
+    const debitIds = Object.keys(debitMap)
+
+    const { data: rembData } = await supabase
+      .from('remboursements')
+      .select('id, id_ligne_bancaire')
+      .eq('statut', 'effectue')
+      .in('id_ligne_bancaire', debitIds)
+
+    const rembs = (rembData as unknown as { id: string; id_ligne_bancaire: string }[]) ?? []
+    if (!rembs.length) return []
+
+    const rembIds = rembs.map(r => r.id)
+    const rembByLigne = Object.fromEntries(rembs.map(r => [r.id, r.id_ligne_bancaire]))
+
+    let query = supabase
+      .from('remboursement_lignes')
+      .select('id, remboursement_id, numero_facture, code_client, montant')
+      .in('remboursement_id', rembIds)
+
+    if (filtre.trim()) {
+      query = query.ilike('code_client', `%${filtre.trim()}%`)
+    }
+
+    const { data: lignesData } = await query
+
+    return ((lignesData as unknown as { id: string; remboursement_id: string; numero_facture: string; code_client: string; montant: number }[]) ?? []).map(l => {
+      const idLigne = rembByLigne[l.remboursement_id]
+      const debitInfo = idLigne ? debitMap[idLigne] : null
+      return {
+        id: l.id,
+        date_lettrage: debitInfo?.date_operation ?? debut,
+        libelle_bancaire: debitInfo?.libelle ?? null,
+        code_client: l.code_client,
+        numero_facture: l.numero_facture,
+        montant: -l.montant,
+        commentaire: 'Remboursement client',
+      }
+    })
   }
 
   const total = lignes.reduce((s, l) => s + l.montant, 0)

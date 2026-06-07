@@ -23,6 +23,7 @@ interface Props {
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
   onHistorique: () => void
   onAnnulerLettrage: (l: LigneBancaireAvecStatut) => void
+  onAffecterRemboursement: (l: LigneBancaireAvecStatut) => void
   lignesExportees: Set<string>
 }
 
@@ -57,7 +58,7 @@ export function TableLignesBancaires({
   recherche, filtre, dateDebut, dateFin,
   page, totalPages, totalLignes,
   onRecherche, onFiltre, onDateDebut, onDateFin, onPage, onSelectLigne, onHistorique,
-  onAnnulerLettrage, lignesExportees,
+  onAnnulerLettrage, onAffecterRemboursement, lignesExportees,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -174,13 +175,13 @@ export function TableLignesBancaires({
                 return (
                   <tr
                     key={ligne.id_operation}
-                    onClick={() => !isDebit && onSelectLigne(ligne)}
-                    className={`transition-all ${
-                      isDebit ? 'bg-gray-50/60 cursor-default' :
-                      isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400 cursor-pointer' :
-                      isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal cursor-pointer' :
-                      isDimmed ? 'opacity-30 cursor-pointer' :
-                      'hover:bg-gray-50 cursor-pointer'
+                    onClick={() => isDebit ? onAffecterRemboursement(ligne) : onSelectLigne(ligne)}
+                    className={`transition-all cursor-pointer ${
+                      isDebit ? 'bg-red-50/40 hover:bg-red-50' :
+                      isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
+                      isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
+                      isDimmed ? 'opacity-30' :
+                      'hover:bg-gray-50'
                     }`}
                   >
 
@@ -200,8 +201,8 @@ export function TableLignesBancaires({
                         </p>
                       )}
                       {isDebit && (
-                        <span className="inline-flex items-center bg-red-50 text-red-400 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
-                          Débit — lecture seule
+                        <span className="inline-flex items-center bg-red-100 text-red-500 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
+                          Débit — cliquer pour affecter un remboursement
                         </span>
                       )}
                       {ligne.statut_lettrage === 'en_attente_471' && (

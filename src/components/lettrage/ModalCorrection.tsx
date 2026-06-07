@@ -1,12 +1,14 @@
 // Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
-// + onglet Remboursement : insère un lettrage négatif sur une facture
-import { useState, useRef } from 'react'
+// + onglet Remboursement : déclaration multi-factures en deux temps (déclarer → affecter débit)
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IcEdit, IcRefund } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCorrectionContext } from '../../contexts/CorrectionContext'
 import type { LigneCorr } from '../../contexts/CorrectionContext'
+import { useRemboursements } from '../../hooks/useRemboursements'
+import type { RemboursementLigneForm } from '../../hooks/useRemboursements'
 import toast from 'react-hot-toast'
 import type { InfoFacture } from '../../types/lettrage'
 
@@ -325,135 +327,238 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
   )
 }
 
+// ── Ligne de saisie facture pour remboursement ────────────────────────────────
+function LigneRemb({
+  ligne,
+  onModifier,
+  onSupprimer,
+  onNumeroChange,
+  peutSupprimer,
+}: {
+  ligne: RemboursementLigneForm
+  onModifier: (key: string, champ: Partial<RemboursementLigneForm>) => void
+  onSupprimer: (key: string) => void
+  onNumeroChange: (key: string, value: string) => void
+  peutSupprimer: boolean
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={ligne.numero_facture}
+            onChange={e => onNumeroChange(ligne._key, e.target.value)}
+            placeholder="N° facture"
+            className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-red-400 pr-5"
+          />
+          {ligne.chargement && (
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-red-400 animate-pulse">⟳</span>
+          )}
+        </div>
+        <input
+          type="number"
+          value={ligne.montant}
+          onChange={e => onModifier(ligne._key, { montant: e.target.value })}
+          placeholder="0,00"
+          step="0.01"
+          min="0"
+          disabled={!ligne.info_facture}
+          className="w-24 flex-shrink-0 border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-red-400 disabled:bg-gray-50 disabled:text-gray-300"
+        />
+        <button
+          onClick={() => onSupprimer(ligne._key)}
+          disabled={!peutSupprimer}
+          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+        >×</button>
+      </div>
+      {ligne.info_facture && (
+        <p className="mt-1 text-[10px] text-emerald-600 font-medium">
+          ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
+          {' · '}TTC : {fmt(Math.abs(ligne.info_facture.montant_ttc))}
+        </p>
+      )}
+      {!ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
+        <p className="mt-1 text-[10px] text-red-400">Facture introuvable</p>
+      )}
+    </div>
+  )
+}
+
+function nouvelleLigneRemb(): RemboursementLigneForm {
+  return { _key: `remb-${Date.now() + Math.random()}`, numero_facture: '', montant: '', code_client: '', info_facture: null, chargement: false }
+}
+
 // ── Onglet Remboursement ───────────────────────────────────────────────────────
 function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; onSuccess: () => void }) {
-  const { utilisateur } = useAuth()
-  const [numeroFacture, setNumeroFacture] = useState('')
-  const [infoFacture, setInfoFacture] = useState<RowFacture | null>(null)
-  const [chargementFacture, setChargementFacture] = useState(false)
-  const [montant, setMontant] = useState('')
-  const [chargement, setChargement] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const remb = useRemboursements(onSuccess)
+  const [lignes, setLignes] = useState<RemboursementLigneForm[]>([nouvelleLigneRemb()])
+  const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
-  async function chercherFacture(numero: string) {
-    if (numero.length < 4) { setInfoFacture(null); setChargementFacture(false); return }
-    setChargementFacture(true)
+  useEffect(() => { remb.charger() }, [])
+
+  async function chercherFacture(key: string, numero: string) {
+    if (numero.length < 4) {
+      setLignes(prev => prev.map(l => l._key === key ? { ...l, info_facture: null, chargement: false } : l))
+      return
+    }
+    setLignes(prev => prev.map(l => l._key === key ? { ...l, chargement: true } : l))
     const { data } = await supabase
       .from('v_factures_avec_reste_du')
       .select('reste_du, montant_ttc, code_client, nom_client, statut_paiement')
       .eq('numero_piece', numero)
       .maybeSingle()
     const row = data as unknown as RowFacture | null
-    setInfoFacture(row)
-    if (row) setMontant(String(Math.abs(row.montant_ttc)))
-    setChargementFacture(false)
+    setLignes(prev => prev.map(l => l._key === key ? {
+      ...l,
+      chargement: false,
+      info_facture: row ? { montant_ttc: row.montant_ttc, code_client: row.code_client, nom_client: row.nom_client } : null,
+      code_client: row?.code_client ?? '',
+      montant: row ? String(Math.abs(row.montant_ttc)) : l.montant,
+    } : l))
   }
 
-  function handleNumeroChange(value: string) {
-    setNumeroFacture(value)
-    setInfoFacture(null)
-    setMontant('')
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => chercherFacture(value), 400)
+  function handleNumeroChange(key: string, value: string) {
+    setLignes(prev => prev.map(l => l._key === key ? { ...l, numero_facture: value, info_facture: null, code_client: '', montant: '' } : l))
+    clearTimeout(debounceRefs.current[key])
+    debounceRefs.current[key] = setTimeout(() => chercherFacture(key, value), 400)
   }
 
-  const montantNum = parseFloat(montant) || 0
-  const peutValider = !!infoFacture && montantNum > 0 && !!numeroFacture.trim()
+  function modifier(key: string, champ: Partial<RemboursementLigneForm>) {
+    setLignes(prev => prev.map(l => l._key === key ? { ...l, ...champ } : l))
+  }
 
-  async function valider() {
-    if (!peutValider || !infoFacture) return
-    setChargement(true)
+  function ajouterLigne() {
+    setLignes(prev => [...prev, nouvelleLigneRemb()])
+  }
+
+  function supprimerLigne(key: string) {
+    setLignes(prev => prev.filter(l => l._key !== key))
+  }
+
+  const lignesValides = lignes.every(l => {
+    const m = parseFloat(l.montant)
+    return !!l.numero_facture.trim() && !!l.info_facture && !isNaN(m) && m > 0
+  })
+  const totalRemb = lignes.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0)
+  const peutDeclarer = lignesValides && lignes.length > 0 && !remb.chargement
+
+  async function handleDeclarer() {
+    if (!peutDeclarer) return
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const { error } = await supabase.from('lettrages').insert({
-        id_ligne_bancaire: null,
-        numero_facture: numeroFacture.trim(),
-        code_client: infoFacture.code_client,
-        montant: -Math.round(montantNum * 100) / 100,
-        date_lettrage: today,
-        mode: 'remboursement',
-        commentaire: `Remboursement — ${fmt(montantNum)}`,
-        cree_par: utilisateur?.id ?? null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
-      } as never)
-      if (error) throw error
-      toast.success('Remboursement enregistré.')
-      onSuccess()
-      onFermer()
+      await remb.declarer(lignes.map(l => ({
+        numero_facture: l.numero_facture.trim(),
+        code_client: l.code_client,
+        montant: Math.round((parseFloat(l.montant) || 0) * 100) / 100,
+      })))
+      toast.success('Remboursement déclaré — en attente d\'affectation à une ligne Débit')
+      setLignes([nouvelleLigneRemb()])
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du remboursement.')
-    } finally {
-      setChargement(false)
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la déclaration.')
+    }
+  }
+
+  async function handleAnnuler(id: string) {
+    try {
+      await remb.annuler(id)
+      toast.success('Remboursement annulé — le restant dû a été restauré')
+      onSuccess()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation.')
     }
   }
 
   return (
-    <div className="px-6 py-5">
-      <div className="flex items-start gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-5 text-xs text-ockham-teal-dark">
-        <span className="flex-shrink-0 mt-0.5 text-ockham-teal-dark"><IcRefund size={15} /></span>
+    <div className="px-6 py-5 space-y-5">
+      {/* Info */}
+      <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-xs text-red-700">
+        <IcRefund size={14} className="flex-shrink-0 mt-0.5" />
         <span>
-          Indiquez le numéro de facture remboursée. Le montant TTC est proposé automatiquement — ajustez si le remboursement est partiel.
-          L'opération <strong>délettrera</strong> la facture du montant saisi.
+          Déclarez ici le(s) remboursement(s) à effectuer. Le restant dû des factures concernées augmente immédiatement.
+          La validation comptable interviendra une fois la <strong>ligne Débit bancaire</strong> associée à ce remboursement.
         </span>
       </div>
 
-      <div className="mb-4">
-        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">N° de facture</label>
-        <div className="relative">
-          <input
-            type="text"
-            value={numeroFacture}
-            onChange={e => handleNumeroChange(e.target.value)}
-            placeholder="ex : 2026021254"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-ockham-teal pr-8"
-          />
-          {chargementFacture && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ockham-teal animate-pulse">⟳</span>}
+      {/* Formulaire de déclaration */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200 border-l-4 border-l-red-400">
+          <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest">Nouveau remboursement</p>
+          <p className="text-[10px] text-gray-400 mt-0.5">Facture(s) concernée(s) + montant remboursé</p>
         </div>
-        {infoFacture && (
-          <div className="mt-1.5 flex items-center gap-2 text-[11px] text-emerald-600 font-medium">
-            <span>✓ {infoFacture.nom_client ?? infoFacture.code_client}</span>
-            <span className="text-gray-400">·</span>
-            <span className="text-gray-500">TTC : <strong>{fmt(infoFacture.montant_ttc)}</strong></span>
-            <span className="text-gray-400">·</span>
-            <span className="text-gray-500">Restant : <strong className={infoFacture.reste_du > 0.005 ? 'text-amber-600' : 'text-gray-400'}>{fmt(infoFacture.reste_du)}</strong></span>
-          </div>
-        )}
-        {!infoFacture && !chargementFacture && numeroFacture.length >= 4 && (
-          <div className="mt-1 text-[11px] text-red-400">Facture introuvable</div>
-        )}
+        <div className="px-4 py-3 space-y-3 border-l-4 border-l-red-100">
+          {lignes.map(l => (
+            <LigneRemb
+              key={l._key}
+              ligne={l}
+              onModifier={modifier}
+              onSupprimer={supprimerLigne}
+              onNumeroChange={handleNumeroChange}
+              peutSupprimer={lignes.length > 1}
+            />
+          ))}
+          <button
+            onClick={ajouterLigne}
+            className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-red-300 hover:text-red-500 text-gray-300 text-xs font-medium py-1.5 rounded-lg transition-all"
+          >
+            <span className="mx-auto">+ Ajouter une facture</span>
+          </button>
+        </div>
       </div>
 
-      <div className="mb-5">
-        <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1.5">Montant remboursé (€)</label>
-        <input
-          type="number"
-          value={montant}
-          onChange={e => setMontant(e.target.value)}
-          placeholder="0,00"
-          step="0.01"
-          min="0"
-          disabled={!infoFacture}
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-right outline-none focus:border-ockham-teal disabled:bg-gray-50 disabled:text-gray-300"
-        />
-        {montantNum > 0 && (
-          <p className="text-[11px] text-red-500 font-medium mt-1">
-            − {fmt(montantNum)} sera déduit des lettrages de cette facture
+      {/* Total + bouton */}
+      {totalRemb > 0 && (
+        <p className="text-[11px] text-red-500 font-medium text-right">
+          Total remboursé : <strong>{fmt(totalRemb)}</strong> — sera déduit du restant dû
+        </p>
+      )}
+
+      <button
+        onClick={handleDeclarer}
+        disabled={!peutDeclarer}
+        className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+      >
+        {remb.chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : <><IcRefund size={13} /> Déclarer le remboursement</>}
+      </button>
+
+      <button onClick={onFermer} className="w-full text-xs font-medium text-gray-400 hover:text-gray-600 py-1 transition-colors">
+        Fermer
+      </button>
+
+      {/* Remboursements en attente */}
+      {remb.enAttente.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+            En attente d'affectation ({remb.enAttente.length})
           </p>
-        )}
-      </div>
-
-      <div className="flex gap-3">
-        <button onClick={onFermer} disabled={chargement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 py-2.5 rounded-lg transition-colors disabled:opacity-40">
-          Annuler
-        </button>
-        <button
-          onClick={valider}
-          disabled={!peutValider || chargement}
-          className="flex-[2] flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
-        >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : <><IcRefund size={13} className="flex-shrink-0" /> Valider le remboursement</>}
-        </button>
-      </div>
+          <div className="space-y-2">
+            {remb.enAttente.map(r => (
+              <div key={r.id} className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1 flex-1">
+                    {r.lignes.map(l => (
+                      <div key={l.id} className="flex items-center gap-2 text-xs">
+                        <span className="font-mono text-gray-600">{l.numero_facture}</span>
+                        <span className="text-gray-400">·</span>
+                        <span className="font-semibold text-red-600">−{fmt(l.montant)}</span>
+                        <span className="text-[10px] text-gray-400">{l.code_client}</span>
+                      </div>
+                    ))}
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      En attente d'une ligne Débit bancaire — cliquez sur le Débit dans la vue Lettrage
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => handleAnnuler(r.id)}
+                    className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors flex-shrink-0"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

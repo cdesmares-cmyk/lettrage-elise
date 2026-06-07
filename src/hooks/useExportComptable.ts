@@ -135,7 +135,59 @@ export function useExportComptable() {
       ...r,
       libelle_bancaire: r.id_ligne_bancaire ? (libelleMap[r.id_ligne_bancaire] ?? null) : null,
     }))
-    exporterExtractionXls(lignes, nomFichier)
+
+    // Inclure les remboursements effectués sur la période (basé sur la date de la ligne Débit)
+    const rembLignes = await chargerRembEffectues(dateDebut, dateFin)
+
+    exporterExtractionXls([...lignes, ...rembLignes], nomFichier)
+  }
+
+  async function chargerRembEffectues(dateDebut: string, dateFin: string): Promise<LigneExtractionLettrage[]> {
+    // Lignes débit dans la période
+    const { data: debitData } = await supabase
+      .from('lignes_bancaires')
+      .select('id_operation, libelle, date_operation')
+      .gte('date_operation', dateDebut)
+      .lte('date_operation', dateFin)
+      .not('debit', 'is', null)
+      .gt('debit', 0)
+
+    const debitRows = (debitData as { id_operation: string; libelle: string; date_operation: string }[]) ?? []
+    if (!debitRows.length) return []
+
+    const debitMap = Object.fromEntries(debitRows.map(d => [d.id_operation, d]))
+    const debitIds = Object.keys(debitMap)
+
+    const { data: rembData } = await supabase
+      .from('remboursements')
+      .select('id, id_ligne_bancaire')
+      .eq('statut', 'effectue')
+      .in('id_ligne_bancaire', debitIds)
+
+    const rembs = (rembData as { id: string; id_ligne_bancaire: string }[]) ?? []
+    if (!rembs.length) return []
+
+    const rembIds = rembs.map(r => r.id)
+    const rembByLigne = Object.fromEntries(rembs.map(r => [r.id, r.id_ligne_bancaire]))
+
+    const { data: lignesData } = await supabase
+      .from('remboursement_lignes')
+      .select('id, remboursement_id, numero_facture, code_client, montant')
+      .in('remboursement_id', rembIds)
+
+    return ((lignesData as { id: string; remboursement_id: string; numero_facture: string; code_client: string; montant: number }[]) ?? []).map(l => {
+      const idLigne = rembByLigne[l.remboursement_id]
+      const debitInfo = idLigne ? debitMap[idLigne] : null
+      return {
+        id: l.id,
+        date_lettrage: debitInfo?.date_operation ?? dateDebut,
+        libelle_bancaire: debitInfo?.libelle ?? null,
+        code_client: l.code_client,
+        numero_facture: l.numero_facture,
+        montant: -l.montant,
+        commentaire: 'Remboursement client',
+      }
+    })
   }
 
   return { lignesExportees, historique, chargement, charger, apercu, exporter, retelecharger }

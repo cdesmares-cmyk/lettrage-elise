@@ -16,8 +16,10 @@ import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
 import { ModalNavigateurFactures } from '../components/lettrage/ModalNavigateurFactures'
+import { ModalAffectationRemboursement } from '../components/lettrage/ModalAffectationRemboursement'
 import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
+import { useRemboursements } from '../hooks/useRemboursements'
 import { useLettrageForm } from '../hooks/useLettrageForm'
 import { useDispatch471 } from '../hooks/useDispatch471'
 import { useDispatch411 } from '../hooks/useDispatch411'
@@ -37,6 +39,7 @@ export function PageLettrage() {
   const [confirmAnnulation, setConfirmAnnulation] = useState<LigneBancaireAvecStatut | null>(null)
   const [confirmAnnulation411, setConfirmAnnulation411] = useState<FactureDetail | null>(null)
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
+  const [ligneDebitAaffecter, setLigneDebitAaffecter] = useState<LigneBancaireAvecStatut | null>(null)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
   const exportComptable = useExportComptable()
@@ -81,8 +84,10 @@ export function PageLettrage() {
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
+  const remboursements = useRemboursements(() => rafraichirDonnees())
   useEffect(() => { remisesHook.charger() }, [])
   useEffect(() => { exportComptable.charger() }, [])
+  useEffect(() => { remboursements.charger() }, [])
 
   const remisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente')
 
@@ -303,6 +308,7 @@ export function PageLettrage() {
             onSelectLigne={handleSelectLigne}
             onHistorique={historique.toggle}
             onAnnulerLettrage={setConfirmAnnulation}
+            onAffecterRemboursement={l => { remboursements.charger(); setLigneDebitAaffecter(l) }}
             lignesExportees={exportComptable.lignesExportees}
           />
         )}
@@ -367,6 +373,18 @@ export function PageLettrage() {
 
       {/* Modal correction — état géré par CorrectionContext */}
       <ModalCorrection />
+
+      {/* Modal affectation remboursement — depuis ligne Débit */}
+      <ModalAffectationRemboursement
+        ouvert={ligneDebitAaffecter !== null}
+        ligneBancaire={ligneDebitAaffecter}
+        enAttente={remboursements.enAttente}
+        onAffecter={async (rembId, idLb) => {
+          await remboursements.affecter(rembId, idLb)
+          liste.rafraichirSilencieux()
+        }}
+        onFermer={() => setLigneDebitAaffecter(null)}
+      />
 
       {/* Modal extraction */}
       <ModalExtractionLettrage
