@@ -1,5 +1,5 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
@@ -24,6 +24,7 @@ interface Props {
   modeSelection?: boolean
   selection?: Set<string>
   onToggleSelection?: (code: string) => void
+  onSelectionnerPage?: (codes: string[]) => void
   creditParClient?: Map<string, number>
   nbPiecesParClient?: Map<string, number>
 }
@@ -88,12 +89,13 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, creditParClient, nbPiecesParClient }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState<string>('encours_total')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const checkboxToutRef = useRef<HTMLInputElement>(null)
 
   // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
   useEffect(() => { setPage(0) }, [recherche])
@@ -126,12 +128,31 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
 
+  const tousPageCoches = modeSelection && clientsPage.length > 0 && clientsPage.every(c => selection.has(c.code_dso))
+  const quelquesPageCoches = modeSelection && clientsPage.some(c => selection.has(c.code_dso)) && !tousPageCoches
+  useEffect(() => {
+    if (checkboxToutRef.current) checkboxToutRef.current.indeterminate = quelquesPageCoches
+  }, [quelquesPageCoches])
+
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="w-10 px-3 py-2.5" />
+            <th className="w-10 px-3 py-2.5 text-center">
+              {modeSelection && (
+                <input
+                  ref={checkboxToutRef}
+                  type="checkbox"
+                  checked={tousPageCoches}
+                  onChange={() => {
+                    if (tousPageCoches) onSelectionnerPage?.([])
+                    else onSelectionnerPage?.(clientsPage.map(c => c.code_dso))
+                  }}
+                  className="accent-ockham-teal w-4 h-4 rounded cursor-pointer"
+                />
+              )}
+            </th>
             <ColTh label="Code" col="code_dso" {...thProps} align="left" />
             <ColTh label="Nom" col="nom" {...thProps} align="left" />
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />

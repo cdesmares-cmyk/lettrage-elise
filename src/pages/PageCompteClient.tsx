@@ -73,6 +73,10 @@ export function PageCompteClient() {
     })
   }, [])
 
+  const selectionnerPage = useCallback((codes: string[]) => {
+    setSelection(new Set(codes))
+  }, [])
+
   function basculerModeSelection() {
     setModeSelection(v => { if (v) setSelection(new Set()); return !v })
   }
@@ -261,6 +265,7 @@ export function PageCompteClient() {
           modeSelection={modeSelection}
           selection={selection}
           onToggleSelection={toggleSelection}
+          onSelectionnerPage={selectionnerPage}
           creditParClient={comptes.creditParClient}
           nbPiecesParClient={comptes.nbPiecesParClient}
         />
