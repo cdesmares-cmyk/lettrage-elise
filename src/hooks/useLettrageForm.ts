@@ -24,7 +24,7 @@ export interface LettrageValideData {
 export function useLettrageForm(
   onSuccess: (data: LettrageValideData) => void,
   on471Success?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
-  on411Success?: (numerosLettres: { numeroPiece: string; montant: number }[]) => void,
+  on411Success?: (data: LettrageValideData) => void,
 ) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
@@ -276,7 +276,7 @@ export function useLettrageForm(
         } as never)
         if (error) throw error
       }
-      on411Success?.(numerosLettres)
+      on411Success?.({ numerosLettres, idLigneBancaire: ligneActive.id_operation, montantTotal: creditDisponible })
       annuler()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 411.')

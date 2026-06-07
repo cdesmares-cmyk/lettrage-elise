@@ -55,9 +55,11 @@ export function PageLettrage() {
     (_idLB, numerosLettres) => {
       if (numerosLettres.length > 0) mettreAJourResteDuLocal(numerosLettres)
       liste.rafraichirSilencieux()
+      rafraichirDonnees()
     },
-    (numerosLettres) => {
-      if (numerosLettres.length > 0) mettreAJourResteDuLocal(numerosLettres)
+    (data) => {
+      if (data.numerosLettres.length > 0) mettreAJourResteDuLocal(data.numerosLettres)
+      liste.mettreAJourLigneBancaireLocale(data.idLigneBancaire, data.montantTotal)
       liste.rafraichirSilencieux()
       rafraichirDonnees()
     },
@@ -81,6 +83,38 @@ export function PageLettrage() {
   })
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
+  const [libelles411, setLibelles411] = useState<Record<string, string>>({})
+  useEffect(() => {
+    if (factures411.length === 0) { setLibelles411({}); return }
+    const nums = factures411.map(f => f.numero_piece)
+    supabase
+      .from('lettrages')
+      .select('numero_facture, id_ligne_bancaire')
+      .in('numero_facture', nums)
+      .eq('annule', false)
+      .then(async ({ data }) => {
+        if (!data?.length) return
+        const rows = data as { numero_facture: string; id_ligne_bancaire: string | null }[]
+        const idToNum: Record<string, string> = {}
+        for (const r of rows) {
+          if (r.id_ligne_bancaire && r.numero_facture) idToNum[r.id_ligne_bancaire] = r.numero_facture
+        }
+        const ids = Object.keys(idToNum)
+        if (!ids.length) return
+        const { data: lb } = await supabase
+          .from('lignes_bancaires')
+          .select('id_operation, libelle')
+          .in('id_operation', ids)
+        if (!lb) return
+        const result: Record<string, string> = {}
+        for (const r of lb as { id_operation: string; libelle: string }[]) {
+          const num = idToNum[r.id_operation]
+          if (num) result[num] = r.libelle
+        }
+        setLibelles411(result)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factures411.length])
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
@@ -287,6 +321,7 @@ export function PageLettrage() {
             chargement={liste.chargement}
             filtre={liste.filtre}
             onFiltre={handleChangerFiltre}
+            libelles411={libelles411}
           />
         ) : (
           <TableLignesBancaires

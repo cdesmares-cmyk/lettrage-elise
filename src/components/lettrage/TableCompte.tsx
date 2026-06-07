@@ -23,6 +23,7 @@ interface Props {
   chargement: boolean
   filtre: FiltreStatut
   onFiltre: (v: FiltreStatut) => void
+  libelles411?: Record<string, string>
 }
 
 function fmt(n: number) {
@@ -33,7 +34,7 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 }
 
-export function TableCompte({ factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471, chargement, filtre, onFiltre }: Props) {
+export function TableCompte({ factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471, chargement, filtre, onFiltre, libelles411 }: Props) {
   const rien = factures411.length === 0 && lignes471.length === 0
 
   return (
@@ -91,6 +92,9 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
                             {f.nom_client ?? f.numero_piece.replace('411_', '')}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-400">{f.numero_piece}</p>
+                          {libelles411?.[f.numero_piece] && (
+                            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{libelles411[f.numero_piece]}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-3">
