@@ -46,6 +46,7 @@ function DotStatut({ statut }: { statut: StatutLettrage }) {
 }
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
+  { val: 'toutes',           label: 'Toutes' },
   { val: 'a_lettrer',        label: 'À lettrer' },
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
