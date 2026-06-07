@@ -14,7 +14,7 @@ interface RowImportId { id: string }
 // - purement numérique (ex: "2026021254" ou "2026021254.0") → entier String sans décimale
 // - alphanumérique (ex: "FAC-2026-001") → texte trimé tel quel
 function normaliserNumero(val: string): string {
-  const s = val.trim()
+  const s = val.trim().toLowerCase()
   if (/^\d+(\.\d*)?$/.test(s)) {
     const n = Math.round(parseFloat(s))
     return Number.isFinite(n) ? String(n) : s
