@@ -3,6 +3,7 @@ import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettra
 import { IcSearch, IcClock, IcX } from '../Icones'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
 import { PAGE_SIZE } from '../../hooks/useLignesBancaires'
+import { Pagination } from '../Pagination'
 
 interface Props {
   lignes: LigneBancaireAvecStatut[]
@@ -260,42 +261,7 @@ export function TableLignesBancaires({
       )}
 
       {/* Pagination */}
-      {!chargement && totalLignes > PAGE_SIZE && (
-        <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50/60">
-          <span className="text-[11px] text-gray-400">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalLignes)} sur {totalLignes} lignes
-          </span>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onPage(0)}
-              disabled={page === 0}
-              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
-              title="Première page"
-            >«</button>
-            <button
-              onClick={() => onPage(page - 1)}
-              disabled={page === 0}
-              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
-              title="Page précédente"
-            >‹</button>
-            <span className="text-xs font-semibold text-gray-600 px-2 tabular-nums">
-              {page + 1} / {totalPages}
-            </span>
-            <button
-              onClick={() => onPage(page + 1)}
-              disabled={page >= totalPages - 1}
-              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
-              title="Page suivante"
-            >›</button>
-            <button
-              onClick={() => onPage(totalPages - 1)}
-              disabled={page >= totalPages - 1}
-              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed text-xs transition-colors"
-              title="Dernière page"
-            >»</button>
-          </div>
-        </div>
-      )}
+      {!chargement && <Pagination page={page} total={totalPages} onChange={onPage} />}
     </div>
   )
 }
