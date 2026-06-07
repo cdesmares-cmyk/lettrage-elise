@@ -1,7 +1,7 @@
 // Onglet Export Comptable — verrouillage des lettrages par période
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { IcDownload, IcWarning, IcClock } from '../Icones'
+import { IcDownload, IcWarning, IcClock, IcLoader } from '../Icones'
 import type { ExportComptable } from '../../hooks/useExportComptable'
 
 interface Props {
@@ -97,7 +97,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
               </div>
               <button onClick={handleApercu} disabled={calcul || !dateDebut || !dateFin}
                 className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap">
-                {calcul ? '⟳ Calcul…' : 'Vérifier l\'éligibilité'}
+                {calcul ? <><IcLoader size={13} /> Calcul…</> : 'Vérifier l\'éligibilité'}
               </button>
             </div>
             <p className="text-[11px] text-gray-400 mt-2">Seules les lignes bancaires <strong>100% lettrées</strong> (restant = 0) sur cette période seront incluses.</p>
@@ -170,7 +170,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
             </button>
             <button onClick={handleExporter} disabled={chargement}
               className="flex items-center gap-2 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50">
-              {chargement ? '⟳ Verrouillage…' : <><IcDownload size={12} /> Confirmer le verrouillage</>}
+              {chargement ? <><IcLoader size={13} /> Verrouillage…</> : <><IcDownload size={12} /> Confirmer le verrouillage</>}
             </button>
           </div>
         </div>

@@ -303,6 +303,7 @@ export function PageLettrage() {
 
       {/* Deux panneaux */}
       <div className="grid grid-cols-[1fr_360px] gap-4 items-start">
+        <div key={liste.filtre} className="animate-fade-in">
         {liste.filtre === 'compte' ? (
           <TableCompte
             factures411={factures411}
@@ -356,6 +357,7 @@ export function PageLettrage() {
             lignesExportees={exportComptable.lignesExportees}
           />
         )}
+        </div>
 
         {liste.filtre === 'compte' ? (
           dispatch411.factureActive ? (

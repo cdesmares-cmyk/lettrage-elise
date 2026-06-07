@@ -1,6 +1,6 @@
 // Modale d'extraction des lettrages — onglets [Interne] et [Comptable]
 import { useState } from 'react'
-import { IcSearch, IcDownload } from '../Icones'
+import { IcSearch, IcDownload, IcLoader, IcX } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { exporterExtractionXls } from '../../lib/exportXls'
 import { TabExportComptable } from './TabExportComptable'
@@ -162,7 +162,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
             <p className="text-xs text-gray-500 mt-0.5">Export interne ou verrouillage comptable par période</p>
           </div>
           <button onClick={onFermer}
-            className="text-gray-400 hover:text-gray-600 text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors">×</button>
+            className="text-gray-400 hover:text-gray-600 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors"><IcX size={15} /></button>
         </div>
 
         {/* Onglets */}
@@ -203,7 +203,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
                 </div>
                 <button onClick={chercher} disabled={chargement}
                   className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap">
-                  {chargement ? '⟳ Chargement…' : <><IcSearch size={13} className="inline-block mr-1.5" />Rechercher</>}
+                  {chargement ? <><IcLoader size={13} /> Chargement…</> : <><IcSearch size={13} className="inline-block mr-1.5" />Rechercher</>}
                 </button>
               </div>
             </div>

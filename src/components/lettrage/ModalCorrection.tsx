@@ -2,7 +2,7 @@
 // + onglet Remboursement : déclaration multi-factures en deux temps (déclarer → affecter débit)
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IcEdit, IcRefund } from '../Icones'
+import { IcEdit, IcRefund, IcCheck, IcLoader, IcX } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCorrectionContext } from '../../contexts/CorrectionContext'
@@ -43,7 +43,7 @@ function LigneSaisie({
             className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5"
           />
           {ligne.chargement && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={10} /></span>
           )}
         </div>
         <input
@@ -57,8 +57,8 @@ function LigneSaisie({
         />
         <button
           onClick={() => onSupprimer(ligne._key)}
-          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
-        >×</button>
+          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors flex-shrink-0"
+        ><IcX size={11} /></button>
       </div>
       {ligne.info_facture && (
         <p className="mt-1 text-[10px] text-emerald-600 font-medium">
@@ -320,7 +320,7 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
           disabled={!peutValider || chargement}
           className="flex-[2] flex items-center justify-center gap-2 bg-ockham-navy hover:bg-ockham-navy/90 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Valider la correction'}
+          {chargement ? <><IcLoader size={13} /> En cours…</> : <><IcCheck size={13} /> Valider la correction</>}
         </button>
       </div>
     </div>
@@ -353,7 +353,7 @@ function LigneRemb({
             className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-red-400 pr-5"
           />
           {ligne.chargement && (
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-red-400 animate-pulse">⟳</span>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-red-400"><IcLoader size={10} /></span>
           )}
         </div>
         <input
@@ -369,8 +369,8 @@ function LigneRemb({
         <button
           onClick={() => onSupprimer(ligne._key)}
           disabled={!peutSupprimer}
-          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-        >×</button>
+          className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors flex-shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+        ><IcX size={11} /></button>
       </div>
       {ligne.info_facture && (
         <p className="mt-1 text-[10px] text-emerald-600 font-medium">
@@ -517,7 +517,7 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
         disabled={!peutDeclarer}
         className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
       >
-        {remb.chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : <><IcRefund size={13} /> Déclarer le remboursement</>}
+        {remb.chargement ? <><IcLoader size={13} /> En cours…</> : <><IcRefund size={13} /> Déclarer le remboursement</>}
       </button>
 
       <button onClick={onFermer} className="w-full text-xs font-medium text-gray-400 hover:text-gray-600 py-1 transition-colors">
@@ -575,7 +575,7 @@ export function ModalCorrection() {
         {/* En-tête */}
         <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100 sticky top-0 bg-white z-10">
           <h3 className="text-base font-bold text-gray-900">Opération manuelle</h3>
-          <button onClick={fermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">✕</button>
+          <button onClick={fermer} className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors"><IcX size={13} /></button>
         </div>
 
         {/* Onglets */}

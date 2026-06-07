@@ -1,6 +1,6 @@
 // Modal de navigation des factures — recherche + suggestions intelligentes
 import { useRef, useEffect } from 'react'
-import { IcSearch } from '../Icones'
+import { IcSearch, IcCheck, IcLoader, IcX } from '../Icones'
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
 import {
   useNavigateurFactures,
@@ -90,7 +90,7 @@ function LigneFacture({
               : 'bg-gray-100 text-gray-400 hover:bg-ockham-teal/10 hover:text-ockham-teal'
           }`}
         >
-          {selectionne ? '✓' : '+'}
+          {selectionne ? <IcCheck size={12} /> : '+'}
         </button>
       </td>
     </tr>
@@ -171,8 +171,8 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
           </div>
           <button
             onClick={onFermer}
-            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors"
-          >✕</button>
+            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors"
+          ><IcX size={13} /></button>
         </div>
 
         {/* Bandeau contextuel — ligne bancaire active */}
@@ -203,7 +203,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
               className="w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-ockham-teal transition-colors"
             />
             {nav.chargement && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ockham-teal animate-pulse">⟳</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={11} /></span>
             )}
           </div>
         </div>

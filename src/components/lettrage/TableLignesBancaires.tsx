@@ -184,17 +184,17 @@ export function TableLignesBancaires({
                       isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
                       isDimmed ? 'opacity-30' :
-                      isDebit ? 'hover:bg-blue-50' : 'hover:bg-gray-50 hover:border-l-[3px] hover:border-ockham-teal/30'
+                      isDebit ? 'hover:bg-blue-50' : 'hover:bg-ockham-teal/5'
                     }`}
                   >
 
-                    <td className="px-3 py-2.5 text-center">
+                    <td className="px-3 py-3 text-center">
                       <DotStatut statut={ligne.statut_lettrage} />
                     </td>
-                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap font-mono">
+                    <td className="px-3 py-3 text-xs text-gray-400 whitespace-nowrap font-mono">
                       {formatDate(ligne.date_operation)}
                     </td>
-                    <td className="px-3 py-2.5">
+                    <td className="px-3 py-3">
                       <p className={`text-sm font-medium truncate max-w-[280px] ${isDebit ? 'text-gray-400' : 'text-gray-800'}`}>
                         {ligne.libelle}
                       </p>
@@ -214,13 +214,13 @@ export function TableLignesBancaires({
                         </span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-sm text-red-500 font-mono whitespace-nowrap">
+                    <td className="px-3 py-3 text-right text-sm text-red-500 font-mono whitespace-nowrap">
                       {ligne.debit !== null ? fmt(ligne.debit) : '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-sm font-medium text-gray-700 font-mono whitespace-nowrap">
+                    <td className="px-3 py-3 text-right text-sm font-medium text-gray-700 font-mono whitespace-nowrap">
                       {ligne.credit !== null ? fmt(ligne.credit) : '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-sm font-semibold font-mono whitespace-nowrap">
+                    <td className="px-3 py-3 text-right text-sm font-semibold font-mono whitespace-nowrap">
                       {isDebit ? (
                         <span className="text-gray-300">—</span>
                       ) : ligne.restant <= 0.005 ? (
@@ -231,20 +231,20 @@ export function TableLignesBancaires({
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
+                    <td className="px-2 py-3 text-center" onClick={e => e.stopPropagation()}>
                       {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && !isBankDebit && (
                         lignesExportees.has(ligne.id_operation) ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"
-                            className="inline-flex items-center justify-center w-6 h-6 cursor-not-allowed"
+                            className="inline-flex items-center text-[9px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap cursor-not-allowed"
                           >
-                            <IcX size={13} className="text-gray-300" />
+                            Exporté
                           </span>
                         ) : (
                           <button
                             onClick={() => onAnnulerLettrage(ligne)}
                             title="Annuler ce lettrage"
-                            className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
                           >
                             <IcX size={13} />
                           </button>

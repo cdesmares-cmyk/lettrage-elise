@@ -1,5 +1,6 @@
 // Modale d'affectation d'une ligne Débit à un remboursement déclaré
 import toast from 'react-hot-toast'
+import { IcX } from '../Icones'
 import type { RemboursementEnAttente } from '../../hooks/useRemboursements'
 
 interface Props {
@@ -57,8 +58,8 @@ export function ModalAffectationRemboursement({ ouvert, ligneBancaire, enAttente
           </div>
           <button
             onClick={onFermer}
-            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 text-gray-400 text-sm flex items-center justify-center transition-colors"
-          >✕</button>
+            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-gray-300 text-gray-400 flex items-center justify-center transition-colors"
+          ><IcX size={13} /></button>
         </div>
 
         {/* Contenu */}

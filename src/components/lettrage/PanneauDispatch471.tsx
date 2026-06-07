@@ -1,6 +1,6 @@
 // Panneau droit — dispatch d'une ligne en attente 471 vers des factures réelles
 import { useRef } from 'react'
-import { IcCursor, IcCheck, IcLoader, IcWarning } from '../Icones'
+import { IcCursor, IcCheck, IcLoader, IcWarning, IcX } from '../Icones'
 import type { useDispatch471 } from '../../hooks/useDispatch471'
 
 type Props = ReturnType<typeof useDispatch471>
@@ -29,10 +29,15 @@ export function PanneauDispatch471(props: Props) {
 
   if (!ligneActive) {
     return (
-      <div className="bg-white border border-orange-100 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
-        <div className="mb-3 opacity-20 text-orange-400"><IcCursor size={40} /></div>
-        <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne en attente</p>
-        <p className="text-gray-400 text-xs">Cliquez sur une ligne 411 Attente pour la dispatcher</p>
+      <div className="bg-white border border-orange-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
+        <div className="px-4 py-2 bg-orange-50 border-b border-orange-100">
+          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Vue Compte — 411 Attente</p>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-[280px] text-center px-6 py-10">
+          <div className="mb-3 opacity-20 text-orange-400"><IcCursor size={40} /></div>
+          <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne en attente</p>
+          <p className="text-gray-400 text-xs">Cliquez sur une ligne 411 Attente dans la liste à gauche pour la dispatcher</p>
+        </div>
       </div>
     )
   }
@@ -97,9 +102,9 @@ export function PanneauDispatch471(props: Props) {
                 </div>
                 <button
                   onClick={() => supprimerLigne(ligne._key)}
-                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
+                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors flex-shrink-0"
                 >
-                  ×
+                  <IcX size={11} />
                 </button>
               </div>
               {/* Ligne 2 : champ + montant */}

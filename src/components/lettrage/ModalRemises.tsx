@@ -1,6 +1,6 @@
 // Modal de gestion des remises Chèque / LCR (Sprint 4)
 import { useState, useEffect, useRef } from 'react'
-import { IcBuilding, IcEdit } from '../Icones'
+import { IcBuilding, IcEdit, IcCheck, IcLoader, IcWarning, IcX } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useRemises } from '../../hooks/useRemises'
 import type { RemiseSuccessData } from '../../hooks/useRemises'
@@ -168,8 +168,8 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
             <p className="text-xs text-gray-400 mt-0.5">Pré-lettrage des factures avant encaissement</p>
           </div>
           <button onClick={onFermer}
-            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors">
-            ✕
+            className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors">
+            <IcX size={13} />
           </button>
         </div>
 
@@ -246,8 +246,8 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                                 </button>
                                 <button onClick={() => supprimer(remise.id)}
                                   disabled={chargement}
-                                  className="text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
-                                  ✕ Annuler
+                                  className="flex items-center gap-1 text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
+                                  <IcX size={11} /> Annuler
                                 </button>
                               </div>
                             </div>
@@ -335,7 +335,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                     {(['cheque', 'lcr'] as const).map(t => (
                       <button key={t} onClick={() => setTypeForm(t)}
                         className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${typeForm === t ? 'bg-white shadow text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>
-                        {t === 'cheque' ? '🟡 Chèque' : '🔵 LCR'}
+                        {t === 'cheque'
+                          ? <span className="flex items-center justify-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" /> Chèque</span>
+                          : <span className="flex items-center justify-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-sky-400 flex-shrink-0" /> LCR</span>
+                        }
                       </button>
                     ))}
                   </div>
@@ -374,14 +377,14 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                         <input type="text" value={ligne.numero_facture} onChange={e => handleNumeroChange(ligne._key, e.target.value)}
                           placeholder="N° facture…"
                           className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5" />
-                        {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-ockham-teal animate-pulse">⟳</span>}
+                        {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={10} /></span>}
                       </div>
                       <input type="text" value={ligne.montant} onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
                         placeholder="0,00"
                         className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal" />
                       <button onClick={() => supprimerLigne(ligne._key)}
-                        className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors">
-                        ×
+                        className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors">
+                        <IcX size={11} />
                       </button>
                     </div>
                     {ligne.info_facture && (
@@ -411,7 +414,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                     {typeForm === 'cheque' ? 'Total remise (calculé)' : 'Somme factures saisies'}
                   </p>
                   {typeForm === 'lcr' && montantLcr > 0 && ecartLcr > 0.005 && ecartLcr <= 0.05 && (
-                    <p className="text-[10px] text-amber-600 mt-0.5">⚠ Écart de {fmt(ecartLcr)} — tolérance ±5 ct acceptée</p>
+                    <p className="text-[10px] text-amber-600 mt-0.5 flex items-center gap-0.5"><IcWarning size={10} /> Écart de {fmt(ecartLcr)} — tolérance ±5 ct acceptée</p>
                   )}
                   {typeForm === 'lcr' && montantLcr > 0 && ecartLcr > 0.05 && (
                     <p className="text-[10px] text-red-500 mt-0.5">Écart de {fmt(ecartLcr)} — dépasse la tolérance de ±5 ct</p>
@@ -432,7 +435,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
               </button>
               <button onClick={handleValider} disabled={!peutValider || chargement}
                 className="flex-[2] flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-                {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : remiseEnEdition ? '✓ Enregistrer les modifications' : '✓ Créer la remise'}
+                {chargement ? <><IcLoader size={13} /> En cours…</> : remiseEnEdition ? <><IcCheck size={13} /> Enregistrer les modifications</> : <><IcCheck size={13} /> Créer la remise</>}
               </button>
             </div>
           </>

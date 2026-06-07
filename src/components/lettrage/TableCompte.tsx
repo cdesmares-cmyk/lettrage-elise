@@ -153,7 +153,7 @@ export function TableCompte({
                       key={f.numero_piece}
                       onClick={() => onSelect411(f)}
                       className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
-                        isActive ? 'bg-indigo-50 border-l-[3px] border-indigo-500' : 'hover:bg-gray-50'
+                        isActive ? 'bg-indigo-50 border-l-[3px] border-indigo-500' : 'hover:bg-ockham-teal/5'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -179,7 +179,7 @@ export function TableCompte({
                         <button
                           onClick={e => { e.stopPropagation(); onAnnuler411(f) }}
                           title="Annuler ce lettrage 411"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
                         >
                           <IcX size={13} />
                         </button>
@@ -207,7 +207,7 @@ export function TableCompte({
                       key={l.id_operation}
                       onClick={() => onSelect471(l)}
                       className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
-                        isActive ? 'bg-orange-50 border-l-[3px] border-orange-400' : 'hover:bg-gray-50'
+                        isActive ? 'bg-orange-50 border-l-[3px] border-orange-400' : 'hover:bg-orange-50/50'
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
@@ -228,7 +228,7 @@ export function TableCompte({
                         <button
                           onClick={e => { e.stopPropagation(); onAnnuler471(l) }}
                           title="Annuler ce lettrage en attente"
-                          className="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                          className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
                         >
                           <IcX size={13} />
                         </button>

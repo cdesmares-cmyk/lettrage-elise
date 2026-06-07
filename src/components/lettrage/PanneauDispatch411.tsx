@@ -1,6 +1,6 @@
 // Panneau droit — dispatch d'un compte client 411 vers des factures réelles
 import { useRef } from 'react'
-import { IcCursor, IcWarning } from '../Icones'
+import { IcCursor, IcWarning, IcCheck, IcLoader, IcX } from '../Icones'
 import type { useDispatch411 } from '../../hooks/useDispatch411'
 
 type Props = ReturnType<typeof useDispatch411>
@@ -81,9 +81,9 @@ export function PanneauDispatch411(props: Props) {
                 </div>
                 <button
                   onClick={() => supprimerLigne(ligne._key)}
-                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 text-sm flex items-center justify-center transition-colors flex-shrink-0"
+                  className="w-6 h-6 rounded-full border border-red-200 bg-red-50 text-red-400 hover:bg-red-100 flex items-center justify-center transition-colors flex-shrink-0"
                 >
-                  ×
+                  <IcX size={11} />
                 </button>
               </div>
               {/* Ligne 2 : champ + montant */}
@@ -100,7 +100,7 @@ export function PanneauDispatch411(props: Props) {
                     className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-indigo-400 pr-6"
                   />
                   {ligne.chargement && ligne.classe !== 'autres' && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-indigo-400 animate-pulse">⟳</span>
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-indigo-400"><IcLoader size={11} /></span>
                   )}
                 </div>
                 <input
@@ -158,7 +158,7 @@ export function PanneauDispatch411(props: Props) {
               restant < 0.01 ? 'bg-emerald-100 text-emerald-600' :
               'bg-indigo-100 text-indigo-600'
             }`}>
-              {surPaiement ? '⚠ Dépassement' : restant < 0.01 ? '✓ 100 %' : `${pct} %`}
+              {surPaiement ? <span className="inline-flex items-center gap-0.5"><IcWarning size={10} /> Dépassement</span> : restant < 0.01 ? <span className="inline-flex items-center gap-0.5"><IcCheck size={10} /> 100 %</span> : `${pct} %`}
             </span>
           </div>
         </div>
@@ -178,7 +178,7 @@ export function PanneauDispatch411(props: Props) {
           disabled={!peutValider() || chargement}
           className="flex-[2] flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
         >
-          {chargement ? <><span className="animate-spin text-xs">⏳</span> En cours…</> : '✓ Dispatcher ce compte 411'}
+          {chargement ? <><IcLoader size={13} /> En cours…</> : <><IcCheck size={13} /> Dispatcher ce compte 411</>}
         </button>
       </div>
     </div>

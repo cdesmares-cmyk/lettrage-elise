@@ -68,7 +68,7 @@ export function PanneauLettrage(props: Props) {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
         <div className="mb-3 opacity-20 text-gray-400"><IcCursor size={40} /></div>
         <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne bancaire</p>
-        <p className="text-gray-400 text-xs">Cliquez sur un crédit dans la liste pour commencer le lettrage</p>
+        <p className="text-gray-400 text-xs">Cliquez sur un crédit dans la liste à gauche pour commencer le lettrage</p>
       </div>
     )
   }
