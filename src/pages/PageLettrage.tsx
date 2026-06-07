@@ -93,27 +93,28 @@ export function PageLettrage() {
       .in('numero_facture', nums)
       .eq('annule', false)
       .then(async ({ data }) => {
-        if (!data?.length) return
-        const rows = data as { numero_facture: string; id_ligne_bancaire: string | null }[]
-        const idToNum: Record<string, string> = {}
-        for (const r of rows) {
-          if (r.id_ligne_bancaire && r.numero_facture) idToNum[r.id_ligne_bancaire] = r.numero_facture
-        }
-        const ids = Object.keys(idToNum)
-        if (!ids.length) return
-        const { data: lb } = await supabase
-          .from('lignes_bancaires')
-          .select('id_operation, libelle, detail')
-          .in('id_operation', ids)
-        if (!lb) return
-        const result: Record<string, { libelle: string; detail: string | null }> = {}
-        for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
-          const num = idToNum[r.id_operation]
-          if (num) result[num] = { libelle: r.libelle, detail: r.detail }
-        }
-        setLibelles411(result)
+        try {
+          if (!data?.length) return
+          const rows = data as { numero_facture: string; id_ligne_bancaire: string | null }[]
+          const idToNum: Record<string, string> = {}
+          for (const r of rows) {
+            if (r.id_ligne_bancaire && r.numero_facture) idToNum[r.id_ligne_bancaire] = r.numero_facture
+          }
+          const ids = Object.keys(idToNum)
+          if (!ids.length) return
+          const { data: lb } = await supabase
+            .from('lignes_bancaires')
+            .select('id_operation, libelle, detail')
+            .in('id_operation', ids)
+          if (!lb) return
+          const result: Record<string, { libelle: string; detail: string | null }> = {}
+          for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
+            const num = idToNum[r.id_operation]
+            if (num) result[num] = { libelle: r.libelle, detail: r.detail }
+          }
+          setLibelles411(result)
+        } catch { /* libelles411 reste vide, affiché sans libellé bancaire */ }
       })
-      .catch(() => { /* libelles411 reste vide, affiché sans libellé bancaire */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factures411.length])
   // Remises : chargement initial pour le badge dans BarreResume
