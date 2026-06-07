@@ -99,6 +99,7 @@ export function useImportLettrage() {
 
     // Construit les lignes valides et identifie les invalides
     const lignesAInserer: Record<string, unknown>[] = []
+    const lignesInvalides: { donnees_brutes: Record<string, string>; raison: string }[] = []
     let nbInvalides = 0
 
     const today = new Date().toISOString().split('T')[0]
@@ -114,6 +115,11 @@ export function useImportLettrage() {
 
       // Facture introuvable, montant manquant, ou colonne date vide
       if (!codeClientFacture || !montant || (!dateParsee && !labelTexte)) {
+        const raisons: string[] = []
+        if (!codeClientFacture) raisons.push('Facture introuvable en base')
+        if (!montant) raisons.push('Montant manquant ou invalide')
+        if (!dateParsee && !labelTexte) raisons.push('Date manquante ou invalide')
+        lignesInvalides.push({ donnees_brutes: ligne, raison: raisons.join(' · ') })
         nbInvalides++
         continue
       }
@@ -154,6 +160,7 @@ export function useImportLettrage() {
       nb_nouvelles: lignesAInserer.length,
       nb_doublons: 0,
       nb_invalides: nbInvalides,
+      lignes_invalides: lignesInvalides,
       hash: _hash,
       nom_fichier: fichier.name,
     }

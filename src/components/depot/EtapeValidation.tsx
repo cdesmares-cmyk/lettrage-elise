@@ -36,6 +36,25 @@ function StatCardMontant({ valeur, label }: { valeur: number; label: string }) {
   )
 }
 
+function telechargerRapportIncidents(resultat: ResultatValidation) {
+  const invalides = resultat.lignes_invalides ?? []
+  if (!invalides.length) return
+  const colonnes = Object.keys(invalides[0].donnees_brutes)
+  const echapper = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`
+  const header = [...colonnes.map(echapper), echapper('Raison')].join(';')
+  const rows = invalides.map(l =>
+    [...colonnes.map(c => echapper(l.donnees_brutes[c] ?? '')), echapper(l.raison)].join(';')
+  )
+  const csv = '﻿' + [header, ...rows].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `rapport_incidents_${resultat.nom_fichier.replace(/\.[^.]+$/, '')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export function EtapeValidation({
   typeFichier, resultat, mapping, onConfirmer, onRetour, chargement,
 }: Props) {
@@ -103,9 +122,21 @@ export function EtapeValidation({
       {estLettrage && (resultat.nb_invalides ?? 0) > 0 && (
         <div className="flex gap-3 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-3 text-sm text-red-800">
           <span className="flex-shrink-0">🚫</span>
-          <div>
-            <strong>{resultat.nb_invalides} ligne{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''} ignorée{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''}</strong> — numéro de facture introuvable en base.
-            {' '}Ces lignes ne seront pas importées.
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <strong>{resultat.nb_invalides} ligne{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''} ignorée{(resultat.nb_invalides ?? 0) > 1 ? 's' : ''}</strong> — numéro de facture introuvable en base, montant ou date invalide.
+                {' '}Ces lignes ne seront pas importées.
+              </div>
+              {(resultat.lignes_invalides?.length ?? 0) > 0 && (
+                <button
+                  onClick={() => telechargerRapportIncidents(resultat)}
+                  className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-semibold text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  ⬇ Rapport d'incidents
+                </button>
+              )}
+            </div>
             {resultat.apercu.filter(l => l.statut === 'invalide').length > 0 && (
               <div className="mt-2">
                 <span className="text-[11px] font-semibold text-red-700">Numéros cherchés (aperçu) : </span>
