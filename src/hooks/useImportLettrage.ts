@@ -8,13 +8,15 @@ import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport 
 import { useAuth } from '../contexts/AuthContext'
 
 interface RowFacture { numero_piece: string; code_client: string }
+interface EntreeFacture { code_client: string; numero_piece: string }
 interface RowImportId { id: string }
 
-// Normalise un numéro de pièce :
-// - purement numérique (ex: "2026021254" ou "2026021254.0") → entier String sans décimale
-// - alphanumérique (ex: "FAC-2026-001") → texte trimé tel quel
+// Normalise un numéro de pièce pour la comparaison :
+// - supprime espaces normaux, insécables et retours chariot
+// - met en minuscules
+// - purement numérique → entier String sans décimale ni zéros en tête
 function normaliserNumero(val: string): string {
-  const s = val.trim().toLowerCase()
+  const s = val.replace(/[ \r\n\t]/g, ' ').trim().toLowerCase()
   if (/^\d+(\.\d*)?$/.test(s)) {
     const n = Math.round(parseFloat(s))
     return Number.isFinite(n) ? String(n) : s
@@ -73,23 +75,33 @@ export function useImportLettrage() {
 
     if (lignes.length === 0) throw new Error('Le fichier ne contient aucune ligne.')
 
-    // Numéros de facture uniques dans le fichier — normalisés (supprime .0 sur les numériques)
-    const numerosUniques = [...new Set(
+    // Numéros de facture : version normalisée (lowercase, sans .0) pour la comparaison
+    const numerosNormalises = [...new Set(
       lignes.map(l => normaliserNumero(l[colPivot] ?? '')).filter(Boolean)
     )]
+    // Version originale (trim seul) pour interroger la DB qui peut stocker en majuscules
+    const numerosOriginaux = [...new Set(
+      lignes.map(l => (l[colPivot] ?? '').trim()).filter(Boolean)
+    )]
+    // Union des deux → couvre le cas DB uppercase ET DB lowercase
+    const numerosQuery = [...new Set([...numerosNormalises, ...numerosOriginaux])]
 
-    if (numerosUniques.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
+    if (numerosNormalises.length === 0) throw new Error('Aucun numéro de facture trouvé dans la colonne mappée.')
 
-    // Vérifie les factures directement dans la table factures
-    const facturesMap = new Map<string, string>() // numero_piece → code_client
-    for (let i = 0; i < numerosUniques.length; i += 500) {
+    // Vérifie les factures — clé de la map en lowercase pour match insensible à la casse
+    const facturesMap = new Map<string, EntreeFacture>()
+    for (let i = 0; i < numerosQuery.length; i += 500) {
       const { data, error } = await supabase
         .from('factures')
         .select('numero_piece, code_client')
-        .in('numero_piece', numerosUniques.slice(i, i + 500))
+        .in('numero_piece', numerosQuery.slice(i, i + 500))
       if (error) throw new Error(`Erreur vérification factures : ${error.message}`)
       const rows = data as unknown as RowFacture[] | null
-      rows?.forEach(r => facturesMap.set(r.numero_piece, r.code_client))
+      // Clé lowercase → lookup toujours en lowercase ; valeur conserve la forme canonique DB
+      rows?.forEach(r => facturesMap.set(r.numero_piece.toLowerCase(), {
+        code_client: r.code_client,
+        numero_piece: r.numero_piece,
+      }))
     }
 
 
@@ -107,16 +119,16 @@ export function useImportLettrage() {
     for (const ligne of lignes) {
       const numFact = normaliserNumero(ligne[colPivot] ?? '')
       const codeClientFichier = colCodeClient ? (ligne[colCodeClient] ?? '').trim() : null
-      const codeClientFacture = facturesMap.get(numFact)
+      const entreeFacture = facturesMap.get(numFact)
       const montant = parseNombre(ligne[colMontant])
       const dateRaw = (ligne[colDate] ?? '').trim()
       const dateParsee = parseDate(dateRaw)
       const labelTexte = !dateParsee && dateRaw ? dateRaw : null
 
       // Facture introuvable, montant manquant, ou colonne date vide
-      if (!codeClientFacture || !montant || (!dateParsee && !labelTexte)) {
+      if (!entreeFacture || !montant || (!dateParsee && !labelTexte)) {
         const raisons: string[] = []
-        if (!codeClientFacture) raisons.push('Facture introuvable en base')
+        if (!entreeFacture) raisons.push('Facture introuvable en base')
         if (!montant) raisons.push('Montant manquant ou invalide')
         if (!dateParsee && !labelTexte) raisons.push('Date manquante ou invalide')
         lignesInvalides.push({ donnees_brutes: ligne, raison: raisons.join(' · ') })
@@ -129,8 +141,9 @@ export function useImportLettrage() {
       const commentaireFinal = [libelle, commentaire].filter(Boolean).join(' · ') || labelTexte || null
 
       lignesAInserer.push({
-        numero_facture: numFact,
-        code_client: codeClientFichier || codeClientFacture,
+        // Forme canonique DB → le trigger sync_reste_du retrouve la facture exactement
+        numero_facture: entreeFacture.numero_piece,
+        code_client: codeClientFichier || entreeFacture.code_client,
         montant: Math.round(montant * 100) / 100,
         date_lettrage: dateParsee ?? today,
         commentaire: commentaireFinal,
