@@ -1,16 +1,7 @@
 // Onglet [Compte] — deux sections : Comptes 411 (indigo) + En attente 471 (orange)
 import type { FactureDetail } from '../../types/client'
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
-import type { FiltreStatut } from '../../hooks/useLignesBancaires'
-import { IcSearch, IcClock, IcX } from '../Icones'
-
-const FILTRES: { val: FiltreStatut; label: string }[] = [
-  { val: 'a_lettrer',        label: 'À lettrer' },
-  { val: 'partiel',          label: 'Partielles' },
-  { val: 'lettre',           label: 'Lettrées' },
-  { val: 'compte',           label: 'Compte' },
-  { val: 'autres_virements', label: 'Autres virements perçus' },
-]
+import { IcX } from '../Icones'
 
 interface Props {
   factures411: FactureDetail[]
@@ -21,16 +12,8 @@ interface Props {
   onAnnuler411: (f: FactureDetail) => void
   onAnnuler471: (l: LigneBancaireAvecStatut) => void
   chargement: boolean
-  filtre: FiltreStatut
-  onFiltre: (v: FiltreStatut) => void
   libelles411?: Record<string, { libelle: string; detail: string | null }>
   recherche: string
-  onRecherche: (v: string) => void
-  dateDebut: string
-  dateFin: string
-  onDateDebut: (v: string) => void
-  onDateFin: (v: string) => void
-  onHistorique: () => void
 }
 
 function fmt(n: number) {
@@ -43,8 +26,7 @@ function formatDate(iso: string) {
 
 export function TableCompte({
   factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471,
-  chargement, filtre, onFiltre, libelles411,
-  recherche, onRecherche, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique,
+  chargement, libelles411, recherche,
 }: Props) {
   const term = recherche.trim().toLowerCase()
 
@@ -60,73 +42,7 @@ export function TableCompte({
   const rien = factures411Filtrees.length === 0 && lignes471.length === 0
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-        {/* Ligne 1 : recherche + période + historique */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-            <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              value={recherche}
-              onChange={e => onRecherche(e.target.value)}
-              placeholder="Client, référence, libellé…"
-              className="text-xs text-gray-700 placeholder-gray-400 outline-none flex-1 bg-transparent min-w-0"
-            />
-            {recherche && (
-              <button onClick={() => onRecherche('')} className="text-gray-300 hover:text-gray-500 text-xs flex-shrink-0">✕</button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Du</span>
-            <input
-              type="date"
-              value={dateDebut}
-              onChange={e => onDateDebut(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-            />
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">au</span>
-            <input
-              type="date"
-              value={dateFin}
-              onChange={e => onDateFin(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-            />
-            {(dateDebut || dateFin) && (
-              <button
-                onClick={() => { onDateDebut(''); onDateFin('') }}
-                className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
-                title="Effacer les dates"
-              >✕</button>
-            )}
-          </div>
-
-          <button
-            onClick={onHistorique}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
-          >
-            <IcClock size={12} className="flex-shrink-0" /> Historique
-          </button>
-        </div>
-
-        {/* Ligne 2 : filtres statut */}
-        <div className="flex gap-1 flex-wrap">
-          {FILTRES.map(f => (
-            <button
-              key={f.val}
-              onClick={() => onFiltre(f.val)}
-              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <>
       {chargement ? (
         <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Chargement…</div>
       ) : rien ? (
@@ -241,6 +157,6 @@ export function TableCompte({
           )}
         </div>
       )}
-    </div>
+    </>
   )
 }

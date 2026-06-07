@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
-import { IcDownload, IcClock } from '../components/Icones'
+import { IcDownload, IcClock, IcX } from '../components/Icones'
 import type { LigneBancaireAvecStatut } from '../types/lettrage'
 import type { FactureDetail } from '../types/client'
 import { BarreResume } from '../components/lettrage/BarreResume'
@@ -12,6 +12,7 @@ import { PanneauDispatch471 } from '../components/lettrage/PanneauDispatch471'
 import { PanneauDispatch411 } from '../components/lettrage/PanneauDispatch411'
 import { PanneauRequalification471 } from '../components/lettrage/PanneauRequalification471'
 import { TableCompte } from '../components/lettrage/TableCompte'
+import { ToolbarLettrage } from '../components/lettrage/ToolbarLettrage'
 import { ModalCorrection } from '../components/lettrage/ModalCorrection'
 import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
@@ -303,60 +304,55 @@ export function PageLettrage() {
 
       {/* Deux panneaux */}
       <div className="grid grid-cols-[1fr_360px] gap-4 items-start">
-        <div key={liste.filtre} className="animate-fade-in">
-        {liste.filtre === 'compte' ? (
-          <TableCompte
-            factures411={factures411}
-            lignes471={liste.lignes.filter(l => l.en_attente_471)}
-            selectedId={dispatch411.factureActive?.numero_piece ?? dispatch471.ligneActive?.id_operation ?? null}
-            onSelect411={(f) => {
-              dispatch471.annuler()
-              if (dispatch411.factureActive?.numero_piece === f.numero_piece) dispatch411.annuler()
-              else dispatch411.selectionnerFacture411(f)
-            }}
-            onSelect471={(l) => {
-              dispatch411.annuler()
-              if (dispatch471.ligneActive?.id_operation === l.id_operation) dispatch471.annuler()
-              else dispatch471.selectionnerLigne(l)
-            }}
-            onAnnuler411={setConfirmAnnulation411}
-            onAnnuler471={setConfirmAnnulation}
-            chargement={liste.chargement}
-            filtre={liste.filtre}
-            onFiltre={handleChangerFiltre}
-            libelles411={libelles411}
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+          <ToolbarLettrage
             recherche={liste.recherche}
             onRecherche={liste.setRecherche}
+            filtre={liste.filtre}
+            onFiltre={handleChangerFiltre}
             dateDebut={liste.dateDebut}
             dateFin={liste.dateFin}
             onDateDebut={liste.setDateDebut}
             onDateFin={liste.setDateFin}
             onHistorique={historique.toggle}
           />
-        ) : (
-          <TableLignesBancaires
-            lignes={liste.lignes}
-            chargement={liste.chargement}
-            ligneActiveId={liste.filtre === 'autres_virements' ? requalification471.ligneActive?.id_operation ?? null : forme.ligneActive?.id_operation ?? null}
-            recherche={liste.recherche}
-            filtre={liste.filtre}
-            dateDebut={liste.dateDebut}
-            dateFin={liste.dateFin}
-            page={liste.page}
-            totalPages={liste.totalPages}
-            totalLignes={liste.totalLignes}
-            onRecherche={liste.setRecherche}
-            onFiltre={handleChangerFiltre}
-            onDateDebut={liste.setDateDebut}
-            onDateFin={liste.setDateFin}
-            onPage={liste.setPage}
-            onSelectLigne={handleSelectLigne}
-            onHistorique={historique.toggle}
-            onAnnulerLettrage={setConfirmAnnulation}
-            onAffecterRemboursement={l => { remboursements.charger(); setLigneDebitAaffecter(l) }}
-            lignesExportees={exportComptable.lignesExportees}
-          />
-        )}
+          <div key={liste.filtre} className="animate-fade-in">
+            {liste.filtre === 'compte' ? (
+              <TableCompte
+                factures411={factures411}
+                lignes471={liste.lignes.filter(l => l.en_attente_471)}
+                selectedId={dispatch411.factureActive?.numero_piece ?? dispatch471.ligneActive?.id_operation ?? null}
+                onSelect411={(f) => {
+                  dispatch471.annuler()
+                  if (dispatch411.factureActive?.numero_piece === f.numero_piece) dispatch411.annuler()
+                  else dispatch411.selectionnerFacture411(f)
+                }}
+                onSelect471={(l) => {
+                  dispatch411.annuler()
+                  if (dispatch471.ligneActive?.id_operation === l.id_operation) dispatch471.annuler()
+                  else dispatch471.selectionnerLigne(l)
+                }}
+                onAnnuler411={setConfirmAnnulation411}
+                onAnnuler471={setConfirmAnnulation}
+                chargement={liste.chargement}
+                libelles411={libelles411}
+                recherche={liste.recherche}
+              />
+            ) : (
+              <TableLignesBancaires
+                lignes={liste.lignes}
+                chargement={liste.chargement}
+                ligneActiveId={liste.filtre === 'autres_virements' ? requalification471.ligneActive?.id_operation ?? null : forme.ligneActive?.id_operation ?? null}
+                page={liste.page}
+                totalPages={liste.totalPages}
+                onPage={liste.setPage}
+                onSelectLigne={handleSelectLigne}
+                onAnnulerLettrage={setConfirmAnnulation}
+                onAffecterRemboursement={l => { remboursements.charger(); setLigneDebitAaffecter(l) }}
+                lignesExportees={exportComptable.lignesExportees}
+              />
+            )}
+          </div>
         </div>
 
         {liste.filtre === 'compte' ? (
@@ -398,8 +394,8 @@ export function PageLettrage() {
               </div>
               <button
                 onClick={historique.toggle}
-                className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 text-sm flex items-center justify-center transition-colors"
-              >✕</button>
+                className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors"
+              ><IcX size={13} /></button>
             </div>
             <div className="overflow-auto flex-1">
               <TableHistoriqueLettrage

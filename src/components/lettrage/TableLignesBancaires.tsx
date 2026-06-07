@@ -1,27 +1,16 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
-import { IcSearch, IcClock, IcX } from '../Icones'
-import type { FiltreStatut } from '../../hooks/useLignesBancaires'
+import { IcX } from '../Icones'
 import { Pagination } from '../Pagination'
 
 interface Props {
   lignes: LigneBancaireAvecStatut[]
   chargement: boolean
   ligneActiveId: string | null
-  recherche: string
-  filtre: FiltreStatut
-  dateDebut: string
-  dateFin: string
   page: number
   totalPages: number
-  totalLignes: number
-  onRecherche: (v: string) => void
-  onFiltre: (v: FiltreStatut) => void
-  onDateDebut: (v: string) => void
-  onDateFin: (v: string) => void
   onPage: (p: number) => void
   onSelectLigne: (l: LigneBancaireAvecStatut) => void
-  onHistorique: () => void
   onAnnulerLettrage: (l: LigneBancaireAvecStatut) => void
   onAffecterRemboursement: (l: LigneBancaireAvecStatut) => void
   lignesExportees: Map<string, string>
@@ -56,94 +45,14 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
 
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,
-  recherche, filtre, dateDebut, dateFin,
   page, totalPages,
-  onRecherche, onFiltre, onDateDebut, onDateFin, onPage, onSelectLigne, onHistorique,
+  onPage, onSelectLigne,
   onAnnulerLettrage, onAffecterRemboursement, lignesExportees,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-gray-100 space-y-2">
-        {/* Ligne 1 : recherche + période + historique */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Recherche */}
-          <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
-            <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
-            <input
-              type="text"
-              value={recherche}
-              onChange={e => onRecherche(e.target.value)}
-              placeholder="Libellé, référence, montant…"
-              className="text-xs text-gray-700 placeholder-gray-400 outline-none flex-1 bg-transparent min-w-0"
-            />
-            {recherche && (
-              <button onClick={() => onRecherche('')} className="text-gray-300 hover:text-gray-500 text-xs flex-shrink-0">✕</button>
-            )}
-          </div>
-
-          {/* Période */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Du</span>
-            <input
-              type="date"
-              value={dateDebut}
-              onChange={e => onDateDebut(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-            />
-            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">au</span>
-            <input
-              type="date"
-              value={dateFin}
-              onChange={e => onDateFin(e.target.value)}
-              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
-            />
-            {(dateDebut || dateFin) && (
-              <button
-                onClick={() => { onDateDebut(''); onDateFin('') }}
-                className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
-                title="Effacer les dates"
-              >✕</button>
-            )}
-          </div>
-
-          <button
-            onClick={onHistorique}
-            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
-          >
-            <IcClock size={12} className="flex-shrink-0" /> Historique
-          </button>
-        </div>
-
-        {/* Ligne 2 : filtres statut + légende */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex gap-1 flex-wrap">
-            {FILTRES.map(f => (
-              <button
-                key={f.val}
-                onClick={() => onFiltre(f.val)}
-                className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                  filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Légende */}
-          <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-shrink-0">
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Lettré</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
-            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />411 Attente</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Table */}
+    <>
       {chargement ? (
         <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
           Chargement…
@@ -261,6 +170,6 @@ export function TableLignesBancaires({
 
       {/* Pagination */}
       {!chargement && <Pagination page={page} total={totalPages} onChange={onPage} />}
-    </div>
+    </>
   )
 }
