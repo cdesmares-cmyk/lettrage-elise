@@ -322,6 +322,13 @@ export function PageLettrage() {
             filtre={liste.filtre}
             onFiltre={handleChangerFiltre}
             libelles411={libelles411}
+            recherche={liste.recherche}
+            onRecherche={liste.setRecherche}
+            dateDebut={liste.dateDebut}
+            dateFin={liste.dateFin}
+            onDateDebut={liste.setDateDebut}
+            onDateFin={liste.setDateFin}
+            onHistorique={historique.toggle}
           />
         ) : (
           <TableLignesBancaires

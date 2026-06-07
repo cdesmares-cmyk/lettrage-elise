@@ -2,7 +2,7 @@
 import type { FactureDetail } from '../../types/client'
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
-import { IcX } from '../Icones'
+import { IcSearch, IcClock, IcX } from '../Icones'
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'a_lettrer',        label: 'À lettrer' },
@@ -24,6 +24,13 @@ interface Props {
   filtre: FiltreStatut
   onFiltre: (v: FiltreStatut) => void
   libelles411?: Record<string, string>
+  recherche: string
+  onRecherche: (v: string) => void
+  dateDebut: string
+  dateFin: string
+  onDateDebut: (v: string) => void
+  onDateFin: (v: string) => void
+  onHistorique: () => void
 }
 
 function fmt(n: number) {
@@ -34,12 +41,76 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
 }
 
-export function TableCompte({ factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471, chargement, filtre, onFiltre, libelles411 }: Props) {
-  const rien = factures411.length === 0 && lignes471.length === 0
+export function TableCompte({
+  factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471,
+  chargement, filtre, onFiltre, libelles411,
+  recherche, onRecherche, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique,
+}: Props) {
+  const term = recherche.trim().toLowerCase()
+
+  const factures411Filtrees = term
+    ? factures411.filter(f =>
+        (f.nom_client ?? '').toLowerCase().includes(term) ||
+        f.numero_piece.toLowerCase().includes(term) ||
+        (libelles411?.[f.numero_piece] ?? '').toLowerCase().includes(term)
+      )
+    : factures411
+
+  const rien = factures411Filtrees.length === 0 && lignes471.length === 0
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+      {/* Toolbar */}
       <div className="px-4 py-3 border-b border-gray-100 space-y-2">
+        {/* Ligne 1 : recherche + période + historique */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-1 min-w-[180px] bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+            <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
+            <input
+              type="text"
+              value={recherche}
+              onChange={e => onRecherche(e.target.value)}
+              placeholder="Client, référence, libellé…"
+              className="text-xs text-gray-700 placeholder-gray-400 outline-none flex-1 bg-transparent min-w-0"
+            />
+            {recherche && (
+              <button onClick={() => onRecherche('')} className="text-gray-300 hover:text-gray-500 text-xs flex-shrink-0">✕</button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Du</span>
+            <input
+              type="date"
+              value={dateDebut}
+              onChange={e => onDateDebut(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
+            />
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">au</span>
+            <input
+              type="date"
+              value={dateFin}
+              onChange={e => onDateFin(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs text-gray-600 outline-none focus:border-ockham-teal bg-white"
+            />
+            {(dateDebut || dateFin) && (
+              <button
+                onClick={() => { onDateDebut(''); onDateFin('') }}
+                className="text-[10px] text-gray-400 hover:text-red-400 transition-colors px-1"
+                title="Effacer les dates"
+              >✕</button>
+            )}
+          </div>
+
+          <button
+            onClick={onHistorique}
+            className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal transition-colors whitespace-nowrap flex-shrink-0"
+          >
+            <IcClock size={12} className="flex-shrink-0" /> Historique
+          </button>
+        </div>
+
+        {/* Ligne 2 : filtres statut */}
         <div className="flex gap-1 flex-wrap">
           {FILTRES.map(f => (
             <button
@@ -53,28 +124,27 @@ export function TableCompte({ factures411, lignes471, selectedId, onSelect411, o
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-400">Comptes clients 411 et lignes en attente d'affectation</p>
       </div>
 
       {chargement ? (
         <div className="flex items-center justify-center py-16 text-gray-400 text-sm">Chargement…</div>
       ) : rien ? (
         <div className="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
-          <p className="font-medium">Aucune entrée en compte</p>
-          <p className="text-xs mt-1 text-gray-300">Utilisez "Affecter ce paiement" pour alimenter cet onglet</p>
+          <p className="font-medium">{term ? 'Aucun résultat' : 'Aucune entrée en compte'}</p>
+          {!term && <p className="text-xs mt-1 text-gray-300">Utilisez "Affecter ce paiement" pour alimenter cet onglet</p>}
         </div>
       ) : (
         <div>
           {/* Section 411 */}
-          {factures411.length > 0 && (
+          {factures411Filtrees.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-indigo-50/60 border-b border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
-                  Compte 411 — {factures411.length} ligne{factures411.length > 1 ? 's' : ''}
+                  Compte 411 — {factures411Filtrees.length} ligne{factures411Filtrees.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
-                {factures411.map(f => {
+                {factures411Filtrees.map(f => {
                   const isActive = f.numero_piece === selectedId
                   const montant = Math.abs(f.reste_du)
                   return (
