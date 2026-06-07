@@ -22,10 +22,11 @@ function fmtDate(iso: string) {
 export function ModalAffectationRemboursement({ ouvert, ligneBancaire, enAttente, onAffecter, onFermer }: Props) {
   if (!ouvert || !ligneBancaire) return null
 
-  // Montant sortant : colonne debit si renseignée, sinon valeur absolue du credit négatif
-  const montantDebit = (ligneBancaire.debit ?? 0) > 0
-    ? (ligneBancaire.debit ?? 0)
-    : Math.abs(ligneBancaire.credit ?? 0)
+  // Montant sortant : valeur absolue de debit si renseigné, sinon valeur absolue de credit
+  // Gère les formats bancaires où debit est stocké en négatif (ex. -71.40)
+  const debitAbs = ligneBancaire.debit !== null ? Math.abs(ligneBancaire.debit) : 0
+  const creditAbs = ligneBancaire.credit !== null ? Math.abs(ligneBancaire.credit) : 0
+  const montantDebit = debitAbs > 0 ? debitAbs : creditAbs
 
   async function handleAffecter(rembId: string) {
     try {
