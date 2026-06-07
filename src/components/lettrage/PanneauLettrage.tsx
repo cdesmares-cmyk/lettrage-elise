@@ -1,6 +1,6 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
 import { useRef, useState } from 'react'
-import { IcCursor, IcWarning, IcEdit, IcSearch } from '../Icones'
+import { IcCursor, IcEdit, IcSearch } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
@@ -12,6 +12,7 @@ type Props = ReturnType<typeof useLettrageForm> & {
   remisesEnAttente: Remise[]
   onEncaisser: (remiseId: string) => Promise<void>
   clients: CompteClient[]
+  dateExport?: string | null
 }
 
 function fmt(n: number) {
@@ -31,6 +32,7 @@ export function PanneauLettrage(props: Props) {
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
     onOuvrirCorrection, onOuvrirNavigateur, remisesEnAttente, onEncaisser, clients,
+    dateExport,
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -74,33 +76,24 @@ export function PanneauLettrage(props: Props) {
   // ── État alerte (ligne 100% lettrée) ──
   if (modeAlerte) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden sticky top-20">
-        <div className="px-5 py-4 border-b border-gray-100 bg-amber-50">
-          <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wider mb-1">Déjà lettré à 100 %</p>
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
+        <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Lettrage complet</p>
           <p className="text-sm font-semibold text-gray-800">{ligneActive.libelle}</p>
-          <p className="text-xs text-gray-500 mt-0.5">{fmt(ligneActive.credit ?? 0)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{fmt(ligneActive.credit ?? 0)}</p>
         </div>
 
         <div className="px-5 py-4">
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4 text-sm text-amber-800">
-            <span className="flex-shrink-0 mt-0.5 text-amber-500"><IcWarning size={15} /></span>
-            <span>
-              Cette opération a été lettrée le{' '}
-              <strong>{formatDate(ligneActive.derniere_date_lettrage)}</strong>.
-              L'information a potentiellement été transmise au cabinet comptable.
-            </span>
-          </div>
-
           {lettragesExistants.length > 0 && (
             <>
-              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Lettrages enregistrés</p>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Affectation</p>
               <div className="space-y-1.5 mb-4">
                 {lettragesExistants.map(l => (
                   <div key={l.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
                     <div>
                       {l.numero_facture
                         ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
-                        : <span className="text-amber-600 font-semibold">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>
+                        : <span className="text-gray-600 font-semibold">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>
                       }
                       <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
                     </div>
@@ -109,6 +102,12 @@ export function PanneauLettrage(props: Props) {
                 ))}
               </div>
             </>
+          )}
+
+          {dateExport && (
+            <p className="text-[11px] text-gray-400 mb-4">
+              Exporté le {new Date(dateExport).toLocaleDateString('fr-FR')} — toute modification doit passer par le module de correction.
+            </p>
           )}
 
           <button
@@ -120,8 +119,11 @@ export function PanneauLettrage(props: Props) {
         </div>
 
         <div className="px-5 pb-4">
-          <button onClick={annuler} className="w-full text-xs text-gray-400 hover:text-gray-600 transition-colors py-1.5">
-            ← Désélectionner
+          <button
+            onClick={annuler}
+            className="w-full text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700 py-2.5 rounded-lg transition-colors"
+          >
+            Annuler
           </button>
         </div>
       </div>

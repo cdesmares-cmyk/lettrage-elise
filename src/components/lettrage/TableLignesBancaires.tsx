@@ -24,7 +24,7 @@ interface Props {
   onHistorique: () => void
   onAnnulerLettrage: (l: LigneBancaireAvecStatut) => void
   onAffecterRemboursement: (l: LigneBancaireAvecStatut) => void
-  lignesExportees: Set<string>
+  lignesExportees: Map<string, string>
 }
 
 function fmt(n: number | null) {
@@ -51,7 +51,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
   { val: 'compte',           label: 'Compte' },
-  { val: 'autres_virements', label: 'Autres Virements' },
+  { val: 'autres_virements', label: 'Autres virements perçus' },
 ]
 
 export function TableLignesBancaires({

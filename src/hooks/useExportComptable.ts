@@ -24,7 +24,7 @@ interface RowLettrage {
 }
 
 export function useExportComptable() {
-  const [lignesExportees, setLignesExportees] = useState<Set<string>>(new Set())
+  const [lignesExportees, setLignesExportees] = useState<Map<string, string>>(new Map())
   const [historique, setHistorique] = useState<ExportComptable[]>([])
   const [chargement, setChargement] = useState(false)
 
@@ -32,23 +32,28 @@ export function useExportComptable() {
     const [{ data: lockData }, { data: histData }] = await Promise.all([
       supabase
         .from('lettrages')
-        .select('id_ligne_bancaire')
+        .select('id_ligne_bancaire, export_id')
         .not('export_id', 'is', null)
         .eq('annule', false),
       supabase
         .from('exports_comptables')
         .select('id, date_debut, date_fin, nb_lettrages, montant_total, created_at, exporte_par')
         .order('created_at', { ascending: false })
-        .limit(5),
+        .limit(20),
     ])
 
-    const ids = [...new Set(
-      ((lockData as { id_ligne_bancaire: string | null }[]) ?? [])
-        .map(r => r.id_ligne_bancaire)
-        .filter((id): id is string => !!id)
-    )]
-    setLignesExportees(new Set(ids))
-    setHistorique((histData as ExportComptable[]) ?? [])
+    const rows = ((lockData as { id_ligne_bancaire: string | null; export_id: string | null }[]) ?? [])
+    const hist = (histData as ExportComptable[]) ?? []
+    const dateByExportId = Object.fromEntries(hist.map(e => [e.id, e.created_at]))
+
+    const exportMap = new Map<string, string>()
+    for (const r of rows) {
+      if (r.id_ligne_bancaire && r.export_id && !exportMap.has(r.id_ligne_bancaire)) {
+        exportMap.set(r.id_ligne_bancaire, dateByExportId[r.export_id] ?? '')
+      }
+    }
+    setLignesExportees(exportMap)
+    setHistorique(hist)
   }, [])
 
   async function apercu(dateDebut: string, dateFin: string) {

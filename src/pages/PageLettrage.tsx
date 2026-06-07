@@ -83,7 +83,7 @@ export function PageLettrage() {
   })
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
-  const [libelles411, setLibelles411] = useState<Record<string, string>>({})
+  const [libelles411, setLibelles411] = useState<Record<string, { libelle: string; detail: string | null }>>({})
   useEffect(() => {
     if (factures411.length === 0) { setLibelles411({}); return }
     const nums = factures411.map(f => f.numero_piece)
@@ -103,13 +103,13 @@ export function PageLettrage() {
         if (!ids.length) return
         const { data: lb } = await supabase
           .from('lignes_bancaires')
-          .select('id_operation, libelle')
+          .select('id_operation, libelle, detail')
           .in('id_operation', ids)
         if (!lb) return
-        const result: Record<string, string> = {}
-        for (const r of lb as { id_operation: string; libelle: string }[]) {
+        const result: Record<string, { libelle: string; detail: string | null }> = {}
+        for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
           const num = idToNum[r.id_operation]
-          if (num) result[num] = r.libelle
+          if (num) result[num] = { libelle: r.libelle, detail: r.detail }
         }
         setLibelles411(result)
       })
@@ -371,6 +371,7 @@ export function PageLettrage() {
             remisesEnAttente={remisesEnAttente}
             onEncaisser={handleEncaisser}
             clients={clients}
+            dateExport={forme.ligneActive ? (exportComptable.lignesExportees.get(forme.ligneActive.id_operation) ?? null) : null}
           />
         )}
       </div>

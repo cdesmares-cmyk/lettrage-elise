@@ -9,7 +9,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
   { val: 'compte',           label: 'Compte' },
-  { val: 'autres_virements', label: 'Autres Virements' },
+  { val: 'autres_virements', label: 'Autres virements perçus' },
 ]
 
 interface Props {
@@ -23,7 +23,7 @@ interface Props {
   chargement: boolean
   filtre: FiltreStatut
   onFiltre: (v: FiltreStatut) => void
-  libelles411?: Record<string, string>
+  libelles411?: Record<string, { libelle: string; detail: string | null }>
   recherche: string
   onRecherche: (v: string) => void
   dateDebut: string
@@ -52,7 +52,8 @@ export function TableCompte({
     ? factures411.filter(f =>
         (f.nom_client ?? '').toLowerCase().includes(term) ||
         f.numero_piece.toLowerCase().includes(term) ||
-        (libelles411?.[f.numero_piece] ?? '').toLowerCase().includes(term)
+        (libelles411?.[f.numero_piece]?.libelle ?? '').toLowerCase().includes(term) ||
+        (libelles411?.[f.numero_piece]?.detail ?? '').toLowerCase().includes(term)
       )
     : factures411
 
@@ -163,7 +164,10 @@ export function TableCompte({
                           </p>
                           <p className="text-[11px] font-mono text-indigo-400">{f.numero_piece}</p>
                           {libelles411?.[f.numero_piece] && (
-                            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">{libelles411[f.numero_piece]}</p>
+                            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">
+                              {libelles411[f.numero_piece].libelle}
+                              {libelles411[f.numero_piece].detail ? ` · ${libelles411[f.numero_piece].detail}` : ''}
+                            </p>
                           )}
                         </div>
                       </div>

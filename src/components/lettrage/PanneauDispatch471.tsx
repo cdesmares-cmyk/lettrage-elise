@@ -32,7 +32,7 @@ export function PanneauDispatch471(props: Props) {
       <div className="bg-white border border-orange-100 rounded-xl shadow-sm flex flex-col items-center justify-center min-h-[320px] text-center px-6 py-10 sticky top-20">
         <div className="mb-3 opacity-20 text-orange-400"><IcCursor size={40} /></div>
         <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne en attente</p>
-        <p className="text-gray-400 text-xs">Cliquez sur une ligne 471 pour la dispatcher</p>
+        <p className="text-gray-400 text-xs">Cliquez sur une ligne 411 Attente pour la dispatcher</p>
       </div>
     )
   }
