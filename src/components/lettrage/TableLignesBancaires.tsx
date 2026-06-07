@@ -34,14 +34,6 @@ function DotStatut({ statut }: { statut: StatutLettrage }) {
   return <span className="inline-block w-2 h-2 rounded-full bg-gray-300" />
 }
 
-const FILTRES: { val: FiltreStatut; label: string }[] = [
-  { val: 'toutes',           label: 'Toutes' },
-  { val: 'a_lettrer',        label: 'À lettrer' },
-  { val: 'partiel',          label: 'Partielles' },
-  { val: 'lettre',           label: 'Lettrées' },
-  { val: 'compte',           label: 'Compte' },
-  { val: 'autres_virements', label: 'Autres virements perçus' },
-]
 
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,

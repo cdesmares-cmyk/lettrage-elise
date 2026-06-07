@@ -29,10 +29,7 @@ export function PanneauDispatch471(props: Props) {
 
   if (!ligneActive) {
     return (
-      <div className="bg-white border border-orange-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
-        <div className="px-4 py-2 bg-orange-50 border-b border-orange-100">
-          <p className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Vue Compte — 411 Attente</p>
-        </div>
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
         <div className="flex flex-col items-center justify-center min-h-[280px] text-center px-6 py-10">
           <div className="mb-3 opacity-20 text-orange-400"><IcCursor size={40} /></div>
           <p className="font-semibold text-gray-700 text-sm mb-1">Sélectionnez une ligne en attente</p>
