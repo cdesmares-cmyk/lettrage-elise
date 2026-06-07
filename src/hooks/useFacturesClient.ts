@@ -82,12 +82,33 @@ export function useFacturesClient() {
   }
 
   async function chargerHistorique(numeroPiece: string): Promise<HistoriqueLettrage[]> {
-    const { data } = await supabase
-      .from('lettrages')
-      .select('id,id_ligne_bancaire,montant,date_lettrage,mode,commentaire')
-      .eq('numero_facture', numeroPiece)
-      .order('date_lettrage', { ascending: false })
-    return (data as unknown as HistoriqueLettrage[]) ?? []
+    const [{ data: lettragesData }, { data: rembData }] = await Promise.all([
+      supabase
+        .from('lettrages')
+        .select('id,id_ligne_bancaire,montant,date_lettrage,mode,commentaire')
+        .eq('numero_facture', numeroPiece)
+        .order('date_lettrage', { ascending: false }),
+      supabase
+        .from('remboursement_lignes')
+        .select('id, montant, remboursements(id, created_at, statut, id_ligne_bancaire)')
+        .eq('numero_facture', numeroPiece),
+    ])
+
+    const lettrages = (lettragesData as unknown as HistoriqueLettrage[]) ?? []
+
+    type RembRow = { id: string; montant: number; remboursements: { id: string; created_at: string; statut: string; id_ligne_bancaire: string | null } | null }
+    const remboursements: HistoriqueLettrage[] = ((rembData as unknown as RembRow[]) ?? []).map(l => ({
+      id: l.id,
+      id_ligne_bancaire: l.remboursements?.id_ligne_bancaire ?? null,
+      montant: -l.montant,
+      date_lettrage: l.remboursements?.created_at ?? '',
+      mode: 'remboursement',
+      commentaire: l.remboursements?.statut === 'effectue' ? 'Remboursement client' : 'Remboursement client — en attente d\'affectation débit',
+    }))
+
+    return [...lettrages, ...remboursements].sort((a, b) =>
+      new Date(b.date_lettrage).getTime() - new Date(a.date_lettrage).getTime()
+    )
   }
 
   return {
