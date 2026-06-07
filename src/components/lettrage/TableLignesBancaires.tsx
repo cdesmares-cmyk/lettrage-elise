@@ -2,7 +2,6 @@
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
 import { IcSearch, IcClock, IcX } from '../Icones'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
-import { PAGE_SIZE } from '../../hooks/useLignesBancaires'
 import { Pagination } from '../Pagination'
 
 interface Props {
@@ -58,7 +57,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
 export function TableLignesBancaires({
   lignes, chargement, ligneActiveId,
   recherche, filtre, dateDebut, dateFin,
-  page, totalPages, totalLignes,
+  page, totalPages,
   onRecherche, onFiltre, onDateDebut, onDateFin, onPage, onSelectLigne, onHistorique,
   onAnnulerLettrage, onAffecterRemboursement, lignesExportees,
 }: Props) {
