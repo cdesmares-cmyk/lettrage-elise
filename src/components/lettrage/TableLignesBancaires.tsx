@@ -49,6 +49,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'a_lettrer',        label: 'À lettrer' },
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
+  { val: 'debit',            label: 'Débits' },
   { val: 'compte',           label: 'Compte' },
   { val: 'autres_virements', label: 'Autres Virements' },
 ]

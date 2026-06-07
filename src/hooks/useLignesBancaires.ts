@@ -15,7 +15,7 @@ interface RowLigne {
 
 interface RowTotaux { statut_lettrage: string; restant: number }
 
-export type FiltreStatut = 'a_lettrer' | 'partiel' | 'lettre' | 'compte' | 'autres_virements'
+export type FiltreStatut = 'a_lettrer' | 'partiel' | 'lettre' | 'compte' | 'autres_virements' | 'debit'
 
 export const PAGE_SIZE = 50
 
