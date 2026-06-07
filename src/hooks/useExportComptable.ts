@@ -152,7 +152,7 @@ export function useExportComptable() {
       .not('debit', 'is', null)
       .gt('debit', 0)
 
-    const debitRows = (debitData as { id_operation: string; libelle: string; date_operation: string }[]) ?? []
+    const debitRows = ((debitData as unknown as { id_operation: string; libelle: string; date_operation: string }[]) ?? [])
     if (!debitRows.length) return []
 
     const debitMap = Object.fromEntries(debitRows.map(d => [d.id_operation, d]))
