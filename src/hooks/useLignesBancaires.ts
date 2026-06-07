@@ -15,7 +15,7 @@ interface RowLigne {
 
 interface RowTotaux { statut_lettrage: string; restant: number }
 
-export type FiltreStatut = 'toutes' | 'a_lettrer' | 'partiel' | 'lettre' | 'debit' | 'compte' | 'autres_virements'
+export type FiltreStatut = 'toutes' | 'a_lettrer' | 'partiel' | 'lettre' | 'compte' | 'autres_virements'
 
 export const PAGE_SIZE = 50
 
@@ -70,7 +70,13 @@ export function useLignesBancaires() {
       else q = q.eq('statut_lettrage', filtre)
       if (dateDebut) q = q.gte('date_operation', dateDebut)
       if (dateFin)   q = q.lte('date_operation', dateFin)
-      if (term)      q = q.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
+      if (term) {
+        const numericTerm = parseFloat(term.replace(/\s/g, '').replace(',', '.'))
+        const textFilters = `libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`
+        q = !isNaN(numericTerm) && numericTerm > 0
+          ? q.or(`${textFilters},debit.eq.${numericTerm},credit.eq.${numericTerm}`)
+          : q.or(textFilters)
+      }
 
       // Requête count (même filtres, sans pagination)
       let qCount = supabase
@@ -84,7 +90,13 @@ export function useLignesBancaires() {
       else qCount = qCount.eq('statut_lettrage', filtre)
       if (dateDebut) qCount = qCount.gte('date_operation', dateDebut)
       if (dateFin)   qCount = qCount.lte('date_operation', dateFin)
-      if (term)      qCount = qCount.or(`libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`)
+      if (term) {
+        const numericTerm = parseFloat(term.replace(/\s/g, '').replace(',', '.'))
+        const textFilters = `libelle.ilike.%${term}%,detail.ilike.%${term}%,infos_complementaires.ilike.%${term}%`
+        qCount = !isNaN(numericTerm) && numericTerm > 0
+          ? qCount.or(`${textFilters},debit.eq.${numericTerm},credit.eq.${numericTerm}`)
+          : qCount.or(textFilters)
+      }
 
       // Requête KPI globale (sans filtre statut ni limite)
       let qTotaux = supabase

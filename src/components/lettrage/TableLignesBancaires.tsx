@@ -50,7 +50,6 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'a_lettrer',        label: 'À lettrer' },
   { val: 'partiel',          label: 'Partielles' },
   { val: 'lettre',           label: 'Lettrées' },
-  { val: 'debit',            label: 'Débits' },
   { val: 'compte',           label: 'Compte' },
   { val: 'autres_virements', label: 'Autres Virements' },
 ]
@@ -173,13 +172,15 @@ export function TableLignesBancaires({
                 const is471 = ligne.statut_lettrage === 'en_attente_471'
                 const isActive = ligne.id_operation === ligneActiveId
                 const isDimmed = hasActive && !isActive && !isDebit
+                // Identifie les lignes bancaires débit (y compris celles devenues 'lettre' après affectation)
+                const isBankDebit = (ligne.debit !== null && ligne.debit > 0) || (ligne.credit === null || ligne.credit <= 0)
 
                 return (
                   <tr
                     key={ligne.id_operation}
                     onClick={() => isDebit ? onAffecterRemboursement(ligne) : onSelectLigne(ligne)}
                     className={`transition-all cursor-pointer ${
-                      isDebit ? 'bg-red-50/40 hover:bg-red-50' :
+                      isDebit ? 'bg-blue-50/40 hover:bg-blue-50' :
                       isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
                       isDimmed ? 'opacity-30' :
@@ -203,7 +204,7 @@ export function TableLignesBancaires({
                         </p>
                       )}
                       {isDebit && (
-                        <span className="inline-flex items-center bg-red-100 text-red-500 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
+                        <span className="inline-flex items-center bg-blue-100 text-blue-600 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
                           Débit — cliquer pour affecter un remboursement
                         </span>
                       )}
@@ -231,7 +232,7 @@ export function TableLignesBancaires({
                       )}
                     </td>
                     <td className="px-2 py-2.5 text-center" onClick={e => e.stopPropagation()}>
-                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && (
+                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && !isBankDebit && (
                         lignesExportees.has(ligne.id_operation) ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"
