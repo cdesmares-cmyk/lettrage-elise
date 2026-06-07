@@ -197,7 +197,7 @@ export function useNavigateurFactures(
         found.set(f.numero_piece, { facture: f, source: 'numero_detecte', confiance: 3 })
       )
 
-      setSuggestions([...found.values()])
+      setSuggestions([...found.values()].sort((a, b) => b.confiance - a.confiance))
     } finally {
       setChargementSugg(false)
     }
