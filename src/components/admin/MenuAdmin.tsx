@@ -6,14 +6,12 @@ import { ModalGestionRessources } from './ModalGestionRessources'
 import { ModalChampsPersonnalises } from './ModalChampsPersonnalises'
 import { ModalHistoriqueImport } from './ModalHistoriqueImport'
 import { ModalCorrectionLettrage } from './ModalCorrectionLettrage'
-import { ModalApiAxonaut } from './ModalApiAxonaut'
 import { ModalReinitialisation } from './ModalReinitialisation'
-import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 import { ModalAlertesParametres } from './ModalAlertesParametres'
-import { ModalScenariosRelance } from './ModalScenariosRelance'
-import { IcUsers, IcSliders, IcClock, IcEdit, IcLink, IcNewspaper, IcBell, IcTrash, IcLogOut, IcFileText } from '../Icones'
+import { ModalIntegrations } from './ModalIntegrations'
+import { IcUsers, IcSliders, IcClock, IcEdit, IcBell, IcTrash, IcLogOut, IcLink } from '../Icones'
 
-type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'axonaut' | 'bodacc' | 'alertes' | 'scenarios' | 'reset'
+type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'alertes' | 'integrations' | 'reset'
 
 function getInitiales(email: string): string {
   const nom = email.split('@')[0]
@@ -50,7 +48,7 @@ function Item({ label, icon, onClick, danger, separator }: ItemProps) {
 }
 
 export function MenuAdmin() {
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
   const { isAdmin, peutModifier } = useRole()
   const [ouvert, setOuvert] = useState(false)
   const [modal, setModal] = useState<ModalId | null>(null)
@@ -93,7 +91,18 @@ export function MenuAdmin() {
 
         {/* Dropdown */}
         {ouvert && (
-          <div className="absolute right-0 top-full mt-1.5 w-56 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+
+            {/* En-tête organisation */}
+            {profil?.nom_organisation && (
+              <div className="px-3.5 py-2.5 border-b border-gray-100 mb-1">
+                <p className="text-[11px] font-bold text-gray-800 truncate">{profil.nom_organisation}</p>
+                {profil.code_org && (
+                  <p className="text-[10px] text-gray-400 font-mono mt-0.5">{profil.code_org}</p>
+                )}
+              </div>
+            )}
+
             {isAdmin && (
               <Item label="Gestion des ressources" icon={<IcUsers size={14} />} onClick={() => ouvrir('ressources')} />
             )}
@@ -107,16 +116,10 @@ export function MenuAdmin() {
               <Item label="Correction lettrage" icon={<IcEdit size={14} />} onClick={() => ouvrir('lettrages')} />
             )}
             {peutModifier && (
-              <Item label="API Axonaut" icon={<IcLink size={14} />} onClick={() => ouvrir('axonaut')} />
-            )}
-            {isAdmin && (
-              <Item label="Veille BODACC" icon={<IcNewspaper size={14} />} onClick={() => ouvrir('bodacc')} separator />
-            )}
-            {peutModifier && (
               <Item label="Alertes & Scoring" icon={<IcBell size={14} />} onClick={() => ouvrir('alertes')} />
             )}
             {peutModifier && (
-              <Item label="Scénarios de relance" icon={<IcFileText size={14} />} onClick={() => ouvrir('scenarios')} />
+              <Item label="Intégrations" icon={<IcLink size={14} />} onClick={() => ouvrir('integrations')} separator />
             )}
             {isAdmin && (
               <Item label="Réinitialisation" icon={<IcTrash size={14} />} onClick={() => ouvrir('reset')} danger separator />
@@ -127,15 +130,13 @@ export function MenuAdmin() {
       </div>
 
       {/* Modals */}
-      {modal === 'ressources'  && <ModalGestionRessources   onClose={() => setModal(null)} />}
-      {modal === 'champs'      && <ModalChampsPersonnalises onClose={() => setModal(null)} />}
-      {modal === 'imports'     && <ModalHistoriqueImport     onClose={() => setModal(null)} />}
-      {modal === 'lettrages'   && <ModalCorrectionLettrage  onClose={() => setModal(null)} />}
-      {modal === 'axonaut'     && <ModalApiAxonaut           onClose={() => setModal(null)} />}
-      {modal === 'bodacc'      && <ModalVeilleBodacc          onClose={() => setModal(null)} />}
-      {modal === 'alertes'     && <ModalAlertesParametres    onClose={() => setModal(null)} />}
-      {modal === 'scenarios'   && <ModalScenariosRelance     onClose={() => setModal(null)} />}
-      {modal === 'reset'       && <ModalReinitialisation     onClose={() => setModal(null)} />}
+      {modal === 'ressources'    && <ModalGestionRessources   onClose={() => setModal(null)} />}
+      {modal === 'champs'        && <ModalChampsPersonnalises onClose={() => setModal(null)} />}
+      {modal === 'imports'       && <ModalHistoriqueImport     onClose={() => setModal(null)} />}
+      {modal === 'lettrages'     && <ModalCorrectionLettrage  onClose={() => setModal(null)} />}
+      {modal === 'alertes'       && <ModalAlertesParametres    onClose={() => setModal(null)} />}
+      {modal === 'integrations'  && <ModalIntegrations         onClose={() => setModal(null)} />}
+      {modal === 'reset'         && <ModalReinitialisation     onClose={() => setModal(null)} />}
     </>
   )
 }

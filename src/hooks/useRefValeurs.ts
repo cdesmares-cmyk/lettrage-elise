@@ -5,6 +5,16 @@ import toast from 'react-hot-toast'
 
 type Categorie = 'commercial' | 'operateur' | 'plateforme' | 'format_facture'
 
+// Capitalise chaque mot, trim et normalise les espaces multiples
+export function normaliserValeurRef(v: string): string {
+  return v
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map(w => w.length > 0 ? w[0].toUpperCase() + w.slice(1).toLowerCase() : '')
+    .join(' ')
+}
+
 interface RowRef { valeur: string }
 
 export function useRefValeurs(categorie: Categorie) {
@@ -25,7 +35,7 @@ export function useRefValeurs(categorie: Categorie) {
   useEffect(() => { charger() }, [charger])
 
   async function ajouter(valeur: string): Promise<boolean> {
-    const v = valeur.trim()
+    const v = normaliserValeurRef(valeur)
     if (!v) return false
     setChargement(true)
     const { error } = await supabase

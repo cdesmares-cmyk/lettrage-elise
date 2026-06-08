@@ -7,13 +7,14 @@ interface Props {
   nbLignesGlobal: number
   onCorrection: () => void
   onOuvrirRemises: () => void
+  readOnly?: boolean
 }
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, nbLignesGlobal, onCorrection, onOuvrirRemises }: Props) {
+export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, nbLignesGlobal, onCorrection, onOuvrirRemises, readOnly = false }: Props) {
   const nbLettrees = Math.max(0, nbLignesGlobal - nbNonLettres)
   const pct = nbLignesGlobal > 0 ? Math.round((nbLettrees / nbLignesGlobal) * 100) : 0
 
@@ -41,25 +42,27 @@ export function BarreResume({ nbNonLettres, montantRestant, nbRemisesEnAttente, 
           <span className="text-[11px] text-gray-500 mt-0.5">Relevé lettré</span>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={onOuvrirRemises}
-            className="relative flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            <IcBuilding size={13} className="flex-shrink-0" /> Chèque / LCR
-            {nbRemisesEnAttente > 0 && (
-              <span className="bg-white text-ockham-teal text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
-                {nbRemisesEnAttente}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={onCorrection}
-            className="flex items-center gap-2 border border-gray-200 hover:border-ockham-teal hover:text-ockham-teal text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
-          >
-            ✎ Correction
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={onOuvrirRemises}
+              className="relative flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              <IcBuilding size={13} className="flex-shrink-0" /> Chèque / LCR
+              {nbRemisesEnAttente > 0 && (
+                <span className="bg-white text-ockham-teal text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1">
+                  {nbRemisesEnAttente}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={onCorrection}
+              className="flex items-center gap-2 border border-gray-200 hover:border-ockham-teal hover:text-ockham-teal text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-all"
+            >
+              ✎ Correction
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Barre de progression */}

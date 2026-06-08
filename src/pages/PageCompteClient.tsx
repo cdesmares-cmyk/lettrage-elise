@@ -19,6 +19,7 @@ import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNeb
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
+import { useRefValeurs } from '../hooks/useRefValeurs'
 import { exporterXls } from '../lib/exportXls'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
@@ -45,8 +46,15 @@ export function PageCompteClient() {
   const [factureDateDebut, setFactureDateDebut] = useState('')
   const [factureDateFin, setFactureDateFin] = useState('')
 
+  const [filtreCommercial, setFiltreCommercial] = useState('')
+  const { valeurs: commerciaux } = useRefValeurs('commercial')
+
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
+  const clientsFiltres = useMemo(
+    () => filtreCommercial ? comptes.clients.filter(c => c.commercial === filtreCommercial) : comptes.clients,
+    [comptes.clients, filtreCommercial]
+  )
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
@@ -189,6 +197,24 @@ export function PageCompteClient() {
           )}
         </div>
 
+        {vue === 'clients' && commerciaux.length > 0 && (
+          <div className="relative">
+            <select
+              value={filtreCommercial}
+              onChange={e => setFiltreCommercial(e.target.value)}
+              className={`text-xs font-semibold pl-3 pr-7 py-1.5 rounded-lg border appearance-none bg-white outline-none transition-colors cursor-pointer ${
+                filtreCommercial
+                  ? 'border-ockham-teal text-ockham-teal'
+                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              <option value="">Tous les commerciaux</option>
+              {commerciaux.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
+          </div>
+        )}
+
         {vue === 'clients' && (
           <button
             onClick={basculerModeSelection}
@@ -247,7 +273,7 @@ export function PageCompteClient() {
       {/* Contenu selon la vue */}
       {vue === 'clients' && (
         <TableComptesClients
-          clients={comptes.clients}
+          clients={clientsFiltres}
           chargement={comptes.chargement}
           recherche={comptes.recherche}
           getFactures={code => factures.getFactures(code)}

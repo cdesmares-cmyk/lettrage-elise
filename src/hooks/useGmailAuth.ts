@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
-const GMAIL_CLIENT_ID = '166971095842-45ssnr9jgksk30d40r0knemup13nj08v.apps.googleusercontent.com'
+const GMAIL_CLIENT_ID = '831307458722-dnrmeh4br9ukl6kgtq6u2p4onh39ed1j.apps.googleusercontent.com'
 const REDIRECT_URI    = 'https://aqxsqmgtmenjpfrblqoe.supabase.co/functions/v1/gmail-oauth-callback'
 const SCOPE           = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.settings.basic openid email'
 
@@ -145,11 +145,19 @@ export function useGmailAuth() {
     }
   }
 
+  async function deconnecterGmail() {
+    const uid = utilisateur?.id
+    if (!uid) return
+    await supabase.from('gmail_tokens' as never).delete().eq('user_id', uid)
+    setToken(null)
+  }
+
   return {
     token,
     chargement,
     estConnecte:   !!token,
     connecterGmail,
+    deconnecterGmail,
     envoyerEmail,
     recupererSignature,
   }

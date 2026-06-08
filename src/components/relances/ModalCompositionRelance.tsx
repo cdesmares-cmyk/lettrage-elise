@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
+import { useRole } from '../../contexts/RoleContext'
+import { ModalScenariosRelance } from '../admin/ModalScenariosRelance'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
@@ -27,8 +29,10 @@ interface Props {
 
 export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires }: Props) {
   const { utilisateur } = useAuth()
+  const { peutModifier } = useRole()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives, scenarios } = useAppData()
+  const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
 
   const impayees = facturesActives.filter(f =>
@@ -236,7 +240,17 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
               {/* 3 — Scénario */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
+                  {peutModifier && (
+                    <button
+                      onClick={() => setScenariosOuvert(true)}
+                      className="text-[10px] font-semibold text-gray-400 hover:text-ockham-teal transition-colors"
+                    >
+                      Gérer ↗
+                    </button>
+                  )}
+                </div>
                 {scenarios.length > 0 ? (
                   <select
                     value={scenarioId}
@@ -249,7 +263,10 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     ))}
                   </select>
                 ) : (
-                  <p className="text-[11px] text-amber-600">Aucun scénario configuré — ajoutez-en depuis Mon compte → Scénarios de relance</p>
+                  <p className="text-[11px] text-amber-600">
+                    Aucun scénario configuré
+                    {peutModifier && <> — <button onClick={() => setScenariosOuvert(true)} className="underline">créer un scénario</button></>}
+                  </p>
                 )}
               </div>
             </div>
@@ -304,6 +321,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           </div>
         </div>
       </div>
+      {scenariosOuvert && <ModalScenariosRelance onClose={() => setScenariosOuvert(false)} />}
     </>
   )
 }

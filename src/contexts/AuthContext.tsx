@@ -6,6 +6,7 @@ interface ProfilUtilisateur {
   role: string
   organisation_id: string
   nom_organisation: string
+  code_org: string
   nom_affiche: string
 }
 
@@ -42,15 +43,16 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
   async function chargerProfil(userId: string) {
     const { data } = await supabase
       .from('utilisateurs')
-      .select('role, organisation_id, nom_affiche, organisations(nom)')
+      .select('role, organisation_id, nom_affiche, organisations(nom, code_org)')
       .eq('id', userId)
       .single()
-    const d = data as { role: string; organisation_id: string; nom_affiche: string; organisations: { nom: string } | null } | null
+    const d = data as { role: string; organisation_id: string; nom_affiche: string; organisations: { nom: string; code_org: string | null } | null } | null
     if (d) setProfil({
       role: d.role,
       organisation_id: d.organisation_id,
       nom_affiche: d.nom_affiche ?? '',
       nom_organisation: d.organisations?.nom ?? '',
+      code_org: d.organisations?.code_org ?? '',
     })
   }
 

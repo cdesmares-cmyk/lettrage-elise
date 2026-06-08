@@ -1,7 +1,7 @@
 // Volet latéral coulissant — édition des infos client + contacts
 import { useState, useEffect, useRef, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
-import { useRefValeurs } from '../../hooks/useRefValeurs'
+import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
@@ -234,8 +234,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   async function handleSauvegarder() {
     setEnregistrement(true)
 
-    const valCommercial = commercial.trim()
-    const valPlateforme = plateforme.trim()
+    const valCommercial = normaliserValeurRef(commercial)
+    const valPlateforme = normaliserValeurRef(plateforme)
     if (valCommercial && !commerciaux.includes(valCommercial)) {
       await ajouterCommercial(valCommercial)
     }

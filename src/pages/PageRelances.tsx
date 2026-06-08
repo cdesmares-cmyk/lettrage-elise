@@ -9,6 +9,7 @@ import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
+import { ModalScenariosRelance } from '../components/admin/ModalScenariosRelance'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { DivAlertesScore } from '../components/relances/DivAlertesScore'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
@@ -17,7 +18,8 @@ import type { CompteClient, FactureDetail } from '../types/client'
 
 export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
-  const { isCommercial } = useRole()
+  const { isCommercial, peutModifier } = useRole()
+  const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const navigate = useNavigate()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
@@ -38,6 +40,14 @@ export function PageRelances() {
           <p className="text-sm text-gray-400 mt-0.5">Pilotage du recouvrement</p>
         </div>
         <div className="flex items-center gap-2">
+          {peutModifier && (
+            <button
+              onClick={() => setScenariosOuvert(true)}
+              className="text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal px-4 py-2 rounded-xl transition-colors shadow-sm"
+            >
+              Scénarios
+            </button>
+          )}
           {!isCommercial && classement.length > 0 && (
             <button
               onClick={() => setShowLeaderboard(true)}
@@ -123,6 +133,8 @@ export function PageRelances() {
         gmailAuth={gmailAuth}
         commentaires={commentaires}
       />
+
+      {scenariosOuvert && <ModalScenariosRelance onClose={() => setScenariosOuvert(false)} />}
     </div>
   )
 }

@@ -14,6 +14,7 @@ interface Props {
   onAnnulerLettrage: (l: LigneBancaireAvecStatut) => void
   onAffecterRemboursement: (l: LigneBancaireAvecStatut) => void
   lignesExportees: Map<string, string>
+  readOnly?: boolean
 }
 
 function fmt(n: number | null) {
@@ -40,6 +41,7 @@ export function TableLignesBancaires({
   page, totalPages,
   onPage, onSelectLigne,
   onAnnulerLettrage, onAffecterRemboursement, lignesExportees,
+  readOnly = false,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -79,8 +81,8 @@ export function TableLignesBancaires({
                 return (
                   <tr
                     key={ligne.id_operation}
-                    onClick={() => isDebit ? onAffecterRemboursement(ligne) : onSelectLigne(ligne)}
-                    className={`transition-all cursor-pointer ${
+                    onClick={() => { if (readOnly) return; isDebit ? onAffecterRemboursement(ligne) : onSelectLigne(ligne) }}
+                    className={`transition-all ${readOnly ? 'cursor-default' : 'cursor-pointer'} ${
                       isDebit ? 'bg-blue-50/40 hover:bg-blue-50' :
                       isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
@@ -133,7 +135,7 @@ export function TableLignesBancaires({
                       )}
                     </td>
                     <td className="px-2 py-3 text-center" onClick={e => e.stopPropagation()}>
-                      {(ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && !isBankDebit && (
+                      {!readOnly && (ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && !isBankDebit && (
                         lignesExportees.has(ligne.id_operation) ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"

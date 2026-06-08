@@ -30,8 +30,10 @@ import { useRemises } from '../hooks/useRemises'
 import { useExportComptable } from '../hooks/useExportComptable'
 import { useAppData } from '../contexts/AppDataContext'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
+import { useRole } from '../contexts/RoleContext'
 
 export function PageLettrage() {
+  const { isCommercial } = useRole()
   const corr = useCorrectionContext()
   const corrOnSuccessRegistered = useRef(false)
   const [extractionOuverte, setExtractionOuverte] = useState(false)
@@ -148,6 +150,7 @@ export function PageLettrage() {
   }
 
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
+    if (isCommercial) return
     if (liste.filtre === 'compte') {
       if (dispatch471.ligneActive?.id_operation === ligne.id_operation) {
         dispatch471.annuler()
@@ -300,6 +303,7 @@ export function PageLettrage() {
         nbLignesGlobal={liste.nbLignesGlobal}
         onCorrection={() => corr.ouvrir()}
         onOuvrirRemises={() => setRemisesOuverte(true)}
+        readOnly={isCommercial}
       />
 
       {/* Deux panneaux */}
@@ -350,6 +354,7 @@ export function PageLettrage() {
                 onAnnulerLettrage={setConfirmAnnulation}
                 onAffecterRemboursement={l => { remboursements.charger(); setLigneDebitAaffecter(l) }}
                 lignesExportees={exportComptable.lignesExportees}
+                readOnly={isCommercial}
               />
             )}
           </div>
