@@ -154,7 +154,7 @@ export function PageCompteClient() {
       </div>
 
       {/* KPIs */}
-      <BarreKpis kpis={kpisVueFiltree} chargement={comptes.chargement} />
+      <BarreKpis kpis={kpisVueFiltree} chargement={comptes.chargement} rafraichissement={comptes.enRafraichissement} />
 
       {/* Toolbar : toggle vue + recherche */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">

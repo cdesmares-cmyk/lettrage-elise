@@ -1,12 +1,13 @@
 import type { KpisCompteClient } from '../../types/client'
+import { IcLoader } from '../Icones'
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-interface Props { kpis: KpisCompteClient; chargement: boolean }
+interface Props { kpis: KpisCompteClient; chargement: boolean; rafraichissement?: boolean }
 
-export function BarreKpis({ kpis, chargement }: Props) {
+export function BarreKpis({ kpis, chargement, rafraichissement = false }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
   const encoursBrut  = kpis.encoursTotalTtc
   const avoirs       = kpis.encoursTotalAvoirs
@@ -21,7 +22,12 @@ export function BarreKpis({ kpis, chargement }: Props) {
         className="rounded-xl border px-5 py-4 shadow-sm relative overflow-hidden"
         style={{ background: 'linear-gradient(135deg, #fff 60%, #ECFDFB)', borderColor: '#CFEDE9' }}
       >
-        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Encours Net</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Encours Net</p>
+          <span className={`text-ockham-teal/50 transition-opacity duration-300 ${rafraichissement ? 'opacity-100' : 'opacity-0'}`}>
+            <IcLoader size={11} className="animate-spin" />
+          </span>
+        </div>
         <p className="font-extrabold tabular-nums leading-tight" style={{ fontSize: 28, color: '#3BA89F' }}>
           {fmt(encoursNet)}
         </p>

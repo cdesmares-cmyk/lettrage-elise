@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
 export function useComptesClients() {
-  const { clients: raw, facturesActives, chargement, rafraichir, mettreAJourClientLocal } = useAppData()
+  const { clients: raw, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourClientLocal } = useAppData()
   const [recherche, setRechercheState] = useState('')
   // Codes clients trouvés côté serveur (factures soldées hors cache)
   const [codesFallback, setCodesFallback] = useState<Set<string>>(new Set())
@@ -156,5 +156,5 @@ export function useComptesClients() {
     return map
   }, [facturesActives])
 
-  return { clients, chargement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions, creditParClient, nbPiecesParClient }
+  return { clients, chargement, enRafraichissement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions, creditParClient, nbPiecesParClient }
 }

@@ -2,6 +2,7 @@
 // clients + factures actives (impayées + avoirs non soldés) en mémoire
 // → toutes les pages lisent depuis ce contexte, zéro requête à la navigation
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
+import { unstable_batchedUpdates } from 'react-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import toast from 'react-hot-toast'
@@ -36,6 +37,7 @@ interface AppDataContextType {
   clients: CompteClient[]
   facturesActives: FactureDetail[]    // impayées + avoirs non soldés
   chargement: boolean
+  enRafraichissement: boolean
   rafraichir: () => Promise<void>
   mettreAJourStatutLocal: (numeroPiece: string, statut: StatutFacture | null) => void
   mettreAJourClientLocal: (codeDso: string, opts: OptsClientLocal) => void
@@ -91,6 +93,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
   const [chargement, setChargement] = useState(true)
+  const [enRafraichissement, setEnRafraichissement] = useState(false)
   const [moisMaxBrut, setMoisMaxBrut] = useState('')
   const [ca12Mois, setCa12Mois] = useState(0)
   const [ca12MoisPrec, setCa12MoisPrec] = useState(0)
@@ -113,6 +116,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     if (isFetchingRef.current) return
     isFetchingRef.current = true
     if (!initialLoadDoneRef.current) setChargement(true)
+    setEnRafraichissement(true)
     try {
       // Page 0 — clients, factures et organisation en parallèle
       const [clientsPage0, page0, orgRow] = await Promise.all([
@@ -142,16 +146,19 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         setCa12MoisPrec(Number(org.ca12_mois_prec) || 0)
       }
 
-      // Mise à jour état — une seule fois, données complètes garanties
-      setClients(tousClients.map(r => ({
-        ...r,
-        statut_juridique: r.statut_juridique as StatutJuridique | null,
-        note_risque: r.score_risque ?? 0,
-      })))
-      setFacturesActives(toutes)
+      // Mise à jour état — un seul render garanti (batching explicite)
+      unstable_batchedUpdates(() => {
+        setClients(tousClients.map(r => ({
+          ...r,
+          statut_juridique: r.statut_juridique as StatutJuridique | null,
+          note_risque: r.score_risque ?? 0,
+        })))
+        setFacturesActives(toutes)
+      })
       lastFetchAtRef.current = Date.now()
     } finally {
       setChargement(false)
+      setEnRafraichissement(false)
       initialLoadDoneRef.current = true
       isFetchingRef.current = false
     }
@@ -163,7 +170,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     else {
       setClients([]); setFacturesActives([]); setScenarios([])
       setMoisMaxBrut(''); setCa12Mois(0); setCa12MoisPrec(0)
-      setChargement(false)
+      setChargement(false); setEnRafraichissement(false)
       initialLoadDoneRef.current = false
       isFetchingRef.current = false
       lastFetchAtRef.current = 0
@@ -235,7 +242,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
       {children}
     </AppDataContext.Provider>
   )
