@@ -31,17 +31,14 @@ DELETE FROM ref_valeurs WHERE categorie IN ('commercial', 'operateur', 'platefor
 INSERT INTO ref_valeurs (categorie, valeur)
 SELECT DISTINCT 'commercial', capitaliser_mots(commercial)
 FROM clients
-WHERE commercial IS NOT NULL AND trim(commercial) <> ''
-ON CONFLICT (categorie, valeur) DO NOTHING;
+WHERE commercial IS NOT NULL AND trim(commercial) <> '';
 
 INSERT INTO ref_valeurs (categorie, valeur)
 SELECT DISTINCT 'operateur', capitaliser_mots(operateur)
 FROM clients
-WHERE operateur IS NOT NULL AND trim(operateur) <> ''
-ON CONFLICT (categorie, valeur) DO NOTHING;
+WHERE operateur IS NOT NULL AND trim(operateur) <> '';
 
 INSERT INTO ref_valeurs (categorie, valeur)
 SELECT DISTINCT 'plateforme', capitaliser_mots(plateforme)
 FROM clients
-WHERE plateforme IS NOT NULL AND trim(plateforme) <> ''
-ON CONFLICT (categorie, valeur) DO NOTHING;
+WHERE plateforme IS NOT NULL AND trim(plateforme) <> '';
