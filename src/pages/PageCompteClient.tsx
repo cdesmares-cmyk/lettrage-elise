@@ -120,6 +120,7 @@ export function PageCompteClient() {
     const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     return {
       nbClientsActifs: new Set(impayees.map(f => f.code_client)).size,
+      encoursSommeNette: facs.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalAvoirs: facs.filter(f => f.est_avoir && f.reste_du < -0.005).reduce((s, f) => s + Math.abs(f.reste_du), 0),
       nbFacturesAttente: impayees.length,
