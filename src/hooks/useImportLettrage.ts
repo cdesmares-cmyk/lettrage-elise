@@ -206,6 +206,7 @@ export function useImportLettrage() {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(l => ({
             ...l,
             cree_par: utilisateur?.id ?? null,
+            import_id: importRec!.id,
           }))
           const { error } = await supabase.from('lettrages').insert(lot as never)
           if (error) throw new Error(`Erreur insertion lettrages : ${error.message}`)

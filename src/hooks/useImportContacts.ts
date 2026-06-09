@@ -244,6 +244,7 @@ export function useImportContacts() {
             delete r['id_contact']
             // Valeur par défaut role_contact
             if (!r['role_contact']) r['role_contact'] = 'autre'
+            r['import_id'] = importRec!.id
             return r
           })
           const { error } = await supabase

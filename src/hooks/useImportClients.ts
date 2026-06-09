@@ -160,6 +160,7 @@ export function useImportClients() {
               r['nom'] = nomsExistants[code] ?? code
             }
             if (!r['siret']) delete r['siret']
+            r['import_id'] = importRec!.id
             return r
           })
           const { error } = await supabase

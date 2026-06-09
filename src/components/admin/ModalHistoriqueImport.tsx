@@ -30,6 +30,7 @@ export function ModalHistoriqueImport({ onClose }: { onClose: () => void }) {
     setChargement(true)
     try {
       if (imp.type === 'csv_bancaire') {
+        // Supprimer les lettrages liés aux lignes bancaires de cet import
         const { data: lignes } = await supabase.from('lignes_bancaires').select('id_operation').eq('import_id', imp.id)
         const ids = (lignes ?? []).map((l: { id_operation: string }) => l.id_operation)
         if (ids.length > 0) {
@@ -38,7 +39,9 @@ export function ModalHistoriqueImport({ onClose }: { onClose: () => void }) {
         }
         const { error } = await supabase.from('lignes_bancaires').delete().eq('import_id', imp.id)
         if (error) throw error
-      } else {
+
+      } else if (imp.type === 'xlsx_factures') {
+        // Supprimer les lettrages puis les factures de cet import
         const { data: facs } = await supabase.from('factures').select('numero_piece').eq('import_id', imp.id)
         const nums = (facs ?? []).map((f: { numero_piece: string }) => f.numero_piece)
         if (nums.length > 0) {
@@ -47,7 +50,34 @@ export function ModalHistoriqueImport({ onClose }: { onClose: () => void }) {
         }
         const { error } = await supabase.from('factures').delete().eq('import_id', imp.id)
         if (error) throw error
+
+      } else if (imp.type === 'import_clients') {
+        // Supprimer les factures 411 tampon, puis les clients de cet import
+        const { data: cls } = await supabase.from('clients').select('code_dso').eq('import_id', imp.id)
+        const codes = (cls ?? []).map((c: { code_dso: string }) => c.code_dso)
+        if (codes.length > 0) {
+          // Lettrages liés aux factures de ces clients
+          const { data: facs } = await supabase.from('factures').select('numero_piece').in('code_client', codes)
+          const nums = (facs ?? []).map((f: { numero_piece: string }) => f.numero_piece)
+          if (nums.length > 0) {
+            const { error } = await supabase.from('lettrages').delete().in('numero_facture', nums)
+            if (error) throw error
+          }
+          const { error: errFacs } = await supabase.from('factures').delete().in('code_client', codes)
+          if (errFacs) throw errFacs
+        }
+        const { error } = await supabase.from('clients').delete().eq('import_id', imp.id)
+        if (error) throw error
+
+      } else if (imp.type === 'import_contacts') {
+        const { error } = await supabase.from('contacts_client').delete().eq('import_id', imp.id)
+        if (error) throw error
+
+      } else if (imp.type === 'import_lettrage') {
+        const { error } = await supabase.from('lettrages').delete().eq('import_id', imp.id)
+        if (error) throw error
       }
+
       await supabase.from('imports').delete().eq('id', imp.id)
       toast.success('Import annulé.')
       setConfirmImport(null)
