@@ -35,20 +35,42 @@ export function detecterMapping(colonnes: string[], champs: ChampCible[]): Ligne
   })
 }
 
+// Convertit un serial Excel (nombre de jours depuis 1900-01-00) en ISO YYYY-MM-DD
+function serialExcelVersIso(n: number): string | null {
+  // Plage raisonnable : ~1950 à ~2060 (serial 18264 à 58849)
+  if (n < 18000 || n > 60000) return null
+  const d = new Date(Math.round((n - 25569) * 86400 * 1000))
+  return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0]
+}
+
 // Convertit une valeur brute en date ISO YYYY-MM-DD
+// Formats supportés : Date JS, serial Excel (nombre ou string entier), DD/MM/YYYY,
+// DD/MM/YY, DD-MM-YYYY, YYYY-MM-DD, YYYY/MM/DD, timestamp YYYY-MM-DD HH:mm:ss
 export function parseDate(v: unknown): string | null {
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString().split('T')[0]
-  if (typeof v === 'number') {
-    // Numéro de série Excel (jours depuis 1900-01-00)
-    const d = new Date(Math.round((v - 25569) * 86400 * 1000))
-    return isNaN(d.getTime()) ? null : d.toISOString().split('T')[0]
-  }
+
+  if (typeof v === 'number') return serialExcelVersIso(Math.round(v))
+
   const s = String(v ?? '').trim()
-  // Format français DD/MM/YYYY
-  const fr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
-  if (fr) return `${fr[3]}-${fr[2].padStart(2, '0')}-${fr[1].padStart(2, '0')}`
-  // Format ISO YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  if (!s) return null
+
+  // Serial Excel passé comme string depuis un CSV (ex: "45366")
+  if (/^\d{4,6}$/.test(s)) {
+    const res = serialExcelVersIso(parseInt(s, 10))
+    if (res) return res
+  }
+
+  // DD/MM/YYYY ou DD-MM-YYYY
+  const fr4 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+  if (fr4) return `${fr4[3]}-${fr4[2].padStart(2, '0')}-${fr4[1].padStart(2, '0')}`
+
+  // DD/MM/YY (année sur 2 chiffres → 2000+)
+  const fr2 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/)
+  if (fr2) return `20${fr2[3]}-${fr2[2].padStart(2, '0')}-${fr2[1].padStart(2, '0')}`
+
+  // YYYY-MM-DD ou YYYY/MM/DD (avec ou sans heure)
+  if (/^\d{4}[\/\-]\d{2}[\/\-]\d{2}/.test(s)) return s.slice(0, 10).replace(/\//g, '-')
+
   return null
 }
 
