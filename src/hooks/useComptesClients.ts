@@ -57,6 +57,7 @@ export function useComptesClients() {
     const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
     return {
       nbClientsActifs: clients.filter(c => c.encours_total > 0).length,
+      encoursSommeNette: facturesActives.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalAvoirs: facturesActives
         .filter(f => f.est_avoir && f.reste_du < -0.005)

@@ -9,10 +9,9 @@ interface Props { kpis: KpisCompteClient; chargement: boolean; rafraichissement?
 
 export function BarreKpis({ kpis, chargement, rafraichissement = false }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
-  const encoursBrut  = kpis.encoursTotalTtc
+  const encoursNet   = kpis.encoursSommeNette
   const avoirs       = kpis.encoursTotalAvoirs
   const credits411   = kpis.encours411
-  const encoursNet   = Math.max(0, encoursBrut - avoirs - credits411)
 
   return (
     <div className={`grid gap-3 mb-5 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
