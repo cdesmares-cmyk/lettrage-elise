@@ -5,7 +5,7 @@ export function SectionIntegrationAxonaut() {
   const { integration, enCours, sauvegarderCle, tester, synchroniser } = useAxonautIntegration()
   const [saisie, setSaisie] = useState('')
   const [editMode, setEditMode] = useState(false)
-  const [nbSync, setNbSync] = useState<number | null>(null)
+  const [recap, setRecap] = useState<{ nbMaj: number; nbVues: number } | null>(null)
   const [tempsEcoule, setTempsEcoule] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -32,9 +32,9 @@ export function SectionIntegrationAxonaut() {
   }
 
   async function handleSync() {
-    setNbSync(null)
-    const nb = await synchroniser()
-    setNbSync(nb)
+    setRecap(null)
+    const result = await synchroniser()
+    setRecap(result)
   }
 
   const clePresente = !!integration?.api_key
@@ -111,10 +111,18 @@ export function SectionIntegrationAxonaut() {
                 Récupère les <code className="text-[10px] bg-gray-100 px-1 rounded">public_path</code> depuis Axonaut
                 et les stocke sur chaque facture importée.
               </p>
-              {nbSync !== null && (
-                <p className="text-[11px] text-emerald-600 mt-1.5 font-medium">
-                  ✓ {nbSync} facture{nbSync !== 1 ? 's' : ''} mise{nbSync !== 1 ? 's' : ''} à jour
-                </p>
+              {recap !== null && (
+                <div className="mt-2 inline-flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                  <span className="text-[11px] font-semibold text-emerald-700">
+                    ✓ Sync terminée
+                  </span>
+                  <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
+                    {recap.nbVues.toLocaleString('fr-FR')} factures Axonaut parcourues
+                  </span>
+                  <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
+                    {recap.nbMaj.toLocaleString('fr-FR')} URL{recap.nbMaj !== 1 ? 's' : ''} mise{recap.nbMaj !== 1 ? 's' : ''} à jour
+                  </span>
+                </div>
               )}
             </div>
             <div className="flex-shrink-0 flex flex-col items-end gap-1">

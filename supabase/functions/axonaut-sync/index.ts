@@ -67,7 +67,8 @@ Deno.serve(async (req: Request) => {
       const tDébut = Date.now()
       const pageDebut: number = body.page_debut ?? 1
       const nbPages:   number = body.nb_pages   ?? 10
-      let nbMaj = 0
+      let nbMaj  = 0
+      let nbVues = 0
       let termine = false
 
       for (let page = pageDebut; page < pageDebut + nbPages; page++) {
@@ -76,6 +77,8 @@ Deno.serve(async (req: Request) => {
 
         const invoices = await res.json() as Array<{ number: string; public_path: string }>
         if (!Array.isArray(invoices) || invoices.length === 0) { termine = true; break }
+
+        nbVues += invoices.length
 
         const payload = invoices
           .filter(inv => inv.number && inv.public_path)
@@ -100,12 +103,12 @@ Deno.serve(async (req: Request) => {
           .eq('organisation_id', orgId)
         await supabaseAdmin.from('cron_runs').insert({
           fonction: 'axonaut-sync', organisation_id: orgId, statut: 'ok',
-          nb_traite: nbMaj, message: `Pages 1-${pageDebut + nbPages - 1} · ${nbMaj} factures MAJ`,
+          nb_traite: nbMaj, message: `${nbVues} factures Axonaut · ${nbMaj} URLs mises à jour`,
           duree_ms: Date.now() - tDébut,
         })
       }
 
-      return json({ ok: true, nb_mises_a_jour: nbMaj, termine, prochaine_page: pageDebut + nbPages })
+      return json({ ok: true, nb_mises_a_jour: nbMaj, nb_vues: nbVues, termine, prochaine_page: pageDebut + nbPages })
     }
 
     return json({ error: 'Action inconnue' }, 400)

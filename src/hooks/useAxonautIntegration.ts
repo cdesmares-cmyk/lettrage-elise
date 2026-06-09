@@ -65,9 +65,10 @@ export function useAxonautIntegration() {
     }
   }
 
-  async function synchroniser(): Promise<number> {
+  async function synchroniser(): Promise<{ nbMaj: number; nbVues: number }> {
     setEnCours(true)
-    let nbTotal = 0
+    let nbMaj   = 0
+    let nbVues  = 0
     let pageDebut = 1
     const NB_PAGES = 5
     try {
@@ -76,16 +77,16 @@ export function useAxonautIntegration() {
           body: { action: 'sync', page_debut: pageDebut, nb_pages: NB_PAGES },
         })
         if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
-        nbTotal += data.nb_mises_a_jour ?? 0
+        nbMaj  += data.nb_mises_a_jour ?? 0
+        nbVues += data.nb_vues         ?? 0
         if (data.termine) break
         pageDebut = data.prochaine_page
       }
-      toast.success(`${nbTotal} facture${nbTotal > 1 ? 's' : ''} mise${nbTotal > 1 ? 's' : ''} à jour.`)
       await charger()
-      return nbTotal
+      return { nbMaj, nbVues }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Synchronisation échouée.')
-      return nbTotal
+      return { nbMaj, nbVues }
     } finally {
       setEnCours(false)
     }
