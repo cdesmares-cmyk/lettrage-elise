@@ -65,8 +65,8 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
 
     // Solde d'ouverture : mouvements avant dateDebut
     const [factAvant, lettAvant] = await Promise.all([
-      supabase.from('factures').select('montant_ttc').eq('code_client', selection).lt('date_emission', dateDebut),
-      supabase.from('lettrages').select('montant').eq('code_client', selection).lt('date_lettrage', dateDebut),
+      supabase.from('factures').select('montant_ttc').eq('code_client', selection).lt('date_emission', dateDebut).limit(10000),
+      supabase.from('lettrages').select('montant').eq('code_client', selection).lt('date_lettrage', dateDebut).limit(10000),
     ])
     const debitAvant  = ((factAvant.data ?? []) as { montant_ttc: number }[]).reduce((s, f) => s + (f.montant_ttc ?? 0), 0)
     const creditAvant = ((lettAvant.data ?? []) as { montant: number }[]).reduce((s, l) => s + (l.montant ?? 0), 0)
@@ -80,6 +80,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
       .gte('date_emission', dateDebut)
       .lte('date_emission', dateFin)
       .order('date_emission', { ascending: true })
+      .limit(10000)
 
     // Lettrages de la période
     const { data: lettData } = await supabase
@@ -89,6 +90,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
       .gte('date_lettrage', dateDebut)
       .lte('date_lettrage', dateFin)
       .order('date_lettrage', { ascending: true })
+      .limit(10000)
 
     // Libellés + dates bancaires pour les id réels (sans -C)
     const lettrages = (lettData ?? []) as { date_lettrage: string; id_ligne_bancaire: string | null; numero_facture: string | null; montant: number; mode: string; commentaire: string | null }[]
