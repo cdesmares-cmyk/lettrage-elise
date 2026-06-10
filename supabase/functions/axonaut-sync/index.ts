@@ -73,7 +73,24 @@ Deno.serve(async (req: Request) => {
       let termine    = false
 
       for (let page = pageDebut; page < pageDebut + nbPages; page++) {
-        const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, { headers: { ...axonautHeaders, page: String(page) } })
+        const controller = new AbortController()
+        const timeoutId  = setTimeout(() => controller.abort(), 30_000)
+
+        let res: Response
+        try {
+          res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, {
+            headers: { ...axonautHeaders, page: String(page) },
+            signal: controller.signal,
+          })
+        } catch (fetchErr) {
+          clearTimeout(timeoutId)
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
+          console.error(`Axonaut fetch timeout/error page ${page}:`, msg)
+          return json({ error: `Timeout Axonaut page ${page} : ${msg}` }, 504)
+        }
+        clearTimeout(timeoutId)
+
+        console.log(`Axonaut page ${page}: HTTP ${res.status}`)
 
         // 404 = plus de pages disponibles → fin normale de la synchro
         if (res.status === 404) { termine = true; break }
