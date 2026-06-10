@@ -89,7 +89,6 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
     if (!ligneActive || !peutValider()) return
     setChargement(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
       const montantFactures = Math.round(
         lignesForme.filter(l => l.classe !== 'autres').reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
       ) / 100
@@ -102,7 +101,7 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
+        date_lettrage: ligneActive.date_operation,
         mode: 'manuel',
         commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,

@@ -160,7 +160,6 @@ export function useLettrageForm(
         }
       }
 
-      const today = new Date().toISOString().split('T')[0]
       // Pour les lignes "Autres" sans montant : utiliser le restant après les factures
       const montantFactures = Math.round(
         lignesForme
@@ -181,7 +180,7 @@ export function useLettrageForm(
         montant: (l.classe === 'autres' || l.classe === '471') && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
+        date_lettrage: ligneActive.date_operation,
         mode: modeDepuisClasse(l.classe),
         commentaire: (l.classe === 'autres' || l.classe === '471') ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
@@ -237,7 +236,7 @@ export function useLettrageForm(
           numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
           code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
           montant: Math.round(parseFloat(l.montant) * 100) / 100,
-          date_lettrage: today,
+          date_lettrage: ligneActive.date_operation,
           mode: 'manuel',
           commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
           cree_par: utilisateur?.id ?? null,
@@ -270,7 +269,7 @@ export function useLettrageForm(
           numero_facture: numero411,
           code_client: codeClient,
           montant: montant411,
-          date_lettrage: today,
+          date_lettrage: ligneActive.date_operation,
           mode: 'manuel',
           commentaire: null,
           cree_par: utilisateur?.id ?? null,
@@ -300,13 +299,12 @@ export function useLettrageForm(
       })
       const numerosLettres: { numeroPiece: string; montant: number }[] = []
       if (valides.length > 0) {
-        const today = new Date().toISOString().split('T')[0]
         const inserts = valides.map(l => ({
           id_ligne_bancaire: ligneActive.id_operation,
           numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
           code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
           montant: Math.round(parseFloat(l.montant) * 100) / 100,
-          date_lettrage: today,
+          date_lettrage: ligneActive.date_operation,
           mode: 'manuel',
           commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
           cree_par: utilisateur?.id ?? null,

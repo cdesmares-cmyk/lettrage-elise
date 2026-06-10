@@ -99,7 +99,7 @@ export function useRequalification471(onSuccess: (data: Requalification471Data) 
         numero_facture: null,
         code_client: '471',
         montant: -l.montant,
-        date_lettrage: today,
+        date_lettrage: ligneActive.date_operation,
         mode: 'correction',
         commentaire: commentaireCorrection,
         cree_par: utilisateur?.id ?? null,
@@ -118,7 +118,7 @@ export function useRequalification471(onSuccess: (data: Requalification471Data) 
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
+        date_lettrage: ligneActive.date_operation,
         mode: 'manuel',
         commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
