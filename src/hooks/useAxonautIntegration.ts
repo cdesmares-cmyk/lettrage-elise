@@ -65,11 +65,12 @@ export function useAxonautIntegration() {
     }
   }
 
-  async function synchroniser(): Promise<{ nbMaj: number; nbVues: number }> {
+  async function synchroniser(): Promise<{ nbMaj: number; nbVues: number; nbSansPdf: number }> {
     setEnCours(true)
-    let nbMaj   = 0
-    let nbVues  = 0
-    let pageDebut = 1
+    let nbMaj      = 0
+    let nbVues     = 0
+    let nbSansPdf  = 0
+    let pageDebut  = 1
     const NB_PAGES = 5
     try {
       while (true) {
@@ -77,16 +78,17 @@ export function useAxonautIntegration() {
           body: { action: 'sync', page_debut: pageDebut, nb_pages: NB_PAGES },
         })
         if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
-        nbMaj  += data.nb_mises_a_jour ?? 0
-        nbVues += data.nb_vues         ?? 0
+        nbMaj     += data.nb_mises_a_jour ?? 0
+        nbVues    += data.nb_vues         ?? 0
+        nbSansPdf += data.nb_sans_pdf     ?? 0
         if (data.termine) break
         pageDebut = data.prochaine_page
       }
       await charger()
-      return { nbMaj, nbVues }
+      return { nbMaj, nbVues, nbSansPdf }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Synchronisation échouée.')
-      return { nbMaj, nbVues }
+      return { nbMaj, nbVues, nbSansPdf }
     } finally {
       setEnCours(false)
     }

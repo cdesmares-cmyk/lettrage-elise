@@ -5,7 +5,7 @@ export function SectionIntegrationAxonaut() {
   const { integration, enCours, sauvegarderCle, tester, synchroniser } = useAxonautIntegration()
   const [saisie, setSaisie] = useState('')
   const [editMode, setEditMode] = useState(false)
-  const [recap, setRecap] = useState<{ nbMaj: number; nbVues: number } | null>(null)
+  const [recap, setRecap] = useState<{ nbMaj: number; nbVues: number; nbSansPdf: number } | null>(null)
   const [tempsEcoule, setTempsEcoule] = useState(0)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -112,7 +112,7 @@ export function SectionIntegrationAxonaut() {
                 et les stocke sur chaque facture importée.
               </p>
               {recap !== null && (
-                <div className="mt-2 inline-flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                <div className="mt-2 inline-flex flex-wrap items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
                   <span className="text-[11px] font-semibold text-emerald-700">
                     ✓ Sync terminée
                   </span>
@@ -122,6 +122,11 @@ export function SectionIntegrationAxonaut() {
                   <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
                     {recap.nbMaj.toLocaleString('fr-FR')} URL{recap.nbMaj !== 1 ? 's' : ''} mise{recap.nbMaj !== 1 ? 's' : ''} à jour
                   </span>
+                  {recap.nbSansPdf > 0 && (
+                    <span className="text-[10px] text-amber-600 border-l border-emerald-200 pl-3">
+                      {recap.nbSansPdf.toLocaleString('fr-FR')} sans PDF Axonaut
+                    </span>
+                  )}
                 </div>
               )}
             </div>

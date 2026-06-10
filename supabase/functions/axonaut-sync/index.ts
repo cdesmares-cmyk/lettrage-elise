@@ -67,28 +67,45 @@ Deno.serve(async (req: Request) => {
       const tDébut = Date.now()
       const pageDebut: number = body.page_debut ?? 1
       const nbPages:   number = body.nb_pages   ?? 10
-      let nbMaj  = 0
-      let nbVues = 0
-      let termine = false
+      let nbMaj      = 0
+      let nbVues     = 0
+      let nbSansPdf  = 0
+      let termine    = false
 
       for (let page = pageDebut; page < pageDebut + nbPages; page++) {
         const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, { headers: { ...axonautHeaders, page: String(page) } })
-        if (!res.ok) return json({ error: `Axonaut HTTP ${res.status}` }, 502)
 
-        const invoices = await res.json() as Array<{ number: string; public_path: string }>
+        // 404 = plus de pages disponibles → fin normale de la synchro
+        if (res.status === 404) { termine = true; break }
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '')
+          console.error(`Axonaut HTTP ${res.status} page ${page}:`, txt)
+          return json({ error: `Axonaut HTTP ${res.status}` }, 502)
+        }
+
+        const invoices = await res.json() as Array<Record<string, unknown>>
         if (!Array.isArray(invoices) || invoices.length === 0) { termine = true; break }
+
+        // Log diagnostic sur la première facture de la première page
+        if (page === pageDebut && pageDebut === 1) {
+          console.log('Axonaut invoice sample (page 1, item 0):', JSON.stringify(invoices[0]))
+        }
 
         nbVues += invoices.length
 
         const payload = invoices
-          .filter(inv => inv.number && inv.public_path)
-          .map(inv => ({ numero_piece: inv.number, pdf_url: inv.public_path }))
+          .filter(inv => inv['number'] && inv['public_path'])
+          .map(inv => ({ numero_piece: String(inv['number']), pdf_url: String(inv['public_path']) }))
+
+        nbSansPdf += invoices.length - payload.length
 
         if (payload.length > 0) {
-          const { data: nb } = await supabaseAdmin.rpc('bulk_update_axonaut_pdf', {
+          const { data: nb, error: rpcErr } = await supabaseAdmin.rpc('bulk_update_axonaut_pdf', {
             updates: payload,
             org_id: orgId,
           })
+          if (rpcErr) console.error('bulk_update_axonaut_pdf error:', rpcErr)
           nbMaj += (nb as number) ?? 0
         }
 
@@ -103,12 +120,16 @@ Deno.serve(async (req: Request) => {
           .eq('organisation_id', orgId)
         await supabaseAdmin.from('cron_runs').insert({
           fonction: 'axonaut-sync', organisation_id: orgId, statut: 'ok',
-          nb_traite: nbMaj, message: `${nbVues} factures Axonaut · ${nbMaj} URLs mises à jour`,
+          nb_traite: nbMaj,
+          message: `${nbVues} factures Axonaut · ${nbMaj} URLs mises à jour · ${nbSansPdf} sans PDF`,
           duree_ms: Date.now() - tDébut,
         })
+      } else {
+        // Batch terminé sans fin de synchro — log intermédiaire pour traçabilité
+        console.log(`Batch pages ${pageDebut}-${pageDebut + nbPages - 1} : ${nbVues} vues, ${nbMaj} maj, ${nbSansPdf} sans PDF`)
       }
 
-      return json({ ok: true, nb_mises_a_jour: nbMaj, nb_vues: nbVues, termine, prochaine_page: pageDebut + nbPages })
+      return json({ ok: true, nb_mises_a_jour: nbMaj, nb_vues: nbVues, nb_sans_pdf: nbSansPdf, termine, prochaine_page: pageDebut + nbPages })
     }
 
     return json({ error: 'Action inconnue' }, 400)
