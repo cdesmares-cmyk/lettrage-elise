@@ -114,7 +114,7 @@ export function PageLettrage() {
             .select('id_operation, libelle, detail')
             .in('id_operation', ids)
           if (!lb) return
-          const result: Record<string, { libelle: string; detail: string | null }> = {}
+          const result: Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }> = {}
           for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
             const num = idToNum[r.id_operation]
             if (num) result[num] = { libelle: r.libelle, detail: r.detail, idLigneBancaire: r.id_operation }
