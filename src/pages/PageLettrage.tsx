@@ -88,7 +88,7 @@ export function PageLettrage() {
   })
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
-  const [libelles411, setLibelles411] = useState<Record<string, { libelle: string; detail: string | null }>>({})
+  const [libelles411, setLibelles411] = useState<Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }>>({})
   const [comptes411AvecDispatch, setComptes411AvecDispatch] = useState<Set<string>>(new Set())
   const [versionComptes411, setVersionComptes411] = useState(0)
   useEffect(() => {
@@ -117,7 +117,7 @@ export function PageLettrage() {
           const result: Record<string, { libelle: string; detail: string | null }> = {}
           for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
             const num = idToNum[r.id_operation]
-            if (num) result[num] = { libelle: r.libelle, detail: r.detail }
+            if (num) result[num] = { libelle: r.libelle, detail: r.detail, idLigneBancaire: r.id_operation }
           }
           setLibelles411(result)
         } catch { /* libelles411 reste vide, affiché sans libellé bancaire */ }
@@ -251,58 +251,82 @@ export function PageLettrage() {
   async function confirmerAnnulation411() {
     if (!confirmAnnulation411) return
     const numeroPiece = confirmAnnulation411.numero_piece
-
-    // Garde serveur : bloquer si des corrections (dispatch partiel) existent
-    const { count: nbCorrections } = await supabase
-      .from('lettrages')
-      .select('id', { count: 'exact', head: true })
-      .eq('numero_facture', numeroPiece)
-      .lt('montant', 0)
-      .eq('annule', false)
-    if (nbCorrections && nbCorrections > 0) {
-      toast.error('Ce compte 411 a des affectations partielles — impossible d\'annuler.')
-      setConfirmAnnulation411(null)
-      return
-    }
-
-    // Mise à jour optimiste : supprimer immédiatement du state et fermer le modal
-    supprimerFactureLocale(numeroPiece)
-    setConfirmAnnulation411(null)
     setAnnulationEnCours(true)
     try {
-      // Trouver toutes les lignes bancaires liées à ce compte 411
-      const { data: rows } = await supabase
+      // 1. Récupérer les lignes bancaires liées à ce compte 411 (lettrages actifs)
+      const { data: lettragesRows } = await supabase
         .from('lettrages')
         .select('id_ligne_bancaire')
         .eq('numero_facture', numeroPiece)
         .eq('annule', false)
-      const idLignes = [...new Set((rows as { id_ligne_bancaire: string }[] ?? []).map(r => r.id_ligne_bancaire))]
+      const idLignes = [...new Set(
+        (lettragesRows as { id_ligne_bancaire: string | null }[] ?? [])
+          .map(r => r.id_ligne_bancaire)
+          .filter((id): id is string => !!id)
+      )]
 
-      // Annuler tous les lettrages de ces lignes bancaires
+      // 2. Garde export : bloquer si une ligne bancaire liée a déjà été exportée
+      const idExporte = idLignes.find(id => exportComptable.lignesExportees.has(id))
+      if (idExporte) {
+        toast.error('Export comptable effectué sur cette ligne — impossible d\'annuler. Utilisez le module Correction.')
+        setConfirmAnnulation411(null)
+        return
+      }
+
+      // 3. Garde dispatch partiel
+      const { count: nbCorrections } = await supabase
+        .from('lettrages')
+        .select('id', { count: 'exact', head: true })
+        .eq('numero_facture', numeroPiece)
+        .lt('montant', 0)
+        .eq('annule', false)
+      if (nbCorrections && nbCorrections > 0) {
+        toast.error('Ce compte 411 a des affectations partielles — impossible d\'annuler.')
+        setConfirmAnnulation411(null)
+        return
+      }
+
+      // 4. Annuler tous les lettrages des lignes bancaires liées (mix inclus)
       if (idLignes.length > 0) {
         const { error } = await supabase
           .from('lettrages')
           .update({ annule: true } as never)
           .in('id_ligne_bancaire', idLignes)
+          .eq('annule', false)
         if (error) throw error
 
-        // Réinitialiser le flag en_attente_411 — sans ça la ligne reste dans l'onglet Compte après refresh
         await supabase
           .from('lignes_bancaires')
           .update({ en_attente_411: false } as never)
           .in('id_operation', idLignes)
       }
 
-      await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
+      // 5. Forcer reste_du = 0 sur la facture 411
+      // (filet de sécurité si le trigger sync_reste_du n'a pas pu s'exécuter)
+      await supabase
+        .from('factures')
+        .update({ reste_du: 0 } as never)
+        .eq('numero_piece', numeroPiece)
+
+      // 6. Supprimer la facture uniquement si aucun lettrage ne la référence encore
+      // (contrainte FK lettrages → factures sans ON DELETE CASCADE)
+      const { count: nbRef } = await supabase
+        .from('lettrages')
+        .select('id', { count: 'exact', head: true })
+        .eq('numero_facture', numeroPiece)
+      if ((nbRef ?? 1) === 0) {
+        await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
+      }
 
       if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
       if (idLignes.includes(dispatch411Attente.ligneActive?.id_operation ?? '')) dispatch411Attente.annuler()
 
+      supprimerFactureLocale(numeroPiece)
       liste.rafraichir()
       rafraichirDonnees()
       toast.success('Compte 411 annulé')
+      setConfirmAnnulation411(null)
     } catch (err) {
-      // Rollback : recharger depuis la base pour rétablir l'état réel
       rafraichirDonnees()
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation')
     } finally {

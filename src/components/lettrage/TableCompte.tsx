@@ -13,7 +13,7 @@ interface Props {
   onAnnuler411: (f: FactureDetail) => void
   onAnnuler411Attente: (l: LigneBancaireAvecStatut) => void
   chargement: boolean
-  libelles411?: Record<string, { libelle: string; detail: string | null }>
+  libelles411?: Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }>
   recherche: string
   lignesExportees?: Map<string, string>
   comptes411AvecDispatch?: Set<string>
@@ -69,6 +69,8 @@ export function TableCompte({
                 {factures411Filtrees.map(f => {
                   const isActive = f.numero_piece === selectedId
                   const montant = Math.abs(f.reste_du)
+                  const idLB = libelles411?.[f.numero_piece]?.idLigneBancaire
+                  const estExporte411 = idLB ? (lignesExportees?.has(idLB) ?? false) : false
                   const aDispatch = comptes411AvecDispatch?.has(f.numero_piece) ?? false
                   return (
                     <div
@@ -98,7 +100,14 @@ export function TableCompte({
                           <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(montant)}</p>
                           <p className="text-[10px] text-gray-400">à dispatcher</p>
                         </div>
-                        {aDispatch ? (
+                        {estExporte411 ? (
+                          <span
+                            title="Export comptable effectué — correction via le module Correction"
+                            className="inline-flex items-center text-[9px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap cursor-not-allowed"
+                          >
+                            Exporté
+                          </span>
+                        ) : aDispatch ? (
                           <span
                             title="Dispatch partiel effectué — impossible d'annuler"
                             className="inline-flex items-center text-[10px] text-indigo-400 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded cursor-not-allowed"
