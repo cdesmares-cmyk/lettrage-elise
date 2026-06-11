@@ -65,7 +65,7 @@ export function TableCompte({
               </div>
               <div className="divide-y divide-gray-50">
                 {lignes411ClientFiltrees.map(l => {
-                  const isActive = l.id_operation === selectedId
+                  const isActive = l.compte_411 === selectedId
                   const estExporte = lignesExportees?.has(l.id_operation) ?? false
                   return (
                     <div
