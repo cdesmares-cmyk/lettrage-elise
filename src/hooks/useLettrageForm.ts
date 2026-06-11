@@ -23,9 +23,9 @@ export interface LettrageValideData {
 
 export function useLettrageForm(
   onSuccess: (data: LettrageValideData) => void,
-  // on471Success a une signature différente de onSuccess/on411Success intentionnellement :
-  // le chemin 471 ne modifie pas les factures réelles → pas de rafraichirDonnees() côté appelant.
-  on471Success?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
+  // on411AttenteSuccess a une signature différente de onSuccess/on411Success intentionnellement :
+  // le chemin 411 Attente ne modifie pas les factures réelles → pas de rafraichirDonnees() côté appelant.
+  on411AttenteSuccess?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
   on411Success?: (data: LettrageValideData) => void,
 ) {
   const { utilisateur } = useAuth()
@@ -131,7 +131,7 @@ export function useLettrageForm(
       return
     }
     if (ligneAttente411) {
-      await affecterEn471()
+      await affecterEn411Attente()
       return
     }
     setChargement(true)
@@ -286,7 +286,7 @@ export function useLettrageForm(
     }
   }
 
-  async function affecterEn471() {
+  async function affecterEn411Attente() {
     if (!ligneActive) return
     setChargement(true)
     try {
@@ -319,13 +319,13 @@ export function useLettrageForm(
       // Marquer la ligne en attente 471
       const { error: errUpdate } = await supabase
         .from('lignes_bancaires')
-        .update({ en_attente_471: true } as never)
+        .update({ en_attente_411: true } as never)
         .eq('id_operation', ligneActive.id_operation)
       if (errUpdate) throw errUpdate
-      on471Success?.(ligneActive.id_operation, numerosLettres)
+      on411AttenteSuccess?.(ligneActive.id_operation, numerosLettres)
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 471.')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 411 Attente.')
     } finally {
       setChargement(false)
     }

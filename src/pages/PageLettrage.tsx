@@ -8,7 +8,7 @@ import type { FactureDetail } from '../types/client'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
-import { PanneauDispatch471 } from '../components/lettrage/PanneauDispatch471'
+import { PanneauDispatch411Attente } from '../components/lettrage/PanneauDispatch471'
 import { PanneauDispatch411 } from '../components/lettrage/PanneauDispatch411'
 import { PanneauRequalification471 } from '../components/lettrage/PanneauRequalification471'
 import { TableCompte } from '../components/lettrage/TableCompte'
@@ -22,7 +22,7 @@ import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueL
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useRemboursements } from '../hooks/useRemboursements'
 import { useLettrageForm } from '../hooks/useLettrageForm'
-import { useDispatch471 } from '../hooks/useDispatch471'
+import { useDispatch411Attente } from '../hooks/useDispatch471'
 import { useDispatch411 } from '../hooks/useDispatch411'
 import { useRequalification471 } from '../hooks/useRequalification471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
@@ -67,7 +67,7 @@ export function PageLettrage() {
       rafraichirDonnees()
     },
   )
-  const dispatch471 = useDispatch471((data) => {
+  const dispatch411Attente = useDispatch411Attente((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
     liste.rafraichirSilencieux()
     if (historique.visible) historique.charger()
@@ -77,6 +77,8 @@ export function PageLettrage() {
     liste.rafraichirSilencieux()
     rafraichirDonnees()
     if (historique.visible) historique.charger()
+    // Recharge les gardes X pour les dispatches partiels
+    setVersionComptes411(v => v + 1)
   })
   const requalification471 = useRequalification471((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
@@ -87,6 +89,8 @@ export function PageLettrage() {
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
   const [libelles411, setLibelles411] = useState<Record<string, { libelle: string; detail: string | null }>>({})
+  const [comptes411AvecDispatch, setComptes411AvecDispatch] = useState<Set<string>>(new Set())
+  const [versionComptes411, setVersionComptes411] = useState(0)
   useEffect(() => {
     if (factures411.length === 0) { setLibelles411({}); return }
     const nums = factures411.map(f => f.numero_piece)
@@ -120,6 +124,22 @@ export function PageLettrage() {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factures411.length])
+
+  // Charge quels comptes 411 ont au moins un dispatch partiel (entrées de correction)
+  useEffect(() => {
+    if (factures411.length === 0) { setComptes411AvecDispatch(new Set()); return }
+    const nums = factures411.map(f => f.numero_piece)
+    supabase
+      .from('lettrages')
+      .select('numero_facture')
+      .in('numero_facture', nums)
+      .lt('montant', 0)
+      .eq('annule', false)
+      .then(({ data }) => {
+        setComptes411AvecDispatch(new Set((data ?? []).map(r => String((r as { numero_facture: string }).numero_facture))))
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [factures411.length, versionComptes411])
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
@@ -152,10 +172,10 @@ export function PageLettrage() {
   function handleSelectLigne(ligne: Parameters<typeof forme.selectionnerLigne>[0]) {
     if (isCommercial) return
     if (liste.filtre === 'compte') {
-      if (dispatch471.ligneActive?.id_operation === ligne.id_operation) {
-        dispatch471.annuler()
+      if (dispatch411Attente.ligneActive?.id_operation === ligne.id_operation) {
+        dispatch411Attente.annuler()
       } else {
-        dispatch471.selectionnerLigne(ligne)
+        dispatch411Attente.selectionnerLigne(ligne)
       }
     } else if (liste.filtre === 'autres_virements') {
       if (requalification471.ligneActive?.id_operation === ligne.id_operation) {
@@ -194,10 +214,10 @@ export function PageLettrage() {
         .eq('id_ligne_bancaire', confirmAnnulation.id_operation)
       if (error) throw error
 
-      if (confirmAnnulation.en_attente_471) {
+      if (confirmAnnulation.en_attente_411) {
         await supabase
           .from('lignes_bancaires')
-          .update({ en_attente_471: false } as never)
+          .update({ en_attente_411: false } as never)
           .eq('id_operation', confirmAnnulation.id_operation)
       }
 
@@ -215,7 +235,7 @@ export function PageLettrage() {
       }
 
       if (forme.ligneActive?.id_operation === confirmAnnulation.id_operation) forme.annuler()
-      if (dispatch471.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch471.annuler()
+      if (dispatch411Attente.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch411Attente.annuler()
       if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
       liste.rafraichir()
       if (nums411.length > 0) rafraichirDonnees()
@@ -231,6 +251,19 @@ export function PageLettrage() {
   async function confirmerAnnulation411() {
     if (!confirmAnnulation411) return
     const numeroPiece = confirmAnnulation411.numero_piece
+
+    // Garde serveur : bloquer si des corrections (dispatch partiel) existent
+    const { count: nbCorrections } = await supabase
+      .from('lettrages')
+      .select('id', { count: 'exact', head: true })
+      .eq('numero_facture', numeroPiece)
+      .lt('montant', 0)
+      .eq('annule', false)
+    if (nbCorrections && nbCorrections > 0) {
+      toast.error('Ce compte 411 a des affectations partielles — impossible d\'annuler.')
+      setConfirmAnnulation411(null)
+      return
+    }
 
     // Mise à jour optimiste : supprimer immédiatement du state et fermer le modal
     supprimerFactureLocale(numeroPiece)
@@ -252,12 +285,18 @@ export function PageLettrage() {
           .update({ annule: true } as never)
           .in('id_ligne_bancaire', idLignes)
         if (error) throw error
+
+        // Réinitialiser le flag en_attente_411 — sans ça la ligne reste dans l'onglet Compte après refresh
+        await supabase
+          .from('lignes_bancaires')
+          .update({ en_attente_411: false } as never)
+          .in('id_operation', idLignes)
       }
 
       await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
 
       if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
-      if (idLignes.includes(dispatch471.ligneActive?.id_operation ?? '')) dispatch471.annuler()
+      if (idLignes.includes(dispatch411Attente.ligneActive?.id_operation ?? '')) dispatch411Attente.annuler()
 
       liste.rafraichir()
       rafraichirDonnees()
@@ -273,7 +312,7 @@ export function PageLettrage() {
 
   function handleChangerFiltre(filtre: Parameters<typeof liste.setFiltre>[0]) {
     forme.annuler()
-    dispatch471.annuler()
+    dispatch411Attente.annuler()
     dispatch411.annuler()
     requalification471.annuler()
     liste.setFiltre(filtre)
@@ -324,23 +363,25 @@ export function PageLettrage() {
             {liste.filtre === 'compte' ? (
               <TableCompte
                 factures411={factures411}
-                lignes471={liste.lignes.filter(l => l.en_attente_471)}
-                selectedId={dispatch411.factureActive?.numero_piece ?? dispatch471.ligneActive?.id_operation ?? null}
+                lignes411Attente={liste.lignes.filter(l => l.en_attente_411)}
+                selectedId={dispatch411.factureActive?.numero_piece ?? dispatch411Attente.ligneActive?.id_operation ?? null}
                 onSelect411={(f) => {
-                  dispatch471.annuler()
+                  dispatch411Attente.annuler()
                   if (dispatch411.factureActive?.numero_piece === f.numero_piece) dispatch411.annuler()
                   else dispatch411.selectionnerFacture411(f)
                 }}
-                onSelect471={(l) => {
+                onSelect411Attente={(l) => {
                   dispatch411.annuler()
-                  if (dispatch471.ligneActive?.id_operation === l.id_operation) dispatch471.annuler()
-                  else dispatch471.selectionnerLigne(l)
+                  if (dispatch411Attente.ligneActive?.id_operation === l.id_operation) dispatch411Attente.annuler()
+                  else dispatch411Attente.selectionnerLigne(l)
                 }}
                 onAnnuler411={setConfirmAnnulation411}
-                onAnnuler471={setConfirmAnnulation}
+                onAnnuler411Attente={setConfirmAnnulation}
                 chargement={liste.chargement}
                 libelles411={libelles411}
                 recherche={liste.recherche}
+                lignesExportees={exportComptable.lignesExportees}
+                comptes411AvecDispatch={comptes411AvecDispatch}
               />
             ) : (
               <TableLignesBancaires
@@ -364,7 +405,7 @@ export function PageLettrage() {
           dispatch411.factureActive ? (
             <PanneauDispatch411 {...dispatch411} />
           ) : (
-            <PanneauDispatch471 {...dispatch471} />
+            <PanneauDispatch411Attente {...dispatch411Attente} />
           )
         ) : liste.filtre === 'autres_virements' ? (
           <PanneauRequalification471 {...requalification471} />

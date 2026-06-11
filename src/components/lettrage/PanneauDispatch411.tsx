@@ -14,7 +14,7 @@ export function PanneauDispatch411(props: Props) {
     factureActive, lignesForme,
     chargement, warningMultiClient,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
-    chercherInfoFacture, valider, peutValider,
+    chercherInfoFacture, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
   } = props
 
@@ -39,6 +39,7 @@ export function PanneauDispatch411(props: Props) {
 
   const pct = creditDisponible > 0 ? Math.min(100, Math.round((montantAttribue / creditDisponible) * 100)) : 0
   const codeClient = factureActive.numero_piece.replace('411_', '')
+  const motif = motifInvalide()
 
   return (
     <div className="bg-white border border-indigo-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
@@ -163,6 +164,13 @@ export function PanneauDispatch411(props: Props) {
           </div>
         </div>
       </div>
+
+      {/* Motif si bouton désactivé */}
+      {motif && (
+        <div className="mx-5 mb-3 text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2">
+          {motif}
+        </div>
+      )}
 
       {/* Actions */}
       <div className="flex gap-2 px-5 pb-5">

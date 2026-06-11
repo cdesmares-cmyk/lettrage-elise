@@ -1,4 +1,4 @@
-// Logique de dispatch d'une ligne en attente 471 vers des factures réelles
+// Logique de dispatch d'une ligne 411 Attente vers des factures réelles
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -15,13 +15,16 @@ function nouvelleLigne(): LigneForme {
   return { _key: cle(), classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false }
 }
 
-export interface Dispatch471Data {
+export interface Dispatch411AttenteData {
   numerosLettres: { numeroPiece: string; montant: number }[]
   idLigneBancaire: string
   montantTotal: number
 }
 
-export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
+// Alias rétrocompatible
+export type Dispatch471Data = Dispatch411AttenteData
+
+export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) => void) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
   const [lettragesExistants, setLettragesExistants] = useState<LettrageExistant[]>([])
@@ -33,6 +36,7 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
       .from('lettrages')
       .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
       .eq('id_ligne_bancaire', ligne.id_operation)
+      .eq('annule', false)
     const rows = data as unknown as RowLettrageExist[] | null
     setLettragesExistants(rows ?? [])
     setLigneActive(ligne)
@@ -72,18 +76,24 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
     }
   }
 
-  function peutValider(): boolean {
-    if (!ligneActive || !lignesForme.length) return false
+  function motifInvalide(): string | null {
+    if (!ligneActive) return 'Aucune ligne sélectionnée'
+    if (!lignesForme.length) return 'Aucune ligne de dispatch'
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > creditDisponible + TOLERANCE_CENT) return false
-    return lignesForme.every(l => {
+    if (attribue > creditDisponible + TOLERANCE_CENT) return `Dépassement du crédit disponible (${creditDisponible.toFixed(2)} €)`
+    for (const l of lignesForme) {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
+        if (!l.info_facture) return 'Facture introuvable ou non saisie'
         const m = parseFloat(l.montant)
-        return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
+        if (!l.montant || isNaN(m) || m === 0) return 'Montant invalide'
+      } else if (!l.numero_facture.trim()) {
+        return 'Commentaire requis pour la ligne "Autres"'
       }
-      return !!l.numero_facture.trim()
-    })
+    }
+    return null
   }
+
+  function peutValider(): boolean { return motifInvalide() === null }
 
   async function valider() {
     if (!ligneActive || !peutValider()) return
@@ -111,22 +121,27 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
 
-      const { error: errUpdate } = await supabase
-        .from('lignes_bancaires')
-        .update({ en_attente_471: false } as never)
-        .eq('id_operation', ligneActive.id_operation)
-      if (errUpdate) throw errUpdate
+      // Effacer le flag 411 Attente uniquement si le crédit est totalement dispatché
+      const montantDispatche = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
+      const restantApres = Math.round((creditDisponible - montantDispatche) * 100) / 100
+      if (Math.abs(restantApres) < TOLERANCE_CENT) {
+        const { error: errUpdate } = await supabase
+          .from('lignes_bancaires')
+          .update({ en_attente_411: false } as never)
+          .eq('id_operation', ligneActive.id_operation)
+        if (errUpdate) throw errUpdate
+      }
 
       onSuccess({
         numerosLettres: inserts
           .filter(i => i.code_client !== 'AUTRES')
           .map(i => ({ numeroPiece: i.numero_facture ?? '', montant: i.montant })),
         idLigneBancaire: ligneActive.id_operation,
-        montantTotal: Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100,
+        montantTotal: montantDispatche,
       })
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 471.')
+      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 411 Attente.')
     } finally {
       setChargement(false)
     }
@@ -140,7 +155,10 @@ export function useDispatch471(onSuccess: (data: Dispatch471Data) => void) {
     ligneActive, lettragesExistants, lignesForme,
     chargement,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
-    modifierLigne, chercherInfoFacture, valider, peutValider,
+    modifierLigne, chercherInfoFacture, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
   }
 }
+
+// Alias rétrocompatible (évite les imports cassés non détectés)
+export const useDispatch471 = useDispatch411Attente

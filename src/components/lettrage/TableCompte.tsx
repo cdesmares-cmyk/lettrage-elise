@@ -1,19 +1,22 @@
-// Onglet [Compte] — deux sections : Comptes 411 (indigo) + En attente 471 (orange)
+// Onglet [Compte] — deux sections : Comptes 411 Client (indigo) + 411 Attente (orange)
 import type { FactureDetail } from '../../types/client'
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
 import { IcX } from '../Icones'
+import { TOLERANCE_CENT } from '../../lib/constantes'
 
 interface Props {
   factures411: FactureDetail[]
-  lignes471: LigneBancaireAvecStatut[]
+  lignes411Attente: LigneBancaireAvecStatut[]
   selectedId: string | null
   onSelect411: (f: FactureDetail) => void
-  onSelect471: (l: LigneBancaireAvecStatut) => void
+  onSelect411Attente: (l: LigneBancaireAvecStatut) => void
   onAnnuler411: (f: FactureDetail) => void
-  onAnnuler471: (l: LigneBancaireAvecStatut) => void
+  onAnnuler411Attente: (l: LigneBancaireAvecStatut) => void
   chargement: boolean
   libelles411?: Record<string, { libelle: string; detail: string | null }>
   recherche: string
+  lignesExportees?: Map<string, string>
+  comptes411AvecDispatch?: Set<string>
 }
 
 function fmt(n: number) {
@@ -25,8 +28,10 @@ function formatDate(iso: string) {
 }
 
 export function TableCompte({
-  factures411, lignes471, selectedId, onSelect411, onSelect471, onAnnuler411, onAnnuler471,
+  factures411, lignes411Attente, selectedId, onSelect411, onSelect411Attente,
+  onAnnuler411, onAnnuler411Attente,
   chargement, libelles411, recherche,
+  lignesExportees, comptes411AvecDispatch,
 }: Props) {
   const term = recherche.trim().toLowerCase()
 
@@ -39,7 +44,7 @@ export function TableCompte({
       )
     : factures411
 
-  const rien = factures411Filtrees.length === 0 && lignes471.length === 0
+  const rien = factures411Filtrees.length === 0 && lignes411Attente.length === 0
 
   return (
     <>
@@ -52,18 +57,19 @@ export function TableCompte({
         </div>
       ) : (
         <div>
-          {/* Section 411 */}
+          {/* Section 411 Client */}
           {factures411Filtrees.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-indigo-50/60 border-b border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
-                  Compte 411 — {factures411Filtrees.length} ligne{factures411Filtrees.length > 1 ? 's' : ''}
+                  Compte 411 Client — {factures411Filtrees.length} ligne{factures411Filtrees.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
                 {factures411Filtrees.map(f => {
                   const isActive = f.numero_piece === selectedId
                   const montant = Math.abs(f.reste_du)
+                  const aDispatch = comptes411AvecDispatch?.has(f.numero_piece) ?? false
                   return (
                     <div
                       key={f.numero_piece}
@@ -92,13 +98,22 @@ export function TableCompte({
                           <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(montant)}</p>
                           <p className="text-[10px] text-gray-400">à dispatcher</p>
                         </div>
-                        <button
-                          onClick={e => { e.stopPropagation(); onAnnuler411(f) }}
-                          title="Annuler ce lettrage 411"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
-                        >
-                          <IcX size={13} />
-                        </button>
+                        {aDispatch ? (
+                          <span
+                            title="Dispatch partiel effectué — impossible d'annuler"
+                            className="inline-flex items-center text-[10px] text-indigo-400 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded cursor-not-allowed"
+                          >
+                            Partiel
+                          </span>
+                        ) : (
+                          <button
+                            onClick={e => { e.stopPropagation(); onAnnuler411(f) }}
+                            title="Annuler ce compte 411"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                          >
+                            <IcX size={13} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )
@@ -107,21 +122,23 @@ export function TableCompte({
             </div>
           )}
 
-          {/* Section 471 */}
-          {lignes471.length > 0 && (
+          {/* Section 411 Attente */}
+          {lignes411Attente.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-orange-50/60 border-b border-orange-100">
                 <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest">
-                  Compte 411 Attente — {lignes471.length} ligne{lignes471.length > 1 ? 's' : ''}
+                  Compte 411 Attente — {lignes411Attente.length} ligne{lignes411Attente.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
-                {lignes471.map(l => {
+                {lignes411Attente.map(l => {
                   const isActive = l.id_operation === selectedId
+                  const estExporte = lignesExportees?.has(l.id_operation) ?? false
+                  const aLettrages = l.montant_lettre > TOLERANCE_CENT
                   return (
                     <div
                       key={l.id_operation}
-                      onClick={() => onSelect471(l)}
+                      onClick={() => onSelect411Attente(l)}
                       className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
                         isActive ? 'bg-orange-50 border-l-[3px] border-orange-400' : 'hover:bg-orange-50/50'
                       }`}
@@ -141,13 +158,29 @@ export function TableCompte({
                           <p className="text-sm font-bold tabular-nums text-orange-600">{fmt(l.restant)}</p>
                           <p className="text-[10px] text-gray-400">à dispatcher</p>
                         </div>
-                        <button
-                          onClick={e => { e.stopPropagation(); onAnnuler471(l) }}
-                          title="Annuler ce lettrage en attente"
-                          className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
-                        >
-                          <IcX size={13} />
-                        </button>
+                        {estExporte ? (
+                          <span
+                            title="Export comptable effectué — correction via le module Correction"
+                            className="inline-flex items-center text-[10px] text-gray-400 bg-gray-100 border border-gray-200 px-2 py-1 rounded cursor-not-allowed"
+                          >
+                            Exporté
+                          </span>
+                        ) : aLettrages ? (
+                          <span
+                            title="Lettrage(s) existant(s) sur cette ligne — impossible d'annuler"
+                            className="inline-flex items-center text-[10px] text-orange-400 bg-orange-50 border border-orange-200 px-2 py-1 rounded cursor-not-allowed"
+                          >
+                            Partiel
+                          </span>
+                        ) : (
+                          <button
+                            onClick={e => { e.stopPropagation(); onAnnuler411Attente(l) }}
+                            title="Annuler ce lettrage en attente"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
+                          >
+                            <IcX size={13} />
+                          </button>
+                        )}
                       </div>
                     </div>
                   )

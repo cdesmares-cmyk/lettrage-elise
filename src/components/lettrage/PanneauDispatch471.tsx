@@ -1,20 +1,20 @@
-// Panneau droit — dispatch d'une ligne en attente 471 vers des factures réelles
+// Panneau droit — dispatch d'une ligne 411 Attente vers des factures réelles
 import { useRef } from 'react'
 import { IcCursor, IcCheck, IcLoader, IcWarning, IcX } from '../Icones'
-import type { useDispatch471 } from '../../hooks/useDispatch471'
+import type { useDispatch411Attente } from '../../hooks/useDispatch471'
 
-type Props = ReturnType<typeof useDispatch471>
+type Props = ReturnType<typeof useDispatch411Attente>
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-export function PanneauDispatch471(props: Props) {
+export function PanneauDispatch411Attente(props: Props) {
   const {
     ligneActive, lettragesExistants, lignesForme,
     chargement,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
-    chercherInfoFacture, valider, peutValider,
+    chercherInfoFacture, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
   } = props
 
@@ -40,6 +40,7 @@ export function PanneauDispatch471(props: Props) {
   }
 
   const pct = creditDisponible > 0 ? Math.min(100, Math.round((montantAttribue / creditDisponible) * 100)) : 0
+  const motif = motifInvalide()
 
   return (
     <div className="bg-white border border-orange-100 rounded-xl shadow-sm overflow-hidden sticky top-20">
@@ -54,7 +55,7 @@ export function PanneauDispatch471(props: Props) {
         </p>
       </div>
 
-      {/* Lettrages déjà existants sur cette ligne (cas mix) */}
+      {/* Lettrages déjà existants sur cette ligne */}
       {lettragesExistants.length > 0 && (
         <div className="px-5 pt-4 pb-1">
           <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-2">Lettrages précédents</p>
@@ -81,7 +82,6 @@ export function PanneauDispatch471(props: Props) {
         <div className="space-y-4 mb-3">
           {lignesForme.map(ligne => (
             <div key={ligne._key}>
-              {/* Ligne 1 : sélecteur + supprimer */}
               <div className="flex items-center gap-2 mb-1.5">
                 <div className="relative flex-1">
                   <select
@@ -104,7 +104,6 @@ export function PanneauDispatch471(props: Props) {
                   <IcX size={11} />
                 </button>
               </div>
-              {/* Ligne 2 : champ + montant */}
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <input
@@ -182,6 +181,13 @@ export function PanneauDispatch471(props: Props) {
         </div>
       </div>
 
+      {/* Motif si bouton désactivé */}
+      {motif && (
+        <div className="mx-5 mb-3 text-[11px] text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-2">
+          {motif}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex gap-2 px-5 pb-5">
         <button
@@ -202,3 +208,6 @@ export function PanneauDispatch471(props: Props) {
     </div>
   )
 }
+
+// Alias rétrocompatible
+export const PanneauDispatch471 = PanneauDispatch411Attente

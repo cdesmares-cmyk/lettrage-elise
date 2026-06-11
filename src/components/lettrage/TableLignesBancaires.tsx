@@ -31,7 +31,7 @@ function DotStatut({ statut }: { statut: StatutLettrage }) {
   if (statut === 'lettre')          return <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
   if (statut === 'partiel')         return <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_0_3px_rgba(245,158,11,0.2)]" />
   if (statut === 'non_lettre')      return <span className="inline-block w-2 h-2 rounded-full bg-red-500 shadow-[0_0_0_3px_rgba(239,68,68,0.2)]" />
-  if (statut === 'en_attente_471')  return <span className="inline-block w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_0_3px_rgba(251,146,60,0.2)]" />
+  if (statut === 'en_attente_411')  return <span className="inline-block w-2 h-2 rounded-full bg-orange-400 shadow-[0_0_0_3px_rgba(251,146,60,0.2)]" />
   return <span className="inline-block w-2 h-2 rounded-full bg-gray-300" />
 }
 
@@ -72,7 +72,7 @@ export function TableLignesBancaires({
             <tbody className="divide-y divide-gray-50">
               {lignes.map(ligne => {
                 const isDebit = ligne.statut_lettrage === 'debit'
-                const is471 = ligne.statut_lettrage === 'en_attente_471'
+                const is471 = ligne.statut_lettrage === 'en_attente_411'
                 const isActive = ligne.id_operation === ligneActiveId
                 const isDimmed = hasActive && !isActive && !isDebit
                 // Identifie les lignes bancaires débit (y compris celles devenues 'lettre' après affectation)
@@ -111,9 +111,9 @@ export function TableLignesBancaires({
                           Débit — cliquer pour affecter un remboursement
                         </span>
                       )}
-                      {ligne.statut_lettrage === 'en_attente_471' && (
+                      {ligne.statut_lettrage === 'en_attente_411' && (
                         <span className="inline-flex items-center bg-orange-50 text-orange-500 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
-                          En attente 471
+                          411 Attente
                         </span>
                       )}
                     </td>
@@ -135,7 +135,7 @@ export function TableLignesBancaires({
                       )}
                     </td>
                     <td className="px-2 py-3 text-center" onClick={e => e.stopPropagation()}>
-                      {!readOnly && (ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_471') && !isBankDebit && (
+                      {!readOnly && (ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_411') && !isBankDebit && (
                         lignesExportees.has(ligne.id_operation) ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"

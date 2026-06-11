@@ -63,18 +63,24 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
     }
   }
 
-  function peutValider(): boolean {
-    if (!factureActive || !lignesForme.length) return false
+  function motifInvalide(): string | null {
+    if (!factureActive) return 'Aucun compte 411 sélectionné'
+    if (!lignesForme.length) return 'Aucune ligne de dispatch'
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > creditDisponible + TOLERANCE_CENT) return false
-    return lignesForme.every(l => {
+    if (attribue > creditDisponible + TOLERANCE_CENT) return `Dépassement du crédit disponible (${creditDisponible.toFixed(2)} €)`
+    for (const l of lignesForme) {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
+        if (!l.info_facture) return 'Facture introuvable ou non saisie'
         const m = parseFloat(l.montant)
-        return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
+        if (!l.montant || isNaN(m) || m === 0) return 'Montant invalide'
+      } else if (!l.numero_facture.trim()) {
+        return 'Commentaire requis pour la ligne "Autres"'
       }
-      return !!l.numero_facture.trim()
-    })
+    }
+    return null
   }
+
+  function peutValider(): boolean { return motifInvalide() === null }
 
   async function valider() {
     if (!factureActive || !peutValider()) return
@@ -128,7 +134,7 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
     factureActive, lignesForme,
     chargement,
     selectionnerFacture411, annuler, ajouterLigne, supprimerLigne,
-    modifierLigne, chercherInfoFacture, valider, peutValider,
+    modifierLigne, chercherInfoFacture, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
     warningMultiClient,
   }
