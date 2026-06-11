@@ -286,29 +286,30 @@ export function PageLettrage() {
         return
       }
 
-      // 4. Annuler tous les lettrages des lignes bancaires liées (mix inclus)
+      // 4a. Annuler les lettrages 411 directement par numero_facture
+      // (plus fiable qu'un lookup via id_ligne_bancaire qui peut être vide)
+      const { error: errAnnul } = await supabase
+        .from('lettrages')
+        .update({ annule: true } as never)
+        .eq('numero_facture', numeroPiece)
+        .eq('annule', false)
+      if (errAnnul) throw errAnnul
+
+      // 4b. Annuler aussi les lettrages mix (autres factures sur ces mêmes lignes bancaires)
+      // et réinitialiser le flag en_attente_411
       if (idLignes.length > 0) {
-        const { error } = await supabase
+        await supabase
           .from('lettrages')
           .update({ annule: true } as never)
           .in('id_ligne_bancaire', idLignes)
           .eq('annule', false)
-        if (error) throw error
-
         await supabase
           .from('lignes_bancaires')
           .update({ en_attente_411: false } as never)
           .in('id_operation', idLignes)
       }
 
-      // 5. Forcer reste_du = 0 sur la facture 411
-      // (filet de sécurité si le trigger sync_reste_du n'a pas pu s'exécuter)
-      await supabase
-        .from('factures')
-        .update({ reste_du: 0 } as never)
-        .eq('numero_piece', numeroPiece)
-
-      // 6. Supprimer la facture uniquement si aucun lettrage ne la référence encore
+      // 5. Supprimer la facture uniquement si aucun lettrage ne la référence encore
       // (contrainte FK lettrages → factures sans ON DELETE CASCADE)
       const { count: nbRef } = await supabase
         .from('lettrages')
