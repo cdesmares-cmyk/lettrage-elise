@@ -2,8 +2,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY       = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const ANON_KEY          = Deno.env.get('SUPABASE_ANON_KEY')!
 const AXONAUT_BASE      = 'https://axonaut.com/api/v2'
 const PER_PAGE          = 500
+const NB_PAGES_STEP     = 5   // pages par appel cron
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -17,6 +19,26 @@ function json(data: unknown, status = 200) {
   })
 }
 
+// Récupère une page Axonaut avec timeout 30s. Retourne null en cas d'erreur réseau.
+async function fetchAxonautPage(
+  apiKey: string,
+  page: number
+): Promise<{ res: Response; timedOut: boolean }> {
+  const controller = new AbortController()
+  const timeoutId  = setTimeout(() => controller.abort(), 30_000)
+  try {
+    const res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, {
+      headers: { userApiKey: apiKey, page: String(page) },
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    return { res, timedOut: false }
+  } catch {
+    clearTimeout(timeoutId)
+    return { res: new Response('', { status: 504 }), timedOut: true }
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -24,33 +46,28 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return new Response('Non autorisé', { status: 401, headers: CORS })
 
-    const supabaseUser = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    })
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY)
 
-    const body = await req.json()
+    const body   = await req.json()
     const action: string = body.action
-
-    const { data: integration, error: intErr } = await supabaseUser
-      .from('integrations')
-      .select('api_key, organisation_id')
-      .eq('provider', 'axonaut')
-      .eq('actif', true)
-      .single()
-
-    if (intErr || !integration?.api_key) {
-      console.error('integrations read error:', intErr)
-      return json({ error: `Clef API introuvable : ${intErr?.message ?? 'null'}` }, 400)
-    }
-
-    const { api_key: apiKey, organisation_id: orgId } = integration as { api_key: string; organisation_id: string }
-    const axonautHeaders = { userApiKey: apiKey }
 
     // ── test ────────────────────────────────────────────────────────────────
     if (action === 'test') {
-      const res = await fetch(`${AXONAUT_BASE}/invoices?page=1`, { headers: { ...axonautHeaders, page: '1' } })
-      if (!res.ok) {
+      const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      })
+      const { data: integration, error: intErr } = await supabaseUser
+        .from('integrations')
+        .select('api_key, organisation_id')
+        .eq('provider', 'axonaut')
+        .eq('actif', true)
+        .single()
+      if (intErr || !integration?.api_key) {
+        return json({ error: `Clef API introuvable : ${intErr?.message ?? 'null'}` }, 400)
+      }
+      const { api_key: apiKey, organisation_id: orgId } = integration as { api_key: string; organisation_id: string }
+      const { res } = await fetchAxonautPage(apiKey, 1)
+      if (!res.ok && res.status !== 404) {
         const txt = await res.text().catch(() => '')
         return json({ ok: false, message: `Axonaut HTTP ${res.status} — ${txt}` })
       }
@@ -62,61 +79,51 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, message: 'Connexion validée' })
     }
 
-    // ── sync ────────────────────────────────────────────────────────────────
+    // ── sync (manuel, piloté depuis le navigateur) ───────────────────────────
     if (action === 'sync') {
-      const tDébut = Date.now()
+      const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
+        global: { headers: { Authorization: authHeader } },
+      })
+      const { data: integration, error: intErr } = await supabaseUser
+        .from('integrations')
+        .select('api_key, organisation_id')
+        .eq('provider', 'axonaut')
+        .eq('actif', true)
+        .single()
+      if (intErr || !integration?.api_key) {
+        console.error('integrations read error:', intErr)
+        return json({ error: `Clef API introuvable : ${intErr?.message ?? 'null'}` }, 400)
+      }
+      const { api_key: apiKey, organisation_id: orgId } = integration as { api_key: string; organisation_id: string }
+
+      const tDébut    = Date.now()
       const pageDebut: number = body.page_debut ?? 1
-      const nbPages:   number = body.nb_pages   ?? 10
-      let nbMaj      = 0
-      let nbVues     = 0
-      let nbSansPdf  = 0
-      let termine    = false
+      const nbPages:  number  = body.nb_pages   ?? 10
+      let nbMaj     = 0
+      let nbVues    = 0
+      let nbSansPdf = 0
+      let termine   = false
 
       for (let page = pageDebut; page < pageDebut + nbPages; page++) {
-        const controller = new AbortController()
-        const timeoutId  = setTimeout(() => controller.abort(), 30_000)
-
-        let res: Response
-        try {
-          res = await fetch(`${AXONAUT_BASE}/invoices?page=${page}`, {
-            headers: { ...axonautHeaders, page: String(page) },
-            signal: controller.signal,
-          })
-        } catch (fetchErr) {
-          clearTimeout(timeoutId)
-          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr)
-          console.error(`Axonaut fetch timeout/error page ${page}:`, msg)
-          return json({ error: `Timeout Axonaut page ${page} : ${msg}` }, 504)
-        }
-        clearTimeout(timeoutId)
-
+        const { res, timedOut } = await fetchAxonautPage(apiKey, page)
+        if (timedOut) return json({ error: `Timeout Axonaut page ${page}` }, 504)
         console.log(`Axonaut page ${page}: HTTP ${res.status}`)
-
-        // 404 = plus de pages disponibles → fin normale de la synchro
         if (res.status === 404) { termine = true; break }
-
         if (!res.ok) {
           const txt = await res.text().catch(() => '')
           console.error(`Axonaut HTTP ${res.status} page ${page}:`, txt)
           return json({ error: `Axonaut HTTP ${res.status}` }, 502)
         }
-
         const invoices = await res.json() as Array<Record<string, unknown>>
         if (!Array.isArray(invoices) || invoices.length === 0) { termine = true; break }
-
-        // Log diagnostic sur la première facture de la première page
         if (page === pageDebut && pageDebut === 1) {
           console.log('Axonaut invoice sample (page 1, item 0):', JSON.stringify(invoices[0]))
         }
-
         nbVues += invoices.length
-
         const payload = invoices
           .filter(inv => inv['number'] && inv['public_path'])
           .map(inv => ({ numero_piece: String(inv['number']), pdf_url: String(inv['public_path']) }))
-
         nbSansPdf += invoices.length - payload.length
-
         if (payload.length > 0) {
           const { data: nb, error: rpcErr } = await supabaseAdmin.rpc('bulk_update_axonaut_pdf', {
             updates: payload,
@@ -125,7 +132,6 @@ Deno.serve(async (req: Request) => {
           if (rpcErr) console.error('bulk_update_axonaut_pdf error:', rpcErr)
           nbMaj += (nb as number) ?? 0
         }
-
         if (invoices.length < PER_PAGE) { termine = true; break }
       }
 
@@ -142,11 +148,107 @@ Deno.serve(async (req: Request) => {
           duree_ms: Date.now() - tDébut,
         })
       } else {
-        // Batch terminé sans fin de synchro — log intermédiaire pour traçabilité
         console.log(`Batch pages ${pageDebut}-${pageDebut + nbPages - 1} : ${nbVues} vues, ${nbMaj} maj, ${nbSansPdf} sans PDF`)
       }
 
       return json({ ok: true, nb_mises_a_jour: nbMaj, nb_vues: nbVues, nb_sans_pdf: nbSansPdf, termine, prochaine_page: pageDebut + nbPages })
+    }
+
+    // ── sync_step (appelé par pg_cron, sans contexte utilisateur) ────────────
+    if (action === 'sync_step') {
+      const orgId: string = body.org_id
+      if (!orgId) return json({ error: 'org_id requis' }, 400)
+
+      // Lecture de l'état de synchronisation
+      const { data: intRow, error: intErr } = await supabaseAdmin
+        .from('integrations')
+        .select('api_key, sync_page_courante, sync_stats, sync_actif')
+        .eq('provider', 'axonaut')
+        .eq('organisation_id', orgId)
+        .single()
+
+      if (intErr || !intRow) return json({ error: 'Intégration introuvable' }, 404)
+      if (!intRow.sync_actif) return json({ ok: false, message: 'Sync non active' })
+      if (!intRow.api_key)    return json({ ok: false, message: 'Clef API introuvable' })
+
+      // Acquisition du verrou pour éviter les appels concurrent
+      await supabaseAdmin
+        .from('integrations')
+        .update({ sync_verrou_expire_le: new Date(Date.now() + 90_000).toISOString() })
+        .eq('provider', 'axonaut')
+        .eq('organisation_id', orgId)
+
+      const apiKey    = intRow.api_key as string
+      const pageDebut = (intRow.sync_page_courante as number) ?? 1
+      const stats     = (intRow.sync_stats as { nbMaj?: number; nbVues?: number; nbSansPdf?: number }) ?? {}
+      let nbMaj     = stats.nbMaj     ?? 0
+      let nbVues    = stats.nbVues    ?? 0
+      let nbSansPdf = stats.nbSansPdf ?? 0
+      let termine   = false
+
+      for (let page = pageDebut; page < pageDebut + NB_PAGES_STEP; page++) {
+        const { res, timedOut } = await fetchAxonautPage(apiKey, page)
+        if (timedOut) {
+          console.error(`sync_step org ${orgId}: timeout page ${page}`)
+          break
+        }
+        console.log(`sync_step org ${orgId} page ${page}: HTTP ${res.status}`)
+        if (res.status === 404) { termine = true; break }
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '')
+          console.error(`sync_step Axonaut HTTP ${res.status} page ${page}:`, txt)
+          break
+        }
+        const invoices = await res.json() as Array<Record<string, unknown>>
+        if (!Array.isArray(invoices) || invoices.length === 0) { termine = true; break }
+
+        nbVues += invoices.length
+        const payload = invoices
+          .filter(inv => inv['number'] && inv['public_path'])
+          .map(inv => ({ numero_piece: String(inv['number']), pdf_url: String(inv['public_path']) }))
+        nbSansPdf += invoices.length - payload.length
+
+        if (payload.length > 0) {
+          const { data: nb, error: rpcErr } = await supabaseAdmin.rpc('bulk_update_axonaut_pdf', {
+            updates: payload,
+            org_id: orgId,
+          })
+          if (rpcErr) console.error('sync_step bulk_update error:', rpcErr)
+          nbMaj += (nb as number) ?? 0
+        }
+
+        if (invoices.length < PER_PAGE) { termine = true; break }
+      }
+
+      const nowIso = new Date().toISOString()
+
+      if (termine) {
+        const rapport = { nbMaj, nbVues, nbSansPdf, date: nowIso }
+        await supabaseAdmin.from('integrations').update({
+          sync_actif:            false,
+          sync_page_courante:    1,
+          sync_stats:            {},
+          sync_verrou_expire_le: null,
+          sync_dernier_rapport:  rapport,
+          verifie_le:            nowIso,
+        }).eq('provider', 'axonaut').eq('organisation_id', orgId)
+
+        await supabaseAdmin.from('cron_runs').insert({
+          fonction: 'axonaut-sync', organisation_id: orgId, statut: 'ok',
+          nb_traite: nbMaj,
+          message: `[bg] ${nbVues} factures Axonaut · ${nbMaj} URLs mises à jour · ${nbSansPdf} sans PDF`,
+        })
+        console.log(`sync_step org ${orgId} TERMINÉ : ${nbMaj} maj sur ${nbVues} factures`)
+      } else {
+        await supabaseAdmin.from('integrations').update({
+          sync_page_courante:    pageDebut + NB_PAGES_STEP,
+          sync_stats:            { nbMaj, nbVues, nbSansPdf },
+          sync_verrou_expire_le: null,
+        }).eq('provider', 'axonaut').eq('organisation_id', orgId)
+        console.log(`sync_step org ${orgId} pages ${pageDebut}-${pageDebut + NB_PAGES_STEP - 1} : ${nbMaj} maj, ${nbVues} vues`)
+      }
+
+      return json({ ok: true, termine, nbMaj, nbVues, nbSansPdf, prochaine_page: pageDebut + NB_PAGES_STEP })
     }
 
     return json({ error: 'Action inconnue' }, 400)

@@ -1,29 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useAxonautIntegration } from '../../hooks/useAxonautIntegration'
 
 export function SectionIntegrationAxonaut() {
-  const { integration, enCours, sauvegarderCle, tester, synchroniser } = useAxonautIntegration()
-  const [saisie, setSaisie] = useState('')
+  const { integration, enCours, sauvegarderCle, tester, synchroniser, arreterSync } = useAxonautIntegration()
+  const [saisie, setSaisie]     = useState('')
   const [editMode, setEditMode] = useState(false)
-  const [recap, setRecap] = useState<{ nbMaj: number; nbVues: number; nbSansPdf: number } | null>(null)
-  const [tempsEcoule, setTempsEcoule] = useState(0)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  useEffect(() => {
-    if (enCours) {
-      setTempsEcoule(0)
-      timerRef.current = setInterval(() => setTempsEcoule(t => t + 1), 1000)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [enCours])
-
-  function fmtTimer(s: number) {
-    const m = Math.floor(s / 60)
-    const sec = s % 60
-    return m > 0 ? `${m}m ${sec.toString().padStart(2, '0')}s` : `${sec}s`
-  }
 
   async function handleSauvegarder() {
     if (!saisie.trim()) return
@@ -31,13 +12,11 @@ export function SectionIntegrationAxonaut() {
     if (ok) { setSaisie(''); setEditMode(false) }
   }
 
-  async function handleSync() {
-    setRecap(null)
-    const result = await synchroniser()
-    setRecap(result)
-  }
-
-  const clePresente = !!integration?.api_key
+  const clePresente  = !!integration?.api_key
+  const syncActif    = !!integration?.sync_actif
+  const stats        = integration?.sync_stats
+  const rapport      = integration?.sync_dernier_rapport
+  const pageCourante = integration?.sync_page_courante ?? 1
 
   return (
     <section className="bg-white border border-gray-200 rounded-xl shadow-sm mb-5 overflow-hidden">
@@ -48,7 +27,7 @@ export function SectionIntegrationAxonaut() {
         </div>
         {integration?.actif && integration.verifie_le && (
           <span className="text-[10px] text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-            ✓ Active · {new Date(integration.verifie_le).toLocaleDateString('fr-FR')}
+            Actif · {new Date(integration.verifie_le).toLocaleDateString('fr-FR')}
           </span>
         )}
       </div>
@@ -68,13 +47,13 @@ export function SectionIntegrationAxonaut() {
               </span>
               <button
                 onClick={() => setEditMode(true)}
-                className="text-xs text-gray-500 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded transition-colors"
+                className="text-xs text-gray-500 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded transition-colors cursor-pointer"
               >Modifier</button>
               <button
                 onClick={tester}
                 disabled={enCours}
-                className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-3 py-1.5 rounded disabled:opacity-40 transition-colors"
-              >{enCours ? '⏳' : 'Tester la connexion'}</button>
+                className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-3 py-1.5 rounded disabled:opacity-40 transition-colors cursor-pointer"
+              >{enCours ? '...' : 'Tester la connexion'}</button>
             </div>
           ) : (
             <div className="flex gap-2">
@@ -90,12 +69,12 @@ export function SectionIntegrationAxonaut() {
               <button
                 onClick={handleSauvegarder}
                 disabled={!saisie.trim() || enCours}
-                className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3 py-1.5 rounded disabled:opacity-40 transition-colors"
+                className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3 py-1.5 rounded disabled:opacity-40 transition-colors cursor-pointer"
               >Enregistrer</button>
               {editMode && (
                 <button
                   onClick={() => { setEditMode(false); setSaisie('') }}
-                  className="text-xs text-gray-400 border border-gray-200 px-3 py-1.5 rounded transition-colors hover:border-gray-300"
+                  className="text-xs text-gray-400 border border-gray-200 px-3 py-1.5 rounded transition-colors hover:border-gray-300 cursor-pointer"
                 >Annuler</button>
               )}
             </div>
@@ -104,46 +83,68 @@ export function SectionIntegrationAxonaut() {
 
         {/* Synchronisation */}
         {clePresente && (
-          <div className="border-t border-gray-100 pt-4 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold text-gray-700">Synchroniser les liens PDF</p>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                Récupère les <code className="text-[10px] bg-gray-100 px-1 rounded">public_path</code> depuis Axonaut
-                et les stocke sur chaque facture importée.
-              </p>
-              {recap !== null && (
-                <div className="mt-2 inline-flex flex-wrap items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-                  <span className="text-[11px] font-semibold text-emerald-700">
-                    ✓ Sync terminée
-                  </span>
-                  <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
-                    {recap.nbVues.toLocaleString('fr-FR')} factures Axonaut parcourues
-                  </span>
-                  <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
-                    {recap.nbMaj.toLocaleString('fr-FR')} URL{recap.nbMaj !== 1 ? 's' : ''} mise{recap.nbMaj !== 1 ? 's' : ''} à jour
-                  </span>
-                  {recap.nbSansPdf > 0 && (
-                    <span className="text-[10px] text-amber-600 border-l border-emerald-200 pl-3">
-                      {recap.nbSansPdf.toLocaleString('fr-FR')} sans PDF Axonaut
-                    </span>
-                  )}
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+
+            {/* En-tête + bouton */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold text-gray-700">Synchronisation des liens PDF</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Récupère les <code className="text-[10px] bg-gray-100 px-1 rounded">public_path</code> depuis Axonaut
+                  et les stocke sur chaque facture. La sync tourne en arrière-plan — vous pouvez continuer à travailler.
+                </p>
+              </div>
+              <div className="flex-shrink-0 flex flex-col items-end gap-1">
+                {syncActif ? (
+                  <button
+                    onClick={arreterSync}
+                    className="text-xs text-gray-500 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded transition-colors cursor-pointer"
+                  >Arrêter</button>
+                ) : (
+                  <button
+                    onClick={synchroniser}
+                    disabled={enCours}
+                    className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-4 py-2 rounded disabled:opacity-40 transition-colors cursor-pointer"
+                  >{enCours ? '...' : '↺ Synchroniser'}</button>
+                )}
+              </div>
+            </div>
+
+            {/* Progression en cours */}
+            {syncActif && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-3">
+                <span className="inline-block w-3 h-3 rounded-full bg-blue-400 animate-pulse flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-semibold text-blue-700">Synchronisation en cours…</p>
+                  <p className="text-[10px] text-blue-500 mt-0.5">
+                    Page {pageCourante} en cours
+                    {stats && stats.nbVues > 0 && (
+                      <> · {stats.nbVues.toLocaleString('fr-FR')} factures vues · {stats.nbMaj.toLocaleString('fr-FR')} URLs mises à jour</>
+                    )}
+                  </p>
                 </div>
-              )}
-            </div>
-            <div className="flex-shrink-0 flex flex-col items-end gap-1">
-              <button
-                onClick={handleSync}
-                disabled={enCours}
-                className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-4 py-2 rounded disabled:opacity-40 transition-colors"
-              >
-                {enCours ? '⏳ Sync en cours…' : '↺ Synchroniser'}
-              </button>
-              {enCours && (
-                <span className="text-[10px] text-gray-400 tabular-nums">
-                  {fmtTimer(tempsEcoule)} — ~20 min pour un sync complet
+              </div>
+            )}
+
+            {/* Dernier rapport */}
+            {!syncActif && rapport && (
+              <div className="inline-flex flex-wrap items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                <span className="text-[11px] font-semibold text-emerald-700">
+                  Dernière sync · {new Date(rapport.date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                 </span>
-              )}
-            </div>
+                <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
+                  {rapport.nbVues.toLocaleString('fr-FR')} factures parcourues
+                </span>
+                <span className="text-[10px] text-emerald-600 border-l border-emerald-200 pl-3">
+                  {rapport.nbMaj.toLocaleString('fr-FR')} URL{rapport.nbMaj !== 1 ? 's' : ''} mise{rapport.nbMaj !== 1 ? 's' : ''} à jour
+                </span>
+                {rapport.nbSansPdf > 0 && (
+                  <span className="text-[10px] text-amber-600 border-l border-emerald-200 pl-3">
+                    {rapport.nbSansPdf.toLocaleString('fr-FR')} sans PDF Axonaut
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

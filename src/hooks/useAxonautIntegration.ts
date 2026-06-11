@@ -1,24 +1,36 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
+interface SyncStats {
+  nbMaj:     number
+  nbVues:    number
+  nbSansPdf: number
+}
+
+interface DernierRapport extends SyncStats {
+  date: string
+}
+
 interface Integration {
-  id: string
-  api_key: string | null
-  actif: boolean
-  verifie_le: string | null
+  id:                    string
+  api_key:               string | null
+  actif:                 boolean
+  verifie_le:            string | null
+  sync_actif:            boolean
+  sync_page_courante:    number
+  sync_stats:            SyncStats | null
+  sync_dernier_rapport:  DernierRapport | null
 }
 
 export function useAxonautIntegration() {
-  const { profil } = useAuth()
   const [integration, setIntegration] = useState<Integration | null>(null)
   const [enCours, setEnCours] = useState(false)
 
   async function charger() {
     const { data } = await supabase
       .from('integrations')
-      .select('id, api_key, actif, verifie_le')
+      .select('id, api_key, actif, verifie_le, sync_actif, sync_page_courante, sync_stats, sync_dernier_rapport')
       .eq('provider', 'axonaut')
       .maybeSingle()
     setIntegration(data as Integration | null)
@@ -26,13 +38,20 @@ export function useAxonautIntegration() {
 
   useEffect(() => { charger() }, [])
 
+  // Polling toutes les 3s pendant une sync en cours
+  useEffect(() => {
+    if (!integration?.sync_actif) return
+    const interval = setInterval(charger, 3000)
+    return () => clearInterval(interval)
+  }, [integration?.sync_actif])
+
   async function sauvegarderCle(apiKey: string): Promise<boolean> {
     setEnCours(true)
     try {
       const { error } = await supabase
         .from('integrations')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ provider: 'axonaut', api_key: apiKey, actif: true, organisation_id: profil?.organisation_id } as any, {
+        .upsert({ provider: 'axonaut', api_key: apiKey, actif: true } as any, {
           onConflict: 'organisation_id,provider',
         })
       if (error) throw error
@@ -65,34 +84,36 @@ export function useAxonautIntegration() {
     }
   }
 
-  async function synchroniser(): Promise<{ nbMaj: number; nbVues: number; nbSansPdf: number }> {
+  async function synchroniser(): Promise<void> {
     setEnCours(true)
-    let nbMaj      = 0
-    let nbVues     = 0
-    let nbSansPdf  = 0
-    let pageDebut  = 1
-    const NB_PAGES = 5
     try {
-      while (true) {
-        const { data, error } = await supabase.functions.invoke('axonaut-sync', {
-          body: { action: 'sync', page_debut: pageDebut, nb_pages: NB_PAGES },
-        })
-        if (error || !data?.ok) throw new Error(data?.error ?? 'Synchronisation échouée')
-        nbMaj     += data.nb_mises_a_jour ?? 0
-        nbVues    += data.nb_vues         ?? 0
-        nbSansPdf += data.nb_sans_pdf     ?? 0
-        if (data.termine) break
-        pageDebut = data.prochaine_page
-      }
+      const { error } = await supabase
+        .from('integrations')
+        .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} })
+        .eq('provider', 'axonaut')
+        .eq('actif', true)
+      if (error) throw error
       await charger()
-      return { nbMaj, nbVues, nbSansPdf }
+      toast.success('Synchronisation démarrée en arrière-plan')
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Synchronisation échouée.')
-      return { nbMaj, nbVues, nbSansPdf }
+      toast.error(err instanceof Error ? err.message : 'Erreur.')
     } finally {
       setEnCours(false)
     }
   }
 
-  return { integration, enCours, charger, sauvegarderCle, tester, synchroniser }
+  async function arreterSync(): Promise<void> {
+    try {
+      await supabase
+        .from('integrations')
+        .update({ sync_actif: false, sync_verrou_expire_le: null })
+        .eq('provider', 'axonaut')
+        .eq('actif', true)
+      await charger()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur.')
+    }
+  }
+
+  return { integration, enCours, charger, sauvegarderCle, tester, synchroniser, arreterSync }
 }

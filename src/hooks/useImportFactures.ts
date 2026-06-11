@@ -288,6 +288,17 @@ export function useImportFactures() {
         throw err
       }
 
+      // Déclenche la sync Axonaut en arrière-plan pour les nouvelles factures
+      try {
+        await supabase
+          .from('integrations')
+          .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} })
+          .eq('provider', 'axonaut')
+          .eq('actif', true)
+      } catch {
+        // Non bloquant : Axonaut peut ne pas être configuré
+      }
+
       return { import_id: importRec.id, nb_inserees: resultat.nb_nouvelles }
     } finally {
       setChargement(false)
