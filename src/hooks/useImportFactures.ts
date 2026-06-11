@@ -292,7 +292,7 @@ export function useImportFactures() {
       try {
         await supabase
           .from('integrations')
-          .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} })
+          .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} } as never)
           .eq('provider', 'axonaut')
           .eq('actif', true)
       } catch {

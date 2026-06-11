@@ -89,7 +89,7 @@ export function useAxonautIntegration() {
     try {
       const { error } = await supabase
         .from('integrations')
-        .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} })
+        .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} } as never)
         .eq('provider', 'axonaut')
         .eq('actif', true)
       if (error) throw error
@@ -106,7 +106,7 @@ export function useAxonautIntegration() {
     try {
       await supabase
         .from('integrations')
-        .update({ sync_actif: false, sync_verrou_expire_le: null })
+        .update({ sync_actif: false, sync_verrou_expire_le: null } as never)
         .eq('provider', 'axonaut')
         .eq('actif', true)
       await charger()
