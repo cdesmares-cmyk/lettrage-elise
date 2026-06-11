@@ -3,8 +3,7 @@ import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { IcDownload, IcClock, IcX } from '../components/Icones'
-import type { LigneBancaireAvecStatut } from '../types/lettrage'
-import type { FactureDetail } from '../types/client'
+import type { LigneBancaireAvecStatut, LigneBancaire411, StatutLettrage } from '../types/lettrage'
 import { BarreResume } from '../components/lettrage/BarreResume'
 import { TableLignesBancaires } from '../components/lettrage/TableLignesBancaires'
 import { PanneauLettrage } from '../components/lettrage/PanneauLettrage'
@@ -40,7 +39,6 @@ export function PageLettrage() {
   const [remisesOuverte, setRemisesOuverte] = useState(false)
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
   const [confirmAnnulation, setConfirmAnnulation] = useState<LigneBancaireAvecStatut | null>(null)
-  const [confirmAnnulation411, setConfirmAnnulation411] = useState<FactureDetail | null>(null)
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
   const [ligneDebitAaffecter, setLigneDebitAaffecter] = useState<LigneBancaireAvecStatut | null>(null)
 
@@ -77,8 +75,7 @@ export function PageLettrage() {
     liste.rafraichirSilencieux()
     rafraichirDonnees()
     if (historique.visible) historique.charger()
-    // Recharge les gardes X pour les dispatches partiels
-    setVersionComptes411(v => v + 1)
+    setVersionLignes411(v => v + 1)
   })
   const requalification471 = useRequalification471((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
@@ -88,58 +85,72 @@ export function PageLettrage() {
   })
 
   const factures411 = facturesActives.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
-  const [libelles411, setLibelles411] = useState<Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }>>({})
-  const [comptes411AvecDispatch, setComptes411AvecDispatch] = useState<Set<string>>(new Set())
-  const [versionComptes411, setVersionComptes411] = useState(0)
-  useEffect(() => {
-    if (factures411.length === 0) { setLibelles411({}); return }
-    const nums = factures411.map(f => f.numero_piece)
-    supabase
-      .from('lettrages')
-      .select('numero_facture, id_ligne_bancaire')
-      .in('numero_facture', nums)
-      .eq('annule', false)
-      .then(async ({ data }) => {
-        try {
-          if (!data?.length) return
-          const rows = data as { numero_facture: string; id_ligne_bancaire: string | null }[]
-          const idToNum: Record<string, string> = {}
-          for (const r of rows) {
-            if (r.id_ligne_bancaire && r.numero_facture) idToNum[r.id_ligne_bancaire] = r.numero_facture
-          }
-          const ids = Object.keys(idToNum)
-          if (!ids.length) return
-          const { data: lb } = await supabase
-            .from('lignes_bancaires')
-            .select('id_operation, libelle, detail')
-            .in('id_operation', ids)
-          if (!lb) return
-          const result: Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }> = {}
-          for (const r of lb as { id_operation: string; libelle: string; detail: string | null }[]) {
-            const num = idToNum[r.id_operation]
-            if (num) result[num] = { libelle: r.libelle, detail: r.detail, idLigneBancaire: r.id_operation }
-          }
-          setLibelles411(result)
-        } catch { /* libelles411 reste vide, affiché sans libellé bancaire */ }
-      })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [factures411.length])
+  const factures411Key = factures411.map(f => `${f.numero_piece}:${f.reste_du}`).join(',')
+  const [lignes411Client, setLignes411Client] = useState<LigneBancaire411[]>([])
+  const [versionLignes411, setVersionLignes411] = useState(0)
 
-  // Charge quels comptes 411 ont au moins un dispatch partiel (entrées de correction)
   useEffect(() => {
-    if (factures411.length === 0) { setComptes411AvecDispatch(new Set()); return }
+    if (factures411.length === 0) { setLignes411Client([]); return }
     const nums = factures411.map(f => f.numero_piece)
-    supabase
-      .from('lettrages')
-      .select('numero_facture')
-      .in('numero_facture', nums)
-      .lt('montant', 0)
-      .eq('annule', false)
-      .then(({ data }) => {
-        setComptes411AvecDispatch(new Set((data ?? []).map(r => String((r as { numero_facture: string }).numero_facture))))
-      })
+    ;(async () => {
+      try {
+        const { data: lettragesData } = await supabase
+          .from('lettrages')
+          .select('numero_facture, id_ligne_bancaire')
+          .in('numero_facture', nums)
+          .eq('annule', false)
+          .gt('montant', 0)
+        if (!lettragesData?.length) { setLignes411Client([]); return }
+        const rows = lettragesData as { numero_facture: string; id_ligne_bancaire: string | null }[]
+        const idToCompte: Record<string, string> = {}
+        for (const r of rows) {
+          if (r.id_ligne_bancaire && r.numero_facture) idToCompte[r.id_ligne_bancaire] = r.numero_facture
+        }
+        const ids = Object.keys(idToCompte)
+        if (!ids.length) { setLignes411Client([]); return }
+        const [{ data: lbData }, { data: dispatchData }] = await Promise.all([
+          supabase
+            .from('lignes_bancaires')
+            .select('id_operation, libelle, detail, infos_complementaires, credit, debit, date_operation, en_attente_411')
+            .in('id_operation', ids),
+          supabase
+            .from('lettrages')
+            .select('numero_facture')
+            .in('numero_facture', nums)
+            .lt('montant', 0)
+            .eq('annule', false),
+        ])
+        const avecDispatch = new Set((dispatchData ?? []).map(r => (r as { numero_facture: string }).numero_facture))
+        type LbRow = { id_operation: string; libelle: string; detail: string | null; infos_complementaires: string | null; credit: number | null; debit: number | null; date_operation: string; en_attente_411: boolean }
+        const result: LigneBancaire411[] = (lbData as LbRow[] ?? [])
+          .filter(lb => !lb.en_attente_411)
+          .map(lb => {
+            const compte_411 = idToCompte[lb.id_operation]
+            const facture411 = factures411.find(f => f.numero_piece === compte_411)
+            return {
+              id_operation: lb.id_operation,
+              date_operation: lb.date_operation,
+              libelle: lb.libelle,
+              detail: lb.detail,
+              infos_complementaires: lb.infos_complementaires,
+              debit: lb.debit,
+              credit: lb.credit,
+              montant_lettre: lb.credit ?? 0,
+              restant: 0,
+              statut_lettrage: 'lettre' as StatutLettrage,
+              derniere_date_lettrage: null,
+              en_attente_411: false,
+              est_virement_471: false,
+              compte_411,
+              reste_du_411: facture411?.reste_du ?? 0,
+              a_dispatch: avecDispatch.has(compte_411),
+            }
+          })
+        setLignes411Client(result)
+      } catch { /* non bloquant */ }
+    })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [factures411.length, versionComptes411])
+  }, [factures411Key, versionLignes411])
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
@@ -237,99 +248,13 @@ export function PageLettrage() {
       if (forme.ligneActive?.id_operation === confirmAnnulation.id_operation) forme.annuler()
       if (dispatch411Attente.ligneActive?.id_operation === confirmAnnulation.id_operation) dispatch411Attente.annuler()
       if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
+      if (nums411.includes(dispatch411.factureActive?.numero_piece ?? '')) dispatch411.annuler()
       liste.rafraichir()
       if (nums411.length > 0) rafraichirDonnees()
       toast.success('Lettrage annulé')
       setConfirmAnnulation(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation du lettrage')
-    } finally {
-      setAnnulationEnCours(false)
-    }
-  }
-
-  async function confirmerAnnulation411() {
-    if (!confirmAnnulation411) return
-    const numeroPiece = confirmAnnulation411.numero_piece
-    setAnnulationEnCours(true)
-    try {
-      // 1. Récupérer les lignes bancaires liées à ce compte 411 (lettrages actifs)
-      const { data: lettragesRows } = await supabase
-        .from('lettrages')
-        .select('id_ligne_bancaire')
-        .eq('numero_facture', numeroPiece)
-        .eq('annule', false)
-      const idLignes = [...new Set(
-        (lettragesRows as { id_ligne_bancaire: string | null }[] ?? [])
-          .map(r => r.id_ligne_bancaire)
-          .filter((id): id is string => !!id)
-      )]
-
-      // 2. Garde export : bloquer si une ligne bancaire liée a déjà été exportée
-      const idExporte = idLignes.find(id => exportComptable.lignesExportees.has(id))
-      if (idExporte) {
-        toast.error('Export comptable effectué sur cette ligne — impossible d\'annuler. Utilisez le module Correction.')
-        setConfirmAnnulation411(null)
-        return
-      }
-
-      // 3. Garde dispatch partiel
-      const { count: nbCorrections } = await supabase
-        .from('lettrages')
-        .select('id', { count: 'exact', head: true })
-        .eq('numero_facture', numeroPiece)
-        .lt('montant', 0)
-        .eq('annule', false)
-      if (nbCorrections && nbCorrections > 0) {
-        toast.error('Ce compte 411 a des affectations partielles — impossible d\'annuler.')
-        setConfirmAnnulation411(null)
-        return
-      }
-
-      // 4a. Annuler les lettrages 411 directement par numero_facture
-      // (plus fiable qu'un lookup via id_ligne_bancaire qui peut être vide)
-      const { error: errAnnul } = await supabase
-        .from('lettrages')
-        .update({ annule: true } as never)
-        .eq('numero_facture', numeroPiece)
-        .eq('annule', false)
-      if (errAnnul) throw errAnnul
-
-      // 4b. Annuler aussi les lettrages mix (autres factures sur ces mêmes lignes bancaires)
-      // et réinitialiser le flag en_attente_411
-      if (idLignes.length > 0) {
-        await supabase
-          .from('lettrages')
-          .update({ annule: true } as never)
-          .in('id_ligne_bancaire', idLignes)
-          .eq('annule', false)
-        await supabase
-          .from('lignes_bancaires')
-          .update({ en_attente_411: false } as never)
-          .in('id_operation', idLignes)
-      }
-
-      // 5. Supprimer la facture uniquement si aucun lettrage ne la référence encore
-      // (contrainte FK lettrages → factures sans ON DELETE CASCADE)
-      const { count: nbRef } = await supabase
-        .from('lettrages')
-        .select('id', { count: 'exact', head: true })
-        .eq('numero_facture', numeroPiece)
-      if ((nbRef ?? 1) === 0) {
-        await supabase.from('factures').delete().eq('numero_piece', numeroPiece)
-      }
-
-      if (dispatch411.factureActive?.numero_piece === numeroPiece) dispatch411.annuler()
-      if (idLignes.includes(dispatch411Attente.ligneActive?.id_operation ?? '')) dispatch411Attente.annuler()
-
-      supprimerFactureLocale(numeroPiece)
-      liste.rafraichir()
-      rafraichirDonnees()
-      toast.success('Compte 411 annulé')
-      setConfirmAnnulation411(null)
-    } catch (err) {
-      rafraichirDonnees()
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation')
     } finally {
       setAnnulationEnCours(false)
     }
@@ -387,26 +312,26 @@ export function PageLettrage() {
           <div key={liste.filtre} className="animate-fade-in">
             {liste.filtre === 'compte' ? (
               <TableCompte
-                factures411={factures411}
+                lignes411Client={lignes411Client}
                 lignes411Attente={liste.lignes.filter(l => l.en_attente_411)}
                 selectedId={dispatch411.factureActive?.numero_piece ?? dispatch411Attente.ligneActive?.id_operation ?? null}
-                onSelect411={(f) => {
+                onSelect411={(l) => {
                   dispatch411Attente.annuler()
-                  if (dispatch411.factureActive?.numero_piece === f.numero_piece) dispatch411.annuler()
-                  else dispatch411.selectionnerFacture411(f)
+                  const facture411 = facturesActives.find(f => f.numero_piece === l.compte_411) ?? null
+                  if (!facture411) return
+                  if (dispatch411.factureActive?.numero_piece === l.compte_411) dispatch411.annuler()
+                  else dispatch411.selectionnerFacture411(facture411)
                 }}
                 onSelect411Attente={(l) => {
                   dispatch411.annuler()
                   if (dispatch411Attente.ligneActive?.id_operation === l.id_operation) dispatch411Attente.annuler()
                   else dispatch411Attente.selectionnerLigne(l)
                 }}
-                onAnnuler411={setConfirmAnnulation411}
+                onAnnuler411={setConfirmAnnulation}
                 onAnnuler411Attente={setConfirmAnnulation}
                 chargement={liste.chargement}
-                libelles411={libelles411}
                 recherche={liste.recherche}
                 lignesExportees={exportComptable.lignesExportees}
-                comptes411AvecDispatch={comptes411AvecDispatch}
               />
             ) : (
               <TableLignesBancaires
@@ -529,34 +454,6 @@ export function PageLettrage() {
           remisesHook.charger()
         }}
       />
-
-      {/* Confirmation annulation compte 411 */}
-      {confirmAnnulation411 && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <p className="text-sm font-semibold text-gray-800">Annuler ce compte 411 ?</p>
-            <p className="text-xs text-gray-500">
-              Le compte <span className="font-medium text-gray-700">«&nbsp;{confirmAnnulation411.nom_client ?? confirmAnnulation411.numero_piece}&nbsp;»</span> sera supprimé et la ligne bancaire associée retournera dans «&nbsp;À lettrer&nbsp;».
-            </p>
-            <div className="flex gap-2 justify-end pt-1">
-              <button
-                onClick={() => setConfirmAnnulation411(null)}
-                disabled={annulationEnCours}
-                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={confirmerAnnulation411}
-                disabled={annulationEnCours}
-                className="px-4 py-2 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {annulationEnCours ? 'En cours…' : 'Confirmer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Confirmation annulation lettrage */}
       {confirmAnnulation && (

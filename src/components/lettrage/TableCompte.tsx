@@ -1,22 +1,20 @@
-// Onglet [Compte] — deux sections : Comptes 411 Client (indigo) + 411 Attente (orange)
-import type { FactureDetail } from '../../types/client'
+// Onglet [Compte] — deux sections : 411 Client (indigo) + 411 Attente (orange)
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
+import type { LigneBancaire411 } from '../../types/lettrage'
 import { IcX } from '../Icones'
 import { TOLERANCE_CENT } from '../../lib/constantes'
 
 interface Props {
-  factures411: FactureDetail[]
+  lignes411Client: LigneBancaire411[]
   lignes411Attente: LigneBancaireAvecStatut[]
   selectedId: string | null
-  onSelect411: (f: FactureDetail) => void
+  onSelect411: (l: LigneBancaire411) => void
   onSelect411Attente: (l: LigneBancaireAvecStatut) => void
-  onAnnuler411: (f: FactureDetail) => void
+  onAnnuler411: (l: LigneBancaire411) => void
   onAnnuler411Attente: (l: LigneBancaireAvecStatut) => void
   chargement: boolean
-  libelles411?: Record<string, { libelle: string; detail: string | null; idLigneBancaire?: string }>
   recherche: string
   lignesExportees?: Map<string, string>
-  comptes411AvecDispatch?: Set<string>
 }
 
 function fmt(n: number) {
@@ -28,23 +26,23 @@ function formatDate(iso: string) {
 }
 
 export function TableCompte({
-  factures411, lignes411Attente, selectedId, onSelect411, onSelect411Attente,
+  lignes411Client, lignes411Attente, selectedId,
+  onSelect411, onSelect411Attente,
   onAnnuler411, onAnnuler411Attente,
-  chargement, libelles411, recherche,
-  lignesExportees, comptes411AvecDispatch,
+  chargement, recherche, lignesExportees,
 }: Props) {
   const term = recherche.trim().toLowerCase()
 
-  const factures411Filtrees = term
-    ? factures411.filter(f =>
-        (f.nom_client ?? '').toLowerCase().includes(term) ||
-        f.numero_piece.toLowerCase().includes(term) ||
-        (libelles411?.[f.numero_piece]?.libelle ?? '').toLowerCase().includes(term) ||
-        (libelles411?.[f.numero_piece]?.detail ?? '').toLowerCase().includes(term)
+  const lignes411ClientFiltrees = term
+    ? lignes411Client.filter(l =>
+        l.libelle.toLowerCase().includes(term) ||
+        (l.detail ?? '').toLowerCase().includes(term) ||
+        (l.infos_complementaires ?? '').toLowerCase().includes(term) ||
+        l.compte_411.toLowerCase().includes(term)
       )
-    : factures411
+    : lignes411Client
 
-  const rien = factures411Filtrees.length === 0 && lignes411Attente.length === 0
+  const rien = lignes411ClientFiltrees.length === 0 && lignes411Attente.length === 0
 
   return (
     <>
@@ -58,24 +56,21 @@ export function TableCompte({
       ) : (
         <div>
           {/* Section 411 Client */}
-          {factures411Filtrees.length > 0 && (
+          {lignes411ClientFiltrees.length > 0 && (
             <div>
               <div className="px-4 py-2 bg-indigo-50/60 border-b border-indigo-100">
                 <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
-                  Compte 411 Client — {factures411Filtrees.length} ligne{factures411Filtrees.length > 1 ? 's' : ''}
+                  Compte 411 Client — {lignes411ClientFiltrees.length} ligne{lignes411ClientFiltrees.length > 1 ? 's' : ''}
                 </p>
               </div>
               <div className="divide-y divide-gray-50">
-                {factures411Filtrees.map(f => {
-                  const isActive = f.numero_piece === selectedId
-                  const montant = Math.abs(f.reste_du)
-                  const idLB = libelles411?.[f.numero_piece]?.idLigneBancaire
-                  const estExporte411 = idLB ? (lignesExportees?.has(idLB) ?? false) : false
-                  const aDispatch = comptes411AvecDispatch?.has(f.numero_piece) ?? false
+                {lignes411ClientFiltrees.map(l => {
+                  const isActive = l.id_operation === selectedId
+                  const estExporte = lignesExportees?.has(l.id_operation) ?? false
                   return (
                     <div
-                      key={f.numero_piece}
-                      onClick={() => onSelect411(f)}
+                      key={l.id_operation}
+                      onClick={() => onSelect411(l)}
                       className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-all ${
                         isActive ? 'bg-indigo-50 border-l-[3px] border-indigo-500' : 'hover:bg-ockham-teal/5'
                       }`}
@@ -83,31 +78,27 @@ export function TableCompte({
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="inline-block w-2 h-2 rounded-full bg-indigo-400 flex-shrink-0 shadow-[0_0_0_3px_rgba(99,102,241,0.15)]" />
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-800 truncate">
-                            {f.nom_client ?? f.numero_piece.replace('411_', '')}
+                          <p className="text-sm font-semibold text-gray-800 truncate">{l.libelle}</p>
+                          <p className="text-[11px] text-gray-400">
+                            {formatDate(l.date_operation)}
+                            {l.infos_complementaires && <> · {l.infos_complementaires}</>}
                           </p>
-                          <p className="text-[11px] font-mono text-indigo-400">{f.numero_piece}</p>
-                          {libelles411?.[f.numero_piece] && (
-                            <p className="text-[11px] text-gray-400 truncate max-w-[200px]">
-                              {libelles411[f.numero_piece].libelle}
-                              {libelles411[f.numero_piece].detail ? ` · ${libelles411[f.numero_piece].detail}` : ''}
-                            </p>
-                          )}
+                          <p className="text-[11px] font-mono text-indigo-400">{l.compte_411}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                         <div className="text-right">
-                          <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(montant)}</p>
+                          <p className="text-sm font-bold tabular-nums text-indigo-600">{fmt(Math.abs(l.reste_du_411))}</p>
                           <p className="text-[10px] text-gray-400">à dispatcher</p>
                         </div>
-                        {estExporte411 ? (
+                        {estExporte ? (
                           <span
                             title="Export comptable effectué — correction via le module Correction"
                             className="inline-flex items-center text-[9px] font-semibold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap cursor-not-allowed"
                           >
                             Exporté
                           </span>
-                        ) : aDispatch ? (
+                        ) : l.a_dispatch ? (
                           <span
                             title="Dispatch partiel effectué — impossible d'annuler"
                             className="inline-flex items-center text-[10px] text-indigo-400 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded cursor-not-allowed"
@@ -116,8 +107,8 @@ export function TableCompte({
                           </span>
                         ) : (
                           <button
-                            onClick={e => { e.stopPropagation(); onAnnuler411(f) }}
-                            title="Annuler ce compte 411"
+                            onClick={e => { e.stopPropagation(); onAnnuler411(l) }}
+                            title="Annuler cette affectation 411"
                             className="inline-flex items-center justify-center w-8 h-8 rounded hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
                           >
                             <IcX size={13} />

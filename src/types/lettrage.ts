@@ -28,6 +28,12 @@ export interface LettrageExistant {
   commentaire: string | null
 }
 
+export interface LigneBancaire411 extends LigneBancaireAvecStatut {
+  compte_411: string
+  reste_du_411: number
+  a_dispatch: boolean
+}
+
 // Info récupérée depuis v_factures_avec_reste_du lors du remplissage auto
 export interface InfoFacture {
   reste_du: number
