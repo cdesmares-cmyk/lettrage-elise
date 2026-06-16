@@ -13,6 +13,8 @@ import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
+import { PanneauCompensationAvoir } from '../components/compte-client/PanneauCompensationAvoir'
+import { useCompensationAvoir } from '../hooks/useCompensationAvoir'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
@@ -37,6 +39,7 @@ export function PageCompteClient() {
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
+  const [clientCompensationDso, setClientCompensationDso] = useState<string | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
   const [modeSelection, setModeSelection] = useState(false)
@@ -59,6 +62,10 @@ export function PageCompteClient() {
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
   const { relances } = useRelances()
+  const compensation = useCompensationAvoir(() => {
+    if (clientCompensationDso) factures.chargerToutesFactures(clientCompensationDso)
+    setClientCompensationDso(null)
+  })
 
   const dernieresRelances = useMemo(() => {
     const map = new Map<string, string>()
@@ -286,6 +293,7 @@ export function PageCompteClient() {
           onHistorique={setFacHistorique}
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
+          onCompenser={c => { setClientCompensationDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -344,6 +352,15 @@ export function PageCompteClient() {
         onFermer={() => setClientOptionsDso(null)}
         onSauvegarder={comptes.sauvegarderOptions}
       />
+
+      {/* Panneau Compensation Avoir */}
+      {clientCompensationDso && (
+        <PanneauCompensationAvoir
+          factures={factures.getFactures(clientCompensationDso)}
+          compensation={compensation}
+          onFermer={() => setClientCompensationDso(null)}
+        />
+      )}
 
       {/* Modal Historique */}
       <ModalHistorique

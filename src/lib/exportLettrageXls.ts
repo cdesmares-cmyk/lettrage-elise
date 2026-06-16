@@ -14,6 +14,14 @@ interface RowLettrage {
   operateur: string | null
 }
 
+interface RowCompensation {
+  date_lettrage: string
+  numero_facture: string | null
+  montant: number
+  commentaire: string | null
+  compensation_id: string
+}
+
 interface RowLigneBancaire {
   id_operation: string
   date_operation: string
@@ -64,6 +72,19 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
     lettrages = (lettrageData as unknown as RowLettrage[]) ?? []
   }
 
+  // ── 2b. Compensations internes (id_ligne_bancaire null) ──────────
+  const { data: compensationData } = await supabase
+    .from('lettrages')
+    .select('date_lettrage, numero_facture, montant, commentaire, compensation_id')
+    .is('id_ligne_bancaire', null)
+    .not('compensation_id', 'is', null)
+    .eq('annule', false)
+    .gte('date_lettrage', dateDebut)
+    .lte('date_lettrage', dateFin)
+    .order('compensation_id')
+    .order('date_lettrage')
+  const compensations = (compensationData as unknown as RowCompensation[]) ?? []
+
   // Map lettrages par ligne bancaire
   const lettragsByLigne = new Map<string, RowLettrage[]>()
   for (const l of lettrages) {
@@ -95,6 +116,23 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
       l.commentaire ?? '',
       l.operateur ?? '',
     ])
+  }
+
+  // Section compensations internes — séparateur + lignes groupées par compensation_id
+  if (compensations.length > 0) {
+    aoa1.push(['', '', '', '', '', '', ''])
+    aoa1.push(['— Compensations internes —', '', '', '', '', '', ''])
+    for (const c of compensations) {
+      aoa1.push([
+        fmtDate(c.date_lettrage),
+        'Compensation interne',
+        '',
+        c.numero_facture ?? '',
+        c.montant,
+        c.commentaire ?? '',
+        '',
+      ])
+    }
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)

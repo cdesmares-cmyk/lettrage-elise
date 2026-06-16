@@ -18,6 +18,7 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
+  onCompenser?: (client: CompteClient) => void
   dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -89,7 +90,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -263,6 +264,19 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
                           >
                             ✉ Relancer
+                          </button>
+                        )
+                      })()}
+                      {estOuvert && onCompenser && peutModifier && (() => {
+                        const aAvoirs = factures.some(f => f.est_avoir && f.reste_du < -0.005)
+                        if (!aAvoirs) return null
+                        return (
+                          <button
+                            onClick={e => { e.stopPropagation(); onCompenser(c) }}
+                            className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 hover:bg-violet-100 hover:border-violet-400 px-2.5 py-1 rounded-md transition-all"
+                            title="Compenser un avoir avec une ou plusieurs factures"
+                          >
+                            ⇄ Compenser
                           </button>
                         )
                       })()}
