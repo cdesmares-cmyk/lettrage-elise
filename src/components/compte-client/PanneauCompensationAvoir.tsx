@@ -25,7 +25,7 @@ const facturesDues = (fs: FactureDetail[], avoirCode: string) =>
   fs.filter(f => !f.est_avoir && f.reste_du > TOLERANCE_CENT && f.code_client === avoirCode)
 
 export function PanneauCompensationAvoir({ factures, compensation, onFermer }: Props) {
-  const { avoirSource, selection, chargement, creditDisponible, montantAttribue, restant } = compensation
+  const { avoirSource, chargement, creditDisponible, montantAttribue, restant } = compensation
 
   const listeAvoirs = avoirs(factures)
 
