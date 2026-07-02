@@ -4,6 +4,7 @@ import { IcDownload } from '../Icones'
 import type { CompteClient, FactureDetail } from '../../types/client'
 import { exporterXls, exporterGrandLivreXls, type LigneGrandLivre } from '../../lib/exportXls'
 import { supabase } from '../../lib/supabase'
+import { toLocalIso, todayLocal } from '../../lib/dates'
 
 interface Props {
   ouvert: boolean
@@ -23,8 +24,8 @@ function anneeFin(y: number)   { return `${y}-12-31` }
 
 export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onFermer }: Props) {
   const now = new Date()
-  const today = now.toISOString().split('T')[0]
-  const il12Mois = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate() + 1).toISOString().split('T')[0]
+  const today = todayLocal()
+  const il12Mois = toLocalIso(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate() + 1))
 
   const [typeExport, setTypeExport] = useState<'classique' | 'grandlivre'>('classique')
   const [selection, setSelection] = useState<'toutes' | string>('toutes')

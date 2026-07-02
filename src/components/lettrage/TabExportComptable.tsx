@@ -3,6 +3,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { IcDownload, IcWarning, IcClock, IcLoader } from '../Icones'
 import type { ExportComptable } from '../../hooks/useExportComptable'
+import { debutMoisLocal, todayLocal } from '../../lib/dates'
 
 interface Props {
   historique: ExportComptable[]
@@ -22,9 +23,8 @@ function fmtDate(iso: string) {
 }
 
 export function TabExportComptable({ historique, chargement, onApercu, onExporter, onRetelecharger }: Props) {
-  const now = new Date()
-  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-  const today = now.toISOString().split('T')[0]
+  const debutMois = debutMoisLocal()
+  const today = todayLocal()
 
   const [dateDebut, setDateDebut] = useState(debutMois)
   const [dateFin, setDateFin] = useState(today)

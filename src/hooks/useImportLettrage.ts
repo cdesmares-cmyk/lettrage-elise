@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { calculerHash, detecterMapping, parseDate, parseNombre, parserCSV, parserXLSX } from '../lib/parseursImport'
+import { toLocalIso } from '../lib/dates'
 import { CHAMPS_LETTRAGES } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
@@ -34,7 +35,7 @@ async function parserFichier(fichier: File): Promise<{ colonnes: string[]; ligne
       Object.fromEntries(Object.entries(l).map(([k, v]) => [
         k,
         v instanceof Date
-          ? (isNaN(v.getTime()) ? '' : v.toISOString().split('T')[0])
+          ? (isNaN(v.getTime()) ? '' : toLocalIso(v))
           : String(v ?? '').trim(),
       ]))
     ) as Record<string, string>[],

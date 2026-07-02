@@ -4,6 +4,7 @@ import { IcDownload, IcX } from '../Icones'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { TabExportComptable } from './TabExportComptable'
 import type { ExportComptable } from '../../hooks/useExportComptable'
+import { debutMoisLocal, todayLocal } from '../../lib/dates'
 import toast from 'react-hot-toast'
 
 interface Props {
@@ -19,9 +20,8 @@ interface Props {
 type Onglet = 'interne' | 'comptable'
 
 export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargementExport, onApercu, onExporter, onRetelecharger }: Props) {
-  const now = new Date()
-  const today = now.toISOString().split('T')[0]
-  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
+  const today = todayLocal()
+  const debutMois = debutMoisLocal()
 
   const [onglet, setOnglet] = useState<Onglet>('interne')
   const [dateDebut, setDateDebut] = useState(debutMois)
