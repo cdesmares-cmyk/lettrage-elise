@@ -40,7 +40,7 @@ function fmtDate(iso: string): string {
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
 
-export async function exporterLettrageXls(dateDebut: string, dateFin: string): Promise<void> {
+export async function exporterLettrageXls(dateDebut: string, dateFin: string, nomFichier?: string): Promise<void> {
   // ── 1. Toutes les lignes bancaires dans la plage de dates ────────
   // Inclut débits et crédits pour la feuille 2 (vue complète relevé)
   const { data: lignesData } = await supabase
@@ -49,6 +49,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
     .gte('date_operation', dateDebut)
     .lte('date_operation', dateFin)
     .order('date_operation', { ascending: true })
+    .limit(10000)
 
   const lignes = (lignesData as unknown as RowLigneBancaire[]) ?? []
 
@@ -69,6 +70,8 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
       .from('lettrages')
       .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur')
       .in('id_ligne_bancaire', ligneIdsCredit)
+      .eq('annule', false)
+      .limit(10000)
     lettrages = (lettrageData as unknown as RowLettrage[]) ?? []
   }
 
@@ -222,7 +225,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string): P
   XLSX.utils.book_append_sheet(wb, ws2, 'Lignes bancaires')
   XLSX.utils.book_append_sheet(wb, ws3, 'Cadrage')
 
-  XLSX.writeFile(wb, `export_lettrage_${dateDebut}_${dateFin}.xlsx`)
+  XLSX.writeFile(wb, `${nomFichier ?? `export_lettrage_${dateDebut}_${dateFin}`}.xlsx`)
 }
 
 function styleHeaderRow(ws: XLSX.WorkSheet, nbCols: number) {
