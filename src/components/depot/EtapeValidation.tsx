@@ -1,5 +1,6 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
 import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS } from '../../lib/champsImport'
+import { parseDate } from '../../lib/parseursImport'
 import { IcUpload } from '../Icones'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
 
@@ -14,6 +15,16 @@ interface Props {
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+
+function fmtValeurApercu(champCible: string | null, val: unknown): string {
+  const s = String(val ?? '').trim()
+  if (!s) return '—'
+  if (champCible === 'date_lettrage') {
+    const iso = parseDate(s)
+    if (iso) return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
+  }
+  return s
 }
 
 function StatCard({
@@ -232,7 +243,7 @@ export function EtapeValidation({
                 </td>
                 {colonnesMappees.map(m => (
                   <td key={m.colonne_source} className="px-4 py-2 text-gray-700 font-mono max-w-[180px] truncate">
-                    {ligne.donnees[m.colonne_source] || '—'}
+                    {fmtValeurApercu(m.champ_cible, ligne.donnees[m.colonne_source])}
                   </td>
                 ))}
               </tr>

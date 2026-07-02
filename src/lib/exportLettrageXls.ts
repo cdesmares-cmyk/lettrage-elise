@@ -22,6 +22,15 @@ interface RowCompensation {
   compensation_id: string
 }
 
+interface RowImportLettrage {
+  date_lettrage: string
+  code_client: string
+  numero_facture: string | null
+  montant: number
+  commentaire: string | null
+  operateur: string | null
+}
+
 interface RowLigneBancaire {
   id_operation: string
   date_operation: string
@@ -88,6 +97,19 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     .order('date_lettrage')
   const compensations = (compensationData as unknown as RowCompensation[]) ?? []
 
+  // ── 2c. Lettrages importés manuellement (mode = 'import') ────────
+  const { data: importData } = await supabase
+    .from('lettrages')
+    .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur')
+    .is('id_ligne_bancaire', null)
+    .eq('mode', 'import')
+    .eq('annule', false)
+    .gte('date_lettrage', dateDebut)
+    .lte('date_lettrage', dateFin)
+    .order('date_lettrage')
+    .limit(10000)
+  const importsHistoriques = (importData as unknown as RowImportLettrage[]) ?? []
+
   // Map lettrages par ligne bancaire
   const lettragsByLigne = new Map<string, RowLettrage[]>()
   for (const l of lettrages) {
@@ -134,6 +156,23 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
         c.montant,
         c.commentaire ?? '',
         '',
+      ])
+    }
+  }
+
+  // Section imports historiques
+  if (importsHistoriques.length > 0) {
+    aoa1.push(['', '', '', '', '', '', ''])
+    aoa1.push(['— Imports historiques —', '', '', '', '', '', ''])
+    for (const imp of importsHistoriques) {
+      aoa1.push([
+        fmtDate(imp.date_lettrage),
+        'Import historique',
+        imp.code_client,
+        imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
+        imp.montant,
+        imp.commentaire ?? '',
+        imp.operateur ?? '',
       ])
     }
   }
