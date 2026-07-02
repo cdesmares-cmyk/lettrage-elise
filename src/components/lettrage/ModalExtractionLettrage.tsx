@@ -46,7 +46,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onFermer() }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] min-h-[480px] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] min-h-[380px] flex flex-col">
 
         {/* En-tête */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
