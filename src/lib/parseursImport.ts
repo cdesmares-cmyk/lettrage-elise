@@ -47,7 +47,14 @@ function serialExcelVersIso(n: number): string | null {
 // Formats supportés : Date JS, serial Excel (nombre ou string entier), DD/MM/YYYY,
 // DD/MM/YY, DD-MM-YYYY, YYYY-MM-DD, YYYY/MM/DD, timestamp YYYY-MM-DD HH:mm:ss
 export function parseDate(v: unknown): string | null {
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString().split('T')[0]
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return null
+    // Utiliser les composantes locales pour éviter le décalage UTC (France UTC+1/+2)
+    const y = v.getFullYear()
+    const m = String(v.getMonth() + 1).padStart(2, '0')
+    const d = String(v.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
 
   if (typeof v === 'number') return serialExcelVersIso(Math.round(v))
 
