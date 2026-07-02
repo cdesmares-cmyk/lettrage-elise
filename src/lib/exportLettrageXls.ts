@@ -41,6 +41,16 @@ interface RowLigneBancaire {
   statut_lettrage: string
 }
 
+interface AffectationRow {
+  date: string
+  ligne: string
+  code_client: string
+  numero_facture: string
+  montant: number
+  commentaire: string
+  operateur: string
+}
+
 function fmtDate(iso: string): string {
   if (!iso) return ''
   const [y, m, d] = iso.split('-')
@@ -49,20 +59,37 @@ function fmtDate(iso: string): string {
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
 
+// Pagine par tranches de 1000 pour contourner le plafond PostgREST db-max-rows
+async function fetchAll<T>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: any }>
+): Promise<T[]> {
+  const PAGE = 1000
+  const acc: T[] = []
+  let offset = 0
+  while (true) {
+    const { data } = await buildQuery(offset, offset + PAGE - 1)
+    const rows: T[] = data ?? []
+    acc.push(...rows)
+    if (rows.length < PAGE) break
+    offset += PAGE
+  }
+  return acc
+}
+
 export async function exporterLettrageXls(dateDebut: string, dateFin: string, nomFichier?: string): Promise<void> {
   // ── 1. Toutes les lignes bancaires dans la plage de dates ────────
-  // Inclut débits et crédits pour la feuille 2 (vue complète relevé)
-  const { data: lignesData } = await supabase
-    .from('v_lignes_bancaires_avec_statut')
-    .select('id_operation, date_operation, libelle, debit, credit, montant_lettre, statut_lettrage')
-    .gte('date_operation', dateDebut)
-    .lte('date_operation', dateFin)
-    .order('date_operation', { ascending: true })
-    .limit(10000)
+  const lignes = await fetchAll<RowLigneBancaire>((from, to) =>
+    supabase
+      .from('v_lignes_bancaires_avec_statut')
+      .select('id_operation, date_operation, libelle, debit, credit, montant_lettre, statut_lettrage')
+      .gte('date_operation', dateDebut)
+      .lte('date_operation', dateFin)
+      .order('date_operation', { ascending: true })
+      .range(from, to)
+  )
 
-  const lignes = (lignesData as unknown as RowLigneBancaire[]) ?? []
-
-  // Map id_operation → infos ligne (utilisé pour feuille 1 et cadrage)
+  // Map id_operation → infos ligne (feuille 1 et cadrage)
   const ligneInfoMap = new Map(
     lignes.map(l => [l.id_operation, { libelle: l.libelle, date_operation: l.date_operation }])
   )
@@ -75,103 +102,101 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   // ── 2. Lettrages associés aux lignes crédit ──────────────────────
   let lettrages: RowLettrage[] = []
   if (ligneIdsCredit.length) {
-    const { data: lettrageData } = await supabase
-      .from('lettrages')
-      .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur')
-      .in('id_ligne_bancaire', ligneIdsCredit)
-      .eq('annule', false)
-      .limit(10000)
-    lettrages = (lettrageData as unknown as RowLettrage[]) ?? []
+    lettrages = await fetchAll<RowLettrage>((from, to) =>
+      supabase
+        .from('lettrages')
+        .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur')
+        .in('id_ligne_bancaire', ligneIdsCredit)
+        .eq('annule', false)
+        .range(from, to)
+    )
   }
 
-  // ── 2b. Compensations internes (id_ligne_bancaire null) ──────────
-  const { data: compensationData } = await supabase
-    .from('lettrages')
-    .select('date_lettrage, numero_facture, montant, commentaire, compensation_id')
-    .is('id_ligne_bancaire', null)
-    .not('compensation_id', 'is', null)
-    .eq('annule', false)
-    .gte('date_lettrage', dateDebut)
-    .lte('date_lettrage', dateFin)
-    .order('compensation_id')
-    .order('date_lettrage')
-    .limit(10000)
-  const compensations = (compensationData as unknown as RowCompensation[]) ?? []
+  // ── 2b. Compensations internes ───────────────────────────────────
+  const compensations = await fetchAll<RowCompensation>((from, to) =>
+    supabase
+      .from('lettrages')
+      .select('date_lettrage, numero_facture, montant, commentaire, compensation_id')
+      .is('id_ligne_bancaire', null)
+      .not('compensation_id', 'is', null)
+      .eq('annule', false)
+      .gte('date_lettrage', dateDebut)
+      .lte('date_lettrage', dateFin)
+      .order('compensation_id')
+      .order('date_lettrage')
+      .range(from, to)
+  )
 
-  // ── 2c. Lettrages importés manuellement (mode = 'import') ────────
-  const { data: importData } = await supabase
-    .from('lettrages')
-    .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur')
-    .is('id_ligne_bancaire', null)
-    .eq('mode', 'import')
-    .eq('annule', false)
-    .gte('date_lettrage', dateDebut)
-    .lte('date_lettrage', dateFin)
-    .order('date_lettrage')
-    .limit(10000)
-  const importsHistoriques = (importData as unknown as RowImportLettrage[]) ?? []
+  // ── 2c. Lettrages importés manuellement ─────────────────────────
+  const importsHistoriques = await fetchAll<RowImportLettrage>((from, to) =>
+    supabase
+      .from('lettrages')
+      .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur')
+      .is('id_ligne_bancaire', null)
+      .eq('mode', 'import')
+      .eq('annule', false)
+      .gte('date_lettrage', dateDebut)
+      .lte('date_lettrage', dateFin)
+      .order('date_lettrage')
+      .range(from, to)
+  )
 
-  // Map lettrages par ligne bancaire
+  // Map lettrages par ligne bancaire (feuille 2)
   const lettragsByLigne = new Map<string, RowLettrage[]>()
   for (const l of lettrages) {
     if (!lettragsByLigne.has(l.id_ligne_bancaire)) lettragsByLigne.set(l.id_ligne_bancaire, [])
     lettragsByLigne.get(l.id_ligne_bancaire)!.push(l)
   }
 
-  // Tri feuille 1 : par date_operation de la ligne bancaire parente
-  const lettragesTries = [...lettrages].sort((a, b) => {
-    const da = ligneInfoMap.get(a.id_ligne_bancaire)?.date_operation ?? ''
-    const db = ligneInfoMap.get(b.id_ligne_bancaire)?.date_operation ?? ''
-    return da.localeCompare(db)
-  })
-
   const wb = XLSX.utils.book_new()
 
-  // ── Feuille 1 : Affectation ──────────────────────────────────────
+  // ── Feuille 1 : Affectation — toutes sources fusionnées, triées par date croissante ──
+  const affectations: AffectationRow[] = []
+
+  for (const l of lettrages) {
+    const info = ligneInfoMap.get(l.id_ligne_bancaire)
+    affectations.push({
+      date: info?.date_operation ?? '',
+      ligne: info?.libelle ?? '',
+      code_client: l.code_client,
+      numero_facture: l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
+      montant: l.montant,
+      commentaire: l.commentaire ?? '',
+      operateur: l.operateur ?? '',
+    })
+  }
+
+  for (const c of compensations) {
+    affectations.push({
+      date: c.date_lettrage,
+      ligne: 'Compensation interne',
+      code_client: '',
+      numero_facture: c.numero_facture ?? '',
+      montant: c.montant,
+      commentaire: c.commentaire ?? '',
+      operateur: '',
+    })
+  }
+
+  for (const imp of importsHistoriques) {
+    affectations.push({
+      date: imp.date_lettrage,
+      ligne: 'Import historique',
+      code_client: imp.code_client,
+      numero_facture: imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
+      montant: imp.montant,
+      commentaire: imp.commentaire ?? '',
+      operateur: imp.operateur ?? '',
+    })
+  }
+
+  affectations.sort((a, b) => a.date.localeCompare(b.date))
+
   const aoa1: (string | number)[][] = [
     ['Date', 'Ligne bancaire', 'Code client', 'N° Facture', 'Montant', 'Commentaire', 'Opérateur'],
   ]
-  for (const l of lettragesTries) {
-    const info = ligneInfoMap.get(l.id_ligne_bancaire)
-    aoa1.push([
-      fmtDate(info?.date_operation ?? ''),
-      info?.libelle ?? '',
-      l.code_client,
-      l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
-      l.montant,
-      l.commentaire ?? '',
-      l.operateur ?? '',
-    ])
-  }
-
-  // Section compensations internes — séparateur + lignes groupées par compensation_id
-  if (compensations.length > 0) {
-    aoa1.push(['', '', '', '', '', '', ''])
-    aoa1.push(['— Compensations internes —', '', '', '', '', '', ''])
-    for (const c of compensations) {
-      aoa1.push([
-        fmtDate(c.date_lettrage),
-        'Compensation interne',
-        '',
-        c.numero_facture ?? '',
-        c.montant,
-        c.commentaire ?? '',
-        '',
-      ])
-    }
-  }
-
-  // Section imports historiques
-  for (const imp of importsHistoriques) {
-    aoa1.push([
-      fmtDate(imp.date_lettrage),
-      'Import historique',
-      imp.code_client,
-      imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
-      imp.montant,
-      imp.commentaire ?? '',
-      imp.operateur ?? '',
-    ])
+  for (const r of affectations) {
+    aoa1.push([fmtDate(r.date), r.ligne, r.code_client, r.numero_facture, r.montant, r.commentaire, r.operateur])
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)
@@ -216,9 +241,6 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   styleHeaderRow(ws2, 6)
 
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
-  // Par jour : Total Crédit reçu vs Total Lettré (hors Autres)
-  // Permet à l'expert-comptable d'identifier les journées avec écart.
-  // jourMap : totalCredit = somme des crédits reçus ; totalLettreRealise = somme des lettrages hors Autres
   const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number }>()
 
   for (const lb of lignes) {
@@ -236,8 +258,6 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     jourMap.get(date)!.totalLettreRealise += l.montant
   }
 
-  // Total Lettré = crédits − lettrages réalisés (hors Autres) = restant non lettré
-  // Delta        = Total Crédit − Total Lettré = montant effectivement letté
   const aoa3: (string | number)[][] = [
     ['Date', 'Total Crédit', 'Total Lettré', 'Delta'],
   ]
@@ -246,7 +266,6 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     const delta = round2(totalCredit - totalLettre)
     aoa3.push([fmtDate(date), round2(totalCredit), totalLettre, delta])
   }
-  // Ligne de totaux
   const grandCredit = round2([...jourMap.values()].reduce((s, v) => s + v.totalCredit, 0))
   const grandLettreRealise = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettreRealise, 0))
   const grandLettre = round2(grandCredit - grandLettreRealise)
