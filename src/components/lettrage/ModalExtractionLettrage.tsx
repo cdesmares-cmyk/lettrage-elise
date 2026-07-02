@@ -46,7 +46,7 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
       onClick={e => { if (e.target === e.currentTarget) onFermer() }}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] min-h-[480px] flex flex-col">
 
         {/* En-tête */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -97,11 +97,9 @@ export function ModalExtractionLettrage({ ouvert, onFermer, historique, chargeme
                 </button>
               </div>
             </div>
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center space-y-2 text-sm text-gray-400">
-                <p className="font-medium text-gray-500">Export 3 onglets · Format de référence</p>
-                <p>Affectation · Lignes bancaires · Cadrage comptable</p>
-              </div>
+            <div className="flex-1 flex flex-col justify-end px-6 pb-8">
+              <p className="text-center text-sm font-medium text-gray-500 mb-2">Export 3 onglets · Format de référence</p>
+              <p className="text-center text-sm text-gray-400">Affectation · Lignes bancaires · Cadrage comptable</p>
             </div>
           </div>
         )}
