@@ -95,6 +95,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     .lte('date_lettrage', dateFin)
     .order('compensation_id')
     .order('date_lettrage')
+    .limit(10000)
   const compensations = (compensationData as unknown as RowCompensation[]) ?? []
 
   // ── 2c. Lettrages importés manuellement (mode = 'import') ────────
@@ -161,20 +162,16 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   }
 
   // Section imports historiques
-  if (importsHistoriques.length > 0) {
-    aoa1.push(['', '', '', '', '', '', ''])
-    aoa1.push(['— Imports historiques —', '', '', '', '', '', ''])
-    for (const imp of importsHistoriques) {
-      aoa1.push([
-        fmtDate(imp.date_lettrage),
-        'Import historique',
-        imp.code_client,
-        imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
-        imp.montant,
-        imp.commentaire ?? '',
-        imp.operateur ?? '',
-      ])
-    }
+  for (const imp of importsHistoriques) {
+    aoa1.push([
+      fmtDate(imp.date_lettrage),
+      'Import historique',
+      imp.code_client,
+      imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
+      imp.montant,
+      imp.commentaire ?? '',
+      imp.operateur ?? '',
+    ])
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)
