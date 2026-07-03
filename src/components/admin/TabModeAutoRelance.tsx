@@ -8,7 +8,9 @@ import toast from 'react-hot-toast'
 interface ParamsAuto {
   delai_echeance_jours: number
   delai_declenchement_relance_jours: number
+  delai_rerelance_jours: number
   relance_auto_active: boolean
+  signature_auto: string | null
 }
 
 export function TabModeAutoRelance() {
@@ -16,7 +18,9 @@ export function TabModeAutoRelance() {
   const [params, setParams] = useState<ParamsAuto>({
     delai_echeance_jours: 30,
     delai_declenchement_relance_jours: 7,
+    delai_rerelance_jours: 30,
     relance_auto_active: false,
+    signature_auto: null,
   })
   const [chargement, setChargement] = useState(true)
   const [sauvegarde, setSauvegarde] = useState(false)
@@ -25,7 +29,7 @@ export function TabModeAutoRelance() {
     if (!profil?.organisation_id) return
     supabase
       .from('organisations')
-      .select('delai_echeance_jours, delai_declenchement_relance_jours, relance_auto_active')
+      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto')
       .eq('id', profil.organisation_id)
       .single()
       .then(({ data }) => {
@@ -34,7 +38,9 @@ export function TabModeAutoRelance() {
           setParams({
             delai_echeance_jours: row.delai_echeance_jours ?? 30,
             delai_declenchement_relance_jours: row.delai_declenchement_relance_jours ?? 7,
+            delai_rerelance_jours: row.delai_rerelance_jours ?? 30,
             relance_auto_active: row.relance_auto_active ?? false,
+            signature_auto: row.signature_auto ?? null,
           })
         }
         setChargement(false)
@@ -66,10 +72,10 @@ export function TabModeAutoRelance() {
       <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
         <p className="text-xs font-semibold text-amber-700 flex items-center gap-1.5">
           <IcWarning size={13} className="flex-shrink-0" />
-          Phase de configuration — envoi automatique non encore actif
+          Mode automatique — activation après configuration du cron
         </p>
         <p className="text-xs text-amber-600 mt-1">
-          Ces paramètres seront appliqués dès l'activation du cron de relance (Phase 2). Les clients en procédure collective sont toujours exclus.
+          Les clients en procédure collective et ceux marqués "exclure" sont toujours ignorés.
         </p>
       </div>
 
@@ -78,18 +84,14 @@ export function TabModeAutoRelance() {
           Délai de paiement par défaut
         </label>
         <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={1}
-            max={120}
-            value={params.delai_echeance_jours}
+          <input type="number" min={1} max={120} value={params.delai_echeance_jours}
             onChange={e => setParams(p => ({ ...p, delai_echeance_jours: Math.max(1, parseInt(e.target.value) || 30) }))}
             className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal"
           />
           <span className="text-sm text-gray-500">jours net</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1.5">
-          Terme contractuel utilisé pour calculer la date d'échéance théorique d'une facture. Peut être surchargé individuellement dans le volet client (onglet Relances).
+          Terme contractuel pour calculer la date d'échéance si elle n'est pas renseignée sur la facture. Surchargeable par client dans le volet Options.
         </p>
       </div>
 
@@ -98,18 +100,46 @@ export function TabModeAutoRelance() {
           Délai avant première relance automatique
         </label>
         <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={1}
-            max={60}
-            value={params.delai_declenchement_relance_jours}
+          <input type="number" min={1} max={60} value={params.delai_declenchement_relance_jours}
             onChange={e => setParams(p => ({ ...p, delai_declenchement_relance_jours: Math.max(1, parseInt(e.target.value) || 7) }))}
             className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal"
           />
           <span className="text-sm text-gray-500">jours après échéance</span>
         </div>
         <p className="text-[11px] text-gray-400 mt-1.5">
-          Une facture non réglée déclenche une relance automatique X jours après sa date d'échéance calculée.
+          Une facture non réglée déclenche une relance X jours après son échéance calculée.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Délai minimum entre deux relances
+        </label>
+        <div className="flex items-center gap-3">
+          <input type="number" min={7} max={90} value={params.delai_rerelance_jours}
+            onChange={e => setParams(p => ({ ...p, delai_rerelance_jours: Math.max(7, parseInt(e.target.value) || 30) }))}
+            className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal"
+          />
+          <span className="text-sm text-gray-500">jours (défaut : 30)</span>
+        </div>
+        <p className="text-[11px] text-gray-400 mt-1.5">
+          Un client ne recevra pas deux relances auto en deçà de ce délai, même si de nouvelles factures sont éligibles.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Signature email automatique
+        </label>
+        <textarea
+          rows={4}
+          value={params.signature_auto ?? ''}
+          onChange={e => setParams(p => ({ ...p, signature_auto: e.target.value || null }))}
+          placeholder="Ex : Cordialement,&#10;Le service comptable&#10;[Nom organisation]"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal resize-none font-sans leading-relaxed"
+        />
+        <p className="text-[11px] text-gray-400 mt-1.5">
+          Insérée après le corps du scénario. La balise [Nom organisation] est disponible.
         </p>
       </div>
 
@@ -118,13 +148,11 @@ export function TabModeAutoRelance() {
           <div>
             <p className="text-sm font-semibold text-gray-700">Activer le mode automatique</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Les relances s'enverront sans intervention manuelle. Désactivable à tout moment. Clients en procédure collective exclus automatiquement.
+              Les relances s'envoient sans intervention manuelle. Désactivable à tout moment.
             </p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-4">
-            <input
-              type="checkbox"
-              checked={params.relance_auto_active}
+            <input type="checkbox" checked={params.relance_auto_active}
               onChange={e => setParams(p => ({ ...p, relance_auto_active: e.target.checked }))}
               className="sr-only peer"
             />
@@ -134,11 +162,8 @@ export function TabModeAutoRelance() {
       </div>
 
       <div className="flex justify-end pt-2">
-        <button
-          onClick={sauvegarder}
-          disabled={sauvegarde}
-          className="px-4 py-2 text-sm font-semibold bg-ockham-teal text-white rounded-lg hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
-        >
+        <button onClick={sauvegarder} disabled={sauvegarde}
+          className="px-4 py-2 text-sm font-semibold bg-ockham-teal text-white rounded-lg hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors">
           {sauvegarde ? 'Enregistrement…' : 'Enregistrer'}
         </button>
       </div>

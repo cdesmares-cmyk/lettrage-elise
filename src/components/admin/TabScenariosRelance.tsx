@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import { useScenariosRelance, type ScenarioRelance } from '../../hooks/useScenariosRelance'
 import { IcFileText, IcTrash, IcEdit } from '../Icones'
 
-const BALISES = ['[Nom client]', '[Code client]', '[Montant dû]', '[Tableau Factures]', '[Date du jour]']
+const BALISES = ['[Nom client]', '[Code client]', '[Montant dû]', '[Tableau Factures]', '[Date du jour]', '[Nom organisation]']
 
 const NIVEAUX = [
   { val: 1, label: 'Niveau 1 — Doux' },

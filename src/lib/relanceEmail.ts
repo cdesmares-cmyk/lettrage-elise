@@ -65,6 +65,7 @@ export function resolveBalises(texte: string, ctx: {
   nomClient: string
   codeClient: string
   montantDu: number
+  nomOrg?: string
 }): string {
   const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   return texte
@@ -72,6 +73,7 @@ export function resolveBalises(texte: string, ctx: {
     .replace(/\[Code client\]/gi, ctx.codeClient)
     .replace(/\[Montant dû\]/gi, _fmtEurosEmail.format(ctx.montantDu))
     .replace(/\[Date du jour\]/gi, dateJour)
+    .replace(/\[Nom organisation\]/gi, ctx.nomOrg ?? '')
 }
 
 // Convertit le texte brut (avec \n) en blocs <p> HTML pour email

@@ -131,6 +131,8 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [groupement, setGroupement]   = useState('')
   const [siret, setSiret]             = useState('')
   const [delaiAlerte, setDelaiAlerte] = useState<string>('')
+  const [relanceAutoActive, setRelanceAutoActive] = useState<boolean>(true)
+  const [delaiEcheanceClient, setDelaiEcheanceClient] = useState<string>('')
   const [enregistrement, setEnregistrement] = useState(false)
   const [etatSync, setEtatSync]       = useState<EtatSync>('idle')
   const [syncAlertes, setSyncAlertes] = useState(0)
@@ -196,10 +198,12 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
         setSyncAlertes(0)
         setAlertesBodacc([])
         setMasquageEnCours(new Set())
-        supabase.from('clients').select('delai_alerte_jours').eq('code_dso', client.code_dso)
+        supabase.from('clients').select('delai_alerte_jours, relance_auto_active, delai_echeance_jours').eq('code_dso', client.code_dso)
           .maybeSingle().then(({ data }) => {
-            const row = data as { delai_alerte_jours: number | null } | null
+            const row = data as { delai_alerte_jours: number | null; relance_auto_active: boolean; delai_echeance_jours: number | null } | null
             setDelaiAlerte(row?.delai_alerte_jours != null ? String(row.delai_alerte_jours) : '')
+            setRelanceAutoActive(row?.relance_auto_active ?? true)
+            setDelaiEcheanceClient(row?.delai_echeance_jours != null ? String(row.delai_echeance_jours) : '')
           })
       }
     }
@@ -346,6 +350,59 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
           {/* ── RELANCES ── */}
           {onglet === 'relances' && (
             <div className="space-y-3">
+              {peutModifier && (
+                <div className="pb-3 border-b border-gray-100 space-y-3">
+                  {/* Toggle relance auto */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Relances automatiques</p>
+                      <p className="text-[10px] text-gray-300 mt-0.5">Inclure ce client dans les envois auto</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-3">
+                      <input type="checkbox" checked={relanceAutoActive}
+                        onChange={async e => {
+                          const val = e.target.checked
+                          setRelanceAutoActive(val)
+                          await supabase.from('clients').update({ relance_auto_active: val } as never).eq('code_dso', client!.code_dso)
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
+                    </label>
+                  </div>
+                  {/* Délai paiement personnalisé */}
+                  <div>
+                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                      Délai de paiement personnalisé
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" min={1} max={120} value={delaiEcheanceClient}
+                        onChange={e => setDelaiEcheanceClient(e.target.value)}
+                        placeholder="Défaut org"
+                        className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-mono text-gray-700 outline-none focus:border-ockham-teal"
+                      />
+                      {delaiEcheanceClient && (
+                        <button onClick={async () => {
+                          const val = parseInt(delaiEcheanceClient)
+                          await supabase.from('clients').update({ delai_echeance_jours: isNaN(val) ? null : val } as never).eq('code_dso', client!.code_dso)
+                          setDelaiEcheanceClient(isNaN(val) ? '' : String(val))
+                        }} className="text-[11px] font-medium text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 transition-colors">
+                          Appliquer
+                        </button>
+                      )}
+                      {delaiEcheanceClient && (
+                        <button onClick={async () => {
+                          await supabase.from('clients').update({ delai_echeance_jours: null } as never).eq('code_dso', client!.code_dso)
+                          setDelaiEcheanceClient('')
+                        }} className="text-[11px] text-gray-400 hover:text-gray-600">
+                          Réinitialiser
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-300 mt-1">Laissez vide pour utiliser le terme de l'organisation.</p>
+                  </div>
+                </div>
+              )}
               {peutModifier && (
                 <div className="pb-3 border-b border-gray-100">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
