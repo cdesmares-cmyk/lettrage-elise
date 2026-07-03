@@ -9,7 +9,7 @@ import { TableauRelances } from '../components/relances/TableauRelances'
 import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
-import { ModalScenariosRelance } from '../components/admin/ModalScenariosRelance'
+import { ModalParametresRelances } from '../components/admin/ModalParametresRelances'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { DivAlertesScore } from '../components/relances/DivAlertesScore'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
@@ -45,7 +45,7 @@ export function PageRelances() {
               onClick={() => setScenariosOuvert(true)}
               className="text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal px-4 py-2 rounded-xl transition-colors shadow-sm"
             >
-              Scénarios
+              Paramètres Relances
             </button>
           )}
           {!isCommercial && classement.length > 0 && (
@@ -134,7 +134,7 @@ export function PageRelances() {
         commentaires={commentaires}
       />
 
-      {scenariosOuvert && <ModalScenariosRelance onClose={() => setScenariosOuvert(false)} />}
+      {scenariosOuvert && <ModalParametresRelances onClose={() => setScenariosOuvert(false)} />}
     </div>
   )
 }

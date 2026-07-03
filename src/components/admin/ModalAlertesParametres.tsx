@@ -143,10 +143,10 @@ export function ModalAlertesParametres({ onClose }: Props) {
           </div>
         )}
 
-        {/* Délai alerte */}
+        {/* Seuil alerte scoring */}
         <div>
           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-            Délai acceptable après échéance
+            Seuil d'alerte scoring
           </label>
           <div className="flex items-center gap-3">
             <input
@@ -160,7 +160,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
             <span className="text-sm text-gray-500">jours (défaut : 25)</span>
           </div>
           <p className="text-[11px] text-gray-400 mt-1.5">
-            Une facture déclenche une alerte si elle dépasse ce délai après sa date d'échéance.
+            Au-delà de ce délai après l'échéance, une facture passe en alerte rouge dans le tableau de bord. N'affecte pas les relances automatiques.
           </p>
         </div>
 

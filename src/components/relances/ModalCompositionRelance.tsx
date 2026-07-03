@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useContacts } from '../../hooks/useContacts'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useRole } from '../../contexts/RoleContext'
-import { ModalScenariosRelance } from '../admin/ModalScenariosRelance'
+import { ModalParametresRelances } from '../admin/ModalParametresRelances'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
@@ -321,7 +321,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           </div>
         </div>
       </div>
-      {scenariosOuvert && <ModalScenariosRelance onClose={() => setScenariosOuvert(false)} />}
+      {scenariosOuvert && <ModalParametresRelances onClose={() => setScenariosOuvert(false)} ongletInitial="scenarios" />}
     </>
   )
 }
