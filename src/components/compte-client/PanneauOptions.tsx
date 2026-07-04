@@ -201,7 +201,6 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setSiret(client.siret ?? '')
 
       if (switching) {
-        setDelaiAlerte('')
         setEtatSync('idle')
         setSyncAlertes(0)
         setAlertesBodacc([])
