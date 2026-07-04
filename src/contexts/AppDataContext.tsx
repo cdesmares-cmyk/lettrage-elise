@@ -14,6 +14,7 @@ interface RowCompteClient {
   plateforme: string | null; code_groupement: string | null
   nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null; siret: string | null
   score_risque: number | null
+  relance_auto_alerte: boolean | null
 }
 
 interface OptsClientLocal {
