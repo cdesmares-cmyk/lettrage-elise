@@ -195,12 +195,13 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
-      // 3. Clients éligibles
+      // 3. Clients éligibles — skip ceux en alerte bounce
       const { data: clients } = await supabase
         .from('clients')
         .select('code_dso, nom, delai_echeance_jours')
         .eq('organisation_id', orgId)
         .eq('relance_auto_active', true)
+        .eq('relance_auto_alerte', false)
         .is('statut_juridique', null)
       if (!clients?.length) continue
 
