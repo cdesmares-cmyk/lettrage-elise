@@ -152,6 +152,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           ...r,
           statut_juridique: r.statut_juridique as StatutJuridique | null,
           note_risque: r.score_risque ?? 0,
+          relance_auto_alerte: r.relance_auto_alerte ?? false,
         })))
         setFacturesActives(toutes)
       })

@@ -18,6 +18,7 @@ export interface CompteClient {
   derniere_emission: string | null
   note_risque: number
   siret: string | null
+  relance_auto_alerte: boolean
 }
 
 export interface RefValeur {

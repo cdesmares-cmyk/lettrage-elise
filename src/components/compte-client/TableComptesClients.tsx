@@ -96,7 +96,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState<string>('encours_total')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [filtreAlertes, setFiltreAlertes] = useState(false)
   const checkboxToutRef = useRef<HTMLInputElement>(null)
+
+  const nbAlertes = clients.filter(c => c.relance_auto_alerte).length
 
   // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
   useEffect(() => { setPage(0) }, [recherche])
@@ -124,7 +127,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
-  const clientsTries = sortRows(clients as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
+  const clientsFiltres = filtreAlertes ? clients.filter(c => c.relance_auto_alerte) : clients
+  const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
@@ -137,6 +141,24 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      {nbAlertes > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-amber-50">
+          <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
+          <span className="text-xs text-amber-700 font-medium flex-1">
+            {nbAlertes} client{nbAlertes > 1 ? 's' : ''} avec une alerte email (bounce ou spam)
+          </span>
+          <button
+            onClick={() => { setFiltreAlertes(f => !f); setPage(0) }}
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors ${
+              filtreAlertes
+                ? 'bg-amber-500 text-white border-amber-500'
+                : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-100'
+            }`}
+          >
+            {filtreAlertes ? 'Voir tous' : 'Filtrer'}
+          </button>
+        </div>
+      )}
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
@@ -254,17 +276,25 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                           ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
                           : false
                         return (
-                          <button
-                            onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                            className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                              recente
-                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                                : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                            }`}
-                            title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
-                          >
-                            ✉ Relancer
-                          </button>
+                          <div className="relative inline-block">
+                            <button
+                              onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                              className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
+                                recente
+                                  ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                  : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                              }`}
+                              title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                            >
+                              ✉ Relancer
+                            </button>
+                            {c.relance_auto_alerte && (
+                              <span
+                                className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
+                                title="Alerte email — bounce ou spam détecté"
+                              />
+                            )}
+                          </div>
                         )
                       })()}
                       {estOuvert && onCompenser && peutModifier && (() => {

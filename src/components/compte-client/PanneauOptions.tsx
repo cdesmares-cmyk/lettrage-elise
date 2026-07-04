@@ -447,7 +447,20 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
               {/* Historique relances automatiques */}
               <div className="pt-3 border-t border-gray-100 space-y-3">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Relances automatiques</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Relances automatiques</p>
+                  {client.relance_auto_alerte && peutModifier && (
+                    <button
+                      onClick={async () => {
+                        await supabase.from('clients').update({ relance_auto_alerte: false } as never).eq('code_dso', client!.code_dso)
+                        mettreAJourClientLocal(client!.code_dso, { relance_auto_alerte: false } as never)
+                      }}
+                      className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-md transition-colors"
+                    >
+                      Marquer comme traité
+                    </button>
+                  )}
+                </div>
                 {logsAutoChargement ? (
                   <p className="text-xs text-gray-400">Chargement…</p>
                 ) : logsRelanceAuto.length === 0 ? (
