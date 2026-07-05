@@ -283,6 +283,9 @@ Deno.serve(async (req: Request) => {
           scenario_id:     scenario.id as string,
           statut:          'envoye',
           resend_id:       resendId,
+          contact_email:   destinataires[0] ?? null,
+          montant_total:   montantDu,
+          corps_html:      html,
         }))
         await supabase.from('relances_auto_log').insert(logs)
         nbEnvoyes++

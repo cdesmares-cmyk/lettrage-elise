@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useId } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
+import { SectionTimelineRelances } from './SectionTimelineRelances'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -23,21 +24,6 @@ function lireCooldown(codeDso: string, siret: string): boolean {
 
 function écrireCooldown(codeDso: string, siret: string) {
   localStorage.setItem(`bodacc_sync_${codeDso}`, JSON.stringify({ ts: Date.now(), siret }))
-}
-
-interface NoteRelance {
-  id: string
-  note: string | null
-  note_operateur: string | null
-  note_archivee_le: string | null
-  cree_le: string
-}
-
-interface LogRelanceAuto {
-  id: string
-  numero_facture: string
-  envoye_le: string
-  statut: 'envoye' | 'bounce' | 'erreur'
 }
 
 interface AlerteBodacc {
@@ -143,10 +129,6 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [etatSync, setEtatSync]       = useState<EtatSync>('idle')
   const [syncAlertes, setSyncAlertes] = useState(0)
   const [onglet, setOnglet]           = useState<Onglet>('infos')
-  const [notesRelances, setNotesRelances]     = useState<NoteRelance[]>([])
-  const [notesChargement, setNotesChargement] = useState(false)
-  const [logsRelanceAuto, setLogsRelanceAuto] = useState<LogRelanceAuto[]>([])
-  const [logsAutoChargement, setLogsAutoChargement] = useState(false)
   const [alertesBodacc, setAlertesBodacc]           = useState<AlerteBodacc[]>([])
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
@@ -214,36 +196,6 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       }
     }
   }, [client])
-
-  useEffect(() => {
-    if (onglet !== 'relances' || !client) return
-
-    setNotesChargement(true)
-    supabase
-      .from('relances')
-      .select('id, note, note_operateur, note_archivee_le, cree_le')
-      .eq('code_client', client.code_dso)
-      .eq('archivee', true)
-      .not('note', 'is', null)
-      .order('note_archivee_le', { ascending: false })
-      .limit(5)
-      .then(({ data }) => {
-        setNotesRelances((data ?? []) as NoteRelance[])
-        setNotesChargement(false)
-      })
-
-    setLogsAutoChargement(true)
-    supabase
-      .from('relances_auto_log')
-      .select('id, numero_facture, envoye_le, statut')
-      .eq('code_client', client.code_dso)
-      .order('envoye_le', { ascending: false })
-      .limit(30)
-      .then(({ data }) => {
-        setLogsRelanceAuto((data ?? []) as LogRelanceAuto[])
-        setLogsAutoChargement(false)
-      })
-  }, [onglet, client])
 
   useEffect(() => {
     if (onglet !== 'bodacc' || !client) return
@@ -425,82 +377,22 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
                   </div>
                 </div>
               )}
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Notes archivées — {client.nom}</p>
-              {notesChargement ? (
-                <p className="text-xs text-gray-400">Chargement…</p>
-              ) : notesRelances.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">Aucune note de relance archivée pour ce client.</p>
-              ) : (
-                notesRelances.map(n => (
-                  <div key={n.id} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-1.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-bold text-ockham-teal uppercase tracking-wider">
-                        {n.note_operateur ?? 'Opérateur inconnu'}
-                      </span>
-                      {n.note_archivee_le && (
-                        <span className="text-[10px] text-gray-400">
-                          {new Date(n.note_archivee_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{n.note}</p>
-                  </div>
-                ))
-              )}
-
-              {/* Historique relances automatiques */}
-              <div className="pt-3 border-t border-gray-100 space-y-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Relances automatiques</p>
-                  {client.relance_auto_alerte && peutModifier && (
-                    <button
-                      onClick={async () => {
-                        await supabase.from('clients').update({ relance_auto_alerte: false } as never).eq('code_dso', client!.code_dso)
-                        mettreAJourClientLocal(client!.code_dso, { relance_auto_alerte: false } as never)
-                      }}
-                      className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-md transition-colors"
-                    >
-                      Marquer comme traité
-                    </button>
-                  )}
-                </div>
-                {logsAutoChargement ? (
-                  <p className="text-xs text-gray-400">Chargement…</p>
-                ) : logsRelanceAuto.length === 0 ? (
-                  <p className="text-xs text-gray-400 italic">Aucune relance automatique envoyée pour ce client.</p>
-                ) : (() => {
-                  const grouped = logsRelanceAuto.reduce<Record<string, LogRelanceAuto[]>>((acc, log) => {
-                    const date = log.envoye_le.slice(0, 10)
-                    if (!acc[date]) acc[date] = []
-                    acc[date].push(log)
-                    return acc
-                  }, {})
-                  return Object.entries(grouped).map(([date, logs]) => {
-                    const statut = logs.some(l => l.statut === 'bounce') ? 'bounce'
-                      : logs.some(l => l.statut === 'erreur') ? 'erreur'
-                      : 'envoye'
-                    const badgeClass = statut === 'envoye'
-                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                      : statut === 'bounce'
-                      ? 'bg-amber-50 text-amber-700 border-amber-200'
-                      : 'bg-red-50 text-red-700 border-red-200'
-                    const badgeLabel = statut === 'envoye' ? 'Envoyé' : statut === 'bounce' ? 'Bounce' : 'Erreur'
-                    return (
-                      <div key={date} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 space-y-1.5">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] font-bold text-gray-500">
-                            {new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })}
-                          </span>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${badgeClass}`}>{badgeLabel}</span>
-                        </div>
-                        <p className="text-[11px] text-gray-500 leading-relaxed">
-                          {logs.map(l => l.numero_facture).join(', ')}
-                        </p>
-                      </div>
-                    )
-                  })
-                })()}
+              {/* Historique unifié — relances manuelles + automatiques */}
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Historique des relances</p>
+                {client.relance_auto_alerte && peutModifier && (
+                  <button
+                    onClick={async () => {
+                      await supabase.from('clients').update({ relance_auto_alerte: false } as never).eq('code_dso', client!.code_dso)
+                      mettreAJourClientLocal(client!.code_dso, { relance_auto_alerte: false } as never)
+                    }}
+                    className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-md transition-colors"
+                  >
+                    Marquer comme traité
+                  </button>
+                )}
               </div>
+              <SectionTimelineRelances codeClient={client.code_dso} />
             </div>
           )}
 
