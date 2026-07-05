@@ -159,7 +159,7 @@ export function SectionTimelineRelances({ codeClient }: Props) {
             : statut === 'bounce'
             ? 'bg-amber-50 text-amber-700 border-amber-200'
             : 'bg-red-50 text-red-700 border-red-200'
-          const badgeLabel = statut === 'envoye' ? 'Envoyé' : statut === 'bounce' ? 'Bounce' : 'Erreur'
+          const badgeLabel = statut === 'envoye' ? 'Envoyé' : statut === 'bounce' ? 'Contact' : 'Erreur'
           const contact = logs[0].contact_email
           const montant = formatMontant(logs[0].montant_total)
 
