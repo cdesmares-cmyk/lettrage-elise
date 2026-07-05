@@ -1,7 +1,7 @@
 // Hook d'import comptes clients — upsert (création + mise à jour) sur la table clients
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { calculerHash, detecterMapping, parserCSV, parserXLSX } from '../lib/parseursImport'
+import { calculerHash, detecterMapping, parserCSV, parserXLSX, parseBoolean } from '../lib/parseursImport'
 import { CHAMPS_CLIENTS } from '../lib/champsImport'
 import type { LigneMapping, ResultatAnalyse, ResultatValidation, ResultatImport } from '../types/import'
 import { useAuth } from '../contexts/AuthContext'
@@ -28,7 +28,12 @@ function appliquerMapping(ligne: Record<string, string>, mapping: LigneMapping[]
   for (const m of mapping) {
     if (!m.champ_cible) continue
     const val = (ligne[m.colonne_source] ?? '').trim()
-    res[m.champ_cible] = val || null
+    const champ = CHAMPS_CLIENTS.find(c => c.cle === m.champ_cible)
+    if (champ?.type === 'boolean') {
+      res[m.champ_cible] = val ? parseBoolean(val) : null
+    } else {
+      res[m.champ_cible] = val || null
+    }
   }
   return res
 }

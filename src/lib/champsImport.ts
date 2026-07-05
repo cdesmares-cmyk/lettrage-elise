@@ -215,6 +215,16 @@ export const CHAMPS_CLIENTS: ChampCible[] = [
     aliases: ['siret', 'n siret', 'numero siret', 'siren', 'id entreprise'],
     hint: '14 chiffres — utilisé pour la veille BODACC',
   },
+  {
+    cle: 'relance_auto_active',
+    label: 'Relance automatique',
+    est_pivot: false,
+    requis: false,
+    est_lettrable: false,
+    type: 'boolean',
+    aliases: ['relance auto', 'relance_auto', 'relance automatique', 'auto relance', 'relance_auto_active'],
+    hint: 'oui / non — active ce client dans les relances automatiques',
+  },
 ]
 
 export const CHAMPS_CONTACTS: ChampCible[] = [

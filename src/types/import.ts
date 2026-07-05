@@ -11,6 +11,7 @@ export interface ChampCible {
   est_lettrable: boolean  // utilisé dans la logique de lettrage
   aliases: string[]       // noms de colonnes reconnus automatiquement
   hint?: string           // affiché dans l'interface de mapping (ex: format attendu)
+  type?: 'boolean'        // si présent, la valeur est parsée en booléen
 }
 
 // Correspondance entre une colonne du fichier et un champ cible
