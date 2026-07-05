@@ -1,12 +1,12 @@
 // Section Export — sélection du type d'export puis panneau de configuration
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { IcBarChart, IcContacts, IcDownload } from '../Icones'
+import { IcBarChart, IcContacts, IcDownload, IcUsers } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { supabase } from '../../lib/supabase'
 
-type TypeExport = 'lettrage' | 'contacts'
+type TypeExport = 'lettrage' | 'contacts' | 'clients'
 
 const OPTIONS: {
   type: TypeExport
@@ -29,6 +29,13 @@ const OPTIONS: {
     description: 'Tous les contacts actifs de votre organisation, prêts à être modifiés et ré-importés.',
     info: 'Export instantané — aucune période à sélectionner.',
   },
+  {
+    type: 'clients',
+    icone: <IcUsers size={26} />,
+    titre: 'Comptes clients',
+    description: 'Tous les clients avec leurs paramètres (relance auto, commercial, plateforme…), prêts à être modifiés et ré-importés.',
+    info: 'Export instantané — même format que l\'import clients.',
+  },
 ]
 
 function debutMoisCourant() {
@@ -37,6 +44,37 @@ function debutMoisCourant() {
 }
 function today() {
   return new Date().toISOString().split('T')[0]
+}
+
+interface RowClient {
+  code_dso: string
+  nom: string
+  commercial: string | null
+  operateur: string | null
+  plateforme: string | null
+  code_groupement: string | null
+  siret: string | null
+  relance_auto_active: boolean
+}
+
+function genererCSVClients(clients: RowClient[]): string {
+  const entete = ['code_dso', 'nom', 'commercial', 'operateur', 'plateforme', 'code_groupement', 'siret', 'relance_auto_active']
+  const echapper = (v: string | null | undefined) => {
+    const s = v ?? ''
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
+    return s
+  }
+  const lignes = clients.map(c => [
+    echapper(c.code_dso),
+    echapper(c.nom),
+    echapper(c.commercial),
+    echapper(c.operateur),
+    echapper(c.plateforme),
+    echapper(c.code_groupement),
+    echapper(c.siret),
+    c.relance_auto_active ? 'oui' : 'non',
+  ].join(','))
+  return [entete.join(','), ...lignes].join('\n')
 }
 
 interface RowContact {
@@ -85,6 +123,35 @@ export function SectionExport() {
       toast.success('Export généré')
     } catch {
       toast.error('Erreur lors de l\'export')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  async function handleExportClients() {
+    setChargement(true)
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
+        .order('nom')
+      if (error) throw error
+      const clients = (data ?? []) as RowClient[]
+      if (clients.length === 0) {
+        toast('Aucun client à exporter', { icon: 'ℹ️' })
+        return
+      }
+      const csv = genererCSVClients(clients)
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clients_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`${clients.length} client${clients.length > 1 ? 's' : ''} exporté${clients.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Erreur lors de l\'export des clients')
     } finally {
       setChargement(false)
     }
@@ -208,6 +275,27 @@ export function SectionExport() {
                 <p className="font-semibold text-gray-600 mb-1">Onglet Cadrage</p>
                 <p>Par jour : Total Crédit reçu · Total Lettré (hors Autres) — écart visible pour l'expert-comptable</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {type === 'clients' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="text-[11px] text-gray-500">
+                <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                <p>code_dso · nom · commercial · opérateur · plateforme · code_groupement · siret · relance_auto_active</p>
+                <p className="mt-1 text-gray-400">
+                  La colonne <span className="font-mono">relance_auto_active</span> est exportée en <span className="font-mono">oui</span> / <span className="font-mono">non</span> — modifiable et ré-importable directement.
+                </p>
+              </div>
+              <button
+                onClick={handleExportClients}
+                disabled={chargement}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+              >
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+              </button>
             </div>
           </div>
         )}
