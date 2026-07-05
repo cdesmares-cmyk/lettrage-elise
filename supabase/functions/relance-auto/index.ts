@@ -228,6 +228,7 @@ Deno.serve(async (req: Request) => {
         const { data: contacts } = await supabase
           .from('contacts_client')
           .select('email, role_contact')
+          .eq('organisation_id', orgId)
           .eq('code_client', codeDso)
           .eq('actif', true)
           .in('role_contact', ['relance', 'comptabilite'])
