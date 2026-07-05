@@ -276,25 +276,17 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                           ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
                           : false
                         return (
-                          <div className="relative inline-block">
-                            <button
-                              onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                              className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                                recente
-                                  ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                                  : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                              }`}
-                              title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
-                            >
-                              ✉ Relancer
-                            </button>
-                            {c.relance_auto_alerte && (
-                              <span
-                                className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
-                                title="Alerte email — bounce ou spam détecté"
-                              />
-                            )}
-                          </div>
+                          <button
+                            onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                            className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
+                              recente
+                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                            }`}
+                            title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                          >
+                            ✉ Relancer
+                          </button>
                         )
                       })()}
                       {estOuvert && onCompenser && peutModifier && (() => {
@@ -310,12 +302,20 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                           </button>
                         )
                       })()}
-                      <button
-                        onClick={e => { e.stopPropagation(); onOptions(c) }}
-                        className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
-                      >
-                        ⚙ Options
-                      </button>
+                      <div className="relative inline-block">
+                        <button
+                          onClick={e => { e.stopPropagation(); onOptions(c) }}
+                          className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
+                        >
+                          ⚙ Options
+                        </button>
+                        {c.relance_auto_alerte && (
+                          <span
+                            className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
+                            title="Alerte email — bounce ou spam détecté. Ouvrez Options › Relances pour traiter."
+                          />
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>

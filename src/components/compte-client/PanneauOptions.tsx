@@ -349,13 +349,16 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             <button
               key={o}
               onClick={() => setOnglet(o)}
-              className={`flex-1 py-2 text-[11px] font-semibold rounded-md border transition-colors ${
+              className={`relative flex-1 py-2 text-[11px] font-semibold rounded-md border transition-colors ${
                 onglet === o
                   ? 'bg-white/15 border-white/50 text-white'
                   : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
               }`}
             >
               {LABELS_ONGLETS[o]}
+              {o === 'relances' && client.relance_auto_alerte && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-ockham-navy" />
+              )}
             </button>
           ))}
         </div>
