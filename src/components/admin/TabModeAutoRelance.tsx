@@ -198,7 +198,7 @@ export function TabModeAutoRelance() {
                   : 'Aucune exécution détectée depuis plus de 24h.'}
               </p>
               <p className="text-[11px] text-red-600 mt-0.5">
-                Contactez le support OCKHAM pour qu'on vérifie la configuration — <span className="font-semibold">support@ockham.finance</span>
+                Contactez le support OCKHAM pour qu'on vérifie la configuration — <span className="font-semibold">ctournebize@ockham-finance.com</span>
               </p>
             </div>
           </div>
