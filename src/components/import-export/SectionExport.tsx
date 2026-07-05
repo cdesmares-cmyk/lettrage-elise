@@ -5,6 +5,7 @@ import { IcBarChart, IcContacts, IcDownload, IcUsers } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { supabase } from '../../lib/supabase'
+import * as XLSX from 'xlsx'
 
 type TypeExport = 'lettrage' | 'contacts' | 'clients'
 
@@ -57,24 +58,25 @@ interface RowClient {
   relance_auto_active: boolean
 }
 
-function genererCSVClients(clients: RowClient[]): string {
-  const entete = ['code_dso', 'nom', 'commercial', 'operateur', 'plateforme', 'code_groupement', 'siret', 'relance_auto_active']
-  const echapper = (v: string | null | undefined) => {
-    const s = v ?? ''
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
-    return s
-  }
-  const lignes = clients.map(c => [
-    echapper(c.code_dso),
-    echapper(c.nom),
-    echapper(c.commercial),
-    echapper(c.operateur),
-    echapper(c.plateforme),
-    echapper(c.code_groupement),
-    echapper(c.siret),
-    c.relance_auto_active ? 'oui' : 'non',
-  ].join(','))
-  return [entete.join(','), ...lignes].join('\n')
+function exporterClientsXlsx(clients: RowClient[]) {
+  const lignes = clients.map(c => ({
+    'Code client':         c.code_dso,
+    'Nom':                 c.nom,
+    'Commercial':          c.commercial ?? '',
+    'Opérateur':           c.operateur ?? '',
+    'Plateforme':          c.plateforme ?? '',
+    'Code groupement':     c.code_groupement ?? '',
+    'SIRET':               c.siret ?? '',
+    'Relance automatique': c.relance_auto_active ? 'oui' : 'non',
+  }))
+  const ws = XLSX.utils.json_to_sheet(lignes)
+  ws['!cols'] = [
+    { wch: 16 }, { wch: 35 }, { wch: 20 }, { wch: 20 },
+    { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 20 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Clients')
+  XLSX.writeFile(wb, `clients_${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
 interface RowContact {
@@ -141,14 +143,7 @@ export function SectionExport() {
         toast('Aucun client à exporter', { icon: 'ℹ️' })
         return
       }
-      const csv = genererCSVClients(clients)
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `clients_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      exporterClientsXlsx(clients)
       toast.success(`${clients.length} client${clients.length > 1 ? 's' : ''} exporté${clients.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des clients')
@@ -286,7 +281,7 @@ export function SectionExport() {
                 <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
                 <p>code_dso · nom · commercial · opérateur · plateforme · code_groupement · siret · relance_auto_active</p>
                 <p className="mt-1 text-gray-400">
-                  La colonne <span className="font-mono">relance_auto_active</span> est exportée en <span className="font-mono">oui</span> / <span className="font-mono">non</span> — modifiable et ré-importable directement.
+                  La colonne <span className="font-mono">Relance automatique</span> est exportée en <span className="font-mono">oui</span> / <span className="font-mono">non</span> — modifiable et ré-importable directement.
                 </p>
               </div>
               <button
@@ -294,7 +289,7 @@ export function SectionExport() {
                 disabled={chargement}
                 className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
               >
-                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
               </button>
             </div>
           </div>
