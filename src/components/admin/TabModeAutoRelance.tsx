@@ -194,11 +194,11 @@ export function TabModeAutoRelance() {
             <div>
               <p className="text-xs font-semibold text-red-700">
                 {!params.relance_auto_derniere_exec
-                  ? 'Aucun passage détecté — le cron n\'a jamais tourné.'
-                  : 'Aucune exécution depuis plus de 24h.'}
+                  ? 'Les relances automatiques ne semblent pas encore actives.'
+                  : 'Aucune exécution détectée depuis plus de 24h.'}
               </p>
               <p className="text-[11px] text-red-600 mt-0.5">
-                Vérifiez que le cron est bien actif dans Supabase → Database → Extensions → pg_cron.
+                Contactez le support OCKHAM pour qu'on vérifie la configuration — <span className="font-semibold">support@ockham.finance</span>
               </p>
             </div>
           </div>
