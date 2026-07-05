@@ -11,6 +11,19 @@ interface ParamsAuto {
   delai_rerelance_jours: number
   relance_auto_active: boolean
   signature_auto: string | null
+  relance_auto_derniere_exec:   string | null
+  relance_auto_dernier_statut:  'ok' | 'partiel' | 'erreur' | null
+  relance_auto_dernier_message: string | null
+}
+
+function tempsRelatif(iso: string): string {
+  const diff  = Date.now() - new Date(iso).getTime()
+  const h     = Math.floor(diff / 3_600_000)
+  if (h < 1)  return 'il y a moins d\'une heure'
+  if (h < 24) return `il y a ${h} heure${h > 1 ? 's' : ''}`
+  const j = Math.floor(h / 24)
+  if (j === 1) return 'hier'
+  return `il y a ${j} jours`
 }
 
 export function TabModeAutoRelance() {
@@ -21,6 +34,9 @@ export function TabModeAutoRelance() {
     delai_rerelance_jours: 30,
     relance_auto_active: false,
     signature_auto: null,
+    relance_auto_derniere_exec:   null,
+    relance_auto_dernier_statut:  null,
+    relance_auto_dernier_message: null,
   })
   const [chargement, setChargement] = useState(true)
   const [sauvegarde, setSauvegarde] = useState(false)
@@ -29,7 +45,7 @@ export function TabModeAutoRelance() {
     if (!profil?.organisation_id) return
     supabase
       .from('organisations')
-      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto')
+      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto, relance_auto_derniere_exec, relance_auto_dernier_statut, relance_auto_dernier_message')
       .eq('id', profil.organisation_id)
       .single()
       .then(({ data }) => {
@@ -41,6 +57,9 @@ export function TabModeAutoRelance() {
             delai_rerelance_jours: row.delai_rerelance_jours ?? 30,
             relance_auto_active: row.relance_auto_active ?? false,
             signature_auto: row.signature_auto ?? null,
+            relance_auto_derniere_exec:   row.relance_auto_derniere_exec ?? null,
+            relance_auto_dernier_statut:  row.relance_auto_dernier_statut ?? null,
+            relance_auto_dernier_message: row.relance_auto_dernier_message ?? null,
           })
         }
         setChargement(false)
@@ -159,6 +178,66 @@ export function TabModeAutoRelance() {
             <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
           </label>
         </div>
+      </div>
+
+      {/* ── Monitoring dernier passage cron ── */}
+      <div className="border-t border-gray-100 pt-5 space-y-3">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dernier passage cron</p>
+
+        {/* Alerte silence — relance active mais pas de run depuis +25h */}
+        {params.relance_auto_active && (
+          !params.relance_auto_derniere_exec ||
+          Date.now() - new Date(params.relance_auto_derniere_exec).getTime() > 25 * 3_600_000
+        ) && (
+          <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500 flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div>
+              <p className="text-xs font-semibold text-red-700">
+                {!params.relance_auto_derniere_exec
+                  ? 'Aucun passage détecté — le cron n\'a jamais tourné.'
+                  : 'Aucune exécution depuis plus de 24h.'}
+              </p>
+              <p className="text-[11px] text-red-600 mt-0.5">
+                Vérifiez que le cron est bien actif dans Supabase → Database → Extensions → pg_cron.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Dernier run */}
+        {params.relance_auto_derniere_exec ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-gray-700">
+                {new Date(params.relance_auto_derniere_exec).toLocaleDateString('fr-FR', {
+                  day: '2-digit', month: 'short', year: '2-digit',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+                <span className="ml-2 font-normal text-gray-400">
+                  ({tempsRelatif(params.relance_auto_derniere_exec)})
+                </span>
+              </p>
+              {params.relance_auto_dernier_message && (
+                <p className="text-[11px] text-gray-500">{params.relance_auto_dernier_message}</p>
+              )}
+            </div>
+            {params.relance_auto_dernier_statut && (
+              <span className={`flex-shrink-0 text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                params.relance_auto_dernier_statut === 'ok'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : params.relance_auto_dernier_statut === 'partiel'
+                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                  : 'bg-red-50 text-red-700 border-red-200'
+              }`}>
+                {params.relance_auto_dernier_statut === 'ok' ? '✓ OK'
+                  : params.relance_auto_dernier_statut === 'partiel' ? '⚠ Partiel'
+                  : '✕ Erreur'}
+              </span>
+            )}
+          </div>
+        ) : !params.relance_auto_active ? (
+          <p className="text-[11px] text-gray-400 italic">Mode automatique désactivé — aucun historique.</p>
+        ) : null}
       </div>
 
       <div className="flex justify-end pt-2">

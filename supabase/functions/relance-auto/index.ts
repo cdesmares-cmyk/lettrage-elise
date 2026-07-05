@@ -181,6 +181,9 @@ Deno.serve(async (req: Request) => {
       const delaiDeclenche   = (org.delai_declenchement_relance_jours as number) ?? 7
       const delaiRerelance   = (org.delai_rerelance_jours as number) ?? 30
       const signatureAuto    = org.signature_auto as string | null
+      let nbEnvoyesOrg = 0
+      let nbSkipOrg    = 0
+      let nbErreursOrg = 0
 
       // 2. Scénario niveau 1 de l'org
       const { data: scenarios } = await supabase
@@ -219,7 +222,7 @@ Deno.serve(async (req: Request) => {
           .eq('code_client', codeDso)
           .gte('envoye_le', seuilDedup)
           .limit(1)
-        if (dedup?.length) { nbSkip++; continue }
+        if (dedup?.length) { nbSkip++; nbSkipOrg++; continue }
 
         // 5. Contacts destinataires (relance > comptabilite)
         const { data: contacts } = await supabase
@@ -234,7 +237,7 @@ Deno.serve(async (req: Request) => {
           .map(c => c.email as string).filter(Boolean)
         if (!destinataires.length) {
           console.log(`[relance-auto] ${codeDso} : aucun contact relance/compta — skip`)
-          nbSkip++; continue
+          nbSkip++; nbSkipOrg++; continue
         }
 
         // 6. Factures éligibles
@@ -255,7 +258,7 @@ Deno.serve(async (req: Request) => {
           const declenchement = new Date(echeance.getTime() + delaiDeclenche * 86_400_000)
           return declenchement.toISOString().split('T')[0] <= today
         })
-        if (!facturesEligibles.length) { nbSkip++; continue }
+        if (!facturesEligibles.length) { nbSkip++; nbSkipOrg++; continue }
 
         // 7. Construction email
         const montantDu = facturesEligibles.reduce((s, f) => s + (f.reste_du as number), 0)
@@ -273,7 +276,7 @@ Deno.serve(async (req: Request) => {
 
         // 8. Envoi Resend
         const resendId = await envoyerResend(destinataires, objet, html)
-        if (!resendId) { nbErreurs++; continue }
+        if (!resendId) { nbErreurs++; nbErreursOrg++; continue }
 
         // 9. Log des envois (une entrée par facture pour traçabilité fine)
         const logs = facturesEligibles.map(f => ({
@@ -288,9 +291,16 @@ Deno.serve(async (req: Request) => {
           corps_html:      html,
         }))
         await supabase.from('relances_auto_log').insert(logs)
-        nbEnvoyes++
+        nbEnvoyes++; nbEnvoyesOrg++
         console.log(`[relance-auto] ${codeDso} → ${destinataires.join(', ')} (${facturesEligibles.length} factures)`)
       }
+
+      // Mise à jour monitoring par org — visible par l'admin sans accès superadmin
+      await supabase.from('organisations').update({
+        relance_auto_derniere_exec:   new Date().toISOString(),
+        relance_auto_dernier_statut:  nbErreursOrg > 0 ? 'partiel' : 'ok',
+        relance_auto_dernier_message: `${nbEnvoyesOrg} envoyé${nbEnvoyesOrg !== 1 ? 's' : ''} · ${nbSkipOrg} ignoré${nbSkipOrg !== 1 ? 's' : ''} · ${nbErreursOrg} erreur${nbErreursOrg !== 1 ? 's' : ''}`,
+      } as never).eq('id', orgId)
     }
 
     await supabase.from('cron_runs').insert({
