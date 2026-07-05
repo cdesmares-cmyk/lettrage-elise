@@ -7,6 +7,22 @@ import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { supabase } from '../../lib/supabase'
 import * as XLSX from 'xlsx'
 
+async function fetchAll<T>(
+  buildQuery: (from: number, to: number) => PromiseLike<{ data: unknown }>
+): Promise<T[]> {
+  const PAGE = 1000
+  const acc: T[] = []
+  let offset = 0
+  while (true) {
+    const { data } = await buildQuery(offset, offset + PAGE - 1)
+    const rows = (data ?? []) as T[]
+    acc.push(...rows)
+    if (rows.length < PAGE) break
+    offset += PAGE
+  }
+  return acc
+}
+
 type TypeExport = 'lettrage' | 'contacts' | 'clients'
 
 const OPTIONS: {
@@ -133,12 +149,13 @@ export function SectionExport() {
   async function handleExportClients() {
     setChargement(true)
     try {
-      const { data, error } = await supabase
-        .from('clients')
-        .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
-        .order('nom')
-      if (error) throw error
-      const clients = (data ?? []) as RowClient[]
+      const clients = await fetchAll<RowClient>((from, to) =>
+        supabase
+          .from('clients')
+          .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
+          .order('nom')
+          .range(from, to)
+      )
       if (clients.length === 0) {
         toast('Aucun client à exporter', { icon: 'ℹ️' })
         return
@@ -155,14 +172,15 @@ export function SectionExport() {
   async function handleExportContacts() {
     setChargement(true)
     try {
-      const { data, error } = await supabase
-        .from('contacts_client')
-        .select('id, code_client, nom, prenom, email, telephone, role_contact')
-        .eq('actif', true)
-        .order('code_client')
-        .order('nom')
-      if (error) throw error
-      const contacts = (data ?? []) as RowContact[]
+      const contacts = await fetchAll<RowContact>((from, to) =>
+        supabase
+          .from('contacts_client')
+          .select('id, code_client, nom, prenom, email, telephone, role_contact')
+          .eq('actif', true)
+          .order('code_client')
+          .order('nom')
+          .range(from, to)
+      )
       if (contacts.length === 0) {
         toast('Aucun contact actif à exporter', { icon: 'ℹ️' })
         return
