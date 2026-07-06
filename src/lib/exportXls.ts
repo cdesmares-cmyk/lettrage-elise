@@ -150,39 +150,42 @@ export function exporterExtractionXls(lignes: LigneExtractionLettrage[], nomFich
   dlXlsx(wb, nomFichier)
 }
 
-// ── Historique relances automatiques ─────────────────────────────────────────
+// ── Historique relances (auto + manuelles) ────────────────────────────────────
 
 export interface LigneRelanceAuto {
   date: string
+  type: 'Auto' | 'Manuelle'
   code_client: string
   nom_client: string
   montant_total: number | null
-  email_contact: string | null
-  statut: 'envoye' | 'bounce' | 'erreur'
+  emails: string
+  statut: string
+  commentaire: string
   nb_factures: number
 }
 
-export function exporterRelancesAutoXls(lignes: LigneRelanceAuto[], nomFichier = 'extraction_relances_auto') {
-  const statutLabel = (s: string) => s === 'envoye' ? 'Envoyé' : s === 'bounce' ? 'Contact' : 'Erreur'
+export function exporterRelancesAutoXls(lignes: LigneRelanceAuto[], nomFichier = 'extraction_relances') {
   const aoa: (string | number | null)[][] = [
-    ['Date', 'Code client', 'Nom client', 'Montant relancé', 'Email contact', 'Statut', 'Nb factures'],
+    ['Date', 'Type', 'Code client', 'Nom client', 'Montant relancé', 'Email(s) contact', 'Statut', 'Commentaire', 'Nb factures'],
   ]
   for (const l of lignes) {
     aoa.push([
       fmtDate(l.date),
+      l.type,
       l.code_client,
       l.nom_client,
       l.montant_total ?? '',
-      l.email_contact ?? '',
-      statutLabel(l.statut),
+      l.emails,
+      l.statut,
+      l.commentaire,
       l.nb_factures,
     ])
   }
   const ws = XLSX.utils.aoa_to_sheet(aoa)
-  ws['!cols'] = [{ wch: 12 }, { wch: 14 }, { wch: 30 }, { wch: 16 }, { wch: 32 }, { wch: 10 }, { wch: 12 }]
-  styleSheet(ws, [3])
+  ws['!cols'] = [{ wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 30 }, { wch: 16 }, { wch: 36 }, { wch: 10 }, { wch: 30 }, { wch: 12 }]
+  styleSheet(ws, [4])
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Relances auto')
+  XLSX.utils.book_append_sheet(wb, ws, 'Relances')
   dlXlsx(wb, nomFichier)
 }
 

@@ -1,7 +1,7 @@
 // Section Export — sélection du type d'export puis panneau de configuration
 import { useState } from 'react'
 import type { ReactNode } from 'react'
-import { IcBarChart, IcContacts, IcDownload, IcUsers } from '../Icones'
+import { IcBarChart, IcContacts, IcDownload, IcInfo, IcUsers } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { exporterRelancesAutoXls, type LigneRelanceAuto } from '../../lib/exportXls'
@@ -181,48 +181,59 @@ export function SectionExport() {
     setChargement(true)
     try {
       interface RowLog { id: string; resend_id: string | null; envoye_le: string; code_client: string; contact_email: string | null; montant_total: number | null; statut: string }
+      interface RowManuelle { id: string; code_client: string; envoyee_le: string; note: string | null; note_operateur: string | null; contacts_ids: string[] | null; factures_ids: string[] | null }
       interface RowClientNom { code_dso: string; nom: string }
+      interface RowContact { id: string; email: string }
 
-      const [{ data: logsRaw }, { data: clientsRaw }] = await Promise.all([
-        supabase
-          .from('relances_auto_log')
-          .select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut')
-          .order('envoye_le', { ascending: false })
-          .limit(2000),
-        supabase
-          .from('clients')
-          .select('code_dso, nom'),
+      const [{ data: logsRaw }, { data: manuellesRaw }, { data: clientsRaw }] = await Promise.all([
+        supabase.from('relances_auto_log').select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut').order('envoye_le', { ascending: false }).limit(2000),
+        supabase.from('relances').select('id, code_client, envoyee_le, note, note_operateur, contacts_ids, factures_ids').not('envoyee_le', 'is', null).order('envoyee_le', { ascending: false }).limit(1000),
+        supabase.from('clients').select('code_dso, nom'),
       ])
       const logs = (logsRaw ?? []) as RowLog[]
+      const manuelles = (manuellesRaw ?? []) as RowManuelle[]
       const clientsData = (clientsRaw ?? []) as RowClientNom[]
-      if (!logs.length) { toast('Aucune relance auto à exporter', { icon: 'ℹ️' }); return }
+
+      if (!logs.length && !manuelles.length) { toast('Aucune relance à exporter', { icon: 'ℹ️' }); return }
+
+      // Batch contacts pour relances manuelles
+      const allContactIds = [...new Set(manuelles.flatMap(r => r.contacts_ids ?? []))]
+      let contactEmailMap: Record<string, string> = {}
+      if (allContactIds.length > 0) {
+        const { data: contactsRaw } = await supabase.from('contacts_client').select('id, email').in('id', allContactIds)
+        for (const c of (contactsRaw ?? []) as RowContact[]) contactEmailMap[c.id] = c.email
+      }
 
       const nomParCode: Record<string, string> = {}
       for (const c of clientsData) nomParCode[c.code_dso] = c.nom
 
+      // Lignes auto — groupées par resend_id
       const groupes: Record<string, RowLog[]> = {}
       for (const row of logs) {
         const key = row.resend_id ?? row.id
         if (!groupes[key]) groupes[key] = []
         groupes[key]!.push(row)
       }
-
-      const lignes: LigneRelanceAuto[] = Object.values(groupes).map(rows => {
+      const lignesAuto: LigneRelanceAuto[] = Object.values(groupes).map(rows => {
         const first = rows[0]!
-        const statutBrut = rows.some(r => r.statut === 'bounce') ? 'bounce'
-          : rows.some(r => r.statut === 'erreur') ? 'erreur'
-          : 'envoye'
-        return {
-          date: first.envoye_le,
-          code_client: first.code_client,
-          nom_client: nomParCode[first.code_client] ?? '',
-          montant_total: first.montant_total,
-          email_contact: first.contact_email,
-          statut: statutBrut as LigneRelanceAuto['statut'],
-          nb_factures: rows.length,
-        }
-      }).sort((a, b) => b.date.localeCompare(a.date))
+        const statut = rows.some(r => r.statut === 'bounce') ? 'Contact' : rows.some(r => r.statut === 'erreur') ? 'Erreur' : 'Envoyé'
+        return { date: first.envoye_le, type: 'Auto' as const, code_client: first.code_client, nom_client: nomParCode[first.code_client] ?? '', montant_total: first.montant_total, emails: first.contact_email ?? '', statut, commentaire: '', nb_factures: rows.length }
+      })
 
+      // Lignes manuelles
+      const lignesManuelles: LigneRelanceAuto[] = manuelles.map(r => ({
+        date: r.envoyee_le,
+        type: 'Manuelle' as const,
+        code_client: r.code_client,
+        nom_client: nomParCode[r.code_client] ?? '',
+        montant_total: null,
+        emails: (r.contacts_ids ?? []).map(id => contactEmailMap[id] ?? '').filter(Boolean).join('; '),
+        statut: 'Envoyée',
+        commentaire: r.note ?? r.note_operateur ?? '',
+        nb_factures: r.factures_ids?.length ?? 0,
+      }))
+
+      const lignes = [...lignesAuto, ...lignesManuelles].sort((a, b) => b.date.localeCompare(a.date))
       exporterRelancesAutoXls(lignes)
       toast.success(`${lignes.length} relance${lignes.length > 1 ? 's' : ''} exportée${lignes.length > 1 ? 's' : ''}`)
     } catch {
@@ -297,7 +308,7 @@ export function SectionExport() {
 
         {/* Bandeau info type sélectionné */}
         <div className="flex gap-3 bg-ockham-teal-muted border border-ockham-teal/40 rounded-lg px-4 py-3 mb-6 text-sm text-ockham-teal-dark">
-          <span className="text-base flex-shrink-0">💡</span>
+          <IcInfo size={15} className="flex-shrink-0 mt-0.5 text-ockham-teal" />
           <span>
             {optionSelectionnee
               ? optionSelectionnee.info
