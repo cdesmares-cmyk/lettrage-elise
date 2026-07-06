@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { IcBarChart, IcContacts, IcDownload, IcUsers } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
+import { exporterRelancesAutoXls, type LigneRelanceAuto } from '../../lib/exportXls'
 import { supabase } from '../../lib/supabase'
 import * as XLSX from 'xlsx'
 
@@ -23,7 +24,7 @@ async function fetchAll<T>(
   return acc
 }
 
-type TypeExport = 'lettrage' | 'contacts' | 'clients'
+type TypeExport = 'lettrage' | 'contacts' | 'clients' | 'relances'
 
 const OPTIONS: {
   type: TypeExport
@@ -52,6 +53,13 @@ const OPTIONS: {
     titre: 'Comptes clients',
     description: 'Tous les clients avec leurs paramètres (relance auto, commercial, plateforme…), prêts à être modifiés et ré-importés.',
     info: 'Export instantané — même format que l\'import clients.',
+  },
+  {
+    type: 'relances',
+    icone: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
+    titre: 'Relances auto',
+    description: 'Historique de toutes les relances automatiques envoyées : date, client, montant, email, statut.',
+    info: 'Export instantané — toutes les relances automatiques de votre organisation.',
   },
 ]
 
@@ -164,6 +172,56 @@ export function SectionExport() {
       toast.success(`${clients.length} client${clients.length > 1 ? 's' : ''} exporté${clients.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des clients')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  async function handleExportRelances() {
+    setChargement(true)
+    try {
+      const [{ data: logs }, { data: clientsData }] = await Promise.all([
+        supabase
+          .from('relances_auto_log')
+          .select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut')
+          .order('envoye_le', { ascending: false })
+          .limit(2000),
+        supabase
+          .from('clients')
+          .select('code_dso, nom'),
+      ])
+      if (!logs?.length) { toast('Aucune relance auto à exporter', { icon: 'ℹ️' }); return }
+
+      const nomParCode: Record<string, string> = {}
+      for (const c of (clientsData ?? [])) nomParCode[c.code_dso as string] = c.nom as string
+
+      const groupes: Record<string, typeof logs> = {}
+      for (const row of logs) {
+        const key = (row.resend_id as string | null) ?? (row.id as string)
+        if (!groupes[key]) groupes[key] = []
+        groupes[key]!.push(row)
+      }
+
+      const lignes: LigneRelanceAuto[] = Object.values(groupes).map(rows => {
+        const first = rows![0]!
+        const statutBrut = rows!.some(r => r.statut === 'bounce') ? 'bounce'
+          : rows!.some(r => r.statut === 'erreur') ? 'erreur'
+          : 'envoye'
+        return {
+          date: first.envoye_le as string,
+          code_client: first.code_client as string,
+          nom_client: nomParCode[first.code_client as string] ?? '',
+          montant_total: first.montant_total as number | null,
+          email_contact: first.contact_email as string | null,
+          statut: statutBrut as LigneRelanceAuto['statut'],
+          nb_factures: rows!.length,
+        }
+      }).sort((a, b) => b.date.localeCompare(a.date))
+
+      exporterRelancesAutoXls(lignes)
+      toast.success(`${lignes.length} relance${lignes.length > 1 ? 's' : ''} exportée${lignes.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Erreur lors de l\'export des relances')
     } finally {
       setChargement(false)
     }
@@ -304,6 +362,27 @@ export function SectionExport() {
               </div>
               <button
                 onClick={handleExportClients}
+                disabled={chargement}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+              >
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {type === 'relances' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="text-[11px] text-gray-500">
+                <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                <p>Date · Code client · Nom client · Montant relancé · Email contact · Statut · Nb factures</p>
+                <p className="mt-1 text-gray-400">
+                  Une ligne par email envoyé. L'email affiché est le contact principal de la relance.
+                </p>
+              </div>
+              <button
+                onClick={handleExportRelances}
                 disabled={chargement}
                 className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
               >
