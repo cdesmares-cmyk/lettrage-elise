@@ -180,7 +180,10 @@ export function SectionExport() {
   async function handleExportRelances() {
     setChargement(true)
     try {
-      const [{ data: logs }, { data: clientsData }] = await Promise.all([
+      interface RowLog { id: string; resend_id: string | null; envoye_le: string; code_client: string; contact_email: string | null; montant_total: number | null; statut: string }
+      interface RowClientNom { code_dso: string; nom: string }
+
+      const [{ data: logsRaw }, { data: clientsRaw }] = await Promise.all([
         supabase
           .from('relances_auto_log')
           .select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut')
@@ -190,31 +193,33 @@ export function SectionExport() {
           .from('clients')
           .select('code_dso, nom'),
       ])
-      if (!logs?.length) { toast('Aucune relance auto à exporter', { icon: 'ℹ️' }); return }
+      const logs = (logsRaw ?? []) as RowLog[]
+      const clientsData = (clientsRaw ?? []) as RowClientNom[]
+      if (!logs.length) { toast('Aucune relance auto à exporter', { icon: 'ℹ️' }); return }
 
       const nomParCode: Record<string, string> = {}
-      for (const c of (clientsData ?? [])) nomParCode[c.code_dso as string] = c.nom as string
+      for (const c of clientsData) nomParCode[c.code_dso] = c.nom
 
-      const groupes: Record<string, typeof logs> = {}
+      const groupes: Record<string, RowLog[]> = {}
       for (const row of logs) {
-        const key = (row.resend_id as string | null) ?? (row.id as string)
+        const key = row.resend_id ?? row.id
         if (!groupes[key]) groupes[key] = []
         groupes[key]!.push(row)
       }
 
       const lignes: LigneRelanceAuto[] = Object.values(groupes).map(rows => {
-        const first = rows![0]!
-        const statutBrut = rows!.some(r => r.statut === 'bounce') ? 'bounce'
-          : rows!.some(r => r.statut === 'erreur') ? 'erreur'
+        const first = rows[0]!
+        const statutBrut = rows.some(r => r.statut === 'bounce') ? 'bounce'
+          : rows.some(r => r.statut === 'erreur') ? 'erreur'
           : 'envoye'
         return {
-          date: first.envoye_le as string,
-          code_client: first.code_client as string,
-          nom_client: nomParCode[first.code_client as string] ?? '',
-          montant_total: first.montant_total as number | null,
-          email_contact: first.contact_email as string | null,
+          date: first.envoye_le,
+          code_client: first.code_client,
+          nom_client: nomParCode[first.code_client] ?? '',
+          montant_total: first.montant_total,
+          email_contact: first.contact_email,
           statut: statutBrut as LigneRelanceAuto['statut'],
-          nb_factures: rows!.length,
+          nb_factures: rows.length,
         }
       }).sort((a, b) => b.date.localeCompare(a.date))
 
