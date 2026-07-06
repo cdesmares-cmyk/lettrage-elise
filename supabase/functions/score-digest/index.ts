@@ -186,8 +186,6 @@ Deno.serve(async (req: Request) => {
         .from('utilisateurs')
         .select('email')
         .eq('organisation_id', orgId)
-        .in('role', ['admin', 'responsable_poste_client'])
-        .eq('invitation_en_attente', false)
         .eq('recoit_digest_alertes', true)
 
       const emails = ((users ?? []) as { email: string }[]).map(u => u.email)
