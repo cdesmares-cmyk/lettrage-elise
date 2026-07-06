@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { IcWarning } from '../Icones'
 import toast from 'react-hot-toast'
+import { exporterRelancesAutoXls, type LigneRelanceAuto } from '../../lib/exportXls'
 
 interface ParamsAuto {
   delai_echeance_jours: number
@@ -40,6 +41,7 @@ export function TabModeAutoRelance() {
   })
   const [chargement, setChargement] = useState(true)
   const [sauvegarde, setSauvegarde] = useState(false)
+  const [exportEnCours, setExportEnCours] = useState(false)
 
   useEffect(() => {
     if (!profil?.organisation_id) return
@@ -65,6 +67,56 @@ export function TabModeAutoRelance() {
         setChargement(false)
       })
   }, [profil?.organisation_id])
+
+  async function exporterHistorique() {
+    if (!profil?.organisation_id) return
+    setExportEnCours(true)
+    try {
+      const { data: logs } = await supabase
+        .from('relances_auto_log')
+        .select('resend_id, envoye_le, code_client, contact_email, montant_total, statut')
+        .eq('organisation_id', profil.organisation_id)
+        .order('envoye_le', { ascending: false })
+        .limit(2000)
+
+      const { data: clientsData } = await supabase
+        .from('clients')
+        .select('code_dso, nom')
+        .eq('organisation_id', profil.organisation_id)
+
+      const nomParCode = Object.fromEntries((clientsData ?? []).map(c => [c.code_dso as string, c.nom as string]))
+
+      // Grouper par resend_id — une ligne par email envoyé
+      const groupes = (logs ?? []).reduce<Record<string, typeof logs>>((acc, row) => {
+        const key = (row.resend_id as string | null) ?? (row as { id?: string }).id ?? String(Math.random())
+        if (!acc[key]) acc[key] = []
+        acc[key]!.push(row)
+        return acc
+      }, {})
+
+      const lignes: LigneRelanceAuto[] = Object.values(groupes).map(rows => {
+        const first = rows![0]!
+        const statut = rows!.some(r => r.statut === 'bounce') ? 'bounce'
+          : rows!.some(r => r.statut === 'erreur') ? 'erreur'
+          : 'envoye'
+        return {
+          date: first.envoye_le as string,
+          code_client: first.code_client as string,
+          nom_client: nomParCode[first.code_client as string] ?? '',
+          montant_total: first.montant_total as number | null,
+          email_contact: first.contact_email as string | null,
+          statut,
+          nb_factures: rows!.length,
+        }
+      }).sort((a, b) => b.date.localeCompare(a.date))
+
+      exporterRelancesAutoXls(lignes)
+    } catch {
+      toast.error('Erreur lors de l\'export.')
+    } finally {
+      setExportEnCours(false)
+    }
+  }
 
   async function sauvegarder() {
     if (!profil?.organisation_id) return
@@ -240,7 +292,11 @@ export function TabModeAutoRelance() {
         ) : null}
       </div>
 
-      <div className="flex justify-end pt-2">
+      <div className="flex items-center justify-between pt-2">
+        <button onClick={exporterHistorique} disabled={exportEnCours}
+          className="px-4 py-2 text-sm font-semibold border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors">
+          {exportEnCours ? 'Export…' : 'Exporter l\'historique'}
+        </button>
         <button onClick={sauvegarder} disabled={sauvegarde}
           className="px-4 py-2 text-sm font-semibold bg-ockham-teal text-white rounded-lg hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors">
           {sauvegarde ? 'Enregistrement…' : 'Enregistrer'}

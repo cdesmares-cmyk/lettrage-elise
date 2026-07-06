@@ -206,7 +206,14 @@ Deno.serve(async (req: Request) => {
         .eq('relance_auto_active', true)
         .eq('relance_auto_alerte', false)
         .is('statut_juridique', null)
-      if (!clients?.length) continue
+      if (!clients?.length) {
+        await supabase.from('organisations').update({
+          relance_auto_derniere_exec:   new Date().toISOString(),
+          relance_auto_dernier_statut:  'ok',
+          relance_auto_dernier_message: '0 envoyé · 0 ignoré · 0 erreur',
+        } as never).eq('id', orgId)
+        continue
+      }
 
       for (const client of clients) {
         const codeDso            = client.code_dso as string
