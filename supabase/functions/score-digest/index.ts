@@ -178,15 +178,17 @@ Deno.serve(async (req: Request) => {
       parOrg.get(orgId)!.push(a as AlereteRow)
     }
 
+    console.log(`[score-digest] ${alertes.length} alertes trouvées, ${parOrg.size} org(s)`)
     let nbEnvoyés = 0
 
     for (const [orgId, rows] of parOrg) {
-      // Destinataires : admin ou Credit Manager, compte activé, opt-in digest
-      const { data: users } = await supabase
+      const { data: users, error: usersErr } = await supabase
         .from('utilisateurs')
         .select('email')
         .eq('organisation_id', orgId)
         .eq('recoit_digest_alertes', true)
+
+      console.log(`[score-digest] org=${orgId} users=${JSON.stringify(users)} err=${usersErr?.message}`)
 
       const emails = ((users ?? []) as { email: string }[]).map(u => u.email)
 
@@ -196,7 +198,9 @@ Deno.serve(async (req: Request) => {
       const sujet = `Alertes Score Client OCKHAM — ${rows.length} client(s) à surveiller`
 
       for (const email of emails) {
+        console.log(`[score-digest] envoi → ${email}`)
         const ok = await envoyerEmail(email, sujet, html)
+        console.log(`[score-digest] résultat envoi ${email}: ${ok}`)
         if (ok) nbEnvoyés++
       }
     }
