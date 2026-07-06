@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useRelances } from '../hooks/useRelances'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useLeaderboard } from '../hooks/useLeaderboard'
@@ -19,7 +18,6 @@ export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
   const { isCommercial, peutModifier } = useRole()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
-  const navigate = useNavigate()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
