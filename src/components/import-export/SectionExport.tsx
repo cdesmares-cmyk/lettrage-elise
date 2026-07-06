@@ -57,9 +57,9 @@ const OPTIONS: {
   {
     type: 'relances',
     icone: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>,
-    titre: 'Relances auto',
-    description: 'Historique de toutes les relances automatiques envoyées : date, client, montant, email, statut.',
-    info: 'Export instantané — toutes les relances automatiques de votre organisation.',
+    titre: 'Relances client',
+    description: 'Historique de toutes les relances envoyées (automatiques et manuelles) : date, client, montant, email, statut.',
+    info: 'Sélectionnez une plage de dates pour filtrer les relances à exporter.',
   },
 ]
 
@@ -186,8 +186,8 @@ export function SectionExport() {
       interface RowContact { id: string; email: string }
 
       const [{ data: logsRaw }, { data: manuellesRaw }, { data: clientsRaw }] = await Promise.all([
-        supabase.from('relances_auto_log').select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut').order('envoye_le', { ascending: false }).limit(2000),
-        supabase.from('relances').select('id, code_client, envoyee_le, note, note_operateur, contacts_ids, factures_ids').not('envoyee_le', 'is', null).order('envoyee_le', { ascending: false }).limit(1000),
+        supabase.from('relances_auto_log').select('id, resend_id, envoye_le, code_client, contact_email, montant_total, statut').gte('envoye_le', dateDebut).lte('envoye_le', dateFin + 'T23:59:59').order('envoye_le', { ascending: false }).limit(2000),
+        supabase.from('relances').select('id, code_client, envoyee_le, note, note_operateur, contacts_ids, factures_ids').not('envoyee_le', 'is', null).gte('envoyee_le', dateDebut).lte('envoyee_le', dateFin + 'T23:59:59').order('envoyee_le', { ascending: false }).limit(1000),
         supabase.from('clients').select('code_dso, nom'),
       ])
       const logs = (logsRaw ?? []) as RowLog[]
@@ -389,21 +389,26 @@ export function SectionExport() {
 
         {type === 'relances' && (
           <div className="border border-gray-200 rounded-xl p-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="text-[11px] text-gray-500">
-                <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
-                <p>Date · Code client · Nom client · Montant relancé · Email contact · Statut · Nb factures</p>
-                <p className="mt-1 text-gray-400">
-                  Une ligne par email envoyé. L'email affiché est le contact principal de la relance.
-                </p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Plage de dates</p>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Du</label>
+                <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors" />
               </div>
-              <button
-                onClick={handleExportRelances}
-                disabled={chargement}
-                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
-              >
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Au</label>
+                <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors" />
+              </div>
+              <button onClick={handleExportRelances} disabled={chargement || !dateDebut || !dateFin}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap">
                 {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
               </button>
+            </div>
+            <div className="border-t border-gray-100 pt-3 mt-4 text-[11px] text-gray-500">
+              <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+              <p>Date · Type (Auto / Manuelle) · Code client · Nom client · Montant · Email(s) contact · Statut · Commentaire · Nb factures</p>
             </div>
           </div>
         )}
