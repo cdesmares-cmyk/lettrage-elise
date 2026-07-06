@@ -11,7 +11,6 @@ import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalParametresRelances } from '../components/admin/ModalParametresRelances'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
-import { DivAlertesScore } from '../components/relances/DivAlertesScore'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
 import type { CompteClient, FactureDetail } from '../types/client'
@@ -61,14 +60,6 @@ export function PageRelances() {
 
       {/* KPIs unifiés : Total € + pipeline */}
       <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} />
-
-      {/* Alertes risque — strip horizontal */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Alertes risque client — aujourd'hui</p>
-        <DivAlertesScore
-          onOuvrirFiche={code => navigate(`/compte-client?client=${encodeURIComponent(code)}`)}
-        />
-      </div>
 
       {/* Tableau relances */}
       <div className="space-y-2">
