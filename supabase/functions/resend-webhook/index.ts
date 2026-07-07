@@ -103,17 +103,27 @@ Deno.serve(async (req: Request) => {
   const log = logs[0]
 
   // Mettre à jour toutes les lignes de ce resend_id en 'bounce'
-  await supabase
+  const { error: errUpdateLog } = await supabase
     .from('relances_auto_log')
     .update({ statut: 'bounce' })
     .eq('resend_id', emailId)
 
+  if (errUpdateLog) {
+    console.error('[resend-webhook] erreur update log:', errUpdateLog.message)
+    return json({ error: 'erreur_update_log' }, 500)
+  }
+
   // Lever l'alerte sur le client — le cron ne le relancera plus
-  await supabase
+  const { error: errUpdateClient } = await supabase
     .from('clients')
     .update({ relance_auto_alerte: true } as never)
     .eq('code_dso', log.code_client)
     .eq('organisation_id', log.organisation_id)
+
+  if (errUpdateClient) {
+    console.error('[resend-webhook] erreur update client:', errUpdateClient.message)
+    return json({ error: 'erreur_update_client' }, 500)
+  }
 
   console.log(`[resend-webhook] ${type} → client ${log.code_client} mis en alerte`)
   return json({ ok: true, type, code_client: log.code_client })

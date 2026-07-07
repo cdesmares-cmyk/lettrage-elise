@@ -67,11 +67,19 @@ Deno.serve(async (req: Request) => {
   const expiry = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString()
 
   // Mise à jour en BDD
-  await supabase.from('gmail_tokens').update({
+  const { error: updateError } = await supabase.from('gmail_tokens').update({
     access_token:  tokens.access_token,
     token_expiry:  expiry,
     mis_a_jour_le: new Date().toISOString(),
   }).eq('user_id', user.id)
+
+  if (updateError) {
+    console.error('[gmail-refresh-token] erreur sauvegarde token:', updateError.message)
+    return new Response(
+      JSON.stringify({ error: 'erreur_sauvegarde_token' }),
+      { status: 500, headers: { ...CORS, 'Content-Type': 'application/json' } }
+    )
+  }
 
   return new Response(
     JSON.stringify({ access_token: tokens.access_token, token_expiry: expiry }),
