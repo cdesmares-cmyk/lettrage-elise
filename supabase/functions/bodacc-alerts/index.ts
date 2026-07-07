@@ -7,12 +7,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const RESEND_KEY   = Deno.env.get('RESEND_API_KEY')!
+const CRON_SECRET  = Deno.env.get('CRON_SECRET') ?? ''
 const APP_URL      = Deno.env.get('APP_URL') ?? 'https://app.ockham.fr'
 const FROM_EMAIL   = Deno.env.get('RESEND_FROM') ?? 'OCKHAM Veille <alerte@ockham.finance>'
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 function json(data: unknown, status = 200) {
@@ -187,6 +188,8 @@ async function envoyerEmail(to: string, subject: string, html: string): Promise<
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
+  if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET)
+    return json({ error: 'unauthorized' }, 401)
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
