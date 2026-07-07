@@ -140,21 +140,34 @@ function buildHtml(corps: string, factures: FactureLigne[], signature: string | 
 </div>`
 }
 
-// ── Envoi Resend ─────────────────────────────────────────────────────────────
+// ── Envoi Resend Batch (jusqu'à 100 emails par appel) ───────────────────────
 
-async function envoyerResend(to: string[], objet: string, html: string): Promise<string | null> {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: FROM_EMAIL, to, subject: objet, html }),
-    signal: AbortSignal.timeout(8000),
-  })
-  if (!res.ok) {
-    console.error('Resend error:', res.status, await res.text().catch(() => ''))
-    return null
+interface EmailPayload { from: string; to: string[]; subject: string; html: string }
+interface PendingEmail {
+  to: string[]; objet: string; html: string
+  codeDso: string; nomClient: string; montantDu: number
+  facturesEligibles: { numero_piece: string; montant_ttc: number; reste_du: number; date_echeance: string | null; axonaut_pdf_url: string | null }[]
+  scenarioId: string
+}
+
+async function envoyerResendBatch(emails: EmailPayload[]): Promise<(string | null)[]> {
+  try {
+    const res = await fetch('https://api.resend.com/emails/batch', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(emails),
+      signal: AbortSignal.timeout(30000),
+    })
+    if (!res.ok) {
+      console.error('[relance-auto] Resend batch error:', res.status, await res.text().catch(() => ''))
+      return emails.map(() => null)
+    }
+    const data = await res.json() as { data?: { id: string }[] }
+    return (data.data ?? []).map(d => d.id ?? null)
+  } catch (err) {
+    console.error('[relance-auto] Resend batch timeout:', err)
+    return emails.map(() => null)
   }
-  const data = await res.json() as { id?: string }
-  return data.id ?? null
 }
 
 // ── Handler principal ────────────────────────────────────────────────────────
@@ -197,12 +210,9 @@ Deno.serve(async (req: Request) => {
         .order('niveau', { ascending: true })
         .limit(1)
       const scenario = scenarios?.[0]
-      if (!scenario) {
-        console.log(`[relance-auto] org ${orgId} : aucun scénario — skip`)
-        continue
-      }
+      if (!scenario) { console.log(`[relance-auto] org ${orgId} : aucun scénario — skip`); continue }
 
-      // 3. Clients éligibles — skip ceux en alerte bounce
+      // 3. Clients éligibles
       const { data: clients } = await supabase
         .from('clients')
         .select('code_dso, nom, delai_echeance_jours')
@@ -219,95 +229,103 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
+      // 4. Chargement batch : dédup + contacts + factures en 3 requêtes pour toute l'org
+      const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
+      const [dedupRes, contactsRes, facturesRes] = await Promise.all([
+        supabase.from('relances_auto_log').select('code_client')
+          .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
+        supabase.from('contacts_client').select('code_client, email, role_contact')
+          .eq('organisation_id', orgId).eq('actif', true).in('role_contact', ['relance', 'comptabilite']),
+        supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
+          .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005),
+      ])
+
+      const dedupSet = new Set((dedupRes.data ?? []).map((r: { code_client: string }) => r.code_client))
+
+      const contactsMap = new Map<string, { email: string; role_contact: string }[]>()
+      for (const c of (contactsRes.data ?? [])) {
+        const k = c.code_client as string
+        if (!contactsMap.has(k)) contactsMap.set(k, [])
+        contactsMap.get(k)!.push({ email: c.email as string, role_contact: c.role_contact as string })
+      }
+
+      const facturesMap = new Map<string, { numero_piece: string; montant_ttc: number; reste_du: number; date_echeance: string | null; date_emission: string; axonaut_pdf_url: string | null }[]>()
+      for (const f of (facturesRes.data ?? [])) {
+        const k = f.code_client as string
+        if (!facturesMap.has(k)) facturesMap.set(k, [])
+        facturesMap.get(k)!.push({
+          numero_piece:    f.numero_piece as string,
+          montant_ttc:     f.montant_ttc as number,
+          reste_du:        f.reste_du as number,
+          date_echeance:   f.date_echeance as string | null,
+          date_emission:   f.date_emission as string,
+          axonaut_pdf_url: f.axonaut_pdf_url as string | null,
+        })
+      }
+
+      // 5. Préparer les emails en mémoire
+      const pending: PendingEmail[] = []
+
       for (const client of clients) {
-        const codeDso            = client.code_dso as string
-        const nomClient          = client.nom as string
+        const codeDso             = client.code_dso as string
+        const nomClient           = client.nom as string
         const delaiEcheanceClient = (client.delai_echeance_jours as number | null) ?? delaiEcheanceOrg
 
-        // 4. Déduplication : relance déjà envoyée dans la fenêtre ?
-        const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
-        const { data: dedup } = await supabase
-          .from('relances_auto_log')
-          .select('id')
-          .eq('organisation_id', orgId)
-          .eq('code_client', codeDso)
-          .gte('envoye_le', seuilDedup)
-          .limit(1)
-        if (dedup?.length) { nbSkip++; nbSkipOrg++; continue }
+        if (dedupSet.has(codeDso)) { nbSkip++; nbSkipOrg++; continue }
 
-        // 5. Contacts destinataires (relance > comptabilite)
-        const { data: contacts } = await supabase
-          .from('contacts_client')
-          .select('email, role_contact')
-          .eq('organisation_id', orgId)
-          .eq('code_client', codeDso)
-          .eq('actif', true)
-          .in('role_contact', ['relance', 'comptabilite'])
-        const relanceContacts  = (contacts ?? []).filter(c => c.role_contact === 'relance')
-        const compteContacts   = (contacts ?? []).filter(c => c.role_contact === 'comptabilite')
-        const destinataires    = (relanceContacts.length ? relanceContacts : compteContacts)
-          .map(c => c.email as string).filter(Boolean)
-        if (!destinataires.length) {
-          console.log(`[relance-auto] ${codeDso} : aucun contact relance/compta — skip`)
-          nbSkip++; nbSkipOrg++; continue
-        }
+        const contacts       = contactsMap.get(codeDso) ?? []
+        const relanceC       = contacts.filter(c => c.role_contact === 'relance')
+        const compteC        = contacts.filter(c => c.role_contact === 'comptabilite')
+        const destinataires  = (relanceC.length ? relanceC : compteC).map(c => c.email).filter(Boolean)
+        if (!destinataires.length) { nbSkip++; nbSkipOrg++; continue }
 
-        // 6. Factures éligibles
-        // date_echeance présente → utiliser directement
-        // date_echeance nulle   → date_emission + delaiEcheanceClient jours
-        // Dans les deux cas : date_echeance_effective + delaiDeclenche <= today
-        const { data: factures } = await supabase
-          .from('factures')
-          .select('numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
-          .eq('code_client', codeDso)
-          .eq('organisation_id', orgId)
-          .eq('est_avoir', false)
-          .gt('reste_du', 0.005)
-        const facturesEligibles = (factures ?? []).filter(f => {
-          const echeance = f.date_echeance
-            ? new Date(f.date_echeance as string)
-            : new Date(new Date(f.date_emission as string).getTime() + delaiEcheanceClient * 86_400_000)
+        const facturesEligibles = (facturesMap.get(codeDso) ?? []).filter(f => {
+          const echeance     = f.date_echeance
+            ? new Date(f.date_echeance)
+            : new Date(new Date(f.date_emission).getTime() + delaiEcheanceClient * 86_400_000)
           const declenchement = new Date(echeance.getTime() + delaiDeclenche * 86_400_000)
           return declenchement.toISOString().split('T')[0] <= today
         })
         if (!facturesEligibles.length) { nbSkip++; nbSkipOrg++; continue }
 
-        // 7. Construction email
-        const montantDu = facturesEligibles.reduce((s, f) => s + (f.reste_du as number), 0)
-        const ctx = { nomClient, codeClient: codeDso, montantDu, nomOrg: orgNom }
-        const objet = resolveBalises(scenario.objet as string, ctx)
-        const corps = resolveBalises(scenario.corps_texte as string, ctx)
+        const montantDu = facturesEligibles.reduce((s, f) => s + f.reste_du, 0)
+        const ctx       = { nomClient, codeClient: codeDso, montantDu, nomOrg: orgNom }
+        const objet     = resolveBalises(scenario.objet as string, ctx)
+        const corps     = resolveBalises(scenario.corps_texte as string, ctx)
         const lignes: FactureLigne[] = facturesEligibles.map(f => ({
-          numero: f.numero_piece as string,
-          montantTtc: f.montant_ttc as number,
-          restedu: f.reste_du as number,
-          echeance: f.date_echeance as string | null,
-          pdfUrl: f.axonaut_pdf_url as string | null,
+          numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du,
+          echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url,
         }))
         const html = buildHtml(corps, lignes, signatureAuto)
 
-        // 8. Envoi Resend
-        const resendId = await envoyerResend(destinataires, objet, html)
-        if (!resendId) { nbErreurs++; nbErreursOrg++; continue }
-
-        // 9. Log des envois (une entrée par facture pour traçabilité fine)
-        const logs = facturesEligibles.map(f => ({
-          organisation_id: orgId,
-          code_client:     codeDso,
-          numero_facture:  f.numero_piece as string,
-          scenario_id:     scenario.id as string,
-          statut:          'envoye',
-          resend_id:       resendId,
-          contact_email:   destinataires[0] ?? null,
-          montant_total:   montantDu,
-          corps_html:      html,
-        }))
-        await supabase.from('relances_auto_log').insert(logs)
-        nbEnvoyes++; nbEnvoyesOrg++
-        console.log(`[relance-auto] ${codeDso} → ${destinataires.join(', ')} (${facturesEligibles.length} factures)`)
+        pending.push({ to: destinataires, objet, html, codeDso, nomClient, montantDu, facturesEligibles, scenarioId: scenario.id as string })
       }
 
-      // Mise à jour monitoring par org — visible par l'admin sans accès superadmin
+      // 6. Envoi par batch de 100 + logs en batch
+      const BATCH_SIZE = 100
+      for (let i = 0; i < pending.length; i += BATCH_SIZE) {
+        const batch   = pending.slice(i, i + BATCH_SIZE)
+        const payload = batch.map(p => ({ from: FROM_EMAIL, to: p.to, subject: p.objet, html: p.html }))
+        const ids     = await envoyerResendBatch(payload)
+
+        const logsAInserer: object[] = []
+        for (let j = 0; j < batch.length; j++) {
+          const resendId = ids[j] ?? null
+          if (!resendId) { nbErreurs++; nbErreursOrg++; continue }
+          const p = batch[j]
+          for (const f of p.facturesEligibles) {
+            logsAInserer.push({
+              organisation_id: orgId, code_client: p.codeDso, numero_facture: f.numero_piece,
+              scenario_id: p.scenarioId, statut: 'envoye', resend_id: resendId,
+              contact_email: p.to[0] ?? null, montant_total: p.montantDu, corps_html: p.html,
+            })
+          }
+          nbEnvoyes++; nbEnvoyesOrg++
+          console.log(`[relance-auto] ${p.codeDso} → ${p.to.join(', ')} (${p.facturesEligibles.length} factures)`)
+        }
+        if (logsAInserer.length) await supabase.from('relances_auto_log').insert(logsAInserer)
+      }
+
       await supabase.from('organisations').update({
         relance_auto_derniere_exec:   new Date().toISOString(),
         relance_auto_dernier_statut:  nbErreursOrg > 0 ? 'partiel' : 'ok',
