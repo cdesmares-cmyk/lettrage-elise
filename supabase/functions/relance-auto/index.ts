@@ -147,6 +147,7 @@ async function envoyerResend(to: string[], objet: string, html: string): Promise
     method: 'POST',
     headers: { 'Authorization': `Bearer ${RESEND_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ from: FROM_EMAIL, to, subject: objet, html }),
+    signal: AbortSignal.timeout(8000),
   })
   if (!res.ok) {
     console.error('Resend error:', res.status, await res.text().catch(() => ''))
