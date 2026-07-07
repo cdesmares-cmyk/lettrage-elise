@@ -224,12 +224,13 @@ Deno.serve(async (req: Request) => {
 
     // ── SET_TEMP_PASSWORD ─────────────────────────────────────────────────────
     if (action === 'set_temp_password') {
-      const { user_id } = body
+      const { user_id, new_password } = body
       if (!user_id) return json({ error: 'user_id requis' }, 400)
-      const tempPwd = genTempPassword()
-      const { error } = await supabase.auth.admin.updateUserById(user_id, { password: tempPwd })
+      if (!new_password || typeof new_password !== 'string' || new_password.length < 8)
+        return json({ error: 'new_password invalide' }, 400)
+      const { error } = await supabase.auth.admin.updateUserById(user_id, { password: new_password })
       if (error) return json({ error: error.message }, 400)
-      return json({ ok: true, temp_password: tempPwd })
+      return json({ ok: true })
     }
 
     // ── SUSPEND_USER ──────────────────────────────────────────────────────────

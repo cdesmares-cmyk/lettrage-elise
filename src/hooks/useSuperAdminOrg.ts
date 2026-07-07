@@ -95,12 +95,18 @@ export function useSuperAdminOrg() {
 
   async function setTempPassword(user_id: string): Promise<string | null> {
     try {
+      const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
+      const arr = new Uint8Array(10)
+      crypto.getRandomValues(arr)
+      const raw = Array.from(arr).map(b => chars[b % chars.length]).join('')
+      const new_password = `${raw.slice(0, 4)}-${raw.slice(4, 7)}-${raw.slice(7)}`
+
       const { data, error } = await supabase.functions.invoke('superadmin-data', {
-        body: { action: 'set_temp_password', user_id },
+        body: { action: 'set_temp_password', user_id, new_password },
       })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      return data.temp_password as string
+      return new_password
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur génération mdp')
       return null
