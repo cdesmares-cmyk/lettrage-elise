@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import { ModalBase } from './ModalBase'
+import { IcEdit } from '../Icones'
 
 export function ModalCorrectionLettrage({ onClose }: { onClose: () => void }) {
   const { rafraichir } = useAppData()
@@ -40,7 +41,7 @@ export function ModalCorrectionLettrage({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalBase titre="Correction lettrage" onClose={onClose} largeur="max-w-lg">
+    <ModalBase titre="Correction lettrage" onClose={onClose} largeur="max-w-lg" icon={<IcEdit size={14} />}>
       <div className="px-6 py-5 space-y-4">
         <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-xs text-amber-800">
           <span className="flex-shrink-0 mt-0.5">⚠️</span>

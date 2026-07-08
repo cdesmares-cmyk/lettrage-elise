@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import { ModalBase } from './ModalBase'
+import { IcTrash } from '../Icones'
 
 type Entite = 'lettrages' | 'relances' | 'factures' | 'lignes_bancaires' | 'imports' | 'contacts' | 'clients'
 
@@ -61,7 +62,7 @@ export function ModalReinitialisation({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalBase titre="Réinitialisation" onClose={onClose} largeur="max-w-lg">
+    <ModalBase titre="Réinitialisation" onClose={onClose} largeur="max-w-lg" icon={<IcTrash size={14} />}>
       <div className="px-6 py-5 space-y-5">
 
         <div className="flex items-start gap-2.5 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-xs text-red-800">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
+import { IcBell } from '../Icones'
 
 interface Props {
   onClose: () => void
@@ -84,16 +85,19 @@ export function ModalAlertesParametres({ onClose }: Props) {
   const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== utilisateur?.id)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 flex flex-col gap-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
 
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-gray-900">Alertes & Scoring</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Paramètres de détection du risque client</p>
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 rounded-t-2xl" style={{ background: '#0E1A2B' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(76,197,187,0.12)' }}>
+              <span className="text-ockham-teal"><IcBell size={14} /></span>
+            </div>
+            <h2 className="text-sm font-bold text-white">Alertes &amp; Scoring</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-lg leading-none" style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)' }}>×</button>
         </div>
+        <div className="p-6 flex flex-col gap-5">
 
         {/* Abonnement personnel */}
         {moiMeme && (
@@ -222,6 +226,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
           >
             {sauvegarde ? '…' : 'Enregistrer'}
           </button>
+        </div>
         </div>
       </div>
     </div>

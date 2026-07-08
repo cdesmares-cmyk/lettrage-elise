@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
 import { useAxonautIntegration } from '../../hooks/useAxonautIntegration'
 import { ModalBase } from './ModalBase'
+import { IcLink } from '../Icones'
 import { SectionIntegrationAxonaut } from './SectionIntegrationAxonaut'
 import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 
@@ -105,7 +106,7 @@ export function ModalIntegrations({ onClose }: Props) {
   if (panneau === 'bodacc') return <ModalVeilleBodacc onClose={() => setPanneau(null)} />
 
   return (
-    <ModalBase titre="Intégrations" onClose={onClose} largeur="max-w-xl">
+    <ModalBase titre="Intégrations" onClose={onClose} largeur="max-w-xl" icon={<IcLink size={14} />}>
       <div className="px-6 py-5 space-y-3">
 
         {panneau === 'axonaut' ? (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useRefValeurs } from '../../hooks/useRefValeurs'
 import { ModalBase } from './ModalBase'
+import { IcSliders } from '../Icones'
 
 function BlocRef({ titre, categorie, placeholder, description }: {
   titre: string
@@ -55,7 +56,7 @@ function BlocRef({ titre, categorie, placeholder, description }: {
 
 export function ModalChampsPersonnalises({ onClose }: { onClose: () => void }) {
   return (
-    <ModalBase titre="Champs personnalisés" onClose={onClose} largeur="max-w-2xl">
+    <ModalBase titre="Champs personnalisés" onClose={onClose} largeur="max-w-2xl" icon={<IcSliders size={14} />}>
       <div className="px-6 py-5 space-y-6">
 
         {/* Listes de référence */}

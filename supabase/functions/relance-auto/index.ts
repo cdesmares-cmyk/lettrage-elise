@@ -100,9 +100,38 @@ function textToHtmlBlocs(texte: string): string {
   ).join('')
 }
 
-function buildHtml(corps: string, factures: FactureLigne[], signature: string | null): string {
+interface AvoirLigne {
+  numero: string
+  montant: number
+  echeance: string | null
+}
+
+function buildAvoirsBlock(avoirs: AvoirLigne[]): string {
+  if (!avoirs.length) return ''
+  const total = avoirs.reduce((s, a) => s + Math.abs(a.montant), 0)
+  const rows = avoirs.map(a => `<tr>
+    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;font-size:13px;color:#374151;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${a.numero}</td>
+    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;text-align:right;white-space:nowrap;">
+      <span style="font-size:13px;font-weight:700;color:#16A34A;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtEuros(Math.abs(a.montant))}</span>
+    </td>
+    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;text-align:right;white-space:nowrap;">
+      <span style="font-size:12px;color:#6B7280;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtDate(a.echeance)}</span>
+    </td>
+  </tr>`).join('')
+  return `<div style="border-radius:12px;border:1px solid #BBF7D0;background:#F0FDF4;overflow:hidden;margin-top:16px;margin-bottom:8px;">
+  <div style="padding:10px 16px 8px;border-bottom:1px solid #BBF7D0;">
+    <span style="font-size:11px;font-weight:700;color:#15803D;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Avoir${avoirs.length > 1 ? 's' : ''} disponible${avoirs.length > 1 ? 's' : ''} — ${fmtEuros(total)} à déduire</span>
+  </div>
+  <table style="width:100%;border-collapse:collapse;">
+    <tbody>${rows}</tbody>
+  </table>
+</div>`
+}
+
+function buildHtml(corps: string, factures: FactureLigne[], signature: string | null, avoirs: AvoirLigne[] = []): string {
   const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
   const rows = factures.map(buildRow).join('')
+  const avoirsBlock = buildAvoirsBlock(avoirs)
   const tableBlock = `
   <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
     <table style="width:100%;border-collapse:collapse;">
@@ -124,7 +153,7 @@ function buildHtml(corps: string, factures: FactureLigne[], signature: string | 
         </tr>
       </tfoot>
     </table>
-  </div>`
+  </div>${avoirsBlock}`
   const sig = signature
     ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${textToHtmlBlocs(signature)}</div>`
     : ''
@@ -229,15 +258,17 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
-      // 4. Chargement batch : dédup + contacts + factures en 3 requêtes pour toute l'org
+      // 4. Chargement batch : dédup + contacts + factures + avoirs en 4 requêtes pour toute l'org
       const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
-      const [dedupRes, contactsRes, facturesRes] = await Promise.all([
+      const [dedupRes, contactsRes, facturesRes, avoirsRes] = await Promise.all([
         supabase.from('relances_auto_log').select('code_client')
           .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
         supabase.from('contacts_client').select('code_client, email, role_contact')
           .eq('organisation_id', orgId).eq('actif', true).in('role_contact', ['relance', 'comptabilite']),
         supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
           .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005),
+        supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission')
+          .eq('organisation_id', orgId).eq('est_avoir', true).neq('reste_du', 0),
       ])
 
       const dedupSet = new Set((dedupRes.data ?? []).map((r: { code_client: string }) => r.code_client))
@@ -260,6 +291,19 @@ Deno.serve(async (req: Request) => {
           date_echeance:   f.date_echeance as string | null,
           date_emission:   f.date_emission as string,
           axonaut_pdf_url: f.axonaut_pdf_url as string | null,
+        })
+      }
+
+      const avoirsMap = new Map<string, { numero_piece: string; montant_ttc: number; reste_du: number; date_echeance: string | null; date_emission: string }[]>()
+      for (const a of (avoirsRes.data ?? [])) {
+        const k = a.code_client as string
+        if (!avoirsMap.has(k)) avoirsMap.set(k, [])
+        avoirsMap.get(k)!.push({
+          numero_piece:  a.numero_piece as string,
+          montant_ttc:   a.montant_ttc as number,
+          reste_du:      a.reste_du as number,
+          date_echeance: a.date_echeance as string | null,
+          date_emission: a.date_emission as string,
         })
       }
 
@@ -296,7 +340,17 @@ Deno.serve(async (req: Request) => {
           numero: f.numero_piece, montantTtc: f.montant_ttc, restedu: f.reste_du,
           echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url,
         }))
-        const html = buildHtml(corps, lignes, signatureAuto)
+        const avoirsEligibles = (avoirsMap.get(codeDso) ?? []).filter(a => {
+          const echeance      = a.date_echeance
+            ? new Date(a.date_echeance)
+            : new Date(new Date(a.date_emission).getTime() + delaiEcheanceClient * 86_400_000)
+          const declenchement = new Date(echeance.getTime() + delaiDeclenche * 86_400_000)
+          return declenchement.toISOString().split('T')[0] <= today
+        })
+        const lignesAvoirs: AvoirLigne[] = avoirsEligibles.map(a => ({
+          numero: a.numero_piece, montant: a.reste_du, echeance: a.date_echeance,
+        }))
+        const html = buildHtml(corps, lignes, signatureAuto, lignesAvoirs)
 
         pending.push({ to: destinataires, objet, html, codeDso, nomClient, montantDu, facturesEligibles, scenarioId: scenario.id as string })
       }

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import { ModalBase } from './ModalBase'
+import { IcClock } from '../Icones'
 import type { ImportRecord } from '../../hooks/useAdmin'
 
 function fmtDate(iso: string) {
@@ -91,7 +92,7 @@ export function ModalHistoriqueImport({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalBase titre="Historique d'import" onClose={onClose} largeur="max-w-3xl">
+    <ModalBase titre="Historique d'import" onClose={onClose} largeur="max-w-3xl" icon={<IcClock size={14} />}>
       <div className="px-6 py-5">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs text-gray-400">10 imports les plus récents</p>

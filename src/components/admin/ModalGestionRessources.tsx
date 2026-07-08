@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { ModalBase } from './ModalBase'
+import { IcUsers } from '../Icones'
 
 type Role = 'admin' | 'responsable_poste_client' | 'commercial'
 
@@ -37,8 +38,9 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
   const [users, setUsers] = useState<Utilisateur[]>([])
   const [chargement, setChargement] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [invitePrenom, setInvitePrenom] = useState('')
   const [inviteNom, setInviteNom] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<Role>('responsable_poste_client')
   const [showInvite, setShowInvite] = useState(false)
   const [editRole, setEditRole] = useState<string | null>(null)
@@ -57,10 +59,12 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
     if (!inviteEmail.trim()) return
     setChargement(true)
     try {
-      await callAdminUsers({ action: 'invite', email: inviteEmail.trim(), role: inviteRole, nom_affiche: inviteNom.trim() || undefined })
+      const nomAffiche = [invitePrenom.trim(), inviteNom.trim()].filter(Boolean).join(' ') || undefined
+      await callAdminUsers({ action: 'invite', email: inviteEmail.trim(), role: inviteRole, nom_affiche: nomAffiche })
       toast.success(`Invitation envoyée à ${inviteEmail.trim()}`)
-      setInviteEmail('')
+      setInvitePrenom('')
       setInviteNom('')
+      setInviteEmail('')
       setShowInvite(false)
       await charger()
     } catch (err) {
@@ -107,70 +111,19 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <ModalBase titre="Gestion des ressources" onClose={onClose} largeur="max-w-2xl">
-      <div className="px-6 py-5 space-y-5">
-
-        {/* Bouton inviter */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-500">{users.length} utilisateur{users.length !== 1 ? 's' : ''}</p>
-          <button
-            onClick={() => setShowInvite(!showInvite)}
-            className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3.5 py-2 rounded-lg transition-colors"
-          >+ Inviter un utilisateur</button>
-        </div>
-
-        {/* Formulaire invitation */}
-        {showInvite && (
-          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
-            <p className="text-xs font-bold text-gray-700">Nouvel utilisateur</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={inviteNom}
-                onChange={e => setInviteNom(e.target.value)}
-                placeholder="Prénom Nom"
-                autoFocus
-                className="w-40 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal transition-colors"
-              />
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleInviter()}
-                placeholder="prenom.nom@domaine.fr"
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal transition-colors"
-              />
-              <select
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value as Role)}
-                className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal bg-white transition-colors"
-              >
-                <option value="responsable_poste_client">Credit Manager</option>
-                <option value="commercial">Commercial</option>
-                <option value="admin">Administrateur</option>
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleInviter}
-                disabled={!inviteEmail.trim() || chargement}
-                className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3.5 py-2 rounded-lg disabled:opacity-40 transition-colors"
-              >{chargement ? '⏳ Envoi…' : 'Envoyer l\'invitation'}</button>
-              <button
-                onClick={() => { setShowInvite(false); setInviteEmail('') }}
-                className="text-xs text-gray-500 border border-gray-200 px-3.5 py-2 rounded-lg transition-colors hover:border-gray-300"
-              >Annuler</button>
-            </div>
-          </div>
-        )}
+    <ModalBase titre="Gestion des ressources" onClose={onClose} largeur="max-w-2xl" icon={<IcUsers size={14} />}>
+      <div className="px-6 py-5 space-y-4">
 
         {/* Liste utilisateurs */}
         <div className="space-y-2">
           {users.map(u => (
-            <div key={u.id} className={`border rounded-xl px-4 py-3 ${u.id === utilisateur?.id ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-100 bg-white'}`}>
+            <div key={u.id} className={`border rounded-xl px-4 py-3 ${u.id === utilisateur?.id ? 'border-ockham-teal/30 bg-ockham-teal-muted' : 'border-gray-100 bg-white'}`}>
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold text-white"
-                  style={{ background: 'linear-gradient(135deg, #4CC5BB 0%, #0E1A2B 100%)' }}>
+                {/* Badge initiales soft */}
+                <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-[11px] font-bold"
+                  style={u.id === utilisateur?.id
+                    ? { background: '#E6F7F5', color: '#0D9488' }
+                    : { background: '#F1F5F9', color: '#64748B' }}>
                   {u.nom_affiche.slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -225,7 +178,72 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+
+        {/* Formulaire invitation */}
+        {showInvite && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+            <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Nouvel utilisateur</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={invitePrenom}
+                onChange={e => setInvitePrenom(e.target.value)}
+                placeholder="Prénom"
+                autoFocus
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal transition-colors"
+              />
+              <input
+                type="text"
+                value={inviteNom}
+                onChange={e => setInviteNom(e.target.value)}
+                placeholder="Nom"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal transition-colors"
+              />
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleInviter()}
+                placeholder="prenom.nom@domaine.fr"
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal transition-colors"
+              />
+              <select
+                value={inviteRole}
+                onChange={e => setInviteRole(e.target.value as Role)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal bg-white transition-colors"
+              >
+                <option value="responsable_poste_client">Credit Manager</option>
+                <option value="commercial">Commercial</option>
+                <option value="admin">Administrateur</option>
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => { setShowInvite(false); setInvitePrenom(''); setInviteNom(''); setInviteEmail('') }}
+                className="text-xs text-gray-500 border border-gray-200 px-3.5 py-2 rounded-lg transition-colors hover:border-gray-300"
+              >Annuler</button>
+              <button
+                onClick={handleInviter}
+                disabled={!inviteEmail.trim() || chargement}
+                className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3.5 py-2 rounded-lg disabled:opacity-40 transition-colors"
+              >{chargement ? 'Envoi…' : 'Envoyer l\'invitation'}</button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Footer */}
+      {!showInvite && (
+        <div className="px-6 pb-5 flex justify-end border-t border-gray-100 pt-3">
+          <button
+            onClick={() => setShowInvite(true)}
+            className="text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+            style={{ background: '#0E1A2B', color: '#4CC5BB' }}
+          >+ Inviter un utilisateur</button>
+        </div>
+      )}
     </ModalBase>
   )
 }
