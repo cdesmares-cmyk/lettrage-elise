@@ -288,13 +288,17 @@ export function useImportFactures() {
         throw err
       }
 
-      // Déclenche la sync Axonaut en arrière-plan pour les nouvelles factures
+      // Déclenche la récupération ciblée des PDFs Axonaut pour les factures importées
       try {
-        await supabase
-          .from('integrations')
-          .update({ sync_actif: true, sync_page_courante: 1, sync_stats: {} } as never)
-          .eq('provider', 'axonaut')
-          .eq('actif', true)
+        const organisation_id = (resultat.lignes_a_inserer[0] as Record<string, unknown>)?.organisation_id as string | undefined
+        const numeros_pieces = resultat.lignes_a_inserer
+          .map(l => l['numero_piece'] as string)
+          .filter(Boolean)
+        if (organisation_id && numeros_pieces.length) {
+          supabase.functions.invoke('axonaut-pdf-import', {
+            body: { organisation_id, numeros_pieces },
+          })
+        }
       } catch {
         // Non bloquant : Axonaut peut ne pas être configuré
       }
