@@ -12,6 +12,7 @@ import { ModalParametresRelances } from '../components/admin/ModalParametresRela
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
+import { IcSliders } from '../components/Icones'
 import type { CompteClient, FactureDetail } from '../types/client'
 
 export function PageRelances() {
@@ -40,8 +41,9 @@ export function PageRelances() {
           {peutModifier && (
             <button
               onClick={() => setScenariosOuvert(true)}
-              className="text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal px-4 py-2 rounded-xl transition-colors shadow-sm"
+              className="flex items-center gap-2 text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal px-4 py-2 rounded-xl transition-colors shadow-sm"
             >
+              <IcSliders size={13} />
               Paramètres Relances
             </button>
           )}
