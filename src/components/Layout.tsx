@@ -55,7 +55,8 @@ export function Layout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col">
-      <header className="bg-slate-900 flex items-center px-6 h-14 gap-8 sticky top-0 z-50">
+      <header className="bg-slate-900 sticky top-0 z-50">
+        <div className="max-w-screen-xl mx-auto w-full px-6 h-14 flex items-center gap-8">
         {/* Logo */}
         <div className="flex items-center gap-2.5 mr-4 flex-shrink-0">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-[1.1rem]" style={{ background: '#0E1A2B', color: '#4CC5BB' }}>
@@ -134,6 +135,7 @@ export function Layout() {
             {theme === 'dark' ? <IcSun size={15} /> : <IcMoon size={15} />}
           </button>
           <MenuAdmin />
+        </div>
         </div>
       </header>
 

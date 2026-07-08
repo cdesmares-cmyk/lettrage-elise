@@ -226,7 +226,7 @@ export function PageCompteClient() {
         {vue === 'clients' && (
           <button
             onClick={basculerModeSelection}
-            className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
+            className={`flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
               modeSelection
                 ? 'bg-ockham-teal text-white border-ockham-teal'
                 : 'bg-white text-gray-600 border-gray-200 hover:border-ockham-teal hover:text-ockham-teal'
