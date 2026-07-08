@@ -63,7 +63,7 @@ function appliquerMapping(
 
 export function useImportFactures() {
   const [chargement, setChargement] = useState(false)
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
 
   // Étape 2→3 : lit les en-têtes et 5 premières lignes, détecte le mapping automatique
   async function analyserFichier(fichier: File): Promise<ResultatAnalyse> {
@@ -290,7 +290,7 @@ export function useImportFactures() {
 
       // Déclenche la récupération ciblée des PDFs Axonaut pour les factures importées
       try {
-        const organisation_id = (resultat.lignes_a_inserer[0] as Record<string, unknown>)?.organisation_id as string | undefined
+        const organisation_id = profil?.organisation_id
         const numeros_pieces = resultat.lignes_a_inserer
           .map(l => l['numero_piece'] as string)
           .filter(Boolean)
