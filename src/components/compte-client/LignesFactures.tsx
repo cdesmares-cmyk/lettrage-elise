@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
+import { IcFileText } from '../Icones'
 import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
@@ -229,7 +230,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                               : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
                         }`}
                       >
-                        💬 Commentaire
+                        <IcFileText size={10} /> Commentaire
                       </button>
                     )}
                   </td>

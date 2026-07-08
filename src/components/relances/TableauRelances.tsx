@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { IcSearch, IcFileText } from '../Icones'
+import { IcSearch, IcFileText, IcClock } from '../Icones'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -317,7 +317,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                               setPopupStatut(prev => prev?.id === r.id ? null : { id: r.id, top: rect.bottom + 6, left: rect.left })
                             }}
                           />
-                          {enRetard && <span className="w-1.5 h-1.5 rounded-full bg-amber-400 flex-shrink-0 inline-block" />}
+                          {enRetard && <span className="text-amber-500"><IcClock size={10} /></span>}
                         </div>
                       </td>
                       <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">

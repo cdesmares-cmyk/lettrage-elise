@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { IcFileText } from '../Icones'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { Relance } from '../../hooks/useRelances'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
@@ -143,7 +144,7 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
                   <p className="text-[10px] font-mono text-gray-400">{c.code_dso}</p>
                   {c.hasSansReponse && <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-1 rounded">sans réponse</span>}
                   {c.hasStatut && <span title="Facture(s) en litige" className="text-[10px]">⚠</span>}
-                  {c.hasCommentaire && <span title="Commentaire(s)" className="text-[10px]">💬</span>}
+                  {c.hasCommentaire && <span title="Commentaire(s)" className="text-ockham-teal"><IcFileText size={10} /></span>}
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
