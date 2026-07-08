@@ -1,6 +1,6 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText } from '../components/Icones'
+import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText, IcEdit } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useAppData } from '../contexts/AppDataContext'
@@ -232,7 +232,8 @@ export function PageCompteClient() {
                 : 'bg-white text-gray-600 border-gray-200 hover:border-ockham-teal hover:text-ockham-teal'
             }`}
           >
-            {modeSelection ? `✓ Sélection (${selection.size})` : 'Sélection'}
+            <IcEdit size={12} />
+            {modeSelection ? `✓ Sélection de factures (${selection.size})` : 'Sélection de factures'}
           </button>
         )}
       </div>

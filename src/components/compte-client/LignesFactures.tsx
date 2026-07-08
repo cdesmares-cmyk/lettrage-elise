@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react'
 import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
-import { IcFileText } from '../Icones'
+import { IcFileText, IcInfo } from '../Icones'
 import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
@@ -214,7 +214,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     onClick={e => { e.stopPropagation(); onHistorique(f) }}
                     className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
                   >
-                    📋 Historique
+                    <IcInfo size={10} /> Historique
                   </button>
                 </td>
                 {onOuvrirCommentaire && (
