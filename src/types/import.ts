@@ -61,4 +61,5 @@ export interface ResultatValidation {
 export interface ResultatImport {
   import_id: string
   nb_inserees: number
+  nb_pdfs?: number
 }

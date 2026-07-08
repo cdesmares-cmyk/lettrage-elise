@@ -288,22 +288,24 @@ export function useImportFactures() {
         throw err
       }
 
-      // Déclenche la récupération ciblée des PDFs Axonaut pour les factures importées
+      // Récupération ciblée des PDFs Axonaut pour les factures importées
+      let nb_pdfs: number | undefined
       try {
         const organisation_id = profil?.organisation_id
         const numeros_pieces = resultat.lignes_a_inserer
           .map(l => l['numero_piece'] as string)
           .filter(Boolean)
         if (organisation_id && numeros_pieces.length) {
-          supabase.functions.invoke('axonaut-pdf-import', {
+          const { data: pdfData } = await supabase.functions.invoke('axonaut-pdf-import', {
             body: { organisation_id, numeros_pieces },
           })
+          if (pdfData?.nb_trouves != null) nb_pdfs = pdfData.nb_trouves
         }
       } catch {
         // Non bloquant : Axonaut peut ne pas être configuré
       }
 
-      return { import_id: importRec.id, nb_inserees: resultat.nb_nouvelles }
+      return { import_id: importRec.id, nb_inserees: resultat.nb_nouvelles, nb_pdfs }
     } finally {
       setChargement(false)
     }

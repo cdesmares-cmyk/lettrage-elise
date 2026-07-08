@@ -45,6 +45,7 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
   const [validation, setValidation] = useState<ResultatValidation | null>(null)
   const [chargement, setChargement] = useState(false)
   const [compteurRafraichissement, setCompteurRafraichissement] = useState(0)
+  const [nbPdfsSynces, setNbPdfsSynces] = useState<number | undefined>(undefined)
 
   const { rafraichir: rafraichirDonnees } = useAppData()
   const { profil } = useAuth()
@@ -102,6 +103,7 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
     setChargement(true)
     try {
       const resultat = await hook.executerImport(validation)
+      setNbPdfsSynces(resultat.nb_pdfs)
       setCompteurRafraichissement(c => c + 1)
       // Recalcul CA12 en base avant de rafraîchir le cache local
       if (profil?.organisation_id) {
@@ -231,6 +233,12 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
                 {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} factures ignorées`}
                 {(validation.nb_avertissements ?? 0) > 0 && ` · ${validation.nb_avertissements} sur-paiements`}
               </p>
+              {nbPdfsSynces != null && (
+                <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+                  <svg width="12" height="13" viewBox="0 0 10 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 1.5h4.5L8.5 3.5v7H2v-9z" stroke="#16A34A" strokeWidth="1.2" strokeLinejoin="round"/><path d="M6.5 1.5v2h2" stroke="#16A34A" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/><path d="M3.5 6.5h3M3.5 8h2" stroke="#16A34A" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                  {nbPdfsSynces} PDF{nbPdfsSynces > 1 ? 's' : ''} synchronisé{nbPdfsSynces > 1 ? 's' : ''}
+                </div>
+              )}
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={reinitialiser}
