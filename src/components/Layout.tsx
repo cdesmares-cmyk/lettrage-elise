@@ -56,18 +56,21 @@ export function Layout() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-slate-950 flex flex-col">
       <header className="bg-slate-900 sticky top-0 z-50">
-        <div className="max-w-screen-xl mx-auto w-full px-6 h-14 flex items-center relative">
+        <div className="max-w-screen-xl mx-auto w-full px-6 h-14 flex items-center">
 
-          {/* Logo — gauche, dans le flux */}
-          <div className="flex items-center gap-2.5 mr-4 flex-shrink-0">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-[1.1rem]" style={{ background: '#0E1A2B', color: '#4CC5BB' }}>
-              O
+          {/* Colonne gauche — Logo */}
+          <div className="flex-1 flex items-center justify-start">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-[1.1rem]" style={{ background: '#0E1A2B', color: '#4CC5BB' }}>
+                O
+              </div>
+              <span className="text-white font-bold text-[1.1rem] tracking-[.04em]">OCKHAM</span>
             </div>
-            <span className="text-white font-bold text-[1.1rem] tracking-[.04em]">OCKHAM</span>
           </div>
 
-          {/* Navigation — centrée absolument */}
-          <nav className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1">
+          {/* Colonne centre — Navigation */}
+          <div className="flex-1 flex items-center justify-center">
+          <nav className="flex items-center gap-1">
             {onglets.map(({ chemin, label }) => {
               const isImportExport = chemin === '/import-export'
               return (
@@ -110,9 +113,10 @@ export function Layout() {
               </span>
             )}
           </nav>
+          </div>
 
-          {/* Profil — droite, dans le flux */}
-          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
+          {/* Colonne droite — Profil */}
+          <div className="flex-1 flex items-center justify-end gap-2">
             {profil?.role === 'superadmin' && (
               <a
                 href="/superadmin"
@@ -135,6 +139,7 @@ export function Layout() {
           </div>
 
         </div>
+
       </header>
 
       <main className="flex-1 max-w-screen-xl mx-auto w-full px-6 py-6 dark:bg-slate-950 min-h-screen">
