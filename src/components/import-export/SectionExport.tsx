@@ -80,6 +80,8 @@ interface RowClient {
   code_groupement: string | null
   siret: string | null
   relance_auto_active: boolean
+  encours_total?: number
+  nb_factures_total?: number
 }
 
 function exporterClientsXlsx(clients: RowClient[]) {
@@ -92,11 +94,14 @@ function exporterClientsXlsx(clients: RowClient[]) {
     'Code groupement':     c.code_groupement ?? '',
     'SIRET':               c.siret ?? '',
     'Relance automatique': c.relance_auto_active ? 'oui' : 'non',
+    'Encours TTC (€)':     c.encours_total ?? 0,
+    'Nb pièces':           c.nb_factures_total ?? 0,
   }))
   const ws = XLSX.utils.json_to_sheet(lignes)
   ws['!cols'] = [
     { wch: 16 }, { wch: 35 }, { wch: 20 }, { wch: 20 },
     { wch: 20 }, { wch: 18 }, { wch: 16 }, { wch: 20 },
+    { wch: 18 }, { wch: 12 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Clients')
@@ -157,18 +162,35 @@ export function SectionExport() {
   async function handleExportClients() {
     setChargement(true)
     try {
-      const clients = await fetchAll<RowClient>((from, to) =>
-        supabase
-          .from('clients')
-          .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
-          .order('nom')
-          .range(from, to)
-      )
+      const [clients, encours] = await Promise.all([
+        fetchAll<RowClient>((from, to) =>
+          supabase
+            .from('clients')
+            .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
+            .order('nom')
+            .range(from, to)
+        ),
+        fetchAll<{ code_dso: string; encours_total: number; nb_factures_total: number }>((from, to) =>
+          supabase
+            .from('v_comptes_clients')
+            .select('code_dso, encours_total, nb_factures_total')
+            .range(from, to)
+        ),
+      ])
+
       if (clients.length === 0) {
         toast('Aucun client à exporter', { icon: 'ℹ️' })
         return
       }
-      exporterClientsXlsx(clients)
+
+      const encoursMap = new Map(encours.map(e => [e.code_dso, e]))
+      const clientsAvecEncours = clients.map(c => ({
+        ...c,
+        encours_total:     encoursMap.get(c.code_dso)?.encours_total ?? 0,
+        nb_factures_total: encoursMap.get(c.code_dso)?.nb_factures_total ?? 0,
+      }))
+
+      exporterClientsXlsx(clientsAvecEncours)
       toast.success(`${clients.length} client${clients.length > 1 ? 's' : ''} exporté${clients.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des clients')
@@ -371,7 +393,7 @@ export function SectionExport() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="text-[11px] text-gray-500">
                 <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
-                <p>code_dso · nom · commercial · opérateur · plateforme · code_groupement · siret · relance_auto_active</p>
+                <p>code_dso · nom · commercial · opérateur · plateforme · code_groupement · siret · relance_auto_active · <strong className="text-gray-600">Encours TTC (€)</strong> · <strong className="text-gray-600">Nb pièces</strong></p>
                 <p className="mt-1 text-gray-400">
                   La colonne <span className="font-mono">Relance automatique</span> est exportée en <span className="font-mono">oui</span> / <span className="font-mono">non</span> — modifiable et ré-importable directement.
                 </p>
