@@ -98,20 +98,12 @@ function labelModule(pathname: string): string {
 export function Layout() {
   const { theme, toggleTheme } = useTheme()
   const { isCommercial } = useRole()
-  const { profil, utilisateur } = useAuth()
+  const { profil } = useAuth()
   const nbRelancesEnAttente = useCompteurRelances()
   const { pathname } = useLocation()
 
   const navPrincipale = NAV_PRINCIPALE.filter(o => !isCommercial || o.commercial)
   const navOutils     = NAV_OUTILS.filter(o => !isCommercial || o.commercial)
-
-  function getInitiales(email?: string | null) {
-    if (!email) return '?'
-    const nom = email.split('@')[0]
-    const parties = nom.split(/[._-]/)
-    if (parties.length >= 2) return (parties[0][0] + parties[1][0]).toUpperCase()
-    return nom.slice(0, 2).toUpperCase()
-  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50 dark:bg-slate-950">
@@ -197,7 +189,7 @@ export function Layout() {
           )}
         </nav>
 
-        {/* Bas sidebar — profil + menu admin */}
+        {/* Bas sidebar — profil + menu admin (auto-suffisant) */}
         <div className="border-t border-white/[0.06] px-2 py-3">
           {/* Badge lecture seule */}
           {isCommercial && (
@@ -219,24 +211,7 @@ export function Layout() {
             </a>
           )}
 
-          {/* Ligne profil + MenuAdmin */}
-          <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/[0.05] transition-colors">
-            <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={{ background: '#142840', color: '#4CC5BB', border: '1.5px solid rgba(76,197,187,0.3)' }}
-            >
-              {getInitiales(utilisateur?.email)}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-[12px] font-semibold text-white/80 truncate leading-tight">
-                {profil?.nom_organisation ?? utilisateur?.email?.split('@')[0] ?? '—'}
-              </p>
-              <p className="text-[10px] text-white/30 leading-tight mt-0.5">
-                {profil?.role === 'superadmin' ? 'Super Admin' : isCommercial ? 'Commercial' : 'Administrateur'}
-              </p>
-            </div>
-            <MenuAdmin />
-          </div>
+          <MenuAdmin />
         </div>
       </aside>
 
