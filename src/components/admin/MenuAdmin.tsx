@@ -13,13 +13,6 @@ import { IcUsers, IcSliders, IcClock, IcEdit, IcBell, IcTrash, IcLogOut, IcLink 
 
 type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'alertes' | 'integrations' | 'reset'
 
-function getInitiales(email: string): string {
-  const nom = email.split('@')[0]
-  const parties = nom.split(/[._-]/)
-  if (parties.length >= 2) return (parties[0][0] + parties[1][0]).toUpperCase()
-  return nom.slice(0, 2).toUpperCase()
-}
-
 interface ItemProps {
   label: string
   icon: React.ReactNode
@@ -48,7 +41,7 @@ function Item({ label, icon, onClick, danger, separator }: ItemProps) {
 }
 
 export function MenuAdmin() {
-  const { utilisateur, profil } = useAuth()
+  const { profil } = useAuth()
   const { isAdmin, peutModifier } = useRole()
   const [ouvert, setOuvert] = useState(false)
   const [modal, setModal] = useState<ModalId | null>(null)
