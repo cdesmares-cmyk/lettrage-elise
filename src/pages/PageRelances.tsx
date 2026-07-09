@@ -34,7 +34,7 @@ export function PageRelances() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Relances</h1>
+          <h1 className="text-xl font-bold text-gray-900">Relances</h1>
           <p className="text-sm text-gray-400 mt-0.5">Pilotage du recouvrement</p>
         </div>
         <div className="flex items-center gap-2">

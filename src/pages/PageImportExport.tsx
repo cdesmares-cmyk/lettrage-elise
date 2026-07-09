@@ -14,7 +14,7 @@ export function PageImportExport() {
       {/* En-tête avec toggle Import / Export */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Import / Export</h1>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Import / Export</h1>
           <p className="text-sm text-gray-500 mt-0.5">
             {vue === 'import'
               ? 'Importez vos relevés bancaires et fichiers de facturation'

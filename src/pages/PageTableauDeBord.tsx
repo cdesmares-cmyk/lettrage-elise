@@ -17,7 +17,7 @@ export function PageTableauDeBord() {
       {/* En-tête */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white">Tableau de bord</h1>
+          <h1 className="text-xl font-bold text-gray-900">Tableau de bord</h1>
           <p className="text-sm text-gray-400 mt-0.5">Pilotage des encours — indicateurs clés</p>
         </div>
         <div className="flex items-center gap-3">

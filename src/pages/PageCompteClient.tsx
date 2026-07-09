@@ -158,7 +158,7 @@ export function PageCompteClient() {
       {/* En-tête */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Compte client</h1>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Compte client</h1>
           <p className="text-sm text-gray-500 mt-0.5">Vue consolidée des encours, factures et historique de lettrage</p>
         </div>
         <button
