@@ -1,11 +1,9 @@
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { useTheme } from '../contexts/ThemeContext'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useRole } from '../contexts/RoleContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
 import { useCompteurRelances } from '../hooks/useCompteurRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
-import { IcSun, IcMoon } from './Icones'
 
 function ChipCorrection() {
   const { minimise, lignesCorrection, restaurer, fermer } = useCorrectionContext()
@@ -89,18 +87,11 @@ const NAV_OUTILS = [
   { chemin: '/import-export', label: 'Import / Export', icone: <IcImportExport />, commercial: false },
 ]
 
-const TOUS_ONGLETS = [...NAV_PRINCIPALE, ...NAV_OUTILS]
-
-function labelModule(pathname: string): string {
-  return TOUS_ONGLETS.find(o => pathname.startsWith(o.chemin))?.label ?? 'OCKHAM'
-}
 
 export function Layout() {
-  const { theme, toggleTheme } = useTheme()
   const { isCommercial } = useRole()
   const { profil } = useAuth()
   const nbRelancesEnAttente = useCompteurRelances()
-  const { pathname } = useLocation()
 
   const navPrincipale = NAV_PRINCIPALE.filter(o => !isCommercial || o.commercial)
   const navOutils     = NAV_OUTILS.filter(o => !isCommercial || o.commercial)
@@ -216,31 +207,11 @@ export function Layout() {
       </aside>
 
       {/* ── ZONE DROITE ── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-
-        {/* Topbar fine — module actif + toggle thème */}
-        <div className="h-12 flex-shrink-0 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 flex items-center px-6 gap-3">
-          <span className="text-[13px] font-semibold text-gray-800 dark:text-slate-200">
-            {labelModule(pathname)}
-          </span>
-          <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={toggleTheme}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 dark:border-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors"
-              title={theme === 'dark' ? 'Mode clair' : 'Mode sombre'}
-            >
-              {theme === 'dark' ? <IcSun size={14} /> : <IcMoon size={14} />}
-            </button>
-          </div>
+      <main className="flex-1 overflow-y-auto px-6 py-6 dark:bg-slate-950">
+        <div className="max-w-screen-xl mx-auto">
+          <Outlet />
         </div>
-
-        {/* Contenu de la page */}
-        <main className="flex-1 overflow-y-auto px-6 py-6 dark:bg-slate-950">
-          <div className="max-w-screen-xl mx-auto">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      </main>
 
       <ChipCorrection />
     </div>
