@@ -273,7 +273,7 @@ export function PageLettrage() {
       {/* En-tête */}
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Lettrage</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">Lettrage</h1>
           <p className="text-sm text-gray-400 mt-0.5">Associez les crédits bancaires à vos factures</p>
         </div>
         <button
