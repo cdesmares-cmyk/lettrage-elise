@@ -132,7 +132,7 @@ export function Layout() {
         <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
 
           {/* Section Navigation */}
-          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/20 px-2.5 pt-1 pb-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/40 px-2.5 pt-1 pb-1.5">
             Navigation
           </p>
 
@@ -144,13 +144,13 @@ export function Layout() {
                 `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors border ${
                   isActive
                     ? 'bg-ockham-teal/[0.12] text-ockham-teal border-ockham-teal/20'
-                    : 'text-white/40 border-transparent hover:bg-white/[0.05] hover:text-white/70'
+                    : 'text-white/65 border-transparent hover:bg-white/[0.05] hover:text-white/90'
                 }`
               }
             >
               {({ isActive }) => (
                 <>
-                  <span className={isActive ? 'text-ockham-teal' : 'text-white/30'}>
+                  <span className={isActive ? 'text-ockham-teal' : 'text-white/55'}>
                     {icone}
                   </span>
                   {label}
@@ -168,7 +168,7 @@ export function Layout() {
           {navOutils.length > 0 && (
             <>
               <div className="h-px bg-white/[0.06] mx-1 my-2" />
-              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/20 px-2.5 pb-1.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/40 px-2.5 pb-1.5">
                 Outils
               </p>
               {navOutils.map(({ chemin, label, icone }) => (
@@ -179,13 +179,13 @@ export function Layout() {
                     `flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors border ${
                       isActive
                         ? 'bg-ockham-teal/[0.12] text-ockham-teal border-ockham-teal/20'
-                        : 'text-white/40 border-transparent hover:bg-white/[0.05] hover:text-white/70'
+                        : 'text-white/65 border-transparent hover:bg-white/[0.05] hover:text-white/90'
                     }`
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <span className={isActive ? 'text-ockham-teal' : 'text-white/30'}>
+                      <span className={isActive ? 'text-ockham-teal' : 'text-white/55'}>
                         {icone}
                       </span>
                       {label}
