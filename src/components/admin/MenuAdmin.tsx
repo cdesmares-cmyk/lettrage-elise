@@ -54,8 +54,6 @@ export function MenuAdmin() {
   const [modal, setModal] = useState<ModalId | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
-  const initiales = utilisateur?.email ? getInitiales(utilisateur.email) : '?'
-
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOuvert(false)
