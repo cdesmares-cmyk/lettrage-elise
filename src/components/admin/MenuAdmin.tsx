@@ -72,26 +72,20 @@ export function MenuAdmin() {
   return (
     <>
       <div className="relative" ref={ref}>
-        {/* Trigger */}
+        {/* Trigger — icône paramètres discret, le profil est affiché dans la sidebar */}
         <button
           onClick={() => setOuvert(!ouvert)}
-          className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 rounded-lg px-3 py-1.5 transition-colors"
+          className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors hover:bg-white/10 flex-shrink-0"
+          title="Mon compte"
         >
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-            style={{ background: '#0E1A2B', color: '#4CC5BB', border: '1.5px solid #4CC5BB40' }}
-          >
-            {initiales}
-          </div>
-          <span className="text-slate-300 text-xs font-medium">Mon compte</span>
-          <svg className={`w-3 h-3 text-slate-500 transition-transform ${ouvert ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className={`w-3.5 h-3.5 text-white/40 transition-transform ${ouvert ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
 
-        {/* Dropdown */}
+        {/* Dropdown — s'ouvre vers le haut depuis le bas de la sidebar */}
         {ouvert && (
-          <div className="absolute right-0 top-full mt-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
+          <div className="absolute left-0 bottom-full mb-1.5 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1.5 overflow-hidden">
 
             {/* En-tête organisation */}
             {profil?.nom_organisation && (
