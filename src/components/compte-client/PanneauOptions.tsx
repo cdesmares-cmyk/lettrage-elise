@@ -1,5 +1,5 @@
 // Volet latéral coulissant — édition des infos client + contacts
-import { useState, useEffect, useRef, useId } from 'react'
+import { useState, useEffect, useRef, useId, useCallback } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
@@ -111,9 +111,16 @@ function SelectRef({
 }
 
 export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
-  const { valeurs: commerciaux, ajouter: ajouterCommercial } = useRefValeurs('commercial')
+  const [commerciaux, setCommerciaux] = useState<string[]>([])
   const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
+
+  const chargerCommerciaux = useCallback(async () => {
+    const { data } = await supabase.from('utilisateurs').select('nom').order('nom')
+    setCommerciaux((data as unknown as { nom: string }[] | null)?.map(u => u.nom).filter(Boolean) ?? [])
+  }, [])
+
+  useEffect(() => { chargerCommerciaux() }, [chargerCommerciaux])
   const { peutModifier } = useRole()
   const { mettreAJourClientLocal } = useAppData()
 
@@ -209,18 +216,14 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   async function handleSauvegarder() {
     setEnregistrement(true)
 
-    const valCommercial = normaliserValeurRef(commercial)
     const valPlateforme = normaliserValeurRef(plateforme)
-    if (valCommercial && !commerciaux.includes(valCommercial)) {
-      await ajouterCommercial(valCommercial)
-    }
     if (valPlateforme && !plateformes.includes(valPlateforme)) {
       await ajouterPlateforme(valPlateforme)
     }
 
     const ok = await onSauvegarder(client!.code_dso, {
       statut_juridique: statut || null,
-      commercial: valCommercial || null,
+      commercial: commercial.trim() || null,
       operateur: operateur.trim() || null,
       plateforme: valPlateforme || null,
       code_groupement: groupement.trim() || null,
@@ -551,7 +554,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               )}
             </div>
 
-            <ComboRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} placeholder="Ex : Jean Dupont" />
+            <SelectRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} />
             <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
             <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
 

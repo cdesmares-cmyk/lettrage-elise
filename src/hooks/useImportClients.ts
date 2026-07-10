@@ -87,6 +87,14 @@ export function useImportClients() {
 
     const tousLesCodes = [...vus]
 
+    // Table de correspondance commercial : nom (lowercase) et email → nom stocké
+    const { data: utilisateursData } = await supabase.from('utilisateurs').select('nom, email')
+    const commerciauxMap = new Map<string, string>()
+    for (const u of (utilisateursData as unknown as { nom: string; email: string }[] | null) ?? []) {
+      if (u.nom) commerciauxMap.set(u.nom.toLowerCase().trim(), u.nom.trim())
+      if (u.email) commerciauxMap.set(u.email.toLowerCase().trim(), u.nom.trim())
+    }
+
     // Clients déjà en base : récupère code_dso + nom actuel
     interface RowClientNom { code_dso: string; nom: string }
     const nomsExistants: Record<string, string> = {}
@@ -103,7 +111,14 @@ export function useImportClients() {
     const nouveaux = lignesUniques.filter(l => !existants.has((l[colPivot] ?? '').trim()))
     const miseAJour = lignesUniques.filter(l => existants.has((l[colPivot] ?? '').trim()))
 
-    const lignes_a_inserer = lignesUniques.map(l => appliquerMapping(l, mapping))
+    const lignes_a_inserer = lignesUniques.map(l => {
+      const row = appliquerMapping(l, mapping)
+      if (row.commercial) {
+        const val = String(row.commercial).toLowerCase().trim()
+        row.commercial = commerciauxMap.get(val) ?? null
+      }
+      return row
+    })
 
     const apercu = lignesUniques.slice(0, 10).map(l => {
       const code = (l[colPivot] ?? '').trim()

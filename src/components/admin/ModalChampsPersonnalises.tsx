@@ -62,8 +62,7 @@ export function ModalChampsPersonnalises({ onClose }: { onClose: () => void }) {
         {/* Listes de référence */}
         <div>
           <p className="text-xs text-gray-400 mb-4">Valeurs disponibles dans les menus déroulants des fiches client.</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <BlocRef titre="Commerciaux" categorie="commercial" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <BlocRef titre="Opérateurs" categorie="operateur" />
             <BlocRef titre="Plateformes d'envoi" categorie="plateforme" />
           </div>
