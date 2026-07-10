@@ -111,7 +111,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
-  const opMap = useMemo(() => new Map(classement.map(s => [s.operateur.id, s.operateur.nom_affiche || s.operateur.email.split('@')[0]])), [classement])
+  const opMap = useMemo(() => new Map(classement.map(s => [s.operateur.id, s.operateur.initiales || s.operateur.email.slice(0, 3).toUpperCase()])), [classement])
 
   const operateursDispo = useMemo(() => {
     const ids = [...new Set(relances.filter(r => r.statut !== 'brouillon' && !r.archivee).map(r => r.operateur_id))]

@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
         { data: integs },
       ] = await Promise.all([
         supabase.from('organisations').select('id, nom, slug, actif, cree_le').order('cree_le'),
-        supabase.from('utilisateurs').select('id, organisation_id, role, email, nom_affiche, cree_le'),
+        supabase.from('utilisateurs').select('id, organisation_id, role, email, initiales, cree_le'),
         supabase.rpc('superadmin_stats_clients'),
         supabase.from('integrations').select('organisation_id, provider, actif, verifie_le').eq('provider', 'axonaut'),
       ])
@@ -99,7 +99,7 @@ Deno.serve(async (req: Request) => {
       if (!organisation_id) return json({ error: 'organisation_id requis' }, 400)
 
       const [{ data: users }, { data: integs }, { data: runs }] = await Promise.all([
-        supabase.from('utilisateurs').select('id, email, nom_affiche, role, cree_le').eq('organisation_id', organisation_id),
+        supabase.from('utilisateurs').select('id, email, initiales, role, cree_le').eq('organisation_id', organisation_id),
         supabase.from('integrations').select('provider, actif, verifie_le, api_key').eq('organisation_id', organisation_id),
         supabase.rpc('superadmin_get_monitoring', { nb: 5 }),
       ])
@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
 
       await supabase.from('utilisateurs').upsert({
         id: invited.user.id, email: email_admin,
-        nom_affiche: nom_admin || email_admin.split('@')[0],
+        nom: nom_admin || email_admin.split('@')[0], prenom: '', initiales: (nom_admin || email_admin.split('@')[0]).slice(0, 3).toUpperCase(),
         role: 'admin', organisation_id: newOrg.id,
       } as never, { onConflict: 'id' })
 
@@ -161,7 +161,7 @@ Deno.serve(async (req: Request) => {
 
     // ── INVITE_USER ───────────────────────────────────────────────────────────
     if (action === 'invite_user') {
-      const { organisation_id, email, nom_affiche, role } = body
+      const { organisation_id, email, nom, role } = body
       if (!organisation_id || !email || !role)
         return json({ error: 'organisation_id, email et role sont requis' }, 400)
 
@@ -172,7 +172,7 @@ Deno.serve(async (req: Request) => {
 
       await supabase.from('utilisateurs').upsert({
         id: invited.user.id, email,
-        nom_affiche: nom_affiche || email.split('@')[0],
+        nom: nom || email.split('@')[0], prenom: '', initiales: (nom || email.split('@')[0]).slice(0, 3).toUpperCase(),
         role, organisation_id,
       } as never, { onConflict: 'id' })
 

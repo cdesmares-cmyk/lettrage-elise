@@ -7,7 +7,9 @@ interface ProfilUtilisateur {
   organisation_id: string
   nom_organisation: string
   code_org: string
-  nom_affiche: string
+  prenom: string
+  nom: string
+  initiales: string
 }
 
 interface ContexteAuth {
@@ -43,14 +45,16 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
   async function chargerProfil(userId: string) {
     const { data } = await supabase
       .from('utilisateurs')
-      .select('role, organisation_id, nom_affiche, organisations(nom, code_org)')
+      .select('role, organisation_id, prenom, nom, initiales, organisations(nom, code_org)')
       .eq('id', userId)
       .single()
-    const d = data as { role: string; organisation_id: string; nom_affiche: string; organisations: { nom: string; code_org: string | null } | null } | null
+    const d = data as { role: string; organisation_id: string; prenom: string; nom: string; initiales: string; organisations: { nom: string; code_org: string | null } | null } | null
     if (d) setProfil({
       role: d.role,
       organisation_id: d.organisation_id,
-      nom_affiche: d.nom_affiche ?? '',
+      prenom: d.prenom ?? '',
+      nom: d.nom ?? '',
+      initiales: d.initiales ?? '',
       nom_organisation: d.organisations?.nom ?? '',
       code_org: d.organisations?.code_org ?? '',
     })

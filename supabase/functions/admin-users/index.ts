@@ -16,6 +16,15 @@ function json(data: unknown, status = 200) {
   })
 }
 
+function computeInitiales(prenom: string, nom: string): string {
+  const p = prenom.trim()
+  const n = nom.trim()
+  if (p && n) return (p[0]! + n.slice(0, 2)).toUpperCase()
+  if (n) return n.slice(0, 3).toUpperCase()
+  if (p) return p.slice(0, 3).toUpperCase()
+  return '?'
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
@@ -33,7 +42,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: caller } = await supabaseAdmin
       .from('utilisateurs')
-      .select('role, organisation_id, nom_affiche')
+      .select('role, organisation_id, prenom, nom')
       .eq('id', user.id)
       .single()
     if (!caller || caller.role !== 'admin') return json({ error: 'Accès réservé à l\'administrateur' }, 403)
@@ -42,22 +51,54 @@ Deno.serve(async (req: Request) => {
     const { action } = body
 
     if (action === 'invite') {
-      const { email, role = 'responsable_poste_client' } = body
+      const { email, role = 'responsable_poste_client', prenom = '', nom = '' } = body
       if (!email) return json({ error: 'Email requis' }, 400)
+      const nomDisplay = nom || email.split('@')[0]
+      const inviterNom = [caller.prenom, caller.nom].filter(Boolean).join(' ') || user.email?.split('@')[0] || 'Votre administrateur'
       const { data: invited, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo: SITE_URL,
-        data: {
-          inviter_nom: caller.nom_affiche ?? user.email?.split('@')[0] ?? 'Votre administrateur',
-        },
+        data: { inviter_nom: inviterNom },
       })
       if (error) return json({ error: error.message }, 400)
       await supabaseAdmin.from('utilisateurs').upsert({
         id: invited.user.id,
         email,
-        nom_affiche: email.split('@')[0],
+        prenom,
+        nom: nomDisplay,
+        initiales: computeInitiales(prenom, nomDisplay),
         role,
         organisation_id: caller.organisation_id,
       } as never, { onConflict: 'id' })
+      return json({ ok: true })
+    }
+
+    if (action === 'update_user') {
+      const { user_id, prenom, nom, role } = body
+      if (!user_id) return json({ error: 'user_id requis' }, 400)
+      if (user_id === user.id) return json({ error: 'Impossible de modifier son propre compte' }, 400)
+      const ROLES_VALIDES = ['admin', 'responsable_poste_client', 'commercial']
+      if (role && !ROLES_VALIDES.includes(role)) return json({ error: 'Rôle invalide' }, 400)
+      const { data: target } = await supabaseAdmin
+        .from('utilisateurs')
+        .select('prenom, nom, role')
+        .eq('id', user_id)
+        .eq('organisation_id', caller.organisation_id)
+        .single()
+      if (!target) return json({ error: 'Utilisateur introuvable' }, 404)
+      const newPrenom = prenom ?? target.prenom
+      const newNom    = nom    ?? target.nom
+      const newRole   = role   ?? target.role
+      const { error } = await supabaseAdmin
+        .from('utilisateurs')
+        .update({
+          prenom: newPrenom,
+          nom: newNom,
+          initiales: computeInitiales(newPrenom, newNom),
+          role: newRole,
+        } as never)
+        .eq('id', user_id)
+        .eq('organisation_id', caller.organisation_id)
+      if (error) return json({ error: error.message }, 400)
       return json({ ok: true })
     }
 

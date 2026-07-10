@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 export interface UtilisateurSA {
   id: string
   email: string
-  nom_affiche: string
+  initiales: string
   role: string
   cree_le: string
 }

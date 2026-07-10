@@ -4,7 +4,7 @@ import type { Relance } from './useRelances'
 
 interface Operateur {
   id: string
-  nom_affiche: string
+  initiales: string
   email: string
 }
 
@@ -51,7 +51,7 @@ export function useLeaderboard(relances: Relance[]) {
   useEffect(() => {
     supabase
       .from('utilisateurs')
-      .select('id, nom_affiche, email')
+      .select('id, initiales, email')
       .then(({ data }) => {
         setOperateurs((data ?? []) as Operateur[])
       })

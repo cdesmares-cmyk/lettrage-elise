@@ -129,7 +129,7 @@ export function useRelances() {
   async function archiver(id: string) {
     const patch: Record<string, unknown> = {
       archivee: true,
-      note_operateur: profil?.nom_affiche ?? null,
+      note_operateur: profil?.initiales ?? null,
       note_archivee_le: new Date().toISOString(),
     }
     const { error } = await supabase.from('relances').update(patch as never).eq('id', id)

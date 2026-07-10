@@ -45,7 +45,7 @@ export function LeaderboardEquipe({ classement }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <p className={`text-[13px] font-semibold truncate ${estMoi ? 'text-ockham-teal-dark' : 'text-gray-800'}`}>
-                    {s.operateur.nom_affiche || s.operateur.email.split('@')[0]}
+                    {s.operateur.initiales || s.operateur.email.slice(0, 3).toUpperCase()}
                   </p>
                   {estMoi && (
                     <span className="text-[9px] font-bold text-ockham-teal bg-ockham-teal/10 px-1.5 py-0.5 rounded">vous</span>

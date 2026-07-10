@@ -54,7 +54,7 @@ function LigneUtilisateur({ u, actions }: {
     <>
       <tr className="border-t border-gray-100 hover:bg-gray-50/50 transition-colors">
         <td className="py-2.5 px-3 overflow-hidden">
-          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{u.nom_affiche || '—'}</p>
+          <p className="text-sm font-semibold text-gray-900 leading-tight truncate">{u.initiales || '—'}</p>
           <p className="text-[11px] text-gray-400 mt-0.5 truncate">{u.email}</p>
         </td>
         <td className="py-2.5 px-3">
@@ -111,7 +111,7 @@ function LigneUtilisateur({ u, actions }: {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={() => setTempPwd(null)}>
             <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
               <p className="text-sm font-bold text-gray-900 mb-0.5">Mot de passe temporaire</p>
-              <p className="text-xs text-gray-400 mb-4">{u.nom_affiche || u.email}</p>
+              <p className="text-xs text-gray-400 mb-4">{u.initiales || u.email}</p>
               <div className="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3 mb-4">
                 <span className="font-mono font-bold text-green-800 text-xl tracking-widest">{tempPwd}</span>
               </div>
@@ -146,7 +146,7 @@ export function TabUtilisateurs({ orgId, actions }: {
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault()
     setInviteEnvoi(true)
-    const ok = await inviteUser({ organisation_id: orgId, email: inviteEmail.trim(), nom_affiche: inviteNom.trim(), role: inviteRole })
+    const ok = await inviteUser({ organisation_id: orgId, email: inviteEmail.trim(), nom: inviteNom.trim(), role: inviteRole })
     setInviteEnvoi(false)
     if (ok) { setFormInvite(false); setInviteEmail(''); setInviteNom('') }
   }

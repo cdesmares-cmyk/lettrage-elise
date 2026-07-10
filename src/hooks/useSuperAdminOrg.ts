@@ -6,7 +6,7 @@ import { type CronRun } from './useSuperAdmin'
 export interface UtilisateurDetailSA {
   id: string
   email: string
-  nom_affiche: string
+  initiales: string
   role: string
   cree_le: string
   derniere_connexion: string | null
@@ -131,7 +131,7 @@ export function useSuperAdminOrg() {
   }
 
   async function inviteUser(params: {
-    organisation_id: string; email: string; nom_affiche: string; role: string
+    organisation_id: string; email: string; nom: string; role: string
   }): Promise<boolean> {
     try {
       const { data, error } = await supabase.functions.invoke('superadmin-data', {

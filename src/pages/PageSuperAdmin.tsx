@@ -104,7 +104,7 @@ export function PageSuperAdmin() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">{profil.nom_affiche || profil.role}</span>
+          <span className="text-xs text-slate-400">{profil.initiales || profil.role}</span>
           <a href="/tableau-de-bord" className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
             ← Retour à l'app
           </a>
