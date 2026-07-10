@@ -101,6 +101,7 @@ export function useGmailAuth() {
     destinataires: string[]
     objet:         string
     corpsHtml:     string
+    cc?:           string[]
   }): Promise<{ threadId: string } | null> {
     const accessToken = await getTokenValide()
     if (!accessToken) return null
@@ -109,14 +110,10 @@ export function useGmailAuth() {
     const subject = `=?utf-8?B?${b64utf8(params.objet)}?=`
 
     // Message au format RFC 2822 encodé en base64url pour l'API Gmail
-    const message = [
-      `To: ${to}`,
-      `Subject: ${subject}`,
-      'MIME-Version: 1.0',
-      'Content-Type: text/html; charset=utf-8',
-      '',
-      params.corpsHtml,
-    ].join('\r\n')
+    const lignes: string[] = [`To: ${to}`]
+    if (params.cc?.length) lignes.push(`Cc: ${params.cc.join(', ')}`)
+    lignes.push(`Subject: ${subject}`, 'MIME-Version: 1.0', 'Content-Type: text/html; charset=utf-8', '', params.corpsHtml)
+    const message = lignes.join('\r\n')
 
     const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method:  'POST',

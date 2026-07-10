@@ -15,7 +15,7 @@ interface GmailAuthProps {
   estConnecte: boolean
   token: GmailToken | null
   connecterGmail: () => void
-  envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string }) => Promise<{ threadId: string } | null>
+  envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string; cc?: string[] }) => Promise<{ threadId: string } | null>
   recupererSignature: () => Promise<string | null>
 }
 
@@ -49,10 +49,20 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [envoi, setEnvoi] = useState(false)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
+  const [emailCommercial, setEmailCommercial] = useState<string | null>(null)
+  const [ccCommercial, setCcCommercial] = useState(false)
 
   useEffect(() => {
     if (estConnecte) recupererSignature().then(setSignature)
   }, [estConnecte])
+
+  useEffect(() => {
+    setEmailCommercial(null)
+    setCcCommercial(false)
+    if (!client?.commercial) return
+    supabase.from('utilisateurs').select('email').eq('nom', client.commercial).maybeSingle()
+      .then(({ data }) => setEmailCommercial((data as { email: string } | null)?.email ?? null))
+  }, [client?.commercial])
 
   useEffect(() => {
     if (!client) return
@@ -118,7 +128,12 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       const destinataires = sanContacts
         ? [emailFallback.trim()]
         : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email!).filter(Boolean)
-      const res = await envoyerEmail({ destinataires, objet: objetFinal.trim(), corpsHtml: previewHtml })
+      const res = await envoyerEmail({
+        destinataires,
+        objet: objetFinal.trim(),
+        corpsHtml: previewHtml,
+        ...(ccCommercial && emailCommercial ? { cc: [emailCommercial] } : {}),
+      })
       if (!res) { toast.error('Échec de l\'envoi Gmail'); setEnvoi(false); return }
       gmailThreadId = res.threadId
     }
@@ -202,6 +217,18 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     ))}
                   </div>
                 )}
+                {emailCommercial && (
+                  <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors mt-1.5 ${ccCommercial ? 'border-amber-400/60 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                    <input type="checkbox" checked={ccCommercial} onChange={() => setCcCommercial(v => !v)} className="accent-amber-500" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800">
+                        {client.commercial}
+                        <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>Commercial · CC</span>
+                      </p>
+                      <p className="text-[10px] truncate" style={{ color: '#D97706' }}>{emailCommercial}</p>
+                    </div>
+                  </label>
+                )}
               </div>
 
               {/* 2 — Factures */}
@@ -284,6 +311,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                       <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span></p>
                     )}
                     <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
+                    {ccCommercial && emailCommercial && (
+                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Cc :</span> <span style={{ color: '#D97706' }}>{emailCommercial}</span></p>
+                    )}
                     <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Obj :</span> <span className="font-semibold text-gray-800">{objetFinal || '—'}</span></p>
                   </div>
                   {/* Corps HTML rendu */}
