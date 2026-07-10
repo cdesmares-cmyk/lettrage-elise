@@ -65,9 +65,6 @@ function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-function initiales(nom: string): string {
-  return nom.split(/[\s-]+/).map(p => p[0]?.toUpperCase() ?? '').join('').slice(0, 3)
-}
 
 const SEUIL_ALERTE = 10
 
@@ -325,8 +322,8 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                       </td>
                       <td className="px-3 py-2.5">
                         {opNom ? (
-                          <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide" title={opNom}>
-                            {initiales(opNom)}
+                          <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide">
+                            {opNom}
                           </span>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
