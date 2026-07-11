@@ -65,6 +65,7 @@ export interface HistoriqueLettrage {
   ligne_bancaire?: {
     date_operation: string
     libelle: string
+    detail: string | null
     infos_complementaires: string | null
     debit: number | null
     credit: number | null

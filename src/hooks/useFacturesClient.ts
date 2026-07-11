@@ -113,17 +113,17 @@ export function useFacturesClient() {
     // Récupère les détails des lignes bancaires en une seule requête
     const ids = [...new Set(toutes.map(l => l.id_ligne_bancaire).filter((id): id is string => !!id))]
     if (ids.length > 0) {
-      type LbRow = { id_operation: string; date_operation: string; libelle: string; infos_complementaires: string | null; debit: number | null; credit: number | null }
+      type LbRow = { id_operation: string; date_operation: string; libelle: string; detail: string | null; infos_complementaires: string | null; debit: number | null; credit: number | null }
       const { data: lbData } = await supabase
         .from('lignes_bancaires')
-        .select('id_operation, date_operation, libelle, infos_complementaires, debit, credit')
+        .select('id_operation, date_operation, libelle, detail, infos_complementaires, debit, credit')
         .in('id_operation', ids)
       const lbMap = new Map<string, LbRow>()
       for (const lb of (lbData as LbRow[] | null) ?? []) lbMap.set(lb.id_operation, lb)
       for (const l of toutes) {
         if (!l.id_ligne_bancaire) continue
         const lb = lbMap.get(l.id_ligne_bancaire)
-        if (lb) l.ligne_bancaire = { date_operation: lb.date_operation, libelle: lb.libelle, infos_complementaires: lb.infos_complementaires, debit: lb.debit, credit: lb.credit }
+        if (lb) l.ligne_bancaire = { date_operation: lb.date_operation, libelle: lb.libelle, detail: lb.detail, infos_complementaires: lb.infos_complementaires, debit: lb.debit, credit: lb.credit }
       }
     }
 
