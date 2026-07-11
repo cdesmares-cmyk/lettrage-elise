@@ -30,7 +30,8 @@ export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props)
     const texte = [
       `Règlement reçu le ${fmtDate(lb.date_operation)}`,
       `Libellé : ${lb.libelle}`,
-      lb.infos_complementaires ? `Référence : ${lb.infos_complementaires}` : null,
+      lb.detail ? `Détail : ${lb.detail}` : null,
+      lb.infos_complementaires ? `Infos complémentaires : ${lb.infos_complementaires}` : null,
       montant ? `Montant : ${montant}` : null,
     ].filter(Boolean).join('\n')
     navigator.clipboard.writeText(texte).then(() => toast.success('Copié'))
