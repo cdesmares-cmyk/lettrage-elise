@@ -35,6 +35,8 @@ interface RowLigneBancaire {
   id_operation: string
   date_operation: string
   libelle: string
+  detail: string | null
+  infos_complementaires: string | null
   debit: number | null
   credit: number | null
   montant_lettre: number
@@ -44,6 +46,9 @@ interface RowLigneBancaire {
 interface AffectationRow {
   date: string
   ligne: string
+  detail: string
+  infos_complementaires: string
+  debit_credit: string
   code_client: string
   numero_facture: string
   montant: number
@@ -82,7 +87,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   const lignes = await fetchAll<RowLigneBancaire>((from, to) =>
     supabase
       .from('v_lignes_bancaires_avec_statut')
-      .select('id_operation, date_operation, libelle, debit, credit, montant_lettre, statut_lettrage')
+      .select('id_operation, date_operation, libelle, detail, infos_complementaires, debit, credit, montant_lettre, statut_lettrage')
       .gte('date_operation', dateDebut)
       .lte('date_operation', dateFin)
       .order('date_operation', { ascending: true })
@@ -91,7 +96,13 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
 
   // Map id_operation → infos ligne (feuille 1 et cadrage)
   const ligneInfoMap = new Map(
-    lignes.map(l => [l.id_operation, { libelle: l.libelle, date_operation: l.date_operation }])
+    lignes.map(l => [l.id_operation, {
+      date_operation: l.date_operation,
+      libelle: l.libelle,
+      detail: l.detail ?? '',
+      infos_complementaires: l.infos_complementaires ?? '',
+      debit_credit: l.credit != null ? `Crédit : ${l.credit}` : l.debit != null ? `Débit : ${l.debit}` : '',
+    }])
   )
 
   // IDs des lignes crédit uniquement (les seules pouvant avoir des lettrages)
@@ -158,6 +169,9 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     affectations.push({
       date: info?.date_operation ?? '',
       ligne: info?.libelle ?? '',
+      detail: info?.detail ?? '',
+      infos_complementaires: info?.infos_complementaires ?? '',
+      debit_credit: info?.debit_credit ?? '',
       code_client: l.code_client,
       numero_facture: l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
       montant: l.montant,
@@ -170,6 +184,9 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     affectations.push({
       date: c.date_lettrage,
       ligne: 'Compensation interne',
+      detail: '',
+      infos_complementaires: '',
+      debit_credit: '',
       code_client: '',
       numero_facture: c.numero_facture ?? '',
       montant: c.montant,
@@ -182,6 +199,9 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     affectations.push({
       date: imp.date_lettrage,
       ligne: 'Import historique',
+      detail: '',
+      infos_complementaires: '',
+      debit_credit: '',
       code_client: imp.code_client,
       numero_facture: imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
       montant: imp.montant,
@@ -193,21 +213,21 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   affectations.sort((a, b) => a.date.localeCompare(b.date))
 
   const aoa1: (string | number)[][] = [
-    ['Date', 'Ligne bancaire', 'Code client', 'N° Facture', 'Montant', 'Commentaire', 'Opérateur'],
+    ['Date', 'Ligne bancaire', 'Détail', 'Infos complémentaires', 'Débit / Crédit', 'Code client', 'N° Facture', 'Montant', 'Commentaire', 'Opérateur'],
   ]
   for (const r of affectations) {
-    aoa1.push([fmtDate(r.date), r.ligne, r.code_client, r.numero_facture, r.montant, r.commentaire, r.operateur])
+    aoa1.push([fmtDate(r.date), r.ligne, r.detail, r.infos_complementaires, r.debit_credit, r.code_client, r.numero_facture, r.montant, r.commentaire, r.operateur])
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)
   ws1['!cols'] = [
-    { wch: 12 }, { wch: 42 }, { wch: 15 }, { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 15 },
+    { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 15 },
   ]
-  styleHeaderRow(ws1, 7)
+  styleHeaderRow(ws1, 10)
 
   // ── Feuille 2 : Lignes bancaires (débits + crédits) ──────────────
   const aoa2: (string | number)[][] = [
-    ['Date', 'Libellé', 'Débit', 'Crédit', 'Type', 'Commentaire'],
+    ['Date', 'Libellé', 'Détail', 'Infos complémentaires', 'Débit', 'Crédit', 'Type', 'Commentaire'],
   ]
   for (const lb of lignes) {
     const isDebit = lb.statut_lettrage === 'debit'
@@ -227,6 +247,8 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     aoa2.push([
       fmtDate(lb.date_operation),
       lb.libelle,
+      lb.detail ?? '',
+      lb.infos_complementaires ?? '',
       lb.debit ?? '',
       lb.credit ?? '',
       type,
@@ -236,9 +258,9 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
 
   const ws2 = XLSX.utils.aoa_to_sheet(aoa2)
   ws2['!cols'] = [
-    { wch: 12 }, { wch: 48 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 38 },
+    { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 38 },
   ]
-  styleHeaderRow(ws2, 6)
+  styleHeaderRow(ws2, 8)
 
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
   const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number }>()
