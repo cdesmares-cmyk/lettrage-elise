@@ -106,9 +106,28 @@ export function useFacturesClient() {
       commentaire: l.remboursements?.statut === 'effectue' ? 'Remboursement client' : 'Remboursement client — en attente d\'affectation débit',
     }))
 
-    return [...lettrages, ...remboursements].sort((a, b) =>
+    const toutes = [...lettrages, ...remboursements].sort((a, b) =>
       new Date(b.date_lettrage).getTime() - new Date(a.date_lettrage).getTime()
     )
+
+    // Récupère les détails des lignes bancaires en une seule requête
+    const ids = [...new Set(toutes.map(l => l.id_ligne_bancaire).filter((id): id is string => !!id))]
+    if (ids.length > 0) {
+      type LbRow = { id_operation: string; date_operation: string; libelle: string; infos_complementaires: string | null; debit: number | null; credit: number | null }
+      const { data: lbData } = await supabase
+        .from('lignes_bancaires')
+        .select('id_operation, date_operation, libelle, infos_complementaires, debit, credit')
+        .in('id_operation', ids)
+      const lbMap = new Map<string, LbRow>()
+      for (const lb of (lbData as LbRow[] | null) ?? []) lbMap.set(lb.id_operation, lb)
+      for (const l of toutes) {
+        if (!l.id_ligne_bancaire) continue
+        const lb = lbMap.get(l.id_ligne_bancaire)
+        if (lb) l.ligne_bancaire = { date_operation: lb.date_operation, libelle: lb.libelle, infos_complementaires: lb.infos_complementaires, debit: lb.debit, credit: lb.credit }
+      }
+    }
+
+    return toutes
   }
 
   return {

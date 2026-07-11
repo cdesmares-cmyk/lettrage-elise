@@ -1,5 +1,6 @@
 // Modal lecture seule — historique des lettrages d'une facture
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import type { FactureDetail, HistoriqueLettrage } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
 import { IcInfo } from '../Icones'
@@ -20,6 +21,20 @@ function fmtDate(iso: string) {
 export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props) {
   const [lignes, setLignes] = useState<HistoriqueLettrage[]>([])
   const [chargement, setChargement] = useState(false)
+  const [detailOuvert, setDetailOuvert] = useState<string | null>(null)
+
+  function copierLigne(l: HistoriqueLettrage) {
+    const lb = l.ligne_bancaire
+    if (!lb) return
+    const montant = lb.credit != null ? `Crédit : ${fmt(lb.credit)}` : lb.debit != null ? `Débit : ${fmt(lb.debit)}` : ''
+    const texte = [
+      `Règlement reçu le ${fmtDate(lb.date_operation)}`,
+      `Libellé : ${lb.libelle}`,
+      lb.infos_complementaires ? `Référence : ${lb.infos_complementaires}` : null,
+      montant ? `Montant : ${montant}` : null,
+    ].filter(Boolean).join('\n')
+    navigator.clipboard.writeText(texte).then(() => toast.success('Copié'))
+  }
 
   useEffect(() => {
     if (!facture) { setLignes([]); return }
@@ -64,16 +79,65 @@ export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props)
             <div className="space-y-2">
               {lignes.map(l => {
                 const modeColor = l.mode === 'remboursement' ? 'bg-red-700' : l.mode === 'import' ? 'bg-violet-700' : 'bg-slate-700'
+                const ouvert = detailOuvert === l.id
+                const lb = l.ligne_bancaire
                 return (
-                  <div key={l.id} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-mono font-semibold text-gray-700">{fmtDate(l.date_lettrage)}</span>
-                        <span className={`text-[10px] ${modeColor} text-white px-1.5 py-0.5 rounded font-semibold`}>{l.mode}</span>
+                  <div key={l.id} className={`border rounded-lg overflow-hidden transition-colors ${ouvert ? 'border-ockham-teal/40' : 'border-gray-100'}`}>
+                    {/* Ligne principale */}
+                    <div className={`flex items-center justify-between px-4 py-2.5 ${ouvert ? 'bg-ockham-teal-muted' : 'bg-gray-50'}`}>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-semibold text-gray-700">{fmtDate(l.date_lettrage)}</span>
+                          <span className={`text-[10px] ${modeColor} text-white px-1.5 py-0.5 rounded font-semibold`}>{l.mode}</span>
+                        </div>
+                        {l.commentaire && <p className="text-[10px] text-gray-400 mt-0.5">{l.commentaire}</p>}
                       </div>
-                      {l.commentaire && <p className="text-[10px] text-gray-400 mt-0.5">{l.commentaire}</p>}
+                      <div className="flex items-center gap-2.5">
+                        <span className={`text-sm font-bold tabular-nums ${l.montant < 0 ? 'text-red-500' : 'text-emerald-600'}`}>{fmt(l.montant)}</span>
+                        {lb && (
+                          <button
+                            onClick={() => setDetailOuvert(ouvert ? null : l.id)}
+                            className={`text-[10px] font-semibold border px-2 py-1 rounded transition-colors flex items-center gap-1 ${ouvert ? 'text-ockham-teal border-ockham-teal/40' : 'text-gray-400 border-gray-200 hover:text-ockham-teal hover:border-ockham-teal/40'}`}
+                          >
+                            Détail {ouvert ? '▴' : '▾'}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <span className={`text-sm font-bold tabular-nums ${l.montant < 0 ? 'text-red-500' : 'text-emerald-600'}`}>{fmt(l.montant)}</span>
+                    {/* Capsule détail */}
+                    {ouvert && lb && (
+                      <div className="border-t border-ockham-teal/20 px-4 py-3 bg-white space-y-1.5">
+                        <div className="flex items-start gap-2.5 text-xs">
+                          <span className="text-gray-400 w-28 flex-shrink-0">Date opération</span>
+                          <span className="font-medium text-gray-800">{fmtDate(lb.date_operation)}</span>
+                        </div>
+                        <div className="flex items-start gap-2.5 text-xs">
+                          <span className="text-gray-400 w-28 flex-shrink-0">Libellé</span>
+                          <span className="font-medium text-gray-800">{lb.libelle}</span>
+                        </div>
+                        {lb.infos_complementaires && (
+                          <div className="flex items-start gap-2.5 text-xs">
+                            <span className="text-gray-400 w-28 flex-shrink-0">Référence</span>
+                            <span className="font-medium text-gray-800">{lb.infos_complementaires}</span>
+                          </div>
+                        )}
+                        <div className="flex items-start gap-2.5 text-xs">
+                          <span className="text-gray-400 w-28 flex-shrink-0">Montant</span>
+                          <span className={`font-bold ${lb.credit != null ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {lb.credit != null ? `Crédit : ${fmt(lb.credit)}` : lb.debit != null ? `Débit : ${fmt(lb.debit)}` : '—'}
+                          </span>
+                        </div>
+                        <div className="pt-1.5 flex justify-end">
+                          <button
+                            onClick={() => copierLigne(l)}
+                            className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 hover:text-ockham-teal border border-gray-200 hover:border-ockham-teal/40 px-2.5 py-1.5 rounded transition-colors"
+                          >
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                            Copier
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )
               })}

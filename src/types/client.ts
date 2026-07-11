@@ -62,6 +62,13 @@ export interface HistoriqueLettrage {
   date_lettrage: string
   mode: string
   commentaire: string | null
+  ligne_bancaire?: {
+    date_operation: string
+    libelle: string
+    infos_complementaires: string | null
+    debit: number | null
+    credit: number | null
+  }
 }
 
 export interface GroupeNebuleuse {
