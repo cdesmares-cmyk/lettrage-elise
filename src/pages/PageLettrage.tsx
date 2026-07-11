@@ -40,6 +40,7 @@ export function PageLettrage() {
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
   const [confirmAnnulation, setConfirmAnnulation] = useState<LigneBancaireAvecStatut | null>(null)
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
+  const [motifAnnulation, setMotifAnnulation] = useState('')
   const [ligneDebitAaffecter, setLigneDebitAaffecter] = useState<LigneBancaireAvecStatut | null>(null)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
@@ -221,7 +222,7 @@ export function PageLettrage() {
 
       const { error } = await supabase
         .from('lettrages')
-        .update({ annule: true } as never)
+        .update({ annule: true, motif_annulation: motifAnnulation.trim() || null } as never)
         .eq('id_ligne_bancaire', confirmAnnulation.id_operation)
       if (error) throw error
 
@@ -250,8 +251,9 @@ export function PageLettrage() {
       if (requalification471.ligneActive?.id_operation === confirmAnnulation.id_operation) requalification471.annuler()
       if (nums411.includes(dispatch411.factureActive?.numero_piece ?? '')) dispatch411.annuler()
       liste.rafraichir()
-      if (nums411.length > 0) rafraichirDonnees()
+      rafraichirDonnees()
       toast.success('Lettrage annulé')
+      setMotifAnnulation('')
       setConfirmAnnulation(null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation du lettrage')
@@ -463,9 +465,16 @@ export function PageLettrage() {
             <p className="text-xs text-gray-500">
               Toutes les affectations de la ligne <span className="font-medium text-gray-700">«&nbsp;{confirmAnnulation.libelle}&nbsp;»</span> seront supprimées. La ligne retournera dans «&nbsp;À lettrer&nbsp;».
             </p>
+            <textarea
+              value={motifAnnulation}
+              onChange={e => setMotifAnnulation(e.target.value)}
+              placeholder="Motif d'annulation (optionnel)"
+              rows={2}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-700 placeholder-gray-400 outline-none focus:border-ockham-teal resize-none transition-colors"
+            />
             <div className="flex gap-2 justify-end pt-1">
               <button
-                onClick={() => setConfirmAnnulation(null)}
+                onClick={() => { setConfirmAnnulation(null); setMotifAnnulation('') }}
                 disabled={annulationEnCours}
                 className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
               >
