@@ -115,12 +115,10 @@ export function ModalHistorique({ facture, onFermer, chargerHistorique }: Props)
                           <span className="text-gray-400 w-28 flex-shrink-0">Libellé</span>
                           <span className="font-medium text-gray-800">{lb.libelle}</span>
                         </div>
-                        {lb.infos_complementaires && (
-                          <div className="flex items-start gap-2.5 text-xs">
-                            <span className="text-gray-400 w-28 flex-shrink-0">Référence</span>
-                            <span className="font-medium text-gray-800">{lb.infos_complementaires}</span>
-                          </div>
-                        )}
+                        <div className="flex items-start gap-2.5 text-xs">
+                          <span className="text-gray-400 w-28 flex-shrink-0">Infos complémentaires</span>
+                          <span className={`font-medium ${lb.infos_complementaires ? 'text-gray-800' : 'text-gray-300'}`}>{lb.infos_complementaires ?? '—'}</span>
+                        </div>
                         <div className="flex items-start gap-2.5 text-xs">
                           <span className="text-gray-400 w-28 flex-shrink-0">Montant</span>
                           <span className={`font-bold ${lb.credit != null ? 'text-emerald-600' : 'text-red-500'}`}>
