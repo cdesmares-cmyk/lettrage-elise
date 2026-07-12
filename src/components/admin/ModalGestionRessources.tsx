@@ -164,8 +164,14 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
     setChargement(true)
     try {
       const nom = inviteNom.trim() || inviteEmail.split('@')[0]
-      await callAdminUsers({ action: 'invite', email: inviteEmail.trim(), prenom: invitePrenom.trim(), nom, role: inviteRole })
-      toast.success(`Invitation envoyée à ${inviteEmail.trim()}`)
+      const result = await callAdminUsers({ action: 'invite', email: inviteEmail.trim(), prenom: invitePrenom.trim(), nom, role: inviteRole })
+      if (result?.invite_link) {
+        // L'email n'a pas pu être envoyé (rate limit / SMTP) — on affiche le lien pour partage manuel
+        navigator.clipboard.writeText(result.invite_link).catch(() => {})
+        toast.success(`Utilisateur ajouté. Lien d'invitation copié dans le presse-papier.`, { duration: 8000 })
+      } else {
+        toast.success(`Invitation envoyée à ${inviteEmail.trim()}`)
+      }
       setInvitePrenom(''); setInviteNom(''); setInviteEmail('')
       setShowInvite(false)
       await charger()

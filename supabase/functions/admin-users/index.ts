@@ -57,24 +57,42 @@ Deno.serve(async (req: Request) => {
       const inviterNom = [caller.prenom, caller.nom].filter(Boolean).join(' ') || user.email?.split('@')[0] || 'Votre administrateur'
 
       let authUserId: string
+      let inviteLink: string | null = null
+
+      // Étape 1 : invitation standard (crée l'utilisateur + envoie l'email)
       const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo: SITE_URL,
         data: { inviter_nom: inviterNom },
       })
 
-      if (inviteError) {
-        // GoTrue échoue (ex: utilisateur déjà confirmé dans auth.users).
-        // On recherche l'utilisateur existant pour l'ajouter à l'organisation.
-        const { data: list, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
-        if (listError) return json({ error: `Invitation impossible : ${inviteError.message}` }, 400)
-        const found = (list?.users ?? []).find((u: { email?: string }) => u.email === email)
-        if (!found) return json({ error: `Invitation impossible : ${inviteError.message}` }, 400)
-        authUserId = found.id
-      } else {
+      if (!inviteError) {
         authUserId = invited.user.id
+      } else {
+        // Étape 2 : generateLink — crée l'utilisateur dans auth sans envoyer d'email
+        // Couvre : rate limit email, SMTP non configuré, toute erreur d'envoi GoTrue
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'invite',
+          email,
+          options: { redirectTo: SITE_URL, data: { inviter_nom: inviterNom } },
+        })
+
+        if (!linkError && linkData?.user) {
+          authUserId = linkData.user.id
+          inviteLink = (linkData as { properties?: { action_link?: string } }).properties?.action_link ?? null
+        } else {
+          // Étape 3 : l'utilisateur existe déjà comme compte confirmé — on le retrouve
+          const { data: list } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+          const found = (list?.users ?? []).find((u: { email?: string }) => u.email === email)
+          if (!found) {
+            return json({
+              error: `Impossible de créer l'utilisateur (invite: ${inviteError.message} / link: ${linkError?.message ?? '?'})`,
+            }, 400)
+          }
+          authUserId = found.id
+        }
       }
 
-      await supabaseAdmin.from('utilisateurs').upsert({
+      const { error: upsertError } = await supabaseAdmin.from('utilisateurs').upsert({
         id: authUserId,
         email,
         prenom,
@@ -83,7 +101,13 @@ Deno.serve(async (req: Request) => {
         role,
         organisation_id: caller.organisation_id,
       } as never, { onConflict: 'id' })
-      return json({ ok: true })
+
+      if (upsertError) {
+        return json({ error: `Utilisateur créé dans auth mais erreur base : ${upsertError.message}` }, 500)
+      }
+
+      // inviteLink est non-null uniquement si l'email n'a pas pu être envoyé (fallback generateLink)
+      return json({ ok: true, invite_link: inviteLink })
     }
 
     if (action === 'update_user') {
