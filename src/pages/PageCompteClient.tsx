@@ -72,7 +72,7 @@ export function PageCompteClient() {
     rechercheDebounceRef.current = setTimeout(() => {
       comptes.setRecherche(valeur)
       setRechercheEnAttente(false)
-    }, 300)
+    }, 1000)
   }
 
   // Valeurs uniques de clients.commercial (peut être "Tournebize" ancien format ou "Tournebize Clément" nouveau)

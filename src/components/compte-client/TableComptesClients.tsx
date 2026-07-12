@@ -124,9 +124,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     setPage(0)
   }
 
-  if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
-  if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
-
+  // Ces calculs et ce hook doivent rester AVANT les early returns pour ne jamais
+  // modifier le nombre de hooks appelés entre deux rendus (règle React).
   const clientsFiltres = filtreAlertes ? clients.filter(c => c.relance_auto_alerte) : clients
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
@@ -138,6 +137,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   useEffect(() => {
     if (checkboxToutRef.current) checkboxToutRef.current.indeterminate = quelquesPageCoches
   }, [quelquesPageCoches])
+
+  if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
+  if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
