@@ -76,6 +76,13 @@ export function PageCompteClient() {
     [utilisateurs, nomsAssignes]
   )
 
+  // Réinitialise le filtre si le commercial sélectionné n'existe plus dans la liste
+  useEffect(() => {
+    if (!filtreCommercial) return
+    const labels = commerciauxActifs.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)
+    if (!labels.includes(filtreCommercial)) setFiltreCommercial('')
+  }, [commerciauxActifs, filtreCommercial])
+
   const clientsFiltres = useMemo(() => {
     if (!filtreCommercial) return comptes.clients
     // Compatibilité ancien format (nom seul) et nouveau format (Nom Prénom)

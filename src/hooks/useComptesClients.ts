@@ -5,6 +5,11 @@ import { useAppData } from '../contexts/AppDataContext'
 import toast from 'react-hot-toast'
 import type { CompteClient, GroupeNebuleuse, KpisCompteClient, StatutJuridique } from '../types/client'
 
+// Échappe les caractères spéciaux PostgreSQL ILIKE (%  _  \)
+function escapeIlike(s: string): string {
+  return s.replace(/[\\%_]/g, '\\$&')
+}
+
 export function useComptesClients() {
   const { clients: raw, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourClientLocal } = useAppData()
   const [recherche, setRechercheState] = useState('')
@@ -12,17 +17,27 @@ export function useComptesClients() {
   const [codesFallback, setCodesFallback] = useState<Set<string>>(new Set())
   const [chargementServeur, setChargementServeur] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Compteur de version pour ignorer les réponses périmées (frappe rapide)
+  const searchVersionRef = useRef(0)
 
   const rechercherServeur = useCallback(async (terme: string) => {
     if (terme.length < 2) { setCodesFallback(new Set()); return }
+    const version = ++searchVersionRef.current
     setChargementServeur(true)
-    const { data } = await supabase
-      .from('factures')
-      .select('code_client')
-      .ilike('numero_piece', `%${terme}%`)
-      .limit(200)
-    setCodesFallback(new Set(((data ?? []) as { code_client: string }[]).map(r => r.code_client)))
-    setChargementServeur(false)
+    try {
+      const { data } = await supabase
+        .from('factures')
+        .select('code_client')
+        .ilike('numero_piece', `%${escapeIlike(terme)}%`)
+        .limit(200)
+      if (version !== searchVersionRef.current) return  // réponse périmée, on ignore
+      setCodesFallback(new Set(((data ?? []) as { code_client: string }[]).map(r => r.code_client)))
+    } catch {
+      if (version !== searchVersionRef.current) return
+      setCodesFallback(new Set())
+    } finally {
+      if (version === searchVersionRef.current) setChargementServeur(false)
+    }
   }, [])
 
   function setRecherche(terme: string) {

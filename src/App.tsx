@@ -7,6 +7,7 @@ import { FournisseurCorrection } from './contexts/CorrectionContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { PageMobileIndisponible } from './components/PageMobileIndisponible'
 import { PageConnexion } from './pages/PageConnexion'
 import { PageDefinirMotDePasse } from './pages/PageDefinirMotDePasse'
@@ -98,11 +99,11 @@ function AppRoutes() {
         }
       >
         <Route index element={<Navigate to="/tableau-de-bord" replace />} />
-        <Route path="/lettrage" element={<PageLettrage />} />
-        <Route path="/compte-client" element={<PageCompteClient />} />
-        <Route path="/tableau-de-bord" element={<PageTableauDeBord />} />
-        <Route path="/relances" element={<PageRelances />} />
-        <Route path="/import-export" element={<PageImportExport />} />
+        <Route path="/lettrage" element={<ErrorBoundary><PageLettrage /></ErrorBoundary>} />
+        <Route path="/compte-client" element={<ErrorBoundary><PageCompteClient /></ErrorBoundary>} />
+        <Route path="/tableau-de-bord" element={<ErrorBoundary><PageTableauDeBord /></ErrorBoundary>} />
+        <Route path="/relances" element={<ErrorBoundary><PageRelances /></ErrorBoundary>} />
+        <Route path="/import-export" element={<ErrorBoundary><PageImportExport /></ErrorBoundary>} />
         {/* Redirections pour les anciens liens */}
         <Route path="/depot" element={<Navigate to="/import-export" replace />} />
         <Route path="/extraction" element={<Navigate to="/import-export" replace />} />
