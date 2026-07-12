@@ -1,6 +1,6 @@
 // Onglet 3 — Compte Client : vue clients / nébuleuse / factures avec drill-down (Sprint 3)
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText, IcEdit } from '../components/Icones'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText, IcEdit, IcLoader } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useAppData } from '../contexts/AppDataContext'
@@ -49,6 +49,10 @@ export function PageCompteClient() {
   const [factureDateDebut, setFactureDateDebut] = useState('')
   const [factureDateFin, setFactureDateFin] = useState('')
 
+  const [inputRecherche, setInputRecherche] = useState('')
+  const [rechercheEnAttente, setRechercheEnAttente] = useState(false)
+  const rechercheDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const [filtreCommercial, setFiltreCommercial] = useState('')
   const [utilisateurs, setUtilisateurs] = useState<{ nom: string; prenom: string }[]>([])
 
@@ -60,6 +64,16 @@ export function PageCompteClient() {
 
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
+
+  function handleRechercheChange(valeur: string) {
+    setInputRecherche(valeur)
+    setRechercheEnAttente(true)
+    if (rechercheDebounceRef.current) clearTimeout(rechercheDebounceRef.current)
+    rechercheDebounceRef.current = setTimeout(() => {
+      comptes.setRecherche(valeur)
+      setRechercheEnAttente(false)
+    }, 300)
+  }
 
   // Valeurs uniques de clients.commercial (peut être "Tournebize" ancien format ou "Tournebize Clément" nouveau)
   const nomsAssignes = useMemo(
@@ -180,6 +194,7 @@ export function PageCompteClient() {
     const cible = comptes.clients.find(c => c.code_dso === codeCible)
     if (cible) {
       setVue('clients')
+      setInputRecherche(codeCible)
       comptes.setRecherche(codeCible)
       setSearchParams({}, { replace: true })
     }
@@ -224,17 +239,24 @@ export function PageCompteClient() {
           <IcSearch size={13} className="text-gray-400 flex-shrink-0" />
           <input
             type="text"
-            value={comptes.recherche}
-            onChange={e => comptes.setRecherche(e.target.value)}
+            value={inputRecherche}
+            onChange={e => handleRechercheChange(e.target.value)}
             placeholder="Code, client, n° facture…"
             className="text-xs text-gray-700 placeholder-gray-400 outline-none w-full bg-transparent"
           />
-          {comptes.chargementServeur && (
-            <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal animate-pulse flex-shrink-0" title="Recherche étendue…" />
-          )}
-          {comptes.recherche && !comptes.chargementServeur && (
-            <button onClick={() => comptes.setRecherche('')} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
-          )}
+          {(rechercheEnAttente || comptes.chargementServeur) ? (
+            <IcLoader size={13} className="text-ockham-teal flex-shrink-0" />
+          ) : inputRecherche ? (
+            <button
+              onClick={() => {
+                if (rechercheDebounceRef.current) clearTimeout(rechercheDebounceRef.current)
+                setInputRecherche('')
+                setRechercheEnAttente(false)
+                comptes.setRecherche('')
+              }}
+              className="text-gray-400 hover:text-gray-600 text-xs"
+            >✕</button>
+          ) : null}
         </div>
 
         {vue === 'clients' && commerciauxActifs.length > 0 && (
