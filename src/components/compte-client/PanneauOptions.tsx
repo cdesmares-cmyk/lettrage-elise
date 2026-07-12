@@ -558,8 +558,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               label="Commercial"
               valeur={commercial}
               setValeur={setCommercial}
-              options={commerciauxData.map(u => u.nom)}
-              labels={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
+              options={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
             />
             <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
             <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
