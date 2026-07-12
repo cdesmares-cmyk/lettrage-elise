@@ -375,6 +375,7 @@ export function PageCompteClient() {
           onHistorique={setFacHistorique}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
+          recherche={comptes.recherche}
         />
       )}
 
@@ -392,6 +393,7 @@ export function PageCompteClient() {
           dateFin={factureDateFin}
           onDateDebutChange={setFactureDateDebut}
           onDateFinChange={setFactureDateFin}
+          recherche={comptes.recherche}
         />
       )}
 

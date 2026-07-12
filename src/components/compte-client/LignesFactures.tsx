@@ -13,6 +13,7 @@ interface Props {
   compact?: boolean
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
+  recherche?: string
   // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
   controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
@@ -87,7 +88,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort, commentaires, onOuvrirCommentaire }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort, commentaires, onOuvrirCommentaire, recherche }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -172,8 +173,15 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             const estImpayeTotal = !f.est_avoir && !estCompte && !estNegatif && !estSolde && f.montant_ttc > 0.005 && (f.reste_du / f.montant_ttc) >= 0.995
             const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-ockham-teal font-bold' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
             const isAvoir = f.est_avoir || f.montant_ttc < 0
+            const estSurligne = !!recherche && f.numero_piece.toLowerCase().includes(recherche.toLowerCase())
             return (
-              <tr key={f.numero_piece} className={`border-b border-gray-50 transition-colors ${estCompte ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70' : 'bg-white hover:bg-slate-50'}`}>
+              <tr key={f.numero_piece} className={`border-b transition-colors ${
+                estSurligne
+                  ? 'bg-[#E6F7F5] border-[#4CC5BB]/20 border-l-2 border-l-[#4CC5BB]'
+                  : estCompte
+                  ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70 border-gray-50'
+                  : 'bg-white hover:bg-slate-50 border-gray-50'
+              }`}>
                 {!compact && (
                   <td className="px-3 py-2">
                     <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>

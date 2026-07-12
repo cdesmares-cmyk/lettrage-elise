@@ -14,6 +14,7 @@ interface Props {
   onHistorique: (fac: FactureDetail) => void
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
+  recherche?: string
 }
 
 function fmt(n: number) {
@@ -63,7 +64,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire }: Props) {
+export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire, recherche }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [zerosVisibles, setZerosVisibles] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
@@ -207,6 +208,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                                       onHistorique={onHistorique}
                                       commentaires={commentaires}
                                       onOuvrirCommentaire={onOuvrirCommentaire}
+                                      recherche={recherche}
                                       compact
                                     />
                                   </div>

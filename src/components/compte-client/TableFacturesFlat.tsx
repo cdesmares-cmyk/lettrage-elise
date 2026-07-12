@@ -33,9 +33,10 @@ interface Props {
   dateFin: string
   onDateDebutChange: (v: string) => void
   onDateFinChange: (v: string) => void
+  recherche?: string
 }
 
-export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange }: Props) {
+export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
   const codes = clients.map(c => c.code_dso)
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState('date_emission')
@@ -186,6 +187,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         onHistorique={onHistorique}
         commentaires={commentaires}
         onOuvrirCommentaire={onOuvrirCommentaire}
+        recherche={recherche}
         controlSort={{ col: sortCol, dir: sortDir, onChange: handleSort }}
       />
 

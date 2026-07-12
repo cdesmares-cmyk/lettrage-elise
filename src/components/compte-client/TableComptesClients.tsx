@@ -346,6 +346,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               onHistorique={onHistorique}
                               commentaires={commentaires}
                               onOuvrirCommentaire={onOuvrirCommentaire}
+                              recherche={recherche}
                               compact
                             />
                             {nbReglees > 0 && !estHistoriqueCharge(c.code_dso) && (
