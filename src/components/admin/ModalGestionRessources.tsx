@@ -36,7 +36,18 @@ const DOT_ROLE: Record<Role, string> = {
 
 async function callAdminUsers(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('admin-users', { body })
-  if (error) throw error
+  if (error) {
+    const ctx = (error as { context?: Response }).context
+    if (ctx) {
+      try {
+        const detail = await ctx.json() as { error?: string }
+        if (detail?.error) throw new Error(detail.error)
+      } catch (e) {
+        if (e instanceof Error && e.message !== error.message) throw e
+      }
+    }
+    throw error
+  }
   if (data?.error) throw new Error(data.error)
   return data
 }
