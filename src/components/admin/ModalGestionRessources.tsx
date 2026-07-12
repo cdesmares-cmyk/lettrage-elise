@@ -40,13 +40,13 @@ async function callAdminUsers(body: Record<string, unknown>) {
     const ctx = (error as { context?: Response }).context
     if (ctx) {
       try {
-        const detail = await ctx.json() as { error?: string }
-        if (detail?.error) throw new Error(detail.error)
+        const text = await ctx.text()
+        throw new Error(`HTTP ${ctx.status} — ${text || '(corps vide)'}`)
       } catch (e) {
         if (e instanceof Error && e.message !== error.message) throw e
       }
     }
-    throw error
+    throw new Error(error instanceof Error ? error.message : `Erreur: ${JSON.stringify(error)}`)
   }
   if (data?.error) throw new Error(data.error)
   return data
