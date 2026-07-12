@@ -22,6 +22,7 @@ import { ModalCompositionRelance } from '../components/relances/ModalComposition
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { exporterXls } from '../lib/exportXls'
+import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: React.ReactNode }[] = [
@@ -49,18 +50,39 @@ export function PageCompteClient() {
   const [factureDateFin, setFactureDateFin] = useState('')
 
   const [filtreCommercial, setFiltreCommercial] = useState('')
+  const [utilisateurs, setUtilisateurs] = useState<{ nom: string; prenom: string }[]>([])
+
+  useEffect(() => {
+    supabase.from('utilisateurs').select('prenom, nom').order('nom').then(({ data }) => {
+      setUtilisateurs((data as { prenom: string; nom: string }[] | null) ?? [])
+    })
+  }, [])
 
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
-  const commerciauxActifs = useMemo(
-    () => [...new Set(comptes.clients.map(c => c.commercial).filter(Boolean) as string[])].sort(),
+
+  // Valeurs uniques de clients.commercial (peut être "Tournebize" ancien format ou "Tournebize Clément" nouveau)
+  const nomsAssignes = useMemo(
+    () => new Set(comptes.clients.map(c => c.commercial).filter(Boolean) as string[]),
     [comptes.clients]
   )
 
-  const clientsFiltres = useMemo(
-    () => filtreCommercial ? comptes.clients.filter(c => c.commercial === filtreCommercial) : comptes.clients,
-    [comptes.clients, filtreCommercial]
+  // Utilisateurs dont le nom (ou "Nom Prénom") apparaît dans les clients affectés
+  const commerciauxActifs = useMemo(
+    () => utilisateurs.filter(u => {
+      const fullName = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
+      return nomsAssignes.has(u.nom) || nomsAssignes.has(fullName)
+    }),
+    [utilisateurs, nomsAssignes]
   )
+
+  const clientsFiltres = useMemo(() => {
+    if (!filtreCommercial) return comptes.clients
+    // Compatibilité ancien format (nom seul) et nouveau format (Nom Prénom)
+    const u = utilisateurs.find(x => (x.prenom ? `${x.nom} ${x.prenom}` : x.nom) === filtreCommercial)
+    const fullName = u ? (u.prenom ? `${u.nom} ${u.prenom}` : u.nom) : filtreCommercial
+    return comptes.clients.filter(c => c.commercial === fullName || (u && c.commercial === u.nom))
+  }, [comptes.clients, filtreCommercial, utilisateurs])
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
@@ -220,9 +242,10 @@ export function PageCompteClient() {
               }`}
             >
               <option value="">Tous les commerciaux</option>
-              {commerciauxActifs.map(nom => (
-                <option key={nom} value={nom}>{nom}</option>
-              ))}
+              {commerciauxActifs.map(u => {
+                const label = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
+                return <option key={label} value={label}>{label}</option>
+              })}
             </select>
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
           </div>
