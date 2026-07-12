@@ -177,7 +177,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             return (
               <tr key={f.numero_piece} className={`border-b transition-colors ${
                 estSurligne
-                  ? 'bg-[#E6F7F5] border-[#4CC5BB]/20 border-l-2 border-l-[#4CC5BB]'
+                  ? 'bg-[#FEFCE8] border-[#CA8A04]/20 border-l-2 border-l-[#CA8A04]'
                   : estCompte
                   ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70 border-gray-50'
                   : 'bg-white hover:bg-slate-50 border-gray-50'
