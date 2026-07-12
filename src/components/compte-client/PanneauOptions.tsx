@@ -90,8 +90,8 @@ function ComboRef({
 
 // Dropdown strict pour les champs gérés uniquement par l'admin (opérateur)
 function SelectRef({
-  label, valeur, setValeur, options,
-}: { label: string; valeur: string; setValeur: (v: string) => void; options: string[] }) {
+  label, valeur, setValeur, options, labels,
+}: { label: string; valeur: string; setValeur: (v: string) => void; options: string[]; labels?: string[] }) {
   return (
     <div>
       <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">{label}</label>
@@ -102,7 +102,7 @@ function SelectRef({
           className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors appearance-none bg-white pr-8"
         >
           <option value="">— Aucun —</option>
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          {options.map((o, i) => <option key={o} value={o}>{labels?.[i] ?? o}</option>)}
         </select>
         <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
       </div>
@@ -111,13 +111,13 @@ function SelectRef({
 }
 
 export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
-  const [commerciaux, setCommerciaux] = useState<string[]>([])
+  const [commerciauxData, setCommerciauxData] = useState<{ nom: string; prenom: string }[]>([])
   const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
   const chargerCommerciaux = useCallback(async () => {
-    const { data } = await supabase.from('utilisateurs').select('nom').order('nom')
-    setCommerciaux((data as unknown as { nom: string }[] | null)?.map(u => u.nom).filter(Boolean) ?? [])
+    const { data } = await supabase.from('utilisateurs').select('prenom, nom').order('nom')
+    setCommerciauxData((data as unknown as { nom: string; prenom: string }[] | null)?.filter(u => u.nom) ?? [])
   }, [])
 
   useEffect(() => { chargerCommerciaux() }, [chargerCommerciaux])
@@ -554,7 +554,13 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               )}
             </div>
 
-            <SelectRef label="Commercial" valeur={commercial} setValeur={setCommercial} options={commerciaux} />
+            <SelectRef
+              label="Commercial"
+              valeur={commercial}
+              setValeur={setCommercial}
+              options={commerciauxData.map(u => u.nom)}
+              labels={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
+            />
             <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
             <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
 

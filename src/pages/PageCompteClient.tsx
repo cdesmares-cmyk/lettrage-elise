@@ -21,8 +21,8 @@ import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNeb
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
-import { useRefValeurs } from '../hooks/useRefValeurs'
 import { exporterXls } from '../lib/exportXls'
+import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
 const VUES: { val: VueMode; label: string; icon: React.ReactNode }[] = [
@@ -50,10 +50,25 @@ export function PageCompteClient() {
   const [factureDateFin, setFactureDateFin] = useState('')
 
   const [filtreCommercial, setFiltreCommercial] = useState('')
-  const { valeurs: commerciaux } = useRefValeurs('commercial')
+  const [utilisateursMap, setUtilisateursMap] = useState<Map<string, string>>(new Map())
+
+  useEffect(() => {
+    supabase.from('utilisateurs').select('prenom, nom').order('nom').then(({ data }) => {
+      const map = new Map<string, string>()
+      for (const u of (data as { prenom: string; nom: string }[] | null) ?? []) {
+        if (u.nom) map.set(u.nom, u.prenom ? `${u.nom} ${u.prenom}` : u.nom)
+      }
+      setUtilisateursMap(map)
+    })
+  }, [])
 
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
+  const commerciauxActifs = useMemo(
+    () => [...new Set(comptes.clients.map(c => c.commercial).filter(Boolean) as string[])].sort(),
+    [comptes.clients]
+  )
+
   const clientsFiltres = useMemo(
     () => filtreCommercial ? comptes.clients.filter(c => c.commercial === filtreCommercial) : comptes.clients,
     [comptes.clients, filtreCommercial]
@@ -205,7 +220,7 @@ export function PageCompteClient() {
           )}
         </div>
 
-        {vue === 'clients' && commerciaux.length > 0 && (
+        {vue === 'clients' && commerciauxActifs.length > 0 && (
           <div className="relative">
             <select
               value={filtreCommercial}
@@ -217,7 +232,9 @@ export function PageCompteClient() {
               }`}
             >
               <option value="">Tous les commerciaux</option>
-              {commerciaux.map(c => <option key={c} value={c}>{c}</option>)}
+              {commerciauxActifs.map(nom => (
+                <option key={nom} value={nom}>{utilisateursMap.get(nom) ?? nom}</option>
+              ))}
             </select>
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
           </div>
