@@ -55,13 +55,27 @@ Deno.serve(async (req: Request) => {
       if (!email) return json({ error: 'Email requis' }, 400)
       const nomDisplay = nom || email.split('@')[0]
       const inviterNom = [caller.prenom, caller.nom].filter(Boolean).join(' ') || user.email?.split('@')[0] || 'Votre administrateur'
-      const { data: invited, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+
+      let authUserId: string
+      const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
         redirectTo: SITE_URL,
         data: { inviter_nom: inviterNom },
       })
-      if (error) return json({ error: error.message }, 400)
+
+      if (inviteError) {
+        // GoTrue échoue (ex: utilisateur déjà confirmé dans auth.users).
+        // On recherche l'utilisateur existant pour l'ajouter à l'organisation.
+        const { data: list, error: listError } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 })
+        if (listError) return json({ error: `Invitation impossible : ${inviteError.message}` }, 400)
+        const found = (list?.users ?? []).find((u: { email?: string }) => u.email === email)
+        if (!found) return json({ error: `Invitation impossible : ${inviteError.message}` }, 400)
+        authUserId = found.id
+      } else {
+        authUserId = invited.user.id
+      }
+
       await supabaseAdmin.from('utilisateurs').upsert({
-        id: invited.user.id,
+        id: authUserId,
         email,
         prenom,
         nom: nomDisplay,
