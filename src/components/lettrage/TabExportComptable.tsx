@@ -8,7 +8,7 @@ import { debutMoisLocal, todayLocal } from '../../lib/dates'
 interface Props {
   historique: ExportComptable[]
   chargement: boolean
-  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number }>
+  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number }>
   onExporter: (d: string, f: string) => Promise<void>
   onRetelecharger: (exp: ExportComptable) => Promise<void>
 }
@@ -29,7 +29,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
   const [dateDebut, setDateDebut] = useState(debutMois)
   const [dateFin, setDateFin] = useState(today)
   const [etape, setEtape] = useState<Etape>('filtres')
-  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number; nbNonLettrees: number } | null>(null)
+  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number } | null>(null)
   const [calcul, setCalcul] = useState(false)
 
   async function handleApercu() {
@@ -37,10 +37,10 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
     setCalcul(true)
     try {
       const result = await onApercu(dateDebut, dateFin)
-      if (result.nbLignes === 0 && result.nbNonLettrees === 0) {
-        toast.error('Aucune ligne bancaire trouvée sur cette période'); return
+      if (result.nbLignes === 0 && result.nbNonLettrees === 0 && result.nbCompensations === 0) {
+        toast.error('Aucune ligne éligible trouvée sur cette période'); return
       }
-      if (result.nbLignes === 0) {
+      if (result.nbLignes === 0 && result.nbNonLettrees > 0) {
         toast.error('Aucune ligne 100% lettrée — lettrez d\'abord toutes les lignes de la période'); return
       }
       setApercuData(result)
@@ -111,18 +111,25 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
           <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
             <p className="text-sm font-bold text-gray-900">Aperçu de l'export</p>
             <p className="text-xs text-gray-500">Période : <span className="font-medium text-gray-700">{fmtDate(dateDebut)} → {fmtDate(dateFin)}</span></p>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gray-50 rounded-lg px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-gray-900">{apercuData.nbLignes}</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">ligne{apercuData.nbLignes > 1 ? 's' : ''} 100% lettrée{apercuData.nbLignes > 1 ? 's' : ''}</p>
+            {apercuData.nbLignes > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 rounded-lg px-4 py-3 text-center">
+                  <p className="text-2xl font-bold text-gray-900">{apercuData.nbLignes}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">ligne{apercuData.nbLignes > 1 ? 's' : ''} 100% lettrée{apercuData.nbLignes > 1 ? 's' : ''}</p>
+                </div>
+                <div className="bg-gray-50 rounded-lg px-4 py-3 text-center">
+                  <p className="text-2xl font-bold text-ockham-teal">{fmt(apercuData.montant)}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">montant total lettré</p>
+                </div>
               </div>
-              <div className="bg-gray-50 rounded-lg px-4 py-3 text-center">
-                <p className="text-2xl font-bold text-ockham-teal">{fmt(apercuData.montant)}</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">montant total lettré</p>
+            )}
+            {apercuData.nbCompensations > 0 && (
+              <div className="bg-ockham-teal/5 border border-ockham-teal/20 rounded-lg px-4 py-3 flex items-center gap-3">
+                <p className="text-2xl font-bold text-ockham-teal">{apercuData.nbCompensations}</p>
+                <p className="text-[11px] text-gray-500">compensation{apercuData.nbCompensations > 1 ? 's' : ''} avoir/facture — seront verrouillées comptablement</p>
               </div>
-            </div>
+            )}
             <p className="text-[11px] text-gray-400">Les lettrages déjà verrouillés dans cette période sont inclus dans l'export mais non re-verrouillés.</p>
-            <p className="text-[11px] text-ockham-teal font-medium">Les compensations avoir/facture de la période seront également verrouillées comptablement.</p>
           </div>
 
           {apercuData.nbNonLettrees > 0 && (
@@ -158,10 +165,13 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
               <IcWarning size={14} className="flex-shrink-0" /> Confirmation requise
             </p>
             <p className="text-xs text-red-600">
-              Vous allez verrouiller <strong>{apercuData.nbLignes} ligne{apercuData.nbLignes > 1 ? 's' : ''}</strong> ({fmt(apercuData.montant)}) pour la période <strong>{fmtDate(dateDebut)} → {fmtDate(dateFin)}</strong>.
+              Vous allez verrouiller pour la période <strong>{fmtDate(dateDebut)} → {fmtDate(dateFin)}</strong> :
+              {apercuData.nbLignes > 0 && <> <strong>{apercuData.nbLignes} ligne{apercuData.nbLignes > 1 ? 's' : ''} bancaire{apercuData.nbLignes > 1 ? 's' : ''}</strong> ({fmt(apercuData.montant)})</>}
+              {apercuData.nbLignes > 0 && apercuData.nbCompensations > 0 && <> et</>}
+              {apercuData.nbCompensations > 0 && <> <strong>{apercuData.nbCompensations} compensation{apercuData.nbCompensations > 1 ? 's' : ''} avoir/facture</strong></>}.
             </p>
             <p className="text-xs text-red-600">
-              Ces lignes ne seront plus modifiables depuis le module Lettrage. Toute correction nécessitera de passer par le <strong>module Correction</strong>. Les compensations avoir/facture de la période seront également verrouillées.
+              Ces opérations ne seront plus modifiables depuis le module Lettrage. Toute correction nécessitera de passer par le <strong>module Correction</strong>.
             </p>
           </div>
           <div className="flex gap-2 justify-end">
