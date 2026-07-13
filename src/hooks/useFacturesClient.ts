@@ -54,6 +54,27 @@ export function useFacturesClient() {
     setEnCoursHistorique(false)
   }, [])
 
+  // Force un re-fetch même si le client a déjà été chargé — pour rafraîchir après compensation/annulation
+  const rafraichirFacturesClient = useCallback(async (codes: string | string[]) => {
+    const arr = (Array.isArray(codes) ? codes : [codes]).filter(Boolean)
+    if (!arr.length) return
+
+    const { data, error } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
+      .in('code_client', arr)
+      .order('date_emission', { ascending: false })
+
+    if (!error) {
+      const rows = (data as unknown as FactureDetail[]) ?? []
+      setHistoriqueLocal(prev => {
+        const sans = prev.filter(f => !arr.includes(f.code_client))
+        return [...sans, ...rows]
+      })
+      arr.forEach(c => codesHistoriqueRef.current.add(c))
+    }
+  }, [])
+
   // Compatibilité ascendante — plus d'effet (données déjà dans le contexte)
   const chargerFactures = useCallback(async (_codes: string | string[]) => {}, [])
 
@@ -133,6 +154,7 @@ export function useFacturesClient() {
   return {
     chargerFactures,
     chargerToutesFactures,
+    rafraichirFacturesClient,
     estHistoriqueCharge,
     getFactures,
     estChargement,

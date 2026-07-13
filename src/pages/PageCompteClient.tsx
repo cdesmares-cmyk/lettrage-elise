@@ -109,7 +109,7 @@ export function PageCompteClient() {
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
   const { relances } = useRelances()
   const compensation = useCompensationAvoir(() => {
-    if (clientCompensationDso) factures.chargerToutesFactures(clientCompensationDso)
+    if (clientCompensationDso) factures.rafraichirFacturesClient(clientCompensationDso)
   })
 
   const dernieresRelances = useMemo(() => {
@@ -420,7 +420,7 @@ export function PageCompteClient() {
           factures={factures.getFactures(clientCompensationDso)}
           compensation={compensation}
           onFermer={() => { compensation.annuler(); setClientCompensationDso(null) }}
-          onRefreshFactures={() => factures.chargerToutesFactures(clientCompensationDso)}
+          onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationDso)}
         />
       )}
 
