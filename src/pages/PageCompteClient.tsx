@@ -18,7 +18,6 @@ import { useCompensationAvoir } from '../hooks/useCompensationAvoir'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
-import { ModalNavigateurFactures } from '../components/lettrage/ModalNavigateurFactures'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
@@ -47,7 +46,6 @@ export function PageCompteClient() {
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
   const [exportSelectionEnCours, setExportSelectionEnCours] = useState(false)
-  const [navigateurOuvert, setNavigateurOuvert] = useState(false)
   const [factureDateDebut, setFactureDateDebut] = useState('')
   const [factureDateFin, setFactureDateFin] = useState('')
 
@@ -295,12 +293,6 @@ export function PageCompteClient() {
           </button>
         )}
 
-        <button
-          onClick={() => setNavigateurOuvert(true)}
-          className="flex items-center gap-1.5 whitespace-nowrap text-xs font-semibold px-3 py-1.5 rounded-lg border bg-white text-ockham-teal border-ockham-teal/40 hover:border-ockham-teal hover:bg-ockham-teal-muted transition-colors"
-        >
-          <IcSearch size={12} /> Détection auto
-        </button>
       </div>
 
       {/* Bandeau sélection */}
@@ -478,13 +470,6 @@ export function PageCompteClient() {
         onFermer={() => setExportOuvert(false)}
       />
 
-      {/* Modal Détection auto */}
-      <ModalNavigateurFactures
-        ouvert={navigateurOuvert}
-        ligneActive={null}
-        onFermer={() => setNavigateurOuvert(false)}
-        onInjecter={() => setNavigateurOuvert(false)}
-      />
     </div>
   )
 }

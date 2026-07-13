@@ -131,6 +131,7 @@ async function fetchHistorique(ligne: LigneBancaireAvecStatut): Promise<FactureN
 export function useNavigateurFactures(
   ligneActive: LigneBancaireAvecStatut | null,
   ouvert: boolean,
+  codeClient?: string,
 ) {
   const [query, setQueryRaw] = useState('')
   const [resultats, setResultats] = useState<FactureNavigateur[]>([])
@@ -162,7 +163,8 @@ export function useNavigateurFactures(
       return
     }
     if (ligneActive) computeSuggestions(ligneActive)
-  }, [ouvert, ligneActive?.id_operation])
+    else if (codeClient) computeSuggestionsClient(codeClient)
+  }, [ouvert, ligneActive?.id_operation, codeClient])
 
   async function computeSuggestions(ligne: LigneBancaireAvecStatut) {
     setChargementSugg(true)
@@ -198,6 +200,24 @@ export function useNavigateurFactures(
       )
 
       setSuggestions([...found.values()].sort((a, b) => b.confiance - a.confiance))
+    } finally {
+      setChargementSugg(false)
+    }
+  }
+
+  async function computeSuggestionsClient(code: string) {
+    setChargementSugg(true)
+    try {
+      const { data } = await supabase
+        .from('v_factures_avec_reste_du')
+        .select(COLS)
+        .eq('code_client', code)
+        .gt('reste_du', TOLERANCE_CENT)
+        .eq('est_avoir', false)
+        .order('date_echeance', { ascending: true })
+        .limit(20)
+      const factures = (data as FactureNavigateur[]) ?? []
+      setSuggestions(factures.map(f => ({ facture: f, source: 'client_reconnu' as SourceSuggestion, confiance: 3 as const })))
     } finally {
       setChargementSugg(false)
     }

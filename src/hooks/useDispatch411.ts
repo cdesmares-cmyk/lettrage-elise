@@ -130,11 +130,27 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
   const clientsDispatches = [...new Set(lignesForme.map(l => l.info_facture?.code_client).filter(Boolean))]
   const warningMultiClient = clientsDispatches.length > 1
 
+  function injecterLignes(factures: { numero_facture: string; montant: number }[]) {
+    if (!factures.length) return
+    const vides = lignesForme.filter(l => l.classe === 'facture' && !l.numero_facture)
+    const nonVides = lignesForme.filter(l => l.classe !== 'facture' || !!l.numero_facture)
+    const nouvelles: LigneForme[] = factures.map((f, i) => ({
+      _key: i < vides.length ? vides[i]._key : cle(),
+      classe: 'facture' as const,
+      numero_facture: f.numero_facture,
+      montant: String(f.montant),
+      info_facture: null,
+      chargement: true,
+    }))
+    setLignesForme([...nonVides, ...nouvelles])
+    nouvelles.forEach(l => chercherInfoFacture(l._key, l.numero_facture))
+  }
+
   return {
     factureActive, lignesForme,
     chargement,
     selectionnerFacture411, annuler, ajouterLigne, supprimerLigne,
-    modifierLigne, chercherInfoFacture, valider, peutValider, motifInvalide,
+    modifierLigne, chercherInfoFacture, injecterLignes, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
     warningMultiClient,
   }

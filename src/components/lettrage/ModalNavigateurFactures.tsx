@@ -13,6 +13,7 @@ interface Props {
   ligneActive: LigneBancaireAvecStatut | null
   onFermer: () => void
   onInjecter: (factures: LigneAInjecter[]) => void
+  codeClient?: string
 }
 
 export interface LigneAInjecter {
@@ -126,8 +127,8 @@ function SkeletonRows({ n }: { n: number }) {
   )
 }
 
-export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjecter }: Props) {
-  const nav = useNavigateurFactures(ligneActive, ouvert)
+export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjecter, codeClient }: Props) {
+  const nav = useNavigateurFactures(ligneActive, ouvert, codeClient)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {

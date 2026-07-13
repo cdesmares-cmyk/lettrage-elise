@@ -1,6 +1,7 @@
 // Panneau droit — dispatch d'un compte client 411 vers des factures réelles
-import { useRef } from 'react'
-import { IcCursor, IcWarning, IcCheck, IcLoader, IcX } from '../Icones'
+import { useRef, useState } from 'react'
+import { IcCursor, IcWarning, IcCheck, IcLoader, IcX, IcSearch } from '../Icones'
+import { ModalNavigateurFactures, type LigneAInjecter } from './ModalNavigateurFactures'
 import type { useDispatch411 } from '../../hooks/useDispatch411'
 
 type Props = ReturnType<typeof useDispatch411>
@@ -14,11 +15,19 @@ export function PanneauDispatch411(props: Props) {
     factureActive, lignesForme,
     chargement, warningMultiClient,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
-    chercherInfoFacture, valider, peutValider, motifInvalide,
+    chercherInfoFacture, injecterLignes, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
   } = props
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+  const [navigateurOuvert, setNavigateurOuvert] = useState(false)
+
+  const codeClient = factureActive ? factureActive.numero_piece.replace('411_', '') : undefined
+
+  function handleInjecter(factures: LigneAInjecter[]) {
+    injecterLignes(factures.map(f => ({ numero_facture: f.numero_facture, montant: f.montant })))
+    setNavigateurOuvert(false)
+  }
   const surPaiement = restant < -0.005
 
   function handleNumeroChange(key: string, value: string) {
@@ -172,6 +181,17 @@ export function PanneauDispatch411(props: Props) {
         </div>
       )}
 
+      {/* Détection auto */}
+      <div className="px-5 pb-3">
+        <button
+          onClick={() => setNavigateurOuvert(true)}
+          disabled={chargement || !factureActive}
+          className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-ockham-teal border border-ockham-teal/30 hover:border-ockham-teal hover:bg-ockham-teal-muted disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
+        >
+          <IcSearch size={13} className="flex-shrink-0" /> Détection auto
+        </button>
+      </div>
+
       {/* Actions */}
       <div className="flex gap-2 px-5 pb-5">
         <button
@@ -189,6 +209,14 @@ export function PanneauDispatch411(props: Props) {
           {chargement ? <><IcLoader size={13} /> En cours…</> : <><IcCheck size={13} /> Dispatcher ce compte 411</>}
         </button>
       </div>
+
+      <ModalNavigateurFactures
+        ouvert={navigateurOuvert}
+        ligneActive={null}
+        codeClient={codeClient}
+        onFermer={() => setNavigateurOuvert(false)}
+        onInjecter={handleInjecter}
+      />
     </div>
   )
 }
