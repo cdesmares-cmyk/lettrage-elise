@@ -84,6 +84,7 @@ export function useCompensationAvoir(onSuccess: () => void) {
           code_client:     avoirSource.code_client,
           montant:         -montantAttribue,
           id_ligne_bancaire: null,
+          mode:            'compensation',
           commentaire:     `Compensation ${refFactures}`,
           operateur,
           date_lettrage:   dateDuJour,
@@ -95,6 +96,7 @@ export function useCompensationAvoir(onSuccess: () => void) {
           code_client:     s.facture.code_client,
           montant:         s.montant,
           id_ligne_bancaire: null,
+          mode:            'compensation',
           commentaire:     `Compensé par ${avoirSource.numero_piece}`,
           operateur,
           date_lettrage:   dateDuJour,
@@ -116,10 +118,27 @@ export function useCompensationAvoir(onSuccess: () => void) {
     }
   }
 
+  async function annulerCompensation(compensationId: string, onDone?: () => void): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('lettrages')
+        .update({ annule: true, motif_annulation: 'Annulation compensation' } as never)
+        .eq('compensation_id', compensationId)
+        .eq('annule', false)
+      if (error) throw error
+      toast.success('Compensation annulée — les soldes ont été restaurés')
+      onDone?.()
+      return true
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'annulation')
+      return false
+    }
+  }
+
   return {
     avoirSource, selection, chargement,
     creditDisponible, montantAttribue, restant,
     selectionnerAvoir, annuler, toggleFacture, setMontant,
-    estSelectionne, peutValider, motifInvalide, valider,
+    estSelectionne, peutValider, motifInvalide, valider, annulerCompensation,
   }
 }

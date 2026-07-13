@@ -13,7 +13,7 @@ import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
-import { PanneauCompensationAvoir } from '../components/compte-client/PanneauCompensationAvoir'
+import { ModalCompensationAvoir } from '../components/compte-client/ModalCompensationAvoir'
 import { useCompensationAvoir } from '../hooks/useCompensationAvoir'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
@@ -110,7 +110,6 @@ export function PageCompteClient() {
   const { relances } = useRelances()
   const compensation = useCompensationAvoir(() => {
     if (clientCompensationDso) factures.chargerToutesFactures(clientCompensationDso)
-    setClientCompensationDso(null)
   })
 
   const dernieresRelances = useMemo(() => {
@@ -413,12 +412,15 @@ export function PageCompteClient() {
         onSauvegarder={comptes.sauvegarderOptions}
       />
 
-      {/* Panneau Compensation Avoir */}
+      {/* Modale Compensation Avoir */}
       {clientCompensationDso && (
-        <PanneauCompensationAvoir
+        <ModalCompensationAvoir
+          codeDso={clientCompensationDso}
+          nomClient={comptes.clients.find(c => c.code_dso === clientCompensationDso)?.nom ?? clientCompensationDso}
           factures={factures.getFactures(clientCompensationDso)}
           compensation={compensation}
-          onFermer={() => setClientCompensationDso(null)}
+          onFermer={() => { compensation.annuler(); setClientCompensationDso(null) }}
+          onRefreshFactures={() => factures.chargerToutesFactures(clientCompensationDso)}
         />
       )}
 

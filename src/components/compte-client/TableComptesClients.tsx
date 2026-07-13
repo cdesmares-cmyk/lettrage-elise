@@ -292,7 +292,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                         )
                       })()}
                       {estOuvert && onCompenser && peutModifier && (() => {
-                        const aAvoirs = factures.some(f => f.est_avoir && f.reste_du < -0.005)
+                        const aAvoirs = factures.some(f => f.est_avoir && f.reste_du < 0)
                         if (!aAvoirs) return null
                         return (
                           <button

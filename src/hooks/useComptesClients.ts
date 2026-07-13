@@ -75,7 +75,7 @@ export function useComptesClients() {
       encoursSommeNette: facturesActives.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
       encoursTotalAvoirs: facturesActives
-        .filter(f => f.est_avoir && f.reste_du < -0.005)
+        .filter(f => f.est_avoir && f.reste_du < 0)
         .reduce((s, f) => s + Math.abs(f.reste_du), 0),
       nbFacturesAttente: impayees.length,
       encours411: facturesActives
@@ -156,7 +156,7 @@ export function useComptesClients() {
   const creditParClient = useMemo(() => {
     const map = new Map<string, number>()
     for (const f of facturesActives) {
-      if (f.reste_du >= -0.005 || f.numero_piece.startsWith('411_')) continue
+      if (f.reste_du >= 0 || f.numero_piece.startsWith('411_')) continue
       map.set(f.code_client, (map.get(f.code_client) ?? 0) + Math.abs(f.reste_du))
     }
     return map
