@@ -141,7 +141,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
     return () => window.removeEventListener('keydown', onKey)
   }, [ouvert, onFermer])
 
-  if (!ouvert || !ligneActive) return null
+  if (!ouvert) return null
 
   function handleInjecter() {
     onInjecter(nav.selectionArray.map(f => ({
@@ -167,7 +167,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <IcSearch size={15} className="text-ockham-teal flex-shrink-0" />
-            <h3 className="text-base font-bold text-gray-900">Navigateur de factures</h3>
+            <h3 className="text-base font-bold text-gray-900">Détection auto</h3>
           </div>
           <button
             onClick={onFermer}
@@ -175,20 +175,22 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
           ><IcX size={13} /></button>
         </div>
 
-        {/* Bandeau contextuel — ligne bancaire active */}
-        <div className="px-6 py-3 bg-ockham-navy flex items-center gap-6 flex-shrink-0">
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-widest mb-0.5">Ligne en cours de lettrage</p>
-            <p className="text-sm font-semibold text-white truncate">{ligneActive.libelle}</p>
-            {ligneActive.detail && (
-              <p className="text-[11px] text-white/50 truncate mt-0.5">{ligneActive.detail}</p>
-            )}
+        {/* Bandeau contextuel — ligne bancaire active (masqué si ouvert hors contexte lettrage) */}
+        {ligneActive && (
+          <div className="px-6 py-3 bg-ockham-navy flex items-center gap-6 flex-shrink-0">
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-widest mb-0.5">Ligne en cours de lettrage</p>
+              <p className="text-sm font-semibold text-white truncate">{ligneActive.libelle}</p>
+              {ligneActive.detail && (
+                <p className="text-[11px] text-white/50 truncate mt-0.5">{ligneActive.detail}</p>
+              )}
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-[10px] text-white/50 mb-0.5">Restant à lettrer</p>
+              <p className="text-lg font-extrabold tabular-nums text-ockham-teal">{fmt(ligneActive.restant ?? 0)}</p>
+            </div>
           </div>
-          <div className="text-right flex-shrink-0">
-            <p className="text-[10px] text-white/50 mb-0.5">Restant à lettrer</p>
-            <p className="text-lg font-extrabold tabular-nums text-ockham-teal">{fmt(ligneActive.restant ?? 0)}</p>
-          </div>
-        </div>
+        )}
 
         {/* Barre de recherche */}
         <div className="px-6 py-3 border-b border-gray-100 flex-shrink-0">
@@ -311,15 +313,17 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
               onClick={onFermer}
               className="text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700 px-4 py-2 rounded-lg transition-colors"
             >
-              Annuler
+              {ligneActive ? 'Annuler' : 'Fermer'}
             </button>
-            <button
-              onClick={handleInjecter}
-              disabled={nav.selectionArray.length === 0}
-              className="flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
-            >
-              ↗ Injecter dans le formulaire
-            </button>
+            {ligneActive && (
+              <button
+                onClick={handleInjecter}
+                disabled={nav.selectionArray.length === 0}
+                className="flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2 rounded-lg transition-colors"
+              >
+                ↗ Injecter dans le formulaire
+              </button>
+            )}
           </div>
         </div>
       </div>
