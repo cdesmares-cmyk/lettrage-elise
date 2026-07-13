@@ -270,9 +270,9 @@ interface Props {
 }
 
 export function ModalCompensationAvoir({ codeDso, nomClient, factures, compensation, onFermer, onRefreshFactures }: Props) {
-  const { utilisateur } = useAuth()
+  const { profil } = useAuth()
   const [onglet, setOnglet] = useState<'nouvelle' | 'historique'>('nouvelle')
-  const orgId = utilisateur?.organisation_id ?? ''
+  const orgId = profil?.organisation_id ?? ''
   const nbAvoirs = filtreAvoirs(factures).length
 
   function fermerEtReset() { compensation.annuler(); onFermer() }
