@@ -20,14 +20,14 @@ export function nouvelleLigneCorr(): LigneCorr {
 interface CorrectionContextValue {
   ouvert: boolean
   minimise: boolean
-  onglet: 'correction' | 'remboursement'
+  onglet: 'correction' | 'remboursement' | 'historique'
   lignesCorrection: LigneCorr[]
   ouvrir: () => void
   fermer: () => void
   minimiser: () => void
   restaurer: () => void
   setLignesCorrection: React.Dispatch<React.SetStateAction<LigneCorr[]>>
-  setOnglet: (o: 'correction' | 'remboursement') => void
+  setOnglet: (o: 'correction' | 'remboursement' | 'historique') => void
   enregistrerOnSuccess: (fn: () => void) => void
   declencherOnSuccess: () => void
 }
@@ -37,7 +37,7 @@ const CorrectionContext = createContext<CorrectionContextValue | null>(null)
 export function FournisseurCorrection({ children }: { children: React.ReactNode }) {
   const [ouvert, setOuvert] = useState(false)
   const [minimise, setMinimise] = useState(false)
-  const [onglet, setOnglet] = useState<'correction' | 'remboursement'>('correction')
+  const [onglet, setOnglet] = useState<'correction' | 'remboursement' | 'historique'>('correction')
   const [lignesCorrection, setLignesCorrection] = useState<LigneCorr[]>([nouvelleLigneCorr(), nouvelleLigneCorr()])
   const onSuccessRef = useRef<(() => void) | null>(null)
 

@@ -2,7 +2,7 @@
 // + onglet Remboursement : déclaration multi-factures en deux temps (déclarer → affecter débit)
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { IcEdit, IcRefund, IcCheck, IcLoader, IcX } from '../Icones'
+import { IcEdit, IcRefund, IcCheck, IcLoader, IcX, IcClock } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { useCorrectionContext } from '../../contexts/CorrectionContext'
@@ -16,6 +16,10 @@ interface RowFacture { reste_du: number; montant_ttc: number; code_client: strin
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR')
 }
 
 function nouvelleLigneSimple(): LigneCorr {
@@ -130,9 +134,11 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
         ...src, proportion: totalAll > 0 ? src.montant / totalAll : 1 / allSources.length,
       }))
 
+      const correctionId = crypto.randomUUID()
+
       type InsertRow = {
         id_ligne_bancaire: string | null; numero_facture: string | null; code_client: string
-        montant: number; date_lettrage: string; mode: string
+        montant: number; date_lettrage: string; mode: string; correction_id: string | null
         commentaire: string | null; cree_par: string | null; operateur: string | null
       }
 
@@ -143,7 +149,8 @@ function OngletCorrection({ onFermer }: { onFermer: () => void }) {
           code_client: l.info_facture?.code_client ?? '',
           montant: Math.round(montant * 100) / 100,
           date_lettrage: today,
-          mode: 'manuel',
+          mode: 'correction',
+          correction_id: correctionId,
           commentaire: `Correction — ${montant < 0 ? 'délettrage' : 'relettering'}`,
           cree_par: utilisateur?.id ?? null,
           operateur: utilisateur?.email?.split('@')[0] ?? null,
@@ -552,6 +559,148 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
   )
 }
 
+// ── Onglet Historique des corrections ────────────────────────────────────────
+interface LigneCorrigee { id: string; numero_facture: string | null; montant: number; export_id: string | null }
+interface CorrectionGroupe {
+  correction_id: string; date_lettrage: string; operateur: string | null
+  lignes: LigneCorrigee[]; verrouillee: boolean
+}
+
+function OngletHistoriqueCorrections() {
+  const [corrections, setCorrections] = useState<CorrectionGroupe[]>([])
+  const [chargement, setChargement] = useState(true)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [motif, setMotif] = useState('')
+  const [annulationEnCours, setAnnulationEnCours] = useState(false)
+
+  async function charger() {
+    setChargement(true)
+    const { data } = await supabase
+      .from('lettrages')
+      .select('id, correction_id, numero_facture, montant, date_lettrage, operateur, export_id')
+      .eq('mode', 'correction')
+      .eq('annule', false)
+      .not('correction_id', 'is', null)
+      .order('date_lettrage', { ascending: false })
+      .order('correction_id')
+    setChargement(false)
+    if (!data) return
+    type RawRow = { id: string; correction_id: string; numero_facture: string | null; montant: number; date_lettrage: string; operateur: string | null; export_id: string | null }
+    const rows = data as RawRow[]
+    const groupMap = new Map<string, CorrectionGroupe>()
+    for (const r of rows) {
+      if (!groupMap.has(r.correction_id)) {
+        groupMap.set(r.correction_id, { correction_id: r.correction_id, date_lettrage: r.date_lettrage, operateur: r.operateur, lignes: [], verrouillee: false })
+      }
+      const g = groupMap.get(r.correction_id)!
+      g.lignes.push({ id: r.id, numero_facture: r.numero_facture, montant: r.montant, export_id: r.export_id })
+      if (r.export_id) g.verrouillee = true
+    }
+    setCorrections([...groupMap.values()])
+  }
+
+  useEffect(() => { charger() }, [])
+
+  async function handleAnnuler(corrId: string) {
+    setAnnulationEnCours(true)
+    try {
+      const { error } = await supabase
+        .from('lettrages')
+        .update({ annule: true, motif_annulation: motif || null })
+        .eq('correction_id', corrId)
+        .eq('annule', false)
+      if (error) throw error
+      toast.success('Correction annulée — les soldes ont été restaurés')
+      setConfirmId(null)
+      setMotif('')
+      await charger()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setAnnulationEnCours(false)
+    }
+  }
+
+  if (chargement) return <div className="px-6 py-10 text-center text-sm text-gray-400">Chargement…</div>
+
+  if (corrections.length === 0) return (
+    <div className="px-6 py-10 text-center text-sm text-gray-400">Aucune correction enregistrée.</div>
+  )
+
+  return (
+    <div className="px-6 py-5 space-y-3">
+      {corrections.map(corr => (
+        <div key={corr.correction_id} className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                {fmtDate(corr.date_lettrage)}
+              </p>
+              {corr.operateur && <span className="text-[10px] text-gray-400">· {corr.operateur}</span>}
+              {corr.verrouillee && (
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 border border-slate-200">Export verrouillé</span>
+              )}
+            </div>
+            {!corr.verrouillee && (
+              confirmId === corr.correction_id
+                ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <input
+                      type="text"
+                      value={motif}
+                      onChange={e => setMotif(e.target.value)}
+                      placeholder="Motif (optionnel)"
+                      className="border border-gray-200 rounded px-2 py-1 text-xs outline-none focus:border-red-300 w-36"
+                    />
+                    <button
+                      onClick={() => handleAnnuler(corr.correction_id)}
+                      disabled={annulationEnCours}
+                      className="text-[10px] font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 px-2 py-1 rounded transition-colors"
+                    >
+                      {annulationEnCours ? '…' : 'Confirmer'}
+                    </button>
+                    <button
+                      onClick={() => { setConfirmId(null); setMotif('') }}
+                      className="text-[10px] text-gray-400 hover:text-gray-600 px-1 py-1 transition-colors"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                )
+                : (
+                  <button
+                    onClick={() => setConfirmId(corr.correction_id)}
+                    className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors"
+                  >
+                    Annuler la correction
+                  </button>
+                )
+            )}
+          </div>
+          <div className="px-4 py-2.5 space-y-1.5">
+            {corr.lignes.map(l => {
+              const isNeg = l.montant < 0
+              return (
+                <div key={l.id} className="flex items-center gap-2 text-xs">
+                  <span className={`flex-shrink-0 w-20 text-center text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide border ${
+                    isNeg ? 'bg-red-50 text-red-400 border-red-200' : 'bg-ockham-teal/5 text-ockham-teal border-ockham-teal/30'
+                  }`}>
+                    {isNeg ? 'Retrait' : 'Affectation'}
+                  </span>
+                  <span className="font-mono text-gray-700 flex-1">{l.numero_facture ?? '—'}</span>
+                  <span className={`font-mono font-semibold tabular-nums ${isNeg ? 'text-red-500' : 'text-ockham-teal'}`}>
+                    {l.montant > 0 ? '+' : ''}{fmt(l.montant)}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Modal principale ───────────────────────────────────────────────────────────
 export function ModalCorrection() {
   const { ouvert, minimise, onglet, setOnglet, fermer, declencherOnSuccess } = useCorrectionContext()
@@ -581,12 +730,17 @@ export function ModalCorrection() {
           >
             <span className="flex items-center justify-center gap-1.5"><IcRefund size={13} /> Remboursement</span>
           </button>
+          <button
+            onClick={() => setOnglet('historique')}
+            className={`flex-1 py-3 text-sm font-semibold transition-colors ${onglet === 'historique' ? 'text-gray-700 border-b-2 border-gray-500 bg-gray-50/60' : 'text-gray-400 hover:text-gray-600'}`}
+          >
+            <span className="flex items-center justify-center gap-1.5"><IcClock size={13} /> Historique</span>
+          </button>
         </div>
 
-        {onglet === 'correction'
-          ? <OngletCorrection onFermer={fermer} />
-          : <OngletRemboursement onFermer={fermer} onSuccess={declencherOnSuccess} />
-        }
+        {onglet === 'correction' && <OngletCorrection onFermer={fermer} />}
+        {onglet === 'remboursement' && <OngletRemboursement onFermer={fermer} onSuccess={declencherOnSuccess} />}
+        {onglet === 'historique' && <OngletHistoriqueCorrections />}
       </div>
     </div>
   )

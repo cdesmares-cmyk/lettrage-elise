@@ -47,7 +47,7 @@ export function useExportComptable() {
   }, [])
 
   async function apercu(dateDebut: string, dateFin: string) {
-    const [{ data: lettreesData }, { data: nonLettreesData }, { data: compData }] = await Promise.all([
+    const [{ data: lettreesData }, { data: nonLettreesData }, { data: compData }, { data: corrData }] = await Promise.all([
       supabase
         .from('v_lignes_bancaires_avec_statut')
         .select('id_operation, credit')
@@ -69,15 +69,26 @@ export function useExportComptable() {
         .is('export_id', null)
         .gte('date_lettrage', dateDebut)
         .lte('date_lettrage', dateFin),
+      supabase
+        .from('lettrages')
+        .select('correction_id')
+        .not('correction_id', 'is', null)
+        .eq('mode', 'correction')
+        .eq('annule', false)
+        .is('export_id', null)
+        .gte('date_lettrage', dateDebut)
+        .lte('date_lettrage', dateFin),
     ])
     const lettrees = (lettreesData as { id_operation: string; credit: number | null }[]) ?? []
     const nonLettrees = (nonLettreesData as { id_operation: string }[]) ?? []
     const nbCompensations = new Set(((compData as { compensation_id: string }[]) ?? []).map(r => r.compensation_id)).size
+    const nbCorrections = new Set(((corrData as { correction_id: string }[]) ?? []).map(r => r.correction_id)).size
     return {
       nbLignes: lettrees.length,
       montant: lettrees.reduce((s, l) => s + (l.credit ?? 0), 0),
       nbNonLettrees: nonLettrees.length,
       nbCompensations,
+      nbCorrections,
     }
   }
 

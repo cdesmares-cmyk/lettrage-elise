@@ -8,7 +8,7 @@ import { debutMoisLocal, todayLocal } from '../../lib/dates'
 interface Props {
   historique: ExportComptable[]
   chargement: boolean
-  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number }>
+  onApercu: (d: string, f: string) => Promise<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number; nbCorrections: number }>
   onExporter: (d: string, f: string) => Promise<void>
   onRetelecharger: (exp: ExportComptable) => Promise<void>
 }
@@ -29,7 +29,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
   const [dateDebut, setDateDebut] = useState(debutMois)
   const [dateFin, setDateFin] = useState(today)
   const [etape, setEtape] = useState<Etape>('filtres')
-  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number } | null>(null)
+  const [apercuData, setApercuData] = useState<{ nbLignes: number; montant: number; nbNonLettrees: number; nbCompensations: number; nbCorrections: number } | null>(null)
   const [calcul, setCalcul] = useState(false)
 
   async function handleApercu() {
@@ -37,7 +37,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
     setCalcul(true)
     try {
       const result = await onApercu(dateDebut, dateFin)
-      if (result.nbLignes === 0 && result.nbNonLettrees === 0 && result.nbCompensations === 0) {
+      if (result.nbLignes === 0 && result.nbNonLettrees === 0 && result.nbCompensations === 0 && result.nbCorrections === 0) {
         toast.error('Aucune ligne éligible trouvée sur cette période'); return
       }
       if (result.nbLignes === 0 && result.nbNonLettrees > 0) {
@@ -129,6 +129,12 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
                 <p className="text-[11px] text-gray-500">compensation{apercuData.nbCompensations > 1 ? 's' : ''} avoir/facture — seront verrouillées comptablement</p>
               </div>
             )}
+            {apercuData.nbCorrections > 0 && (
+              <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 flex items-center gap-3">
+                <p className="text-2xl font-bold text-slate-600">{apercuData.nbCorrections}</p>
+                <p className="text-[11px] text-gray-500">correction{apercuData.nbCorrections > 1 ? 's' : ''} de lettrage — seront verrouillées comptablement</p>
+              </div>
+            )}
             <p className="text-[11px] text-gray-400">Les lettrages déjà verrouillés dans cette période sont inclus dans l'export mais non re-verrouillés.</p>
           </div>
 
@@ -167,8 +173,10 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
             <p className="text-xs text-red-600">
               Vous allez verrouiller pour la période <strong>{fmtDate(dateDebut)} → {fmtDate(dateFin)}</strong> :
               {apercuData.nbLignes > 0 && <> <strong>{apercuData.nbLignes} ligne{apercuData.nbLignes > 1 ? 's' : ''} bancaire{apercuData.nbLignes > 1 ? 's' : ''}</strong> ({fmt(apercuData.montant)})</>}
-              {apercuData.nbLignes > 0 && apercuData.nbCompensations > 0 && <> et</>}
-              {apercuData.nbCompensations > 0 && <> <strong>{apercuData.nbCompensations} compensation{apercuData.nbCompensations > 1 ? 's' : ''} avoir/facture</strong></>}.
+              {apercuData.nbLignes > 0 && (apercuData.nbCompensations > 0 || apercuData.nbCorrections > 0) && <>, </>}
+              {apercuData.nbCompensations > 0 && <><strong>{apercuData.nbCompensations} compensation{apercuData.nbCompensations > 1 ? 's' : ''} avoir/facture</strong></>}
+              {apercuData.nbCompensations > 0 && apercuData.nbCorrections > 0 && <> et </>}
+              {apercuData.nbCorrections > 0 && <><strong>{apercuData.nbCorrections} correction{apercuData.nbCorrections > 1 ? 's' : ''} de lettrage</strong></>}.
             </p>
             <p className="text-xs text-red-600">
               Ces opérations ne seront plus modifiables depuis le module Lettrage. Toute correction nécessitera de passer par le <strong>module Correction</strong>.

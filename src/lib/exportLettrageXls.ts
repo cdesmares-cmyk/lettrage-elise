@@ -31,6 +31,16 @@ interface RowImportLettrage {
   operateur: string | null
 }
 
+interface RowCorrection {
+  date_lettrage: string
+  code_client: string
+  numero_facture: string | null
+  montant: number
+  commentaire: string | null
+  operateur: string | null
+  correction_id: string
+}
+
 interface RowLigneBancaire {
   id_operation: string
   date_operation: string
@@ -152,6 +162,20 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .range(from, to)
   )
 
+  // ── 2d. Corrections de lettrage ──────────────────────────────────
+  const corrections = await fetchAll<RowCorrection>((from, to) =>
+    supabase
+      .from('lettrages')
+      .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur, correction_id')
+      .eq('mode', 'correction')
+      .eq('annule', false)
+      .gte('date_lettrage', dateDebut)
+      .lte('date_lettrage', dateFin)
+      .order('correction_id')
+      .order('date_lettrage')
+      .range(from, to)
+  )
+
   // Map lettrages par ligne bancaire (feuille 2)
   const lettragsByLigne = new Map<string, RowLettrage[]>()
   for (const l of lettrages) {
@@ -207,6 +231,21 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       montant: imp.montant,
       commentaire: imp.commentaire ?? '',
       operateur: imp.operateur ?? '',
+    })
+  }
+
+  for (const corr of corrections) {
+    affectations.push({
+      date: corr.date_lettrage,
+      ligne: 'Correction lettrage',
+      detail: '',
+      infos_complementaires: '',
+      debit_credit: '',
+      code_client: corr.code_client,
+      numero_facture: corr.numero_facture ?? '',
+      montant: corr.montant,
+      commentaire: corr.commentaire ?? '',
+      operateur: corr.operateur ?? '',
     })
   }
 
