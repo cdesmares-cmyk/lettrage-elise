@@ -13,8 +13,8 @@ export interface LigneCorr {
 
 let _ck = 200
 function cle() { return String(++_ck) }
-export function nouvelleLigneCorr(prefixe: 'neg' | 'pos' = 'neg'): LigneCorr {
-  return { _key: `${prefixe}-${cle()}`, classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false }
+export function nouvelleLigneCorr(): LigneCorr {
+  return { _key: cle(), classe: 'facture', numero_facture: '', montant: '', info_facture: null, chargement: false }
 }
 
 interface CorrectionContextValue {
@@ -38,7 +38,7 @@ export function FournisseurCorrection({ children }: { children: React.ReactNode 
   const [ouvert, setOuvert] = useState(false)
   const [minimise, setMinimise] = useState(false)
   const [onglet, setOnglet] = useState<'correction' | 'remboursement'>('correction')
-  const [lignesCorrection, setLignesCorrection] = useState<LigneCorr[]>([nouvelleLigneCorr('neg'), nouvelleLigneCorr('pos')])
+  const [lignesCorrection, setLignesCorrection] = useState<LigneCorr[]>([nouvelleLigneCorr(), nouvelleLigneCorr()])
   const onSuccessRef = useRef<(() => void) | null>(null)
 
   function ouvrir() { setOuvert(true); setMinimise(false) }
@@ -47,7 +47,7 @@ export function FournisseurCorrection({ children }: { children: React.ReactNode 
     setOuvert(false)
     setMinimise(false)
     setOnglet('correction')
-    setLignesCorrection([nouvelleLigneCorr('neg'), nouvelleLigneCorr('pos')])
+    setLignesCorrection([nouvelleLigneCorr(), nouvelleLigneCorr()])
   }
 
   function minimiser() { setMinimise(true) }
