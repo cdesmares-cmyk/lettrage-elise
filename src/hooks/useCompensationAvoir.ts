@@ -108,7 +108,7 @@ export function useCompensationAvoir(onSuccess: () => void) {
       if (error) throw error
 
       const nb = selection.length
-      toast.success(`Compensation enregistrée — ${nb} pièce${nb > 1 ? 's' : ''} compensée${nb > 1 ? 's' : ''}`)
+      toast.success(`Avoir bien comptabilisé, ${nb} facture${nb > 1 ? 's' : ''} concernée${nb > 1 ? 's' : ''}`)
       annuler()
       onSuccess()
     } catch (err) {
@@ -118,11 +118,11 @@ export function useCompensationAvoir(onSuccess: () => void) {
     }
   }
 
-  async function annulerCompensation(compensationId: string, onDone?: () => void): Promise<boolean> {
+  async function annulerCompensation(compensationId: string, motif: string, onDone?: () => void): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('lettrages')
-        .update({ annule: true, motif_annulation: 'Annulation compensation' } as never)
+        .update({ annule: true, motif_annulation: motif.trim() || 'Annulation compensation' } as never)
         .eq('compensation_id', compensationId)
         .eq('annule', false)
       if (error) throw error
