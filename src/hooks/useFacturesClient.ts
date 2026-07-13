@@ -106,7 +106,7 @@ export function useFacturesClient() {
     const [{ data: lettragesData }, { data: rembData }] = await Promise.all([
       supabase
         .from('lettrages')
-        .select('id,id_ligne_bancaire,montant,date_lettrage,mode,commentaire')
+        .select('id,id_ligne_bancaire,montant,date_lettrage,mode,commentaire,annule')
         .eq('numero_facture', numeroPiece)
         .order('date_lettrage', { ascending: false }),
       supabase
@@ -115,7 +115,8 @@ export function useFacturesClient() {
         .eq('numero_facture', numeroPiece),
     ])
 
-    const lettrages = (lettragesData as unknown as HistoriqueLettrage[]) ?? []
+    const lettrages = ((lettragesData as unknown as (HistoriqueLettrage & { annule: boolean })[]) ?? [])
+      .filter(l => !(l.mode === 'compensation' && l.annule))
 
     type RembRow = { id: string; montant: number; remboursements: { id: string; created_at: string; statut: string; id_ligne_bancaire: string | null } | null }
     const remboursements: HistoriqueLettrage[] = ((rembData as unknown as RembRow[]) ?? []).map(l => ({
