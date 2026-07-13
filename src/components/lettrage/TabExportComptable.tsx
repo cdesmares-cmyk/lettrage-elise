@@ -100,7 +100,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
                 {calcul ? <><IcLoader size={13} /> Calcul…</> : 'Vérifier l\'éligibilité'}
               </button>
             </div>
-            <p className="text-[11px] text-gray-400 mt-2">Seules les lignes bancaires <strong>100% lettrées</strong> (restant = 0) sur cette période seront incluses.</p>
+            <p className="text-[11px] text-gray-400 mt-2">Seules les lignes bancaires <strong>100% lettrées</strong> (restant = 0) sur cette période seront incluses. Les compensations avoir/facture de la période sont également embarquées dans le verrouillage comptable.</p>
           </div>
         </div>
       )}
@@ -122,6 +122,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
               </div>
             </div>
             <p className="text-[11px] text-gray-400">Les lettrages déjà verrouillés dans cette période sont inclus dans l'export mais non re-verrouillés.</p>
+            <p className="text-[11px] text-ockham-teal font-medium">Les compensations avoir/facture de la période seront également verrouillées comptablement.</p>
           </div>
 
           {apercuData.nbNonLettrees > 0 && (
@@ -160,7 +161,7 @@ export function TabExportComptable({ historique, chargement, onApercu, onExporte
               Vous allez verrouiller <strong>{apercuData.nbLignes} ligne{apercuData.nbLignes > 1 ? 's' : ''}</strong> ({fmt(apercuData.montant)}) pour la période <strong>{fmtDate(dateDebut)} → {fmtDate(dateFin)}</strong>.
             </p>
             <p className="text-xs text-red-600">
-              Ces lignes ne seront plus modifiables depuis le module Lettrage. Toute correction nécessitera de passer par le <strong>module Correction</strong>.
+              Ces lignes ne seront plus modifiables depuis le module Lettrage. Toute correction nécessitera de passer par le <strong>module Correction</strong>. Les compensations avoir/facture de la période seront également verrouillées.
             </p>
           </div>
           <div className="flex gap-2 justify-end">
