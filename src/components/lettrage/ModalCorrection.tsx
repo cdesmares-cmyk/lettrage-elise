@@ -606,7 +606,7 @@ function OngletHistoriqueCorrections() {
     try {
       const { error } = await supabase
         .from('lettrages')
-        .update({ annule: true, motif_annulation: motif || null })
+        .update({ annule: true, motif_annulation: motif || null } as never)
         .eq('correction_id', corrId)
         .eq('annule', false)
       if (error) throw error
