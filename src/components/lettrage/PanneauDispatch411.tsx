@@ -212,6 +212,7 @@ export function PanneauDispatch411(props: Props) {
         ouvert={navigateurOuvert}
         ligneActive={null}
         codeClient={codeClient}
+        bandeauInfo={{ libelle: factureActive.nom_client ?? codeClient, detail: factureActive.numero_piece, restant }}
         onFermer={() => setNavigateurOuvert(false)}
         onInjecter={handleInjecter}
       />

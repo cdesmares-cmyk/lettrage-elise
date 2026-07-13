@@ -8,12 +8,19 @@ import {
   type SourceSuggestion,
 } from '../../hooks/useNavigateurFactures'
 
+interface BandeauInfo {
+  libelle: string
+  detail?: string | null
+  restant: number
+}
+
 interface Props {
   ouvert: boolean
   ligneActive: LigneBancaireAvecStatut | null
   onFermer: () => void
   onInjecter: (factures: LigneAInjecter[]) => void
   codeClient?: string
+  bandeauInfo?: BandeauInfo
 }
 
 export interface LigneAInjecter {
@@ -127,7 +134,7 @@ function SkeletonRows({ n }: { n: number }) {
   )
 }
 
-export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjecter, codeClient }: Props) {
+export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjecter, codeClient, bandeauInfo }: Props) {
   const nav = useNavigateurFactures(ligneActive, ouvert, codeClient)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -176,19 +183,27 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
           ><IcX size={13} /></button>
         </div>
 
-        {/* Bandeau contextuel — ligne bancaire active (masqué si ouvert hors contexte lettrage) */}
-        {ligneActive && (
+        {/* Bandeau contextuel — ligne bancaire active ou compte 411 */}
+        {(ligneActive || bandeauInfo) && (
           <div className="px-6 py-3 bg-ockham-navy flex items-center gap-6 flex-shrink-0">
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-widest mb-0.5">Ligne en cours de lettrage</p>
-              <p className="text-sm font-semibold text-white truncate">{ligneActive.libelle}</p>
-              {ligneActive.detail && (
-                <p className="text-[11px] text-white/50 truncate mt-0.5">{ligneActive.detail}</p>
+              <p className="text-[10px] font-semibold text-ockham-teal uppercase tracking-widest mb-0.5">
+                {ligneActive ? 'Ligne en cours de lettrage' : 'Compte client 411'}
+              </p>
+              <p className="text-sm font-semibold text-white truncate">
+                {ligneActive?.libelle ?? bandeauInfo?.libelle}
+              </p>
+              {(ligneActive?.detail || bandeauInfo?.detail) && (
+                <p className="text-[11px] text-white/50 truncate mt-0.5">
+                  {ligneActive?.detail ?? bandeauInfo?.detail}
+                </p>
               )}
             </div>
             <div className="text-right flex-shrink-0">
               <p className="text-[10px] text-white/50 mb-0.5">Restant à lettrer</p>
-              <p className="text-lg font-extrabold tabular-nums text-ockham-teal">{fmt(ligneActive.restant ?? 0)}</p>
+              <p className="text-lg font-extrabold tabular-nums text-ockham-teal">
+                {fmt(ligneActive?.restant ?? bandeauInfo?.restant ?? 0)}
+              </p>
             </div>
           </div>
         )}
@@ -314,9 +329,9 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
               onClick={onFermer}
               className="text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 hover:text-gray-700 px-4 py-2 rounded-lg transition-colors"
             >
-              {ligneActive ? 'Annuler' : 'Fermer'}
+              {(ligneActive || bandeauInfo) ? 'Annuler' : 'Fermer'}
             </button>
-            {ligneActive && (
+            {(ligneActive || bandeauInfo) && (
               <button
                 onClick={handleInjecter}
                 disabled={nav.selectionArray.length === 0}
