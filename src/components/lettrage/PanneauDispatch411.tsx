@@ -22,8 +22,6 @@ export function PanneauDispatch411(props: Props) {
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
 
-  const codeClient = factureActive ? factureActive.numero_piece.replace('411_', '') : undefined
-
   function handleInjecter(factures: LigneAInjecter[]) {
     injecterLignes(factures.map(f => ({ numero_facture: f.numero_facture, montant: f.montant })))
     setNavigateurOuvert(false)
