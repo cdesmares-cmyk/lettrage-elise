@@ -187,7 +187,7 @@ function TabHistorique({ codeDso, orgId, compensation, onRefreshFactures }: {
 
 // ── Onglet Nouvelle compensation (étapes 1 → 2) ────────────────────────────
 
-function TabNouvelle({ factures, compensation }: { factures: FactureDetail[]; compensation: CompensationAvoir }) {
+function TabNouvelle({ factures, compensation, onValider }: { factures: FactureDetail[]; compensation: CompensationAvoir; onValider: () => Promise<void> }) {
   const { avoirSource, chargement, creditDisponible, montantAttribue, restant } = compensation
   const listeAvoirs = filtreAvoirs(factures)
   const motif = compensation.motifInvalide()
@@ -306,7 +306,7 @@ function TabNouvelle({ factures, compensation }: { factures: FactureDetail[]; co
             className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
             Réinitialiser
           </button>
-          <button onClick={compensation.valider} disabled={!compensation.peutValider() || chargement} title={motif ?? undefined}
+          <button onClick={onValider} disabled={!compensation.peutValider() || chargement} title={motif ?? undefined}
             className="flex-[2] flex items-center justify-center text-white text-sm font-semibold py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ background: '#4CC5BB' }}>
             {chargement ? 'Enregistrement…' : `Valider${montantAttribue > TOLERANCE_CENT ? ` (${fmt(montantAttribue)})` : ''}`}
@@ -331,8 +331,17 @@ interface Props {
 export function ModalCompensationAvoir({ codeDso, nomClient, factures, compensation, onFermer, onRefreshFactures }: Props) {
   const { profil } = useAuth()
   const [onglet, setOnglet] = useState<'nouvelle' | 'historique'>('nouvelle')
+  const [historiqueTrigger, setHistoriqueTrigger] = useState(0)
   const orgId = profil?.organisation_id ?? ''
   const nbAvoirs = filtreAvoirs(factures).length
+
+  async function handleValider() {
+    const ok = await compensation.valider()
+    if (ok) {
+      setOnglet('historique')
+      setHistoriqueTrigger(t => t + 1)
+    }
+  }
 
   function fermerEtReset() { compensation.annuler(); onFermer() }
 
@@ -372,8 +381,8 @@ export function ModalCompensationAvoir({ codeDso, nomClient, factures, compensat
         </div>
         {/* Contenu */}
         {onglet === 'nouvelle'
-          ? <TabNouvelle factures={factures} compensation={compensation} />
-          : <div className="flex-1 overflow-y-auto"><TabHistorique codeDso={codeDso} orgId={orgId} compensation={compensation} onRefreshFactures={onRefreshFactures} /></div>
+          ? <TabNouvelle factures={factures} compensation={compensation} onValider={handleValider} />
+          : <div className="flex-1 overflow-y-auto"><TabHistorique key={historiqueTrigger} codeDso={codeDso} orgId={orgId} compensation={compensation} onRefreshFactures={onRefreshFactures} /></div>
         }
       </div>
     </div>

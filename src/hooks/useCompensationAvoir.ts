@@ -68,8 +68,8 @@ export function useCompensationAvoir(onSuccess: () => void) {
 
   function peutValider(): boolean { return motifInvalide() === null }
 
-  async function valider() {
-    if (!avoirSource || !peutValider()) return
+  async function valider(): Promise<boolean> {
+    if (!avoirSource || !peutValider()) return false
     setChargement(true)
     try {
       const compensationId = crypto.randomUUID()
@@ -111,8 +111,10 @@ export function useCompensationAvoir(onSuccess: () => void) {
       toast.success(`Avoir bien comptabilisé, ${nb} facture${nb > 1 ? 's' : ''} concernée${nb > 1 ? 's' : ''}`)
       annuler()
       onSuccess()
+      return true
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur lors de la compensation')
+      return false
     } finally {
       setChargement(false)
     }
