@@ -119,31 +119,20 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   ) {
     setChargement(true)
     try {
-      const { error: de } = await supabase.from('lettrages').delete().eq('remise_id', remiseId)
-      if (de) throw de
-
-      const { error: ue } = await supabase
-        .from('remises')
-        .update({ type, numero, montant_total: type === 'lcr' ? montantLcr : null } as never)
-        .eq('id', remiseId)
-      if (ue) throw ue
-
-      const today = new Date().toISOString().split('T')[0]
-      const inserts = lignes.map(l => ({
-        id_ligne_bancaire: null,
-        remise_id: remiseId,
+      const lignesJson = lignes.map(l => ({
         numero_facture: l.numero_facture.trim(),
         code_client: l.info_facture?.code_client ?? '',
         montant: Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
-        mode: 'manuel',
-        commentaire: `Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero}`,
-        cree_par: utilisateur?.id ?? null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
-      const { error: le } = await supabase.from('lettrages').insert(inserts as never)
-      if (le) throw le
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('modifier_remise_atomique', {
+        p_remise_id:     remiseId,
+        p_type:          type,
+        p_numero:        numero,
+        p_montant_total: type === 'lcr' ? montantLcr : null,
+        p_lignes:        lignesJson,
+      })
+      if (error) throw error
       toast.success('Remise mise à jour.')
       await charger()
       onSuccessCallback?.()
@@ -163,10 +152,9 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
     }
     setChargement(true)
     try {
-      const { error: de } = await supabase.from('lettrages').delete().eq('remise_id', remiseId)
-      if (de) throw de
-      const { error: re } = await supabase.from('remises').delete().eq('id', remiseId)
-      if (re) throw re
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('supprimer_remise_atomique', { p_remise_id: remiseId })
+      if (error) throw error
       toast.success('Remise annulée et lettrages supprimés.')
       await charger()
       onSuccessCallback?.()
