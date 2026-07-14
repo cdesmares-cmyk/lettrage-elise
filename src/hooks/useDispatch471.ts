@@ -104,6 +104,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
       ) / 100
       const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
 
+      const today = new Date().toISOString().split('T')[0]
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
         numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
@@ -111,7 +112,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: ligneActive.date_operation,
+        date_lettrage: today,
         mode: 'manuel',
         commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
