@@ -136,30 +136,6 @@ export function useLettrageForm(
     }
     setChargement(true)
     try {
-      // Vérification live : s'assurer que le reste_du est encore suffisant en base
-      // (protection contre le double-lettrage si un autre user a lettrée entre-temps)
-      const factureLignes = lignesForme.filter(l =>
-        (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') && l.numero_facture
-      )
-      if (factureLignes.length > 0) {
-        const { data: freshData } = await supabase
-          .from('v_factures_avec_reste_du')
-          .select('numero_piece, reste_du')
-          .in('numero_piece', factureLignes.map(l => l.numero_facture.trim()))
-        const freshMap = new Map(
-          ((freshData as { numero_piece: string; reste_du: number }[]) ?? []).map(r => [r.numero_piece, r.reste_du])
-        )
-        for (const l of factureLignes) {
-          const resteDuLive = freshMap.get(l.numero_facture.trim()) ?? 0
-          const montant = parseFloat(l.montant) || 0
-          if (resteDuLive < montant - TOLERANCE_CENT) {
-            toast.error(`Facture ${l.numero_facture} : solde insuffisant (${resteDuLive.toFixed(2)} € restant). Elle a peut-être déjà été lettrée.`)
-            setChargement(false)
-            return
-          }
-        }
-      }
-
       // Pour les lignes "Autres" sans montant : utiliser le restant après les factures
       const montantFactures = Math.round(
         lignesForme
@@ -203,7 +179,12 @@ export function useLettrageForm(
       }
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors du lettrage.')
+      const code = (err as { code?: string })?.code
+      if (code === '23505') {
+        toast.error('Cette ligne bancaire a déjà été lettrée pour cette facture.')
+      } else {
+        toast.error(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors du lettrage.')
+      }
     } finally {
       setChargement(false)
     }
@@ -298,6 +279,7 @@ export function useLettrageForm(
         return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
       })
       const numerosLettres: { numeroPiece: string; montant: number }[] = []
+      let montantMix = 0
       if (valides.length > 0) {
         const inserts = valides.map(l => ({
           id_ligne_bancaire: ligneActive.id_operation,
@@ -312,11 +294,39 @@ export function useLettrageForm(
         }))
         const { error } = await supabase.from('lettrages').insert(inserts as never)
         if (error) throw error
+        montantMix = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
         inserts.filter(i => i.code_client !== 'AUTRES').forEach(i => {
           numerosLettres.push({ numeroPiece: i.numero_facture ?? '', montant: i.montant })
         })
       }
-      // Marquer la ligne en attente 471
+      // Créer la pseudo-facture 411_ATTENTE et son lettrage pour l'export comptable
+      const montantAttente = Math.round((creditDisponible - montantMix) * 100) / 100
+      if (montantAttente > TOLERANCE_CENT) {
+        const today = new Date().toISOString().split('T')[0]
+        await supabase.from('factures').upsert({
+          numero_piece: '411_ATTENTE',
+          code_client: 'ATTENTE',
+          nom_client: 'Compte 411 Attente',
+          date_emission: today,
+          montant_ht: 0,
+          montant_ttc: 0,
+          reste_du: 0,
+          est_avoir: false,
+        } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
+        const { error: errAttente } = await supabase.from('lettrages').insert({
+          id_ligne_bancaire: ligneActive.id_operation,
+          numero_facture: '411_ATTENTE',
+          code_client: 'ATTENTE',
+          montant: montantAttente,
+          date_lettrage: ligneActive.date_operation,
+          mode: 'manuel',
+          commentaire: 'Affectation 411 Attente',
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        } as never)
+        if (errAttente) throw errAttente
+      }
+      // Marquer la ligne en attente
       const { error: errUpdate } = await supabase
         .from('lignes_bancaires')
         .update({ en_attente_411: true } as never)
