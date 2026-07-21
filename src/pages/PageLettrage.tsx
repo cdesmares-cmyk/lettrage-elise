@@ -215,7 +215,7 @@ export function PageLettrage() {
     }
   }
 
-  function handleSelect411ClientLigne(ligne: LigneBancaireAvecStatut, compte411: string) {
+  function handleSelect411ClientLigne(_ligne: LigneBancaireAvecStatut, compte411: string) {
     if (isCommercial) return
     forme.annuler()
     requalification471.annuler()
