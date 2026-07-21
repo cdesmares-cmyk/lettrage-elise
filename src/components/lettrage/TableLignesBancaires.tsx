@@ -15,6 +15,8 @@ interface Props {
   onAffecterRemboursement: (l: LigneBancaireAvecStatut) => void
   lignesExportees: Map<string, string>
   readOnly?: boolean
+  lignes411ClientMap?: Map<string, string>
+  onSelect411Client?: (l: LigneBancaireAvecStatut, compte411: string) => void
 }
 
 function fmt(n: number | null) {
@@ -42,6 +44,8 @@ export function TableLignesBancaires({
   onPage, onSelectLigne,
   onAnnulerLettrage, onAffecterRemboursement, lignesExportees,
   readOnly = false,
+  lignes411ClientMap,
+  onSelect411Client,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -75,19 +79,27 @@ export function TableLignesBancaires({
                 const is471 = ligne.statut_lettrage === 'en_attente_411'
                 const isActive = ligne.id_operation === ligneActiveId
                 const isDimmed = hasActive && !isActive && !isDebit
-                // Identifie les lignes bancaires débit (y compris celles devenues 'lettre' après affectation)
                 const isBankDebit = (ligne.debit !== null && ligne.debit > 0) || (ligne.credit === null || ligne.credit <= 0)
+                const compte411 = lignes411ClientMap?.get(ligne.id_operation)
+                const has411Client = !!compte411
 
                 return (
                   <tr
                     key={ligne.id_operation}
-                    onClick={() => { if (readOnly) return; isDebit ? onAffecterRemboursement(ligne) : onSelectLigne(ligne) }}
+                    onClick={() => {
+                      if (readOnly) return
+                      if (isDebit) { onAffecterRemboursement(ligne); return }
+                      if (has411Client && compte411 && onSelect411Client) { onSelect411Client(ligne, compte411); return }
+                      onSelectLigne(ligne)
+                    }}
                     className={`transition-all ${readOnly ? 'cursor-default' : 'cursor-pointer'} ${
                       isDebit ? 'bg-blue-50/40 hover:bg-blue-50' :
+                      isActive && has411Client ? 'bg-indigo-50 border-l-[3px] border-indigo-400' :
                       isActive && is471 ? 'bg-orange-50 border-l-[3px] border-orange-400' :
                       isActive ? 'bg-ockham-teal-muted border-l-[3px] border-ockham-teal' :
                       isDimmed ? 'opacity-30' :
-                      isDebit ? 'hover:bg-blue-50' : 'hover:bg-ockham-teal/5'
+                      has411Client ? 'bg-indigo-50/40 hover:bg-indigo-50/70' :
+                      'hover:bg-ockham-teal/5'
                     }`}
                   >
 
@@ -114,6 +126,11 @@ export function TableLignesBancaires({
                       {ligne.statut_lettrage === 'en_attente_411' && (
                         <span className="inline-flex items-center bg-orange-50 text-orange-500 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
                           411 Attente
+                        </span>
+                      )}
+                      {has411Client && (
+                        <span className="inline-flex items-center bg-indigo-100 text-indigo-600 text-[10px] font-semibold px-1.5 py-0.5 rounded mt-0.5">
+                          Compte 411 — cliquer pour dispatcher
                         </span>
                       )}
                     </td>

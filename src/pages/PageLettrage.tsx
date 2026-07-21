@@ -152,6 +152,16 @@ export function PageLettrage() {
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [factures411Key, versionLignes411])
+
+  // Map id_operation → compte_411 pour fond bleu dans TableLignesBancaires
+  const lignes411ClientMap = new Map<string, string>(
+    lignes411Client.map(l => [l.id_operation, l.compte_411])
+  )
+  // Id de la ligne bancaire active dans dispatch411 (pour la surbrillance)
+  const ligneBancaire411ActiveId = dispatch411.factureActive
+    ? (lignes411Client.find(l => l.compte_411 === dispatch411.factureActive?.numero_piece)?.id_operation ?? null)
+    : null
+
   // Remises : chargement initial pour le badge dans BarreResume
   const remisesHook = useRemises(() => rafraichirDonnees())
   const nbRemisesEnAttente = remisesHook.remises.filter(r => r.statut === 'en_attente').length
@@ -196,11 +206,26 @@ export function PageLettrage() {
         requalification471.selectionnerLigne(ligne)
       }
     } else {
+      if (dispatch411.factureActive) dispatch411.annuler()
       if (forme.ligneActive?.id_operation === ligne.id_operation) {
         forme.annuler()
       } else {
         forme.selectionnerLigne(ligne)
       }
+    }
+  }
+
+  function handleSelect411ClientLigne(ligne: LigneBancaireAvecStatut, compte411: string) {
+    if (isCommercial) return
+    forme.annuler()
+    requalification471.annuler()
+    dispatch411Attente.annuler()
+    const facture411 = facturesActives.find(f => f.numero_piece === compte411) ?? null
+    if (!facture411) return
+    if (dispatch411.factureActive?.numero_piece === compte411) {
+      dispatch411.annuler()
+    } else {
+      dispatch411.selectionnerFacture411(facture411)
     }
   }
 
@@ -314,32 +339,26 @@ export function PageLettrage() {
           <div key={liste.filtre} className="animate-fade-in">
             {liste.filtre === 'compte' ? (
               <TableCompte
-                lignes411Client={lignes411Client}
                 lignes411Attente={liste.lignes.filter(l => l.en_attente_411)}
-                selectedId={dispatch411.factureActive?.numero_piece ?? dispatch411Attente.ligneActive?.id_operation ?? null}
-                onSelect411={(l) => {
-                  dispatch411Attente.annuler()
-                  const facture411 = facturesActives.find(f => f.numero_piece === l.compte_411) ?? null
-                  if (!facture411) return
-                  if (dispatch411.factureActive?.numero_piece === l.compte_411) dispatch411.annuler()
-                  else dispatch411.selectionnerFacture411(facture411)
-                }}
+                selectedId={dispatch411Attente.ligneActive?.id_operation ?? null}
                 onSelect411Attente={(l) => {
                   dispatch411.annuler()
                   if (dispatch411Attente.ligneActive?.id_operation === l.id_operation) dispatch411Attente.annuler()
                   else dispatch411Attente.selectionnerLigne(l)
                 }}
-                onAnnuler411={setConfirmAnnulation}
                 onAnnuler411Attente={setConfirmAnnulation}
                 chargement={liste.chargement}
-                recherche={liste.recherche}
                 lignesExportees={exportComptable.lignesExportees}
               />
             ) : (
               <TableLignesBancaires
                 lignes={liste.lignes}
                 chargement={liste.chargement}
-                ligneActiveId={liste.filtre === 'autres_virements' ? requalification471.ligneActive?.id_operation ?? null : forme.ligneActive?.id_operation ?? null}
+                ligneActiveId={
+                  liste.filtre === 'autres_virements'
+                    ? requalification471.ligneActive?.id_operation ?? null
+                    : forme.ligneActive?.id_operation ?? ligneBancaire411ActiveId
+                }
                 page={liste.page}
                 totalPages={liste.totalPages}
                 onPage={liste.setPage}
@@ -348,6 +367,8 @@ export function PageLettrage() {
                 onAffecterRemboursement={l => { remboursements.charger(); setLigneDebitAaffecter(l) }}
                 lignesExportees={exportComptable.lignesExportees}
                 readOnly={isCommercial}
+                lignes411ClientMap={lignes411ClientMap}
+                onSelect411Client={handleSelect411ClientLigne}
               />
             )}
           </div>
@@ -359,6 +380,8 @@ export function PageLettrage() {
           ) : (
             <PanneauDispatch411Attente {...dispatch411Attente} />
           )
+        ) : dispatch411.factureActive ? (
+          <PanneauDispatch411 {...dispatch411} />
         ) : liste.filtre === 'autres_virements' ? (
           <PanneauRequalification471 {...requalification471} />
         ) : (
