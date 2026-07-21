@@ -117,7 +117,11 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
       })
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 411.')
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (err as { message?: string })?.message ?? 'Erreur lors du dispatch 411.'
+      )
     } finally {
       setChargement(false)
     }
