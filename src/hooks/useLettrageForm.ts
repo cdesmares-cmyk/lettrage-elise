@@ -304,7 +304,7 @@ export function useLettrageForm(
       const montantAttente = Math.round((creditDisponible - montantMix) * 100) / 100
       if (montantAttente > TOLERANCE_CENT) {
         const today = new Date().toISOString().split('T')[0]
-        await supabase.from('factures').upsert({
+        const { error: errFact } = await supabase.from('factures').upsert({
           numero_piece: '411_ATTENTE',
           code_client: 'ATTENTE',
           nom_client: 'Compte 411 Attente',
@@ -314,6 +314,7 @@ export function useLettrageForm(
           reste_du: 0,
           est_avoir: false,
         } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
+        if (errFact) throw errFact
         const { error: errAttente } = await supabase.from('lettrages').insert({
           id_ligne_bancaire: ligneActive.id_operation,
           numero_facture: '411_ATTENTE',

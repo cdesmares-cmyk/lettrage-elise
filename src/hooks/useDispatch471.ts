@@ -40,12 +40,8 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
       .eq('id_ligne_bancaire', ligne.id_operation)
       .eq('annule', false)
     const rows = lettragesData as unknown as RowLettrageExist[] | null
-    // Crédit net = somme algébrique de tous les lettrages sur 411_ATTENTE
-    // (initial positif + corrections négatives si dispatch partiel précédent)
-    const attente411 = (rows ?? []).filter(l => l.numero_facture === '411_ATTENTE')
-    const creditNet = attente411.length > 0
-      ? Math.round(attente411.reduce((s, l) => s + l.montant, 0) * 100) / 100
-      : null
+    // Crédit net = valeur pré-calculée par la vue (somme algébrique des lettrages 411_ATTENTE)
+    const creditNet = ligne.credit_attente_411 > 0 ? ligne.credit_attente_411 : null
     setLettragesExistants(rows ?? [])
     setLigneActive(ligne)
     setLignesForme([nouvelleLigne()])
