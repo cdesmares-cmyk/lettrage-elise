@@ -104,6 +104,10 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
         if (!l.info_facture) return 'Facture introuvable ou non saisie'
         const m = parseFloat(l.montant)
         if (!l.montant || isNaN(m) || m === 0) return 'Montant invalide'
+      } else if (l.classe === 'compte_client') {
+        if (!l.client_411) return 'Client non sélectionné'
+        const m = parseFloat(l.montant)
+        if (!l.montant || isNaN(m) || m === 0) return 'Montant invalide'
       } else if (!l.numero_facture.trim()) {
         return 'Commentaire requis pour la ligne "Autres"'
       }
@@ -117,16 +121,41 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
     if (!ligneActive || !peutValider()) return
     setChargement(true)
     try {
+      const today = new Date().toISOString().split('T')[0]
+
+      // Upsert pseudo-factures 411_CLIENT pour les lignes compte_client
+      for (const l of lignesForme) {
+        if (l.classe === 'compte_client' && l.client_411) {
+          await supabase.from('factures').upsert({
+            numero_piece: `411_${l.client_411.code_dso}`,
+            code_client: l.client_411.code_dso,
+            nom_client: l.client_411.nom,
+            date_emission: today,
+            montant_ht: 0,
+            montant_ttc: 0,
+            reste_du: 0,
+            est_avoir: false,
+          } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
+        }
+      }
+
       const montantFactures = Math.round(
         lignesForme.filter(l => l.classe !== 'autres').reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
       ) / 100
       const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
 
-      const today = new Date().toISOString().split('T')[0]
       const inserts = lignesForme.map(l => ({
         id_ligne_bancaire: ligneActive.id_operation,
-        numero_facture: l.classe === 'autres' ? null : l.numero_facture.trim(),
-        code_client: l.classe === 'autres' ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+        numero_facture: l.classe === 'autres'
+          ? null
+          : l.classe === 'compte_client' && l.client_411
+            ? `411_${l.client_411.code_dso}`
+            : l.numero_facture.trim(),
+        code_client: l.classe === 'autres'
+          ? 'AUTRES'
+          : l.classe === 'compte_client' && l.client_411
+            ? l.client_411.code_dso
+            : (l.info_facture?.code_client ?? ''),
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,

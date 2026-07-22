@@ -1,7 +1,6 @@
 // Onglet [Compte] — 411 Attente uniquement (lignes urgentes à dispatcher)
 import type { LigneBancaireAvecStatut } from '../../types/lettrage'
 import { IcX } from '../Icones'
-import { TOLERANCE_CENT } from '../../lib/constantes'
 
 interface Props {
   lignes411Attente: LigneBancaireAvecStatut[]
@@ -49,7 +48,6 @@ export function TableCompte({
         {lignes411Attente.map(l => {
           const isActive = l.id_operation === selectedId
           const estExporte = lignesExportees?.has(l.id_operation) ?? false
-          const aLettrages = l.montant_lettre > TOLERANCE_CENT
           return (
             <div
               key={l.id_operation}
@@ -79,13 +77,6 @@ export function TableCompte({
                     className="inline-flex items-center text-[10px] text-gray-400 bg-gray-100 border border-gray-200 px-2 py-1 rounded cursor-not-allowed"
                   >
                     Exporté
-                  </span>
-                ) : aLettrages ? (
-                  <span
-                    title="Lettrage(s) existant(s) sur cette ligne — impossible d'annuler"
-                    className="inline-flex items-center text-[10px] text-orange-400 bg-orange-50 border border-orange-200 px-2 py-1 rounded cursor-not-allowed"
-                  >
-                    Partiel
                   </span>
                 ) : (
                   <button

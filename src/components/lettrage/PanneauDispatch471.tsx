@@ -3,8 +3,9 @@ import { useRef, useState } from 'react'
 import { IcCursor, IcCheck, IcLoader, IcWarning, IcX, IcSearch } from '../Icones'
 import { ModalNavigateurFactures, type LigneAInjecter } from './ModalNavigateurFactures'
 import type { useDispatch411Attente } from '../../hooks/useDispatch471'
+import type { CompteClient } from '../../types/client'
 
-type Props = ReturnType<typeof useDispatch411Attente>
+type Props = ReturnType<typeof useDispatch411Attente> & { clients?: CompteClient[] }
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
@@ -13,7 +14,7 @@ function fmt(n: number) {
 export function PanneauDispatch411Attente(props: Props) {
   const {
     ligneActive, lettragesExistants, lignesForme,
-    chargement,
+    chargement, clients = [],
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, injecterLignes, valider, peutValider, motifInvalide,
     creditDisponible, montantAttribue, restant,
@@ -21,6 +22,7 @@ export function PanneauDispatch411Attente(props: Props) {
 
   const debounceRefs = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [navigateurOuvert, setNavigateurOuvert] = useState(false)
+  const [openDropdownKey, setOpenDropdownKey] = useState<string | null>(null)
 
   function handleInjecter(factures: LigneAInjecter[]) {
     injecterLignes(factures.map(f => ({ numero_facture: f.numero_facture, montant: f.montant })))
@@ -33,6 +35,17 @@ export function PanneauDispatch411Attente(props: Props) {
     clearTimeout(debounceRefs.current[key])
     debounceRefs.current[key] = setTimeout(() => chercherInfoFacture(key, value), 400)
   }
+
+  function clientsFiltres(recherche: string) {
+    const r = recherche.toLowerCase().trim()
+    if (!r) return clients.slice(0, 8)
+    return clients.filter(c =>
+      c.nom.toLowerCase().includes(r) || c.code_dso.toLowerCase().includes(r)
+    ).slice(0, 8)
+  }
+
+  // P3 : masquer le lettrage technique 411_ATTENTE de la liste des lettrages précédents
+  const lettragesVisibles = lettragesExistants.filter(l => l.numero_facture !== '411_ATTENTE')
 
   if (!ligneActive) {
     return (
@@ -62,12 +75,12 @@ export function PanneauDispatch411Attente(props: Props) {
         </p>
       </div>
 
-      {/* Lettrages déjà existants sur cette ligne */}
-      {lettragesExistants.length > 0 && (
+      {/* Lettrages déjà existants (hors lettrage technique 411_ATTENTE) */}
+      {lettragesVisibles.length > 0 && (
         <div className="px-5 pt-4 pb-1">
           <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-2">Lettrages précédents</p>
           <div className="space-y-1 mb-2">
-            {lettragesExistants.map(l => (
+            {lettragesVisibles.map(l => (
               <div key={l.id} className="flex items-center justify-between text-xs bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
                 <div>
                   {l.numero_facture
@@ -95,11 +108,12 @@ export function PanneauDispatch411Attente(props: Props) {
                     value={ligne.classe}
                     onChange={e => {
                       clearTimeout(debounceRefs.current[ligne._key])
-                      modifierLigne(ligne._key, { classe: e.target.value as 'facture' | 'autres', numero_facture: '', montant: '', info_facture: null, chargement: false })
+                      modifierLigne(ligne._key, { classe: e.target.value as 'facture' | 'autres' | 'compte_client', numero_facture: '', montant: '', info_facture: null, chargement: false, client_411: undefined })
                     }}
                     className="w-full border border-gray-200 rounded-md pl-3 pr-6 py-1.5 text-xs text-gray-700 bg-white outline-none focus:border-orange-400 appearance-none cursor-pointer"
                   >
                     <option value="facture">Facture</option>
+                    <option value="compte_client">411 Client</option>
                     <option value="autres">Autres</option>
                   </select>
                   <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
@@ -111,20 +125,67 @@ export function PanneauDispatch411Attente(props: Props) {
                   <IcX size={11} />
                 </button>
               </div>
+
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={ligne.numero_facture}
-                    onChange={e => {
-                      if (ligne.classe === 'autres') modifierLigne(ligne._key, { numero_facture: e.target.value })
-                      else handleNumeroChange(ligne._key, e.target.value)
-                    }}
-                    placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
-                    className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-orange-400 pr-6"
-                  />
-                  {ligne.chargement && ligne.classe !== 'autres' && (
-                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-400"><IcLoader size={11} /></span>
+                  {ligne.classe === 'compte_client' ? (
+                    <>
+                      <input
+                        type="text"
+                        value={ligne.numero_facture}
+                        onChange={e => {
+                          modifierLigne(ligne._key, { numero_facture: e.target.value, client_411: undefined })
+                          setOpenDropdownKey(ligne._key)
+                        }}
+                        onFocus={() => setOpenDropdownKey(ligne._key)}
+                        onBlur={() => setTimeout(() => setOpenDropdownKey(null), 150)}
+                        placeholder="Rechercher un client…"
+                        className={`w-full border rounded-md px-2.5 py-1.5 text-xs outline-none pr-6 ${
+                          ligne.client_411
+                            ? 'border-indigo-300 bg-indigo-50/50 text-indigo-700 font-semibold'
+                            : 'border-gray-200 focus:border-indigo-400 text-gray-700'
+                        }`}
+                      />
+                      {ligne.numero_facture && (
+                        <button
+                          onMouseDown={() => modifierLigne(ligne._key, { numero_facture: '', client_411: undefined })}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 text-xs"
+                        >✕</button>
+                      )}
+                      {openDropdownKey === ligne._key && clientsFiltres(ligne.numero_facture).length > 0 && (
+                        <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                          {clientsFiltres(ligne.numero_facture).map(c => (
+                            <button
+                              key={c.code_dso}
+                              onMouseDown={() => {
+                                modifierLigne(ligne._key, { numero_facture: c.nom, client_411: { code_dso: c.code_dso, nom: c.nom } })
+                                setOpenDropdownKey(null)
+                              }}
+                              className="w-full text-left px-3 py-2 text-xs hover:bg-indigo-50 transition-colors"
+                            >
+                              <span className="font-semibold text-gray-800">{c.nom}</span>
+                              <span className="text-gray-400 ml-2">{c.code_dso}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        value={ligne.numero_facture}
+                        onChange={e => {
+                          if (ligne.classe === 'autres') modifierLigne(ligne._key, { numero_facture: e.target.value })
+                          else handleNumeroChange(ligne._key, e.target.value)
+                        }}
+                        placeholder={ligne.classe === 'autres' ? 'Commentaire…' : 'N° facture'}
+                        className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-orange-400 pr-6"
+                      />
+                      {ligne.chargement && ligne.classe !== 'autres' && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-orange-400"><IcLoader size={11} /></span>
+                      )}
+                    </>
                   )}
                 </div>
                 <input
@@ -137,10 +198,18 @@ export function PanneauDispatch411Attente(props: Props) {
                   className={`w-20 flex-shrink-0 border rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none transition-colors ${
                     ligne.classe === 'autres'
                       ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                      : 'border-gray-200 focus:border-orange-400'
+                      : ligne.classe === 'compte_client'
+                        ? 'border-indigo-200 focus:border-indigo-400'
+                        : 'border-gray-200 focus:border-orange-400'
                   }`}
                 />
               </div>
+
+              {ligne.classe === 'compte_client' && ligne.client_411 && (
+                <div className="mt-1 text-[10px] text-indigo-600 font-medium">
+                  ✓ 411_{ligne.client_411.code_dso} — sera créé si inexistant
+                </div>
+              )}
               {ligne.classe === 'facture' && ligne.info_facture && (
                 <div className="mt-1 text-[10px] text-emerald-600 font-medium">
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
@@ -182,7 +251,11 @@ export function PanneauDispatch411Attente(props: Props) {
               restant < 0.01 ? 'bg-emerald-100 text-emerald-600' :
               'bg-orange-100 text-orange-600'
             }`}>
-              {surPaiement ? <span className="inline-flex items-center gap-0.5"><IcWarning size={10} /> Dépassement</span> : restant < 0.01 ? <span className="inline-flex items-center gap-0.5"><IcCheck size={10} /> 100 %</span> : `${pct} %`}
+              {surPaiement
+                ? <span className="inline-flex items-center gap-0.5"><IcWarning size={10} /> Dépassement</span>
+                : restant < 0.01
+                  ? <span className="inline-flex items-center gap-0.5"><IcCheck size={10} /> 100 %</span>
+                  : `${pct} %`}
             </span>
           </div>
         </div>

@@ -379,7 +379,7 @@ export function PageLettrage() {
           dispatch411.factureActive ? (
             <PanneauDispatch411 {...dispatch411} />
           ) : (
-            <PanneauDispatch411Attente {...dispatch411Attente} />
+            <PanneauDispatch411Attente {...dispatch411Attente} clients={clients} />
           )
         ) : dispatch411.factureActive ? (
           <PanneauDispatch411 {...dispatch411} />
