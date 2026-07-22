@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, LettrageExistant, LigneForme, InfoFacture } from '../types/lettrage'
 
-interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null }
+interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null; annule: boolean }
 interface RowFactureInfo { reste_du: number; code_client: string; nom_client: string | null; statut_paiement: string }
 
 let _k = 0
@@ -36,7 +36,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
   async function selectionnerLigne(ligne: LigneBancaireAvecStatut) {
     const { data: lettragesData } = await supabase
       .from('lettrages')
-      .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
+      .select('id, numero_facture, code_client, montant, date_lettrage, commentaire, annule')
       .eq('id_ligne_bancaire', ligne.id_operation)
       .eq('annule', false)
     const rows = lettragesData as unknown as RowLettrageExist[] | null
