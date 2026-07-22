@@ -41,7 +41,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
       .eq('annule', false)
     const rows = lettragesData as unknown as RowLettrageExist[] | null
     // Crédit net = valeur pré-calculée par la vue (somme algébrique des lettrages 411_ATTENTE)
-    const creditNet = ligne.credit_attente_411 > 0 ? ligne.credit_attente_411 : null
+    const creditNet = (ligne.credit_attente_411 ?? 0) > 0 ? ligne.credit_attente_411! : null
     setLettragesExistants(rows ?? [])
     setLigneActive(ligne)
     setLignesForme([nouvelleLigne()])

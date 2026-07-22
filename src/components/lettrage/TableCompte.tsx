@@ -68,7 +68,7 @@ export function TableCompte({
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                 <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-orange-600">{fmt(l.credit_attente_411)}</p>
+                  <p className="text-sm font-bold tabular-nums text-orange-600">{fmt(l.credit_attente_411 ?? l.restant)}</p>
                   <p className="text-[10px] text-gray-400">à dispatcher</p>
                 </div>
                 {estExporte ? (

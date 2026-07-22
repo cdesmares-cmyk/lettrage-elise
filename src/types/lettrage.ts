@@ -17,7 +17,7 @@ export interface LigneBancaireAvecStatut {
   derniere_date_lettrage: string | null
   en_attente_411: boolean
   est_virement_471: boolean
-  credit_attente_411: number
+  credit_attente_411?: number
 }
 
 export interface LettrageExistant {
