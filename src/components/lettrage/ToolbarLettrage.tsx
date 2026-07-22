@@ -12,6 +12,7 @@ interface Props {
   onDateDebut: (v: string) => void
   onDateFin: (v: string) => void
   onHistorique: () => void
+  nbComptes?: number
 }
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
@@ -23,7 +24,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'autres_virements', label: 'Autres virements perçus' },
 ]
 
-export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique }: Props) {
+export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique, nbComptes }: Props) {
   return (
     <div className="px-4 py-3 border-b border-gray-100 space-y-2">
       {/* Ligne 1 : recherche + période + historique */}
@@ -85,11 +86,14 @@ export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, date
             <button
               key={f.val}
               onClick={() => onFiltre(f.val)}
-              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
+              className={`relative text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
                 filtre === f.val ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
               }`}
             >
               {f.label}
+              {f.val === 'compte' && !!nbComptes && nbComptes > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-orange-400" />
+              )}
             </button>
           ))}
         </div>

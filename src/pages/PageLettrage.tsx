@@ -335,6 +335,7 @@ export function PageLettrage() {
             onDateDebut={liste.setDateDebut}
             onDateFin={liste.setDateFin}
             onHistorique={historique.toggle}
+            nbComptes={lignes411Client.length + liste.lignes.filter(l => l.en_attente_411).length}
           />
           <div key={liste.filtre} className="animate-fade-in">
             {liste.filtre === 'compte' ? (
