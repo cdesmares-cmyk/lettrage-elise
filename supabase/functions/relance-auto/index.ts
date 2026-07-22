@@ -258,20 +258,32 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
-      // 4. Chargement batch : dédup + contacts + factures + avoirs en 4 requêtes pour toute l'org
+      // 4. Chargement batch : dédup + contacts + factures + avoirs + crédits 411 en 5 requêtes
       const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
-      const [dedupRes, contactsRes, facturesRes, avoirsRes] = await Promise.all([
+      const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res] = await Promise.all([
         supabase.from('relances_auto_log').select('code_client')
           .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
         supabase.from('contacts_client').select('code_client, email, role_contact')
           .eq('organisation_id', orgId).eq('actif', true).in('role_contact', ['relance', 'comptabilite']),
+        // P1 : exclure les pseudo-factures 411 des relances automatiques
         supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
-          .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005),
+          .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005)
+          .not('numero_piece', 'like', '411_%'),
         supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission')
           .eq('organisation_id', orgId).eq('est_avoir', true).neq('reste_du', 0),
+        // P3 : crédits 411 non dispatchés pour bloquer la relance si dette couverte
+        supabase.from('factures').select('code_client, reste_du')
+          .eq('organisation_id', orgId).like('numero_piece', '411_%').lt('reste_du', -0.005),
       ])
 
       const dedupSet = new Set((dedupRes.data ?? []).map((r: { code_client: string }) => r.code_client))
+
+      // P3 : somme des crédits 411 par client (valeurs négatives)
+      const credits411Map = new Map<string, number>()
+      for (const c of (credits411Res.data ?? [])) {
+        const k = c.code_client as string
+        credits411Map.set(k, (credits411Map.get(k) ?? 0) + (c.reste_du as number))
+      }
 
       const contactsMap = new Map<string, { email: string; role_contact: string }[]>()
       for (const c of (contactsRes.data ?? [])) {
@@ -332,8 +344,13 @@ Deno.serve(async (req: Request) => {
         })
         if (!facturesEligibles.length) { nbSkip++; nbSkipOrg++; continue }
 
-        const montantDu = facturesEligibles.reduce((s, f) => s + f.reste_du, 0)
-        const ctx       = { nomClient, codeClient: codeDso, montantDu, nomOrg: orgNom }
+        const montantDu   = facturesEligibles.reduce((s, f) => s + f.reste_du, 0)
+        // P3 : si les crédits 411 non dispatchés couvrent totalement la dette, pas de relance
+        const credit411   = credits411Map.get(codeDso) ?? 0  // valeur négative
+        const montantNet  = montantDu + credit411
+        if (montantNet <= 0.005) { nbSkip++; nbSkipOrg++; continue }
+
+        const ctx         = { nomClient, codeClient: codeDso, montantDu, nomOrg: orgNom }
         const objet     = resolveBalises(scenario.objet as string, ctx)
         const corps     = resolveBalises(scenario.corps_texte as string, ctx)
         const lignes: FactureLigne[] = facturesEligibles.map(f => ({

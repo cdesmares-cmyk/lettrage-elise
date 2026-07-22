@@ -151,9 +151,13 @@ Deno.serve(async (req: Request) => {
         .single()
       if (!target || target.organisation_id !== caller.organisation_id)
         return json({ error: 'Utilisateur introuvable' }, 404)
+      // Réattribuer les relances créées par cet utilisateur à l'admin appelant
+      // (relances.operateur_id → utilisateurs(id) ON DELETE RESTRICT bloquerait sinon)
+      await supabaseAdmin.from('relances').update({ operateur_id: user.id }).eq('operateur_id', user_id)
+      const { error: delUtilError } = await supabaseAdmin.from('utilisateurs').delete().eq('id', user_id)
+      if (delUtilError) return json({ error: `Erreur suppression profil : ${delUtilError.message}` }, 500)
       const { error } = await supabaseAdmin.auth.admin.deleteUser(user_id)
       if (error) return json({ error: error.message }, 400)
-      await supabaseAdmin.from('utilisateurs').delete().eq('id', user_id)
       return json({ ok: true })
     }
 

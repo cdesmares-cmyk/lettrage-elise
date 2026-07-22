@@ -28,8 +28,8 @@ function buildRow(f: FactureLigne): string {
   const retard = f.echeance ? joursDepuis(f.echeance) : null
   const estEchu = retard !== null && retard > 0
 
-  // Badge retard / à venir
-  const badgeDelai = retard === null ? '' : estEchu
+  // Badge retard / à venir (pas sur les avoirs/crédits)
+  const badgeDelai = f.restedu < 0 || retard === null ? '' : estEchu
     ? `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${retard}j</span>`
     : `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#F0FDF4;border:1px solid #BBF7D0;color:#16A34A;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">−${Math.abs(retard)}j</span>`
 
@@ -43,8 +43,8 @@ function buildRow(f: FactureLigne): string {
     ? `<a href="${f.pdfUrl}" style="display:inline-block;vertical-align:middle;margin-left:7px;background:#E6F7F5;border:1px solid rgba(76,197,187,0.3);border-radius:20px;padding:1px 12px 2px;text-decoration:none;text-align:center;line-height:1;">${SVG_PDF}<span style="font-size:10px;font-weight:600;color:#0D9488;margin-left:3px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;vertical-align:middle;">PDF</span></a>`
     : ''
 
-  // Montant restant : rouge si échu, navy sinon
-  const couleurMontant = estEchu ? '#DC2626' : '#0E1A2B'
+  // Montant restant : vert si crédit (avoir/411), rouge si échu, navy sinon
+  const couleurMontant = f.restedu < 0 ? '#16A34A' : estEchu ? '#DC2626' : '#0E1A2B'
 
   return `
     <tr style="background:#ffffff;">
@@ -93,6 +93,7 @@ function textToHtmlBlocs(texte: string): string {
 export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], signature: string | null): string {
   const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
   const rows = factures.map(buildRow).join('')
+  const couleurTotal = totalReste < 0 ? '#16A34A' : '#DC2626'
 
   const tableBlock = `
   <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
@@ -107,9 +108,9 @@ export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], s
       <tbody>${rows}</tbody>
       <tfoot>
         <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
-          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Total à régler</td>
+          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Solde net</td>
           <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
-            <span style="font-size:17px;font-weight:800;color:#DC2626;letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
+            <span style="font-size:17px;font-weight:800;color:${couleurTotal};letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
           </td>
           <td style="padding:13px 16px;"></td>
         </tr>
@@ -142,6 +143,7 @@ export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], s
 export function buildHtml(factures: FactureLigne[], signature: string | null): string {
   const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
   const rows = factures.map(buildRow).join('')
+  const couleurTotal = totalReste < 0 ? '#16A34A' : '#DC2626'
 
   // Mention Ockham discrète sous le tableau
   const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <a href="https://www.ockham-finance.com" style="color:#9CA3AF;font-weight:600;text-decoration:none;" target="_blank">Ockham Finance</a></p>`
@@ -175,9 +177,9 @@ export function buildHtml(factures: FactureLigne[], signature: string | null): s
       </tbody>
       <tfoot>
         <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
-          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Total à régler</td>
+          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Solde net</td>
           <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
-            <span style="font-size:17px;font-weight:800;color:#DC2626;letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
+            <span style="font-size:17px;font-weight:800;color:${couleurTotal};letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
           </td>
           <td style="padding:13px 16px;"></td>
         </tr>

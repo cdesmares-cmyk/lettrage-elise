@@ -59,7 +59,7 @@ export function useContacts(codeClient: string | null) {
   }
 
   async function desactiver(id: string) {
-    const { error } = await supabase.from('contacts_client').update({ actif: false } as never).eq('id', id)
+    const { error } = await supabase.from('contacts_client').delete().eq('id', id)
     if (error) { toast.error('Erreur suppression contact'); return false }
     setContacts(prev => prev.filter(c => c.id !== id))
     toast.success('Contact supprimé')

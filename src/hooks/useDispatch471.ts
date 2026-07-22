@@ -30,23 +30,41 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
   const [lettragesExistants, setLettragesExistants] = useState<LettrageExistant[]>([])
   const [lignesForme, setLignesForme] = useState<LigneForme[]>([nouvelleLigne()])
   const [chargement, setChargement] = useState(false)
+  // Crédit net disponible depuis le lettrage 411_ATTENTE (null = ligne sans lettrage attente, mode rétrocompat)
+  const [creditAttente, setCreditAttente] = useState<number | null>(null)
 
   async function selectionnerLigne(ligne: LigneBancaireAvecStatut) {
-    const { data } = await supabase
-      .from('lettrages')
-      .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
-      .eq('id_ligne_bancaire', ligne.id_operation)
-      .eq('annule', false)
-    const rows = data as unknown as RowLettrageExist[] | null
+    const [{ data: lettragesData }, { data: correctionsData }] = await Promise.all([
+      supabase
+        .from('lettrages')
+        .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
+        .eq('id_ligne_bancaire', ligne.id_operation)
+        .eq('annule', false),
+      supabase
+        .from('lettrages')
+        .select('montant')
+        .eq('id_ligne_bancaire', ligne.id_operation + '-C')
+        .eq('numero_facture', '411_ATTENTE')
+        .eq('annule', false),
+    ])
+    const rows = lettragesData as unknown as RowLettrageExist[] | null
+    const attenteLettrage = (rows ?? []).find(l => l.numero_facture === '411_ATTENTE')
+    const correctionsTotal = ((correctionsData as { montant: number }[] | null) ?? [])
+      .reduce((s, r) => s + r.montant, 0)
+    const creditNet = attenteLettrage
+      ? Math.round((attenteLettrage.montant + correctionsTotal) * 100) / 100
+      : null
     setLettragesExistants(rows ?? [])
     setLigneActive(ligne)
     setLignesForme([nouvelleLigne()])
+    setCreditAttente(creditNet)
   }
 
   function annuler() {
     setLigneActive(null)
     setLettragesExistants([])
     setLignesForme([nouvelleLigne()])
+    setCreditAttente(null)
   }
 
   function ajouterLigne() { setLignesForme(prev => [...prev, nouvelleLigne()]) }
@@ -119,11 +137,31 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
         operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
 
+      const montantDispatche = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
+
+      // Reversal 411_ATTENTE — uniquement si la ligne a été créée avec le nouveau flux
+      // (creditAttente !== null). Nécessite mode='correction' → migration 098 appliquée.
+      if (creditAttente !== null) {
+        const correctionId = crypto.randomUUID()
+        const { error: errCorr } = await supabase.from('lettrages').insert({
+          id_ligne_bancaire: ligneActive.id_operation + '-C',
+          numero_facture: '411_ATTENTE',
+          code_client: 'ATTENTE',
+          montant: -montantDispatche,
+          date_lettrage: today,
+          mode: 'correction',
+          correction_id: correctionId,
+          commentaire: 'Dispatch 411 Attente',
+          cree_par: utilisateur?.id ?? null,
+          operateur: utilisateur?.email?.split('@')[0] ?? null,
+        } as never)
+        if (errCorr) throw errCorr
+      }
+
       const { error } = await supabase.from('lettrages').insert(inserts as never)
       if (error) throw error
 
       // Effacer le flag 411 Attente uniquement si le crédit est totalement dispatché
-      const montantDispatche = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
       const restantApres = Math.round((creditDisponible - montantDispatche) * 100) / 100
       if (Math.abs(restantApres) < TOLERANCE_CENT) {
         const { error: errUpdate } = await supabase
@@ -148,7 +186,8 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
     }
   }
 
-  const creditDisponible = ligneActive?.restant ?? 0
+  // creditAttente !== null → nouveau flux avec lettrage 411_ATTENTE ; sinon rétrocompat restant
+  const creditDisponible = creditAttente !== null ? creditAttente : (ligneActive?.restant ?? 0)
   const montantAttribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
   const restant = Math.round((creditDisponible - montantAttribue) * 100) / 100
 

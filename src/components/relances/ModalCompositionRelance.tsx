@@ -37,7 +37,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
   const impayees = facturesActives.filter(f =>
     f.code_client === client?.code_dso &&
-    f.reste_du > 0.005 &&
+    Math.abs(f.reste_du) > 0.005 &&
     !commentaires?.get(f.numero_piece)?.ne_pas_relancer
   )
 
@@ -236,9 +236,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                 <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {impayees.length === 0 ? (
-                    <p className="text-xs text-gray-400">Aucune facture impayée</p>
+                    <p className="text-xs text-gray-400">Aucune pièce à inclure</p>
                   ) : impayees.map(f => {
-                    const j = f.date_echeance ? joursDepuis(f.date_echeance) : 0
+                    const estCredit = f.reste_du < 0
+                    const j = !estCredit && f.date_echeance ? joursDepuis(f.date_echeance) : 0
+                    const is411 = f.numero_piece.startsWith('411_')
                     return (
                       <label key={f.numero_piece} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${facturesSel.includes(f.numero_piece) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                         <input type="checkbox" checked={facturesSel.includes(f.numero_piece)} onChange={() => toggleFacture(f.numero_piece)} className="accent-ockham-teal" />
@@ -247,6 +249,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         ) : (
                           <NumeroPiece numero={f.numero_piece} className="font-mono text-[11px] text-gray-600 flex-1" />
                         )}
+                        {is411 && <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600 border border-indigo-200">411</span>}
+                        {f.est_avoir && <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">Avoir</span>}
                         {commentaires?.has(f.numero_piece) && (
                           <span
                             className="flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/30 cursor-default"
@@ -257,8 +261,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                             onMouseLeave={() => setTooltip(null)}
                           >?</span>
                         )}
-                        <span className="text-[11px] font-bold text-gray-700 tabular-nums">{fmtEuros(f.reste_du)}</span>
-                        <span className={`text-[10px] font-bold px-1.5 rounded ${j > 90 ? 'bg-red-100 text-red-700' : j > 60 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{j}j</span>
+                        <span className={`text-[11px] font-bold tabular-nums ${estCredit ? 'text-emerald-600' : 'text-gray-700'}`}>{fmtEuros(f.reste_du)}</span>
+                        {!estCredit && <span className={`text-[10px] font-bold px-1.5 rounded ${j > 90 ? 'bg-red-100 text-red-700' : j > 60 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>{j}j</span>}
                       </label>
                     )
                   })}

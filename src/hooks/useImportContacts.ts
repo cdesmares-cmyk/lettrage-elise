@@ -224,12 +224,12 @@ export function useImportContacts() {
           l => String(l['delete'] ?? '').toLowerCase() !== 'delete'
         )
 
-        // Désactiver les contacts marqués delete
+        // Supprimer les contacts marqués delete
         for (const l of aSupprimer) {
           if (!l['email'] || !l['code_client']) continue
           await supabase
             .from('contacts_client')
-            .update({ actif: false } as never)
+            .delete()
             .eq('email', String(l['email']).toLowerCase())
             .eq('code_client', String(l['code_client']))
         }
