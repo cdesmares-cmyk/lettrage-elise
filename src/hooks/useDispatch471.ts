@@ -160,7 +160,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
         date_lettrage: today,
-        mode: 'manuel',
+        mode: 'dispatch',
         commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
