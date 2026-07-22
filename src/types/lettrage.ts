@@ -27,6 +27,7 @@ export interface LettrageExistant {
   montant: number
   date_lettrage: string
   commentaire: string | null
+  annule: boolean
 }
 
 export interface LigneBancaire411 extends LigneBancaireAvecStatut {

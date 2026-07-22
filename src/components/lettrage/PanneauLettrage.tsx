@@ -1,6 +1,6 @@
 // Panneau droit : formulaire de lettrage (3 états : vide / alerte / formulaire)
 import { useRef, useState } from 'react'
-import { IcCursor, IcEdit, IcSearch, IcCheck, IcLoader, IcWarning } from '../Icones'
+import { IcCursor, IcEdit, IcSearch, IcCheck, IcLoader, IcWarning, IcX } from '../Icones'
 import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
@@ -89,15 +89,18 @@ export function PanneauLettrage(props: Props) {
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-2">Affectation</p>
               <div className="space-y-1.5 mb-4">
                 {lettragesExistants.map(l => (
-                  <div key={l.id} className="flex items-center justify-between text-xs bg-gray-50 rounded-lg px-3 py-2">
-                    <div>
-                      {l.numero_facture
-                        ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
-                        : <span className="text-gray-600 font-semibold">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>
-                      }
-                      <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
+                  <div key={l.id} className={`flex items-center justify-between text-xs rounded-lg px-3 py-2 ${l.annule ? 'bg-gray-50/50 opacity-50' : 'bg-gray-50'}`}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {l.annule && <IcX size={11} className="text-gray-400 flex-shrink-0" />}
+                      <div className={l.annule ? 'line-through text-gray-400' : ''}>
+                        {l.numero_facture
+                          ? <span className="font-mono font-semibold">{l.numero_facture}</span>
+                          : <span className="font-semibold">Autres{l.commentaire ? ` · ${l.commentaire}` : ''}</span>
+                        }
+                        <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
+                      </div>
                     </div>
-                    <span className="font-semibold text-gray-700">{fmt(l.montant)}</span>
+                    <span className={`font-semibold tabular-nums ml-3 flex-shrink-0 ${l.annule ? 'text-gray-400 line-through' : 'text-gray-700'}`}>{fmt(l.montant)}</span>
                   </div>
                 ))}
               </div>
@@ -150,16 +153,19 @@ export function PanneauLettrage(props: Props) {
           <p className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide mb-2">Attributions précédentes</p>
           <div className="space-y-1 mb-2">
             {lettragesExistants.map(l => (
-              <div key={l.id} className="flex items-center justify-between text-xs bg-amber-50 border border-amber-100 rounded-lg px-3 py-1.5">
-                <div>
-                  {l.numero_facture
-                    ? <span className="font-mono font-semibold text-gray-700">{l.numero_facture}</span>
-                    : <span className="text-amber-600 font-semibold">Autres</span>
-                  }
-                  <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
-                  {l.commentaire && <span className="text-gray-400 ml-2 italic">{l.commentaire}</span>}
+              <div key={l.id} className={`flex items-center justify-between text-xs rounded-lg px-3 py-1.5 ${l.annule ? 'bg-gray-50/60 opacity-50' : 'bg-amber-50 border border-amber-100'}`}>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {l.annule && <IcX size={11} className="text-gray-400 flex-shrink-0" />}
+                  <div className={l.annule ? 'line-through text-gray-400' : ''}>
+                    {l.numero_facture
+                      ? <span className="font-mono font-semibold">{l.numero_facture}</span>
+                      : <span className={l.annule ? 'font-semibold' : 'text-amber-600 font-semibold'}>Autres</span>
+                    }
+                    <span className="text-gray-400 ml-2">{formatDate(l.date_lettrage)}</span>
+                    {l.commentaire && <span className="text-gray-400 ml-2 italic">{l.commentaire}</span>}
+                  </div>
                 </div>
-                <span className="font-semibold text-amber-700">{fmt(l.montant)}</span>
+                <span className={`font-semibold tabular-nums ml-3 flex-shrink-0 ${l.annule ? 'text-gray-400 line-through' : 'text-amber-700'}`}>{fmt(l.montant)}</span>
               </div>
             ))}
           </div>
