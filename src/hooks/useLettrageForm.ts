@@ -261,7 +261,8 @@ export function useLettrageForm(
       on411Success?.({ numerosLettres, idLigneBancaire: ligneActive.id_operation, montantTotal: creditDisponible })
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 411.')
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors de l\'affectation 411.'
+      toast.error(msg)
     } finally {
       setChargement(false)
     }
@@ -335,7 +336,10 @@ export function useLettrageForm(
       on411AttenteSuccess?.(ligneActive.id_operation, numerosLettres)
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'affectation 411 Attente.')
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? 'Erreur lors de l\'affectation 411 Attente.'
+      toast.error(msg)
     } finally {
       setChargement(false)
     }
