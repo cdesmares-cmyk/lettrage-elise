@@ -1,6 +1,6 @@
 // Export Lettrage multi-onglets via SheetJS — 3 feuilles : Affectation + Lignes bancaires + Cadrage
-// La date de référence est toujours la date de la ligne bancaire (date_operation),
-// pas la date de saisie du lettrage (date_lettrage).
+// Date de référence : date_operation pour les lettrages initiaux (mode='manuel' etc.),
+// date_lettrage pour les corrections et dispatches (date réelle de l'opération de dispatch).
 import * as XLSX from 'xlsx'
 import { supabase } from './supabase'
 
@@ -12,6 +12,8 @@ interface RowLettrage {
   montant: number
   commentaire: string | null
   operateur: string | null
+  mode: string
+  date_lettrage: string
 }
 
 interface RowCompensation {
@@ -126,7 +128,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     lettrages = await fetchAll<RowLettrage>((from, to) =>
       supabase
         .from('lettrages')
-        .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur')
+        .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur, mode, date_lettrage')
         .in('id_ligne_bancaire', ligneIdsCredit)
         .eq('annule', false)
         .range(from, to)
@@ -163,11 +165,15 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   )
 
   // ── 2d. Corrections de lettrage ──────────────────────────────────
+  // Corrections "standalone" uniquement (module Correction, sans ligne bancaire associée).
+  // Les corrections liées à une ligne bancaire (dispatches 411) sont déjà dans le pipeline
+  // lettrages ci-dessus et affichent leur date_lettrage réelle via dateRef.
   const corrections = await fetchAll<RowCorrection>((from, to) =>
     supabase
       .from('lettrages')
       .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur, correction_id')
       .eq('mode', 'correction')
+      .is('id_ligne_bancaire', null)
       .eq('annule', false)
       .gte('date_lettrage', dateDebut)
       .lte('date_lettrage', dateFin)
@@ -190,8 +196,13 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
 
   for (const l of lettrages) {
     const info = ligneInfoMap.get(l.id_ligne_bancaire)
+    // Corrections et dispatches : date réelle de l'opération (date_lettrage = jour du dispatch)
+    // Lettrages initiaux : date de la ligne bancaire (date_operation)
+    const dateRef = (l.mode === 'correction' || l.mode === 'dispatch')
+      ? l.date_lettrage
+      : (info?.date_operation ?? '')
     affectations.push({
-      date: info?.date_operation ?? '',
+      date: dateRef,
       ligne: info?.libelle ?? '',
       detail: info?.detail ?? '',
       infos_complementaires: info?.infos_complementaires ?? '',
