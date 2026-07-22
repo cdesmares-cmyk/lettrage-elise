@@ -34,25 +34,17 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
   const [creditAttente, setCreditAttente] = useState<number | null>(null)
 
   async function selectionnerLigne(ligne: LigneBancaireAvecStatut) {
-    const [{ data: lettragesData }, { data: correctionsData }] = await Promise.all([
-      supabase
-        .from('lettrages')
-        .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
-        .eq('id_ligne_bancaire', ligne.id_operation)
-        .eq('annule', false),
-      supabase
-        .from('lettrages')
-        .select('montant')
-        .eq('id_ligne_bancaire', ligne.id_operation + '-C')
-        .eq('numero_facture', '411_ATTENTE')
-        .eq('annule', false),
-    ])
+    const { data: lettragesData } = await supabase
+      .from('lettrages')
+      .select('id, numero_facture, code_client, montant, date_lettrage, commentaire')
+      .eq('id_ligne_bancaire', ligne.id_operation)
+      .eq('annule', false)
     const rows = lettragesData as unknown as RowLettrageExist[] | null
-    const attenteLettrage = (rows ?? []).find(l => l.numero_facture === '411_ATTENTE')
-    const correctionsTotal = ((correctionsData as { montant: number }[] | null) ?? [])
-      .reduce((s, r) => s + r.montant, 0)
-    const creditNet = attenteLettrage
-      ? Math.round((attenteLettrage.montant + correctionsTotal) * 100) / 100
+    // Crédit net = somme algébrique de tous les lettrages sur 411_ATTENTE
+    // (initial positif + corrections négatives si dispatch partiel précédent)
+    const attente411 = (rows ?? []).filter(l => l.numero_facture === '411_ATTENTE')
+    const creditNet = attente411.length > 0
+      ? Math.round(attente411.reduce((s, l) => s + l.montant, 0) * 100) / 100
       : null
     setLettragesExistants(rows ?? [])
     setLigneActive(ligne)
@@ -168,12 +160,13 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
 
       const montantDispatche = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
 
-      // Reversal 411_ATTENTE — uniquement si la ligne a été créée avec le nouveau flux
-      // (creditAttente !== null). Nécessite mode='correction' → migration 098 appliquée.
+      // Reversal 411_ATTENTE sur le vrai id_ligne_bancaire.
+      // mode='correction' est exempté du trigger de date (migration 103) et de
+      // l'index unique (migrations 103+105), donc pas de conflit avec le lettrage initial.
       if (creditAttente !== null) {
         const correctionId = crypto.randomUUID()
         const { error: errCorr } = await supabase.from('lettrages').insert({
-          id_ligne_bancaire: ligneActive.id_operation + '-C',
+          id_ligne_bancaire: ligneActive.id_operation,
           numero_facture: '411_ATTENTE',
           code_client: 'ATTENTE',
           montant: -montantDispatche,
