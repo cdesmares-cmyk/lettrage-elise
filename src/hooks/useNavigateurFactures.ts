@@ -21,6 +21,13 @@ export interface SuggestionNavigateur {
   confiance: 1 | 2 | 3
 }
 
+export interface DistributionSuggérée {
+  factures: FactureNavigateur[]
+  montantTotal: number
+  exact: boolean    // true = match au centime, false = approx ±1%
+  confiance: 2 | 3
+}
+
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
 
 // ── Correspondance approximative des libellés bancaires ────────────────────
@@ -102,6 +109,53 @@ function extraireNumerosTexte(
     for (const m of matches) resultats.add(m[0])
   }
   return [...resultats]
+}
+
+// ── Subset sum borné — cherche 1, 2 ou 3 factures dont la somme = cible ──
+
+function trouverDistribution(
+  factures: FactureNavigateur[],
+  cible: number,
+): DistributionSuggérée | null {
+  if (!factures.length || cible < 0.01) return null
+  const arr = (n: number) => Math.round(n * 100) / 100
+  const c = arr(cible)
+
+  // 1 facture exacte
+  for (const f of factures) {
+    if (Math.abs(arr(f.reste_du) - c) <= TOLERANCE_CENT)
+      return { factures: [f], montantTotal: arr(f.reste_du), exact: true, confiance: 3 }
+  }
+
+  // 2 factures exactes
+  for (let i = 0; i < factures.length - 1; i++) {
+    for (let j = i + 1; j < factures.length; j++) {
+      const s = arr(factures[i].reste_du + factures[j].reste_du)
+      if (Math.abs(s - c) <= TOLERANCE_CENT)
+        return { factures: [factures[i], factures[j]], montantTotal: s, exact: true, confiance: 3 }
+    }
+  }
+
+  // 3 factures exactes
+  for (let i = 0; i < factures.length - 2; i++) {
+    for (let j = i + 1; j < factures.length - 1; j++) {
+      for (let k = j + 1; k < factures.length; k++) {
+        const s = arr(factures[i].reste_du + factures[j].reste_du + factures[k].reste_du)
+        if (Math.abs(s - c) <= TOLERANCE_CENT)
+          return { factures: [factures[i], factures[j], factures[k]], montantTotal: s, exact: true, confiance: 3 }
+      }
+    }
+  }
+
+  // 1 facture approx (±1%)
+  const proche = factures
+    .map(f => ({ f, ecart: Math.abs(arr(f.reste_du) - c) }))
+    .filter(x => x.ecart / c <= 0.01)
+    .sort((a, b) => a.ecart - b.ecart)[0]
+  if (proche)
+    return { factures: [proche.f], montantTotal: arr(proche.f.reste_du), exact: false, confiance: 2 }
+
+  return null
 }
 
 async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
@@ -220,6 +274,7 @@ export function useNavigateurFactures(
   const [chargement, setChargement] = useState(false)
   const [chargementSugg, setChargementSugg] = useState(false)
   const [selection, setSelection] = useState<Map<string, FactureNavigateur>>(new Map())
+  const [distributionSuggérée, setDistributionSuggérée] = useState<DistributionSuggérée | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const formatsRef = useRef<string[]>([])
 
@@ -241,6 +296,7 @@ export function useNavigateurFactures(
       setResultats([])
       setSuggestions([])
       setSelection(new Map())
+      setDistributionSuggérée(null)
       return
     }
     if (ligneActive) computeSuggestions(ligneActive)
@@ -288,6 +344,16 @@ export function useNavigateurFactures(
       )
 
       setSuggestions([...found.values()].sort((a, b) => b.confiance - a.confiance))
+
+      // ── Distribution automatique ─────────────────────────────────────────
+      const cible = ligne.restant
+      // Priorité 1 : factures identifiées par numéro dans le libellé
+      let distrib = facturesNum.length ? trouverDistribution(facturesNum, cible) : null
+      // Priorité 2 : factures du client reconnu via SEPA
+      if (!distrib && sepaMatch?.factures.length) distrib = trouverDistribution(sepaMatch.factures, cible)
+
+      setDistributionSuggérée(distrib)
+      if (distrib) setSelection(new Map(distrib.factures.map(f => [f.numero_piece, f])))
     } finally {
       setChargementSugg(false)
     }
@@ -369,5 +435,6 @@ export function useNavigateurFactures(
     chargement, chargementSugg,
     selection, toggleSelection, reset,
     selectionArray, totalSelection,
+    distributionSuggérée,
   }
 }

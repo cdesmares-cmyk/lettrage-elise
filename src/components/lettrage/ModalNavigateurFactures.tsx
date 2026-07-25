@@ -6,6 +6,7 @@ import {
   useNavigateurFactures,
   type FactureNavigateur,
   type SourceSuggestion,
+  type DistributionSuggérée,
 } from '../../hooks/useNavigateurFactures'
 
 interface BandeauInfo {
@@ -135,6 +136,30 @@ function SkeletonRows({ n }: { n: number }) {
   )
 }
 
+function BandeauDistribution({ distrib }: { distrib: DistributionSuggérée }) {
+  const total = distrib.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const n = distrib.factures.length
+  return (
+    <div className={`mx-6 mt-3 mb-1 flex items-center gap-3 rounded-lg px-4 py-2.5 border ${
+      distrib.exact
+        ? 'bg-emerald-50 border-emerald-200'
+        : 'bg-amber-50 border-amber-200'
+    }`}>
+      <div className="flex-1 min-w-0">
+        <p className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${distrib.exact ? 'text-emerald-600' : 'text-amber-600'}`}>
+          Répartition détectée
+        </p>
+        <p className="text-xs font-semibold text-gray-700">
+          {n} facture{n > 1 ? 's' : ''} · {total} €
+          {!distrib.exact && <span className="text-amber-600 ml-1">(approx.)</span>}
+        </p>
+        <p className="text-[10px] text-gray-400 mt-0.5">Pré-sélectionnée{n > 1 ? 's' : ''} ci-dessous — ajustez si besoin</p>
+      </div>
+      <ConfidenceDots n={distrib.confiance} />
+    </div>
+  )
+}
+
 export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjecter, codeClient, bandeauInfo }: Props) {
   const nav = useNavigateurFactures(ligneActive, ouvert, codeClient)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -212,6 +237,11 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
               </p>
             </div>
           </div>
+        )}
+
+        {/* Bandeau distribution détectée */}
+        {nav.distributionSuggérée && (
+          <BandeauDistribution distrib={nav.distributionSuggérée} />
         )}
 
         {/* Barre de recherche */}
