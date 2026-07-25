@@ -69,10 +69,13 @@ export function PanneauDispatch411Attente(props: Props) {
         <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-2">411 Attente</p>
         <p className="text-2xl font-extrabold tabular-nums text-orange-600 leading-none">{fmt(creditDisponible)}</p>
         <p className="text-sm font-semibold text-gray-800 truncate mt-2">{ligneActive.libelle}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          Virement du {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}
-          {ligneActive.infos_complementaires && <> · {ligneActive.infos_complementaires}</>}
-        </p>
+        <p className="text-xs text-gray-400 mt-0.5">Virement du {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}</p>
+        {ligneActive.detail && (
+          <p className="text-xs text-gray-500 mt-1 leading-snug">{ligneActive.detail}</p>
+        )}
+        {ligneActive.infos_complementaires && (
+          <p className="text-xs text-gray-400 mt-0.5 italic">{ligneActive.infos_complementaires}</p>
+        )}
       </div>
 
       {/* Lettrages déjà existants (hors lettrage technique 411_ATTENTE) */}
