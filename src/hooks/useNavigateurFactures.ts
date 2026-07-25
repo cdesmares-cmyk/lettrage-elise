@@ -57,9 +57,7 @@ function similariteLibelle(a: string, b: string): number {
   return union === 0 ? 0 : intersection / union
 }
 
-// Convertit un exemple de numéro de facture en RegExp.
-// Chaque séquence de chiffres est remplacée par \d{N} (longueur exacte).
-// Les caractères non-chiffres sont échappés comme littéraux.
+// Convertit un exemple de numéro de facture en RegExp stricte.
 // Ex: "FAC-2026-001234" → /FAC\-\d{4}\-\d{6}/gi
 function exempleVersRegex(exemple: string): RegExp | null {
   const trimmed = exemple.trim()
@@ -73,6 +71,21 @@ function exempleVersRegex(exemple: string): RegExp | null {
   try { return new RegExp(pattern, 'gi') } catch { return null }
 }
 
+// Dérive une RegExp de fallback depuis les exemples configurés par l'opérateur.
+// Pour "2026051470" (10 chiffres) → /\b\d{8,10}\b/ (tolère 2 chiffres en moins).
+// Permet de détecter "26051470" dans le libellé → ilike.%26051470% trouve "2026051470".
+function fallbackNumerique(exemples: string[]): RegExp | null {
+  const longueurs: number[] = []
+  for (const ex of exemples) {
+    const matches = ex.match(/\d+/g)
+    if (matches) longueurs.push(...matches.map(m => m.length))
+  }
+  if (!longueurs.length) return null
+  const max = Math.max(...longueurs)
+  const min = Math.max(4, max - 2)
+  try { return new RegExp(`\\b\\d{${min},${max}}\\b`, 'g') } catch { return null }
+}
+
 // Applique les patterns sur libellé + detail + infos_complementaires.
 // Retourne tous les matches distincts (multi-numéros dans la même ligne).
 function extraireNumerosTexte(
@@ -84,17 +97,10 @@ function extraireNumerosTexte(
   const texte = [libelle, detail, infosComp].filter(Boolean).join(' ')
   if (!texte) return []
   const resultats = new Set<string>()
-
-  // Patterns configurés par l'admin
   for (const re of patterns) {
     const matches = texte.matchAll(new RegExp(re.source, re.flags))
     for (const m of matches) resultats.add(m[0])
   }
-
-  // Fallback : toute séquence isolée de 6-12 chiffres
-  // Permet de trouver "26051470" → ilike.%26051470% → facture "2026051470"
-  for (const m of texte.matchAll(/\b\d{6,12}\b/g)) resultats.add(m[0])
-
   return [...resultats]
 }
 
@@ -248,8 +254,12 @@ export function useNavigateurFactures(
         .map(exempleVersRegex)
         .filter((r): r is RegExp => r !== null)
 
+      // Fallback adaptatif : plage dérivée des exemples configurés (ex: \d{8,10} pour un format \d{10})
+      const fallback = fallbackNumerique(formatsRef.current)
+      const allPatterns = fallback ? [...patterns, fallback] : patterns
+
       const numerosDetectes = extraireNumerosTexte(
-        ligne.libelle, ligne.detail, ligne.infos_complementaires, patterns
+        ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns
       )
 
       const [facturesNum, sepaMatch, facturesHisto] = await Promise.all([
