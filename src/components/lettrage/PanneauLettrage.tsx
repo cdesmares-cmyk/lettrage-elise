@@ -27,7 +27,7 @@ function formatDate(iso: string | null) {
 export function PanneauLettrage(props: Props) {
   const {
     ligneActive, lettragesExistants, lignesForme,
-    modeAlerte, chargement,
+    modeAlerte, chargement, propositionAuto,
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
@@ -176,6 +176,24 @@ export function PanneauLettrage(props: Props) {
                 </div>
                 <span className={`font-semibold tabular-nums ml-3 flex-shrink-0 ${l.annule ? 'text-gray-400 line-through' : 'text-amber-700'}`}>{fmt(l.montant)}</span>
               </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Bannière proposition automatique */}
+      {propositionAuto && (
+        <div className="mx-5 mt-4 flex items-center gap-3 bg-ockham-teal-muted border border-ockham-teal/30 rounded-lg px-4 py-2.5">
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold text-ockham-teal uppercase tracking-widest mb-0.5">Proposition automatique</p>
+            <p className="text-xs font-semibold text-gray-700">
+              {propositionAuto.factures.length} facture{propositionAuto.factures.length > 1 ? 's' : ''} · {propositionAuto.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+            </p>
+            <p className="text-[10px] text-gray-400 mt-0.5">Vérifiez et validez</p>
+          </div>
+          <div className="flex gap-0.5">
+            {[1, 2, 3].map(i => (
+              <span key={i} className="w-2 h-2 rounded-full bg-ockham-teal" />
             ))}
           </div>
         </div>

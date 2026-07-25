@@ -158,6 +158,40 @@ function trouverDistribution(
   return null
 }
 
+// Détection silencieuse utilisable hors navigateur (ex: PanneauLettrage).
+// Retourne une distribution confiance 3/3 uniquement — les cas approx restent dans la modale.
+export async function detecterAutoSilencieux(
+  ligne: LigneBancaireAvecStatut,
+  formats: string[],
+): Promise<{ distrib: DistributionSuggérée; factures: FactureNavigateur[] } | null> {
+  try {
+    const patterns = formats.map(exempleVersRegex).filter((r): r is RegExp => r !== null)
+    const fallback = fallbackNumerique(formats)
+    const allPatterns = fallback ? [...patterns, fallback] : patterns
+    const numerosDetectes = extraireNumerosTexte(
+      ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns
+    )
+    const cible = ligne.restant
+    const [facturesNum, sepaMatch] = await Promise.all([
+      fetchParNums(numerosDetectes),
+      fetchSepaMatch(ligne.libelle),
+    ])
+    // Priorité 1 : N° détecté dans le libellé
+    if (facturesNum.length) {
+      const d = trouverDistribution(facturesNum, cible)
+      if (d?.confiance === 3) return { distrib: d, factures: d.factures }
+    }
+    // Priorité 2 : client reconnu via SEPA (exact uniquement — fuzzy → confiance ≤ 2)
+    if (sepaMatch?.factures.length && !sepaMatch.fuzzy) {
+      const d = trouverDistribution(sepaMatch.factures, cible)
+      if (d?.confiance === 3) return { distrib: d, factures: d.factures }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
   if (!nums.length) return []
   try {

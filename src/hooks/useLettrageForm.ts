@@ -1,10 +1,11 @@
 // État et logique du formulaire de lettrage principal
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import { TOLERANCE_CENT } from '../lib/constantes'
 import type { LigneBancaireAvecStatut, LettrageExistant, LigneForme, InfoFacture } from '../types/lettrage'
+import { detecterAutoSilencieux, type DistributionSuggérée } from './useNavigateurFactures'
 
 interface RowLettrageExist { id: string; numero_facture: string; code_client: string; montant: number; date_lettrage: string; commentaire: string | null; annule: boolean }
 interface RowFactureInfo { reste_du: number; code_client: string; nom_client: string | null; statut_paiement: string }
@@ -34,9 +35,24 @@ export function useLettrageForm(
   const [lignesForme, setLignesForme] = useState<LigneForme[]>([nouvelleLigne()])
   const [modeAlerte, setModeAlerte] = useState(false)
   const [chargement, setChargement] = useState(false)
+  const [propositionAuto, setPropositionAuto] = useState<DistributionSuggérée | null>(null)
+  const formatsRef = useRef<string[]>([])
+  const ligneEnCoursRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('ref_valeurs')
+      .select('valeur')
+      .eq('categorie', 'format_facture')
+      .eq('actif', true)
+      .then(({ data }) => {
+        formatsRef.current = (data as { valeur: string }[] ?? []).map(r => r.valeur)
+      })
+  }, [])
 
   async function selectionnerLigne(ligne: LigneBancaireAvecStatut) {
     if (ligne.statut_lettrage === 'debit') return
+    ligneEnCoursRef.current = ligne.id_operation
     const { data } = await supabase
       .from('lettrages')
       .select('id, numero_facture, code_client, montant, date_lettrage, commentaire, annule')
@@ -46,13 +62,39 @@ export function useLettrageForm(
     setLigneActive(ligne)
     setModeAlerte(ligne.statut_lettrage === 'lettre')
     setLignesForme([nouvelleLigne()])
+    setPropositionAuto(null)
+
+    // Détection silencieuse — uniquement si la ligne n'est pas déjà lettrée
+    if (ligne.statut_lettrage !== 'lettre') {
+      detecterAutoSilencieux(ligne, formatsRef.current).then(résultat => {
+        // Annuler si l'opérateur a changé de ligne entre temps
+        if (ligneEnCoursRef.current !== ligne.id_operation) return
+        if (!résultat) return
+        // N'injecter que si le formulaire est encore vide (pas de saisie en cours)
+        setLignesForme(prev => {
+          const intact = prev.length === 1 && !prev[0].numero_facture && !prev[0].montant
+          if (!intact) return prev
+          return résultat.factures.map(f => ({
+            _key: cle(),
+            classe: 'facture' as const,
+            numero_facture: f.numero_piece,
+            montant: String(Math.round(f.reste_du * 100) / 100),
+            info_facture: { reste_du: f.reste_du, montant_ttc: f.montant_ttc, code_client: f.code_client, nom_client: f.nom_client, statut_paiement: 'partiel' },
+            chargement: false,
+          }))
+        })
+        setPropositionAuto(résultat.distrib)
+      })
+    }
   }
 
   function annuler() {
+    ligneEnCoursRef.current = null
     setLigneActive(null)
     setLettragesExistants([])
     setLignesForme([nouvelleLigne()])
     setModeAlerte(false)
+    setPropositionAuto(null)
   }
 
   function ajouterLigne() { setLignesForme(prev => [...prev, nouvelleLigne()]) }
@@ -348,7 +390,7 @@ export function useLettrageForm(
 
   return {
     ligneActive, lettragesExistants, lignesForme,
-    modeAlerte, chargement,
+    modeAlerte, chargement, propositionAuto,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
     creditDisponible, montantAttribue, restant,
