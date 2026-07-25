@@ -194,8 +194,13 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
                 {ligneActive?.libelle ?? bandeauInfo?.libelle}
               </p>
               {(ligneActive?.detail || bandeauInfo?.detail) && (
-                <p className="text-[11px] text-white/50 truncate mt-0.5">
+                <p className="text-[11px] text-white/70 truncate mt-0.5">
                   {ligneActive?.detail ?? bandeauInfo?.detail}
+                </p>
+              )}
+              {ligneActive?.infos_complementaires && (
+                <p className="text-[11px] text-white/50 truncate mt-0.5 italic">
+                  {ligneActive.infos_complementaires}
                 </p>
               )}
             </div>
