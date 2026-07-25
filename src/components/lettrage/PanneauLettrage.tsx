@@ -81,6 +81,12 @@ export function PanneauLettrage(props: Props) {
           <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Lettrage complet</p>
           <p className="text-sm font-semibold text-gray-800">{ligneActive.libelle}</p>
           <p className="text-xs text-gray-400 mt-0.5">{fmt(ligneActive.credit ?? 0)}</p>
+          {ligneActive.detail && (
+            <p className="text-xs text-gray-500 mt-1 leading-snug">{ligneActive.detail}</p>
+          )}
+          {ligneActive.infos_complementaires && (
+            <p className="text-xs text-gray-400 mt-0.5 italic">{ligneActive.infos_complementaires}</p>
+          )}
         </div>
 
         <div className="px-5 py-4">
@@ -141,10 +147,13 @@ export function PanneauLettrage(props: Props) {
         <p className="text-[10px] font-bold text-ockham-teal uppercase tracking-widest mb-2">Crédit sélectionné</p>
         <p className="text-2xl font-extrabold tabular-nums text-ockham-teal leading-none">{fmt(creditDisponible)}</p>
         <p className="text-sm font-semibold text-gray-800 truncate mt-2">{ligneActive.libelle}</p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          {new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}
-          {ligneActive.infos_complementaires && <> · {ligneActive.infos_complementaires}</>}
-        </p>
+        <p className="text-xs text-gray-400 mt-0.5">{new Date(ligneActive.date_operation).toLocaleDateString('fr-FR')}</p>
+        {ligneActive.detail && (
+          <p className="text-xs text-gray-500 mt-1 leading-snug">{ligneActive.detail}</p>
+        )}
+        {ligneActive.infos_complementaires && (
+          <p className="text-xs text-gray-400 mt-0.5 italic">{ligneActive.infos_complementaires}</p>
+        )}
       </div>
 
       {/* Attributions précédentes — visible pour les partiellement lettrés */}
