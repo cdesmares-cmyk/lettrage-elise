@@ -13,7 +13,7 @@ export interface FactureNavigateur {
   date_echeance: string | null
 }
 
-export type SourceSuggestion = 'numero_detecte' | 'client_reconnu' | 'historique'
+export type SourceSuggestion = 'numero_detecte' | 'client_reconnu' | 'client_approx' | 'historique'
 
 export interface SuggestionNavigateur {
   facture: FactureNavigateur
@@ -22,6 +22,40 @@ export interface SuggestionNavigateur {
 }
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
+
+// ── Correspondance approximative des libellés bancaires ────────────────────
+
+const STOPWORDS = new Set([
+  'VIR', 'VIREMENT', 'SEPA', 'INST', 'CREDIT', 'PRLV', 'PRELEVEMENT',
+  'CHQ', 'CHEQUE', 'REMISE', 'CARTE', 'CB', 'TIP', 'REJET', 'RETOUR',
+  'DE', 'DU', 'LE', 'LA', 'LES', 'ET', 'EN', 'AU', 'AUX', 'SUR', 'PAR', 'POUR',
+])
+
+function normaliserLibelle(s: string): string {
+  return s
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/\bSTE\b/g, 'SAINTE')
+    .replace(/\bST\b/g, 'SAINT')
+    .replace(/[^A-Z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function tokeniserLibelle(s: string): string[] {
+  return normaliserLibelle(s)
+    .split(' ')
+    .filter(t => t.length >= 3 && !STOPWORDS.has(t))
+}
+
+function similariteLibelle(a: string, b: string): number {
+  const tokA = new Set(tokeniserLibelle(a))
+  const tokB = new Set(tokeniserLibelle(b))
+  if (!tokA.size || !tokB.size) return 0
+  const intersection = [...tokA].filter(t => tokB.has(t)).length
+  const union = new Set([...tokA, ...tokB]).size
+  return union === 0 ? 0 : intersection / union
+}
 
 // Convertit un exemple de numéro de facture en RegExp.
 // Chaque séquence de chiffres est remplacée par \d{N} (longueur exacte).
@@ -71,26 +105,60 @@ async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
   } catch { return [] }
 }
 
-async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavigateur[]; nbUtil: number } | null> {
+async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavigateur[]; nbUtil: number; fuzzy: boolean } | null> {
   try {
-    const { data: sepa } = await supabase
+    // ── Match exact ────────────────────────────────────────────────────────
+    const { data: sepaExact } = await supabase
       .from('libelles_sepa')
       .select('code_client, nb_utilisations')
       .eq('libelle', libelle)
       .maybeSingle()
-    if (!sepa) return null
+
+    if (sepaExact) {
+      const r = sepaExact as { code_client: string; nb_utilisations: number }
+      const { data } = await supabase
+        .from('v_factures_avec_reste_du')
+        .select(COLS)
+        .eq('code_client', r.code_client)
+        .gt('reste_du', TOLERANCE_CENT)
+        .eq('est_avoir', false)
+        .order('date_echeance', { ascending: true })
+        .limit(10)
+      return { factures: (data as FactureNavigateur[]) ?? [], nbUtil: r.nb_utilisations, fuzzy: false }
+    }
+
+    // ── Match approximatif (fallback) ──────────────────────────────────────
+    const tokens = tokeniserLibelle(libelle)
+    if (!tokens.length) return null
+
+    // Token le plus long = le plus distinctif (ex: "BMVIROLLE" plutôt que "VIR")
+    const tokenPrincipal = [...tokens].sort((a, b) => b.length - a.length)[0]
+    const { data: candidats } = await supabase
+      .from('libelles_sepa')
+      .select('libelle, code_client, nb_utilisations')
+      .ilike('libelle', `%${tokenPrincipal}%`)
+      .limit(20)
+
+    if (!candidats?.length) return null
+
+    type RowSepa = { libelle: string; code_client: string; nb_utilisations: number }
+    const meilleur = (candidats as RowSepa[])
+      .map(c => ({ ...c, score: similariteLibelle(libelle, c.libelle) }))
+      .filter(c => c.score >= 0.6)
+      .sort((a, b) => b.score - a.score)[0]
+
+    if (!meilleur) return null
+
     const { data } = await supabase
       .from('v_factures_avec_reste_du')
       .select(COLS)
-      .eq('code_client', (sepa as { code_client: string; nb_utilisations: number }).code_client)
+      .eq('code_client', meilleur.code_client)
       .gt('reste_du', TOLERANCE_CENT)
       .eq('est_avoir', false)
       .order('date_echeance', { ascending: true })
       .limit(10)
-    return {
-      factures: (data as FactureNavigateur[]) ?? [],
-      nbUtil: (sepa as { code_client: string; nb_utilisations: number }).nb_utilisations,
-    }
+
+    return { factures: (data as FactureNavigateur[]) ?? [], nbUtil: meilleur.nb_utilisations, fuzzy: true }
   } catch { return null }
 }
 
@@ -190,9 +258,12 @@ export function useNavigateurFactures(
         found.set(f.numero_piece, { facture: f, source: 'historique', confiance: 1 })
       )
       if (sepaMatch) {
-        const conf: 1 | 2 | 3 = sepaMatch.nbUtil >= 3 ? 3 : sepaMatch.nbUtil >= 2 ? 2 : 1
+        const confBase: 1 | 2 | 3 = sepaMatch.nbUtil >= 3 ? 3 : sepaMatch.nbUtil >= 2 ? 2 : 1
+        // Match fuzzy : confiance plafonnée à 2, source distincte pour le badge
+        const conf: 1 | 2 | 3 = sepaMatch.fuzzy ? Math.min(confBase, 2) as 1 | 2 : confBase
+        const source: SourceSuggestion = sepaMatch.fuzzy ? 'client_approx' : 'client_reconnu'
         sepaMatch.factures.forEach(f =>
-          found.set(f.numero_piece, { facture: f, source: 'client_reconnu', confiance: conf })
+          found.set(f.numero_piece, { facture: f, source, confiance: conf })
         )
       }
       facturesNum.forEach(f =>
