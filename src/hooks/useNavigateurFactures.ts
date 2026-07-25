@@ -82,12 +82,19 @@ function extraireNumerosTexte(
   patterns: RegExp[],
 ): string[] {
   const texte = [libelle, detail, infosComp].filter(Boolean).join(' ')
-  if (!texte || !patterns.length) return []
+  if (!texte) return []
   const resultats = new Set<string>()
+
+  // Patterns configurés par l'admin
   for (const re of patterns) {
     const matches = texte.matchAll(new RegExp(re.source, re.flags))
     for (const m of matches) resultats.add(m[0])
   }
+
+  // Fallback : toute séquence isolée de 6-12 chiffres
+  // Permet de trouver "26051470" → ilike.%26051470% → facture "2026051470"
+  for (const m of texte.matchAll(/\b\d{6,12}\b/g)) resultats.add(m[0])
+
   return [...resultats]
 }
 
