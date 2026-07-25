@@ -1,6 +1,6 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
-import { IcX } from '../Icones'
+import { IcX, IcFlash, IcLoader } from '../Icones'
 import { Pagination } from '../Pagination'
 
 interface Props {
@@ -17,6 +17,8 @@ interface Props {
   readOnly?: boolean
   lignes411ClientMap?: Map<string, string>
   onSelect411Client?: (l: LigneBancaireAvecStatut, compte411: string) => void
+  detectionsAuto?: Set<string>
+  chargementDetection?: boolean
 }
 
 function fmt(n: number | null) {
@@ -46,6 +48,8 @@ export function TableLignesBancaires({
   readOnly = false,
   lignes411ClientMap,
   onSelect411Client,
+  detectionsAuto,
+  chargementDetection,
 }: Props) {
   const hasActive = ligneActiveId !== null
 
@@ -70,6 +74,9 @@ export function TableLignesBancaires({
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Débit</th>
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Crédit</th>
                 <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Restant</th>
+                <th className="w-9 px-2 py-2 text-center">
+                  {chargementDetection && <IcLoader size={11} className="text-gray-300 inline-block" />}
+                </th>
                 <th className="w-8 px-2 py-2" />
               </tr>
             </thead>
@@ -149,6 +156,16 @@ export function TableLignesBancaires({
                         <span className={ligne.statut_lettrage === 'partiel' ? 'text-amber-600' : 'text-blue-600'}>
                           {fmt(ligne.restant)}
                         </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-3 text-center w-9">
+                      {detectionsAuto?.has(ligne.id_operation) && (
+                        <div
+                          title="Ockham a détecté une correspondance — cliquez pour pré-remplir"
+                          className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-teal-50 border border-teal-200 text-teal-600"
+                        >
+                          <IcFlash size={11} />
+                        </div>
                       )}
                     </td>
                     <td className="px-2 py-3 text-center" onClick={e => e.stopPropagation()}>

@@ -111,3 +111,6 @@ export function IcLoader(p: SvgProps) {
 export function IcInfo(p: SvgProps) {
   return <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>
 }
+export function IcFlash(p: SvgProps) {
+  return <Svg {...p}><path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="currentColor" stroke="none"/></Svg>
+}

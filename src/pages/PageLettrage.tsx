@@ -25,6 +25,7 @@ import { useDispatch411Attente } from '../hooks/useDispatch471'
 import { useDispatch411 } from '../hooks/useDispatch411'
 import { useRequalification471 } from '../hooks/useRequalification471'
 import { useHistoriqueLettrage } from '../hooks/useHistoriqueLettrage'
+import { useDetectionListe } from '../hooks/useDetectionListe'
 import { useRemises } from '../hooks/useRemises'
 import { useExportComptable } from '../hooks/useExportComptable'
 import { useAppData } from '../contexts/AppDataContext'
@@ -46,6 +47,7 @@ export function PageLettrage() {
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
   const exportComptable = useExportComptable()
   const liste = useLignesBancaires()
+  const detection = useDetectionListe(liste.lignes)
   const historique = useHistoriqueLettrage()
   const forme = useLettrageForm(
     (data) => {
@@ -370,6 +372,8 @@ export function PageLettrage() {
                 readOnly={isCommercial}
                 lignes411ClientMap={lignes411ClientMap}
                 onSelect411Client={handleSelect411ClientLigne}
+                detectionsAuto={detection.detections}
+                chargementDetection={detection.chargement}
               />
             )}
           </div>

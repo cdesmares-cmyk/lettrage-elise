@@ -66,7 +66,7 @@ function similariteLibelle(a: string, b: string): number {
 
 // Convertit un exemple de numéro de facture en RegExp stricte.
 // Ex: "FAC-2026-001234" → /FAC\-\d{4}\-\d{6}/gi
-function exempleVersRegex(exemple: string): RegExp | null {
+export function exempleVersRegex(exemple: string): RegExp | null {
   const trimmed = exemple.trim()
   if (!trimmed) return null
   const segments = trimmed.match(/(\d+)|([^\d]+)/g) ?? []
@@ -81,7 +81,7 @@ function exempleVersRegex(exemple: string): RegExp | null {
 // Dérive une RegExp de fallback depuis les exemples configurés par l'opérateur.
 // Pour "2026051470" (10 chiffres) → /\b\d{8,10}\b/ (tolère 2 chiffres en moins).
 // Permet de détecter "26051470" dans le libellé → ilike.%26051470% trouve "2026051470".
-function fallbackNumerique(exemples: string[]): RegExp | null {
+export function fallbackNumerique(exemples: string[]): RegExp | null {
   const longueurs: number[] = []
   for (const ex of exemples) {
     const matches = ex.match(/\d+/g)
@@ -95,7 +95,7 @@ function fallbackNumerique(exemples: string[]): RegExp | null {
 
 // Applique les patterns sur libellé + detail + infos_complementaires.
 // Retourne tous les matches distincts (multi-numéros dans la même ligne).
-function extraireNumerosTexte(
+export function extraireNumerosTexte(
   libelle: string | null,
   detail: string | null,
   infosComp: string | null,
@@ -113,7 +113,7 @@ function extraireNumerosTexte(
 
 // ── Subset sum borné — cherche 1, 2 ou 3 factures dont la somme = cible ──
 
-function trouverDistribution(
+export function trouverDistribution(
   factures: FactureNavigateur[],
   cible: number,
 ): DistributionSuggérée | null {
