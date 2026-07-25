@@ -109,96 +109,50 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
     if (!ligneActive || !peutValider()) return
     setChargement(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
-
-      // Upsert pseudo-factures 411_CLIENT pour les lignes compte_client
-      for (const l of lignesForme) {
-        if (l.classe === 'compte_client' && l.client_411) {
-          await supabase.from('factures').upsert({
-            numero_piece: `411_${l.client_411.code_dso}`,
-            code_client: l.client_411.code_dso,
-            nom_client: l.client_411.nom,
-            date_emission: today,
-            montant_ht: 0,
-            montant_ttc: 0,
-            reste_du: 0,
-            est_avoir: false,
-          } as never, { onConflict: 'organisation_id,numero_piece', ignoreDuplicates: true })
-        }
-      }
-
-      const montantFactures = Math.round(
+      const montantNonAutres = Math.round(
         lignesForme.filter(l => l.classe !== 'autres').reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
       ) / 100
-      const resteAutres = Math.max(0, Math.round((creditDisponible - montantFactures) * 100) / 100)
+      const resteAutres = Math.max(0, Math.round((creditDisponible - montantNonAutres) * 100) / 100)
 
-      const inserts = lignesForme.map(l => ({
-        id_ligne_bancaire: ligneActive.id_operation,
+      const targets = lignesForme.map(l => ({
+        classe: l.classe,
         numero_facture: l.classe === 'autres'
           ? null
           : l.classe === 'compte_client' && l.client_411
             ? `411_${l.client_411.code_dso}`
-            : l.numero_facture.trim(),
+            : l.numero_facture.trim() || null,
         code_client: l.classe === 'autres'
           ? 'AUTRES'
           : l.classe === 'compte_client' && l.client_411
             ? l.client_411.code_dso
             : (l.info_facture?.code_client ?? ''),
+        nom_client: l.classe === 'compte_client' && l.client_411 ? (l.client_411.nom ?? null) : null,
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-        date_lettrage: today,
-        mode: 'dispatch',
         commentaire: l.classe === 'autres' ? (l.numero_facture.trim() || null) : null,
-        cree_par: utilisateur?.id ?? null,
-        operateur: utilisateur?.email?.split('@')[0] ?? null,
       }))
 
-      const montantDispatche = Math.round(inserts.reduce((s, i) => s + i.montant, 0) * 100) / 100
+      const montantTotal = Math.round(targets.reduce((s, t) => s + t.montant, 0) * 100) / 100
 
-      // Reversal 411_ATTENTE sur le vrai id_ligne_bancaire.
-      // mode='correction' est exempté du trigger de date (migration 103) et de
-      // l'index unique (migrations 103+105), donc pas de conflit avec le lettrage initial.
-      if (creditAttente !== null) {
-        const correctionId = crypto.randomUUID()
-        const { error: errCorr } = await supabase.from('lettrages').insert({
-          id_ligne_bancaire: ligneActive.id_operation,
-          numero_facture: '411_ATTENTE',
-          code_client: 'ATTENTE',
-          montant: -montantDispatche,
-          date_lettrage: today,
-          mode: 'correction',
-          correction_id: correctionId,
-          commentaire: 'Dispatch 411 Attente',
-          cree_par: utilisateur?.id ?? null,
-          operateur: utilisateur?.email?.split('@')[0] ?? null,
-        } as never)
-        if (errCorr) throw errCorr
-      }
-
-      const { error } = await supabase.from('lettrages').insert(inserts as never)
+      // @ts-expect-error fn_dispatch_411_attente absente du schéma généré automatiquement
+      const { error } = await supabase.rpc('fn_dispatch_411_attente', {
+        p_id_ligne_bancaire: ligneActive.id_operation,
+        p_operateur: utilisateur?.email?.split('@')[0] ?? '',
+        p_targets: targets,
+      })
       if (error) throw error
 
-      // Effacer le flag 411 Attente uniquement si le crédit est totalement dispatché
-      const restantApres = Math.round((creditDisponible - montantDispatche) * 100) / 100
-      if (Math.abs(restantApres) < TOLERANCE_CENT) {
-        const { error: errUpdate } = await supabase
-          .from('lignes_bancaires')
-          .update({ en_attente_411: false } as never)
-          .eq('id_operation', ligneActive.id_operation)
-        if (errUpdate) throw errUpdate
-      }
-
       onSuccess({
-        numerosLettres: inserts
-          .filter(i => i.code_client !== 'AUTRES')
-          .map(i => ({ numeroPiece: i.numero_facture ?? '', montant: i.montant })),
+        numerosLettres: targets
+          .filter(t => t.code_client !== 'AUTRES')
+          .map(t => ({ numeroPiece: t.numero_facture ?? '', montant: t.montant })),
         idLigneBancaire: ligneActive.id_operation,
-        montantTotal: montantDispatche,
+        montantTotal,
       })
       annuler()
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur lors du dispatch 411 Attente.')
+      toast.error(err instanceof Error ? err.message : (err as { message?: string })?.message ?? 'Erreur lors du dispatch 411 Attente.')
     } finally {
       setChargement(false)
     }
