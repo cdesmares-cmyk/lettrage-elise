@@ -175,7 +175,7 @@ export function extraireNumerosTexte(
   return [...resultats]
 }
 
-// ── Subset sum borné — cherche 1, 2 ou 3 factures dont la somme = cible ──
+// ── Subset sum borné — cherche 1, 2, 3 ou 4 factures dont la somme = cible ──
 
 export function trouverDistribution(
   factures: FactureNavigateur[],
@@ -207,6 +207,21 @@ export function trouverDistribution(
         const s = arr(factures[i].reste_du + factures[j].reste_du + factures[k].reste_du)
         if (Math.abs(s - c) <= TOLERANCE_CENT)
           return { factures: [factures[i], factures[j], factures[k]], montantTotal: s, exact: true, confiance: 3 }
+      }
+    }
+  }
+
+  // 4 factures exactes (garde K ≤ 25 pour éviter O(n⁴) sur grands portefeuilles)
+  if (factures.length <= 25) {
+    for (let i = 0; i < factures.length - 3; i++) {
+      for (let j = i + 1; j < factures.length - 2; j++) {
+        for (let k = j + 1; k < factures.length - 1; k++) {
+          for (let l = k + 1; l < factures.length; l++) {
+            const s = arr(factures[i].reste_du + factures[j].reste_du + factures[k].reste_du + factures[l].reste_du)
+            if (Math.abs(s - c) <= TOLERANCE_CENT)
+              return { factures: [factures[i], factures[j], factures[k], factures[l]], montantTotal: s, exact: true, confiance: 3 }
+          }
+        }
       }
     }
   }
