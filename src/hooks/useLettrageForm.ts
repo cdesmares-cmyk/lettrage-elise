@@ -28,6 +28,7 @@ export function useLettrageForm(
   // le chemin 411 Attente ne modifie pas les factures réelles → pas de rafraichirDonnees() côté appelant.
   on411AttenteSuccess?: (idLigneBancaire: string, numerosLettres: { numeroPiece: string; montant: number }[]) => void,
   on411Success?: (data: LettrageValideData) => void,
+  onDetectionConfiance3?: (idOp: string) => void,
 ) {
   const { utilisateur } = useAuth()
   const [ligneActive, setLigneActive] = useState<LigneBancaireAvecStatut | null>(null)
@@ -70,6 +71,7 @@ export function useLettrageForm(
         // Annuler si l'opérateur a changé de ligne entre temps
         if (ligneEnCoursRef.current !== ligne.id_operation) return
         if (!résultat) return
+        onDetectionConfiance3?.(ligne.id_operation)
         // N'injecter que si le formulaire est encore vide (pas de saisie en cours)
         setLignesForme(prev => {
           const intact = prev.length === 1 && !prev[0].numero_facture && !prev[0].montant

@@ -21,6 +21,15 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   const [chargement, setChargement] = useState(false)
   const formatsRef = useRef<string[]>([])
 
+  function ajouterDetection(id: string) {
+    setDetections(prev => {
+      if (prev.has(id)) return prev
+      const next = new Set(prev)
+      next.add(id)
+      return next
+    })
+  }
+
   useEffect(() => {
     supabase
       .from('ref_valeurs')
@@ -92,7 +101,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .or([...tousAncres].slice(0, 40).map(t => `nom_client.ilike.%${t}%`).join(','))
                 .gt('reste_du', TOLERANCE_CENT)
                 .eq('est_avoir', false)
-                .limit(100)
+                .limit(500)
             : Promise.resolve({ data: [] }),
         ])
 
@@ -210,5 +219,5 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lignesKey])
 
-  return { detections, chargement }
+  return { detections, chargement, ajouterDetection }
 }

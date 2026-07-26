@@ -67,6 +67,7 @@ export function PageLettrage() {
       liste.rafraichirSilencieux()
       rafraichirDonnees()
     },
+    detection.ajouterDetection,
   )
   const dispatch411Attente = useDispatch411Attente((data) => {
     mettreAJourResteDuLocal(data.numerosLettres)
