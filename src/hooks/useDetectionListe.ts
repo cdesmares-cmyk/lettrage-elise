@@ -25,6 +25,7 @@ export interface DistribAuto {
 export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   const [detections, setDetections] = useState<Set<string>>(new Set())
   const [distributionsAuto, setDistributionsAuto] = useState<Map<string, DistribAuto>>(new Map())
+  const [detectionsApprox, setDetectionsApprox] = useState<Set<string>>(new Set())
   const [chargement, setChargement] = useState(false)
   const formatsRef = useRef<string[]>([])
 
@@ -54,7 +55,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
     const candidats = lignes.filter(
       l => l.statut_lettrage === 'non_lettre' || l.statut_lettrage === 'partiel'
     )
-    if (!candidats.length) { setDetections(new Set()); setDistributionsAuto(new Map()); return }
+    if (!candidats.length) { setDetections(new Set()); setDistributionsAuto(new Map()); setDetectionsApprox(new Set()); return }
 
     let annule = false
 
@@ -175,9 +176,13 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
         // ── Match par ligne ───────────────────────────────────────────────
         const detected = new Set<string>()
         const distribMap = new Map<string, DistribAuto>()
+        const detectedApprox = new Set<string>()
         for (const ligne of candidats) {
           const cible = ligne.restant
           if (cible < 0.01) continue
+
+          let resolue = false
+          let approx = false
 
           // Priorité 1 : numéro de facture dans le libellé
           const nums = numerosParLigne.get(ligne.id_operation)
@@ -192,41 +197,55 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
               if (d?.confiance === 3) {
                 detected.add(ligne.id_operation)
                 distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
-                continue
+                resolue = true
+              } else if (d?.confiance === 2) {
+                approx = true
               }
             }
           }
 
-          // Priorité 2 : client reconnu via SEPA exact
-          const sepaCode = sepaMap.get(ligne.libelle)
-          if (sepaCode) {
-            const factures = facturesParCodeClient.get(sepaCode) ?? []
-            if (factures.length) {
-              const d = trouverDistribution(factures, cible)
-              if (d?.confiance === 3) {
-                detected.add(ligne.id_operation)
-                distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
-                continue
+          if (!resolue) {
+            // Priorité 2 : client reconnu via SEPA exact
+            const sepaCode = sepaMap.get(ligne.libelle)
+            if (sepaCode) {
+              const factures = facturesParCodeClient.get(sepaCode) ?? []
+              if (factures.length) {
+                const d = trouverDistribution(factures, cible)
+                if (d?.confiance === 3) {
+                  detected.add(ligne.id_operation)
+                  distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+                  resolue = true
+                } else if (d?.confiance === 2) {
+                  approx = true
+                }
               }
             }
           }
 
-          // Priorité 3 : nom client détecté (qualification progressive + Jaccard + poids)
-          const nomCode = winnerNomParLigne.get(ligne.id_operation)
-          if (nomCode) {
-            const factures = facturesParCodeClient.get(nomCode) ?? []
-            if (factures.length) {
-              const d = trouverDistribution(factures, cible)
-              if (d?.confiance === 3) {
-                detected.add(ligne.id_operation)
-                distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+          if (!resolue) {
+            // Priorité 3 : nom client détecté (qualification progressive + Jaccard + poids)
+            const nomCode = winnerNomParLigne.get(ligne.id_operation)
+            if (nomCode) {
+              const factures = facturesParCodeClient.get(nomCode) ?? []
+              if (factures.length) {
+                const d = trouverDistribution(factures, cible)
+                if (d?.confiance === 3) {
+                  detected.add(ligne.id_operation)
+                  distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+                  resolue = true
+                } else if (d?.confiance === 2) {
+                  approx = true
+                }
               }
             }
           }
+
+          if (!resolue && approx) detectedApprox.add(ligne.id_operation)
         }
 
         setDetections(detected)
         setDistributionsAuto(distribMap)
+        setDetectionsApprox(detectedApprox)
 
         // ── Passe 2 : relance ciblée sur les non résolus, sans slice ────────
         const nonResolus = candidats.filter(l => !detected.has(l.id_operation) && l.restant >= 0.01)
@@ -262,5 +281,5 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lignesKey])
 
-  return { detections, distributionsAuto, chargement, ajouterDetection }
+  return { detections, distributionsAuto, detectionsApprox, chargement, ajouterDetection }
 }

@@ -18,6 +18,7 @@ interface Props {
   lignes411ClientMap?: Map<string, string>
   onSelect411Client?: (l: LigneBancaireAvecStatut, compte411: string) => void
   detectionsAuto?: Set<string>
+  detectionsApprox?: Set<string>
   chargementDetection?: boolean
 }
 
@@ -49,6 +50,7 @@ export function TableLignesBancaires({
   lignes411ClientMap,
   onSelect411Client,
   detectionsAuto,
+  detectionsApprox,
   chargementDetection,
 }: Props) {
   const hasActive = ligneActiveId !== null
@@ -159,14 +161,21 @@ export function TableLignesBancaires({
                       )}
                     </td>
                     <td className="px-2 py-3 text-center w-9">
-                      {detectionsAuto?.has(ligne.id_operation) && (
+                      {detectionsAuto?.has(ligne.id_operation) ? (
                         <div
                           title="Ockham a détecté une correspondance — cliquez pour pré-remplir"
                           className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-teal-50 border border-teal-200 text-teal-600"
                         >
                           <IcFlash size={11} />
                         </div>
-                      )}
+                      ) : detectionsApprox?.has(ligne.id_operation) ? (
+                        <div
+                          title="Correspondance approximative — vérification recommandée"
+                          className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-amber-50 border border-amber-200 text-amber-500"
+                        >
+                          <IcFlash size={11} />
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-2 py-3 text-center" onClick={e => e.stopPropagation()}>
                       {!readOnly && (ligne.statut_lettrage === 'lettre' || ligne.statut_lettrage === 'partiel' || ligne.statut_lettrage === 'en_attente_411') && !isBankDebit && (

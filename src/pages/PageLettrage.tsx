@@ -379,6 +379,7 @@ export function PageLettrage() {
                 lignes411ClientMap={lignes411ClientMap}
                 onSelect411Client={handleSelect411ClientLigne}
                 detectionsAuto={detection.detections}
+                detectionsApprox={detection.detectionsApprox}
                 chargementDetection={detection.chargement}
               />
             )}
