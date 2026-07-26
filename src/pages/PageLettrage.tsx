@@ -17,6 +17,8 @@ import { ModalRemises } from '../components/lettrage/ModalRemises'
 import { ModalExtractionLettrage } from '../components/lettrage/ModalExtractionLettrage'
 import { ModalNavigateurFactures } from '../components/lettrage/ModalNavigateurFactures'
 import { ModalAffectationRemboursement } from '../components/lettrage/ModalAffectationRemboursement'
+import { ModalLettrageAuto } from '../components/lettrage/ModalLettrageAuto'
+import type { LettrageAutoResult } from '../components/lettrage/ModalLettrageAuto'
 import { TableHistoriqueLettrage } from '../components/lettrage/TableHistoriqueLettrage'
 import { useLignesBancaires } from '../hooks/useLignesBancaires'
 import { useRemboursements } from '../hooks/useRemboursements'
@@ -43,6 +45,7 @@ export function PageLettrage() {
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
   const [motifAnnulation, setMotifAnnulation] = useState('')
   const [ligneDebitAaffecter, setLigneDebitAaffecter] = useState<LigneBancaireAvecStatut | null>(null)
+  const [lettrageAutoOuvert, setLettrageAutoOuvert] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
   const exportComptable = useExportComptable()
@@ -340,7 +343,7 @@ export function PageLettrage() {
             onHistorique={historique.toggle}
             nbComptes={lignes411Client.length + liste.lignes.filter(l => l.en_attente_411).length}
             nbDetections={detection.detections.size}
-            onLettrageAuto={() => { /* modal à implémenter */ }}
+            onLettrageAuto={() => setLettrageAutoOuvert(true)}
           />
           <div key={liste.filtre} className="animate-fade-in">
             {liste.filtre === 'compte' ? (
@@ -475,6 +478,22 @@ export function PageLettrage() {
         ligneActive={forme.ligneActive}
         onFermer={() => setNavigateurOuvert(false)}
         onInjecter={forme.injecterFactures}
+      />
+
+      {/* Modal lettrage automatique */}
+      <ModalLettrageAuto
+        ouvert={lettrageAutoOuvert}
+        distributions={detection.distributionsAuto}
+        onFermer={() => setLettrageAutoOuvert(false)}
+        onSuccess={(result: LettrageAutoResult) => {
+          const allNumerosLettres = result.lettragesParLigne.flatMap(l => l.numerosLettres)
+          if (allNumerosLettres.length > 0) mettreAJourResteDuLocal(allNumerosLettres)
+          for (const { idLigneBancaire, montantTotal } of result.lettragesParLigne) {
+            liste.mettreAJourLigneBancaireLocale(idLigneBancaire, montantTotal)
+          }
+          liste.rafraichirSilencieux()
+          rafraichirDonnees()
+        }}
       />
 
       {/* Modal remises Chèque / LCR */}

@@ -16,8 +16,14 @@ import {
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
 
+export interface DistribAuto {
+  factures: FactureNavigateur[]
+  ligne: LigneBancaireAvecStatut
+}
+
 export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   const [detections, setDetections] = useState<Set<string>>(new Set())
+  const [distributionsAuto, setDistributionsAuto] = useState<Map<string, DistribAuto>>(new Map())
   const [chargement, setChargement] = useState(false)
   const formatsRef = useRef<string[]>([])
 
@@ -47,7 +53,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
     const candidats = lignes.filter(
       l => l.statut_lettrage === 'non_lettre' || l.statut_lettrage === 'partiel'
     )
-    if (!candidats.length) { setDetections(new Set()); return }
+    if (!candidats.length) { setDetections(new Set()); setDistributionsAuto(new Map()); return }
 
     let annule = false
 
@@ -167,6 +173,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
 
         // ── Match par ligne ───────────────────────────────────────────────
         const detected = new Set<string>()
+        const distribMap = new Map<string, DistribAuto>()
         for (const ligne of candidats) {
           const cible = ligne.restant
           if (cible < 0.01) continue
@@ -181,7 +188,11 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             }
             if (facturesDeLigne.length) {
               const d = trouverDistribution(facturesDeLigne, cible)
-              if (d?.confiance === 3) { detected.add(ligne.id_operation); continue }
+              if (d?.confiance === 3) {
+                detected.add(ligne.id_operation)
+                distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+                continue
+              }
             }
           }
 
@@ -191,7 +202,11 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             const factures = facturesParCodeClient.get(sepaCode) ?? []
             if (factures.length) {
               const d = trouverDistribution(factures, cible)
-              if (d?.confiance === 3) { detected.add(ligne.id_operation); continue }
+              if (d?.confiance === 3) {
+                detected.add(ligne.id_operation)
+                distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+                continue
+              }
             }
           }
 
@@ -201,12 +216,16 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             const factures = facturesParCodeClient.get(nomCode) ?? []
             if (factures.length) {
               const d = trouverDistribution(factures, cible)
-              if (d?.confiance === 3) detected.add(ligne.id_operation)
+              if (d?.confiance === 3) {
+                detected.add(ligne.id_operation)
+                distribMap.set(ligne.id_operation, { factures: d.factures, ligne })
+              }
             }
           }
         }
 
         setDetections(detected)
+        setDistributionsAuto(distribMap)
       } catch {
         // silencieux — la liste s'affiche sans icônes en cas d'erreur
       } finally {
@@ -219,5 +238,5 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lignesKey])
 
-  return { detections, chargement, ajouterDetection }
+  return { detections, distributionsAuto, chargement, ajouterDetection }
 }
