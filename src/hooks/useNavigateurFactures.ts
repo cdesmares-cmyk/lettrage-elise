@@ -13,7 +13,7 @@ export interface FactureNavigateur {
   date_echeance: string | null
 }
 
-export type SourceSuggestion = 'numero_detecte' | 'client_reconnu' | 'client_approx' | 'historique'
+export type SourceSuggestion = 'numero_detecte' | 'client_reconnu' | 'client_approx' | 'client_nom' | 'historique'
 
 export interface SuggestionNavigateur {
   facture: FactureNavigateur
@@ -38,7 +38,7 @@ const STOPWORDS = new Set([
   'DE', 'DU', 'LE', 'LA', 'LES', 'ET', 'EN', 'AU', 'AUX', 'SUR', 'PAR', 'POUR',
 ])
 
-function normaliserLibelle(s: string): string {
+export function normaliserLibelle(s: string): string {
   return s
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase()
@@ -49,7 +49,7 @@ function normaliserLibelle(s: string): string {
     .trim()
 }
 
-function tokeniserLibelle(s: string): string[] {
+export function tokeniserLibelle(s: string): string[] {
   return normaliserLibelle(s)
     .split(' ')
     .filter(t => t.length >= 3 && !STOPWORDS.has(t))
@@ -172,9 +172,10 @@ export async function detecterAutoSilencieux(
       ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns
     )
     const cible = ligne.restant
-    const [facturesNum, sepaMatch] = await Promise.all([
+    const [facturesNum, sepaMatch, facturesNom] = await Promise.all([
       fetchParNums(numerosDetectes),
       fetchSepaMatch(ligne.libelle),
+      fetchParNomClient(ligne.libelle),
     ])
     // Priorité 1 : N° détecté dans le libellé
     if (facturesNum.length) {
@@ -184,6 +185,11 @@ export async function detecterAutoSilencieux(
     // Priorité 2 : client reconnu via SEPA (exact uniquement — fuzzy → confiance ≤ 2)
     if (sepaMatch?.factures.length && !sepaMatch.fuzzy) {
       const d = trouverDistribution(sepaMatch.factures, cible)
+      if (d?.confiance === 3) return { distrib: d, factures: d.factures }
+    }
+    // Priorité 3 : nom client détecté dans le libellé
+    if (facturesNom?.length) {
+      const d = trouverDistribution(facturesNom, cible)
       if (d?.confiance === 3) return { distrib: d, factures: d.factures }
     }
     return null
@@ -260,6 +266,40 @@ async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavig
       .limit(10)
 
     return { factures: (data as FactureNavigateur[]) ?? [], nbUtil: meilleur.nb_utilisations, fuzzy: true }
+  } catch { return null }
+}
+
+// Recherche directe du nom client dans le libellé bancaire.
+// Tokenise le libellé, ancre sur le token le plus long, valide le match client-side.
+async function fetchParNomClient(libelle: string): Promise<FactureNavigateur[] | null> {
+  const tokens = tokeniserLibelle(libelle).filter(t => t.length >= 4)
+  if (!tokens.length) return null
+  const ancre = [...tokens].sort((a, b) => b.length - a.length)[0]
+  try {
+    const { data } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select(COLS)
+      .ilike('nom_client', `%${ancre}%`)
+      .gt('reste_du', TOLERANCE_CENT)
+      .eq('est_avoir', false)
+      .order('date_echeance', { ascending: true })
+      .limit(20)
+    if (!data?.length) return null
+    // Regrouper par code_client
+    const parClient = new Map<string, { nom: string; factures: FactureNavigateur[] }>()
+    for (const f of data as FactureNavigateur[]) {
+      if (!parClient.has(f.code_client)) parClient.set(f.code_client, { nom: f.nom_client ?? '', factures: [] })
+      parClient.get(f.code_client)!.factures.push(f)
+    }
+    // Client dont le nom contient le plus de tokens du libellé
+    const seuil = tokens.length === 1 ? 1 : 2
+    let meilleur: { score: number; factures: FactureNavigateur[] } | null = null
+    for (const { nom, factures } of parClient.values()) {
+      const nomNorm = normaliserLibelle(nom)
+      const score = tokens.filter(t => nomNorm.includes(t)).length
+      if (score >= seuil && (!meilleur || score > meilleur.score)) meilleur = { score, factures }
+    }
+    return meilleur?.factures ?? null
   } catch { return null }
 }
 
@@ -352,18 +392,23 @@ export function useNavigateurFactures(
         ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns
       )
 
-      const [facturesNum, sepaMatch, facturesHisto] = await Promise.all([
+      const [facturesNum, sepaMatch, facturesHisto, facturesNom] = await Promise.all([
         fetchParNums(numerosDetectes),
         fetchSepaMatch(ligne.libelle),
         fetchHistorique(ligne),
+        fetchParNomClient(ligne.libelle),
       ])
 
       const found = new Map<string, SuggestionNavigateur>()
 
-      // Priorité croissante : historique < client_reconnu < numero_detecte
+      // Priorité croissante : historique < client_nom < client_reconnu < numero_detecte
       facturesHisto.forEach(f =>
         found.set(f.numero_piece, { facture: f, source: 'historique', confiance: 1 })
       )
+      facturesNom?.forEach(f => {
+        if (!found.has(f.numero_piece) || found.get(f.numero_piece)!.confiance < 2)
+          found.set(f.numero_piece, { facture: f, source: 'client_nom', confiance: 2 })
+      })
       if (sepaMatch) {
         const confBase: 1 | 2 | 3 = sepaMatch.nbUtil >= 3 ? 3 : sepaMatch.nbUtil >= 2 ? 2 : 1
         // Match fuzzy : confiance plafonnée à 2, source distincte pour le badge

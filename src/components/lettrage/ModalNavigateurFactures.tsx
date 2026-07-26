@@ -44,6 +44,7 @@ const SOURCE_META: Record<SourceSuggestion, { label: string; cls: string }> = {
   numero_detecte: { label: 'N° détecté',    cls: 'bg-purple-100 text-purple-700' },
   client_reconnu: { label: 'Client reconnu', cls: 'bg-blue-100 text-blue-700' },
   client_approx:  { label: 'Approx.',        cls: 'bg-amber-100 text-amber-700' },
+  client_nom:     { label: 'Nom détecté',    cls: 'bg-sky-100 text-sky-700' },
   historique:     { label: 'Historique',     cls: 'bg-emerald-100 text-emerald-700' },
 }
 
