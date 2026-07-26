@@ -12,6 +12,7 @@ import {
   extraireTokensClient,
   sélectionnerClient,
   normaliserLibelle,
+  detecterAutoSilencieux,
 } from './useNavigateurFactures'
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
@@ -226,6 +227,29 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
 
         setDetections(detected)
         setDistributionsAuto(distribMap)
+
+        // ── Passe 2 : relance ciblée sur les non résolus, sans slice ────────
+        const nonResolus = candidats.filter(l => !detected.has(l.id_operation) && l.restant >= 0.01)
+        if (nonResolus.length && !annule) {
+          const passe2 = await Promise.all(
+            nonResolus.map(l =>
+              detecterAutoSilencieux(l, formats).then(r => ({ id: l.id_operation, ligne: l, r }))
+            )
+          )
+          if (annule) return
+          const detected2 = new Set<string>()
+          const distribMap2 = new Map<string, DistribAuto>()
+          for (const { id, ligne, r } of passe2) {
+            if (r) {
+              detected2.add(id)
+              distribMap2.set(id, { factures: r.factures, ligne })
+            }
+          }
+          if (detected2.size > 0) {
+            setDetections(prev => new Set([...prev, ...detected2]))
+            setDistributionsAuto(prev => new Map([...prev, ...distribMap2]))
+          }
+        }
       } catch {
         // silencieux — la liste s'affiche sans icônes en cas d'erreur
       } finally {
