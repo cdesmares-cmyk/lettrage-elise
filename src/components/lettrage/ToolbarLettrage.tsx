@@ -1,5 +1,5 @@
 // Barre d'outils partagée — identique sur toutes les vues du module Lettrage
-import { IcSearch, IcClock, IcX } from '../Icones'
+import { IcSearch, IcClock, IcX, IcFlash } from '../Icones'
 import type { FiltreStatut } from '../../hooks/useLignesBancaires'
 
 interface Props {
@@ -13,6 +13,8 @@ interface Props {
   onDateFin: (v: string) => void
   onHistorique: () => void
   nbComptes?: number
+  nbDetections?: number
+  onLettrageAuto?: () => void
 }
 
 const FILTRES: { val: FiltreStatut; label: string }[] = [
@@ -24,7 +26,7 @@ const FILTRES: { val: FiltreStatut; label: string }[] = [
   { val: 'autres_virements', label: 'Autres virements perçus' },
 ]
 
-export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique, nbComptes }: Props) {
+export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, dateDebut, dateFin, onDateDebut, onDateFin, onHistorique, nbComptes, nbDetections, onLettrageAuto }: Props) {
   return (
     <div className="px-4 py-3 border-b border-gray-100 space-y-2">
       {/* Ligne 1 : recherche + période + historique */}
@@ -79,7 +81,7 @@ export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, date
         </button>
       </div>
 
-      {/* Ligne 2 : filtres + légende */}
+      {/* Ligne 2 : filtres + bouton lettrage auto */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex gap-1 flex-wrap">
           {FILTRES.map(f => (
@@ -97,12 +99,18 @@ export function ToolbarLettrage({ recherche, onRecherche, filtre, onFiltre, date
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-shrink-0">
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />Lettré</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />Partiel</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />Non lettré</span>
-          <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" />411 Attente</span>
-        </div>
+        {!!nbDetections && nbDetections > 0 && (
+          <button
+            onClick={onLettrageAuto}
+            className="flex items-center gap-1.5 text-xs font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/90 px-3 py-1 rounded-md transition-colors flex-shrink-0"
+          >
+            <IcFlash size={11} />
+            Lettrage auto
+            <span className="bg-ockham-teal text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+              {nbDetections}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   )
