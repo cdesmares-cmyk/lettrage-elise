@@ -43,7 +43,6 @@ export function PageLettrage() {
   const [annulationEnCours, setAnnulationEnCours] = useState(false)
   const [motifAnnulation, setMotifAnnulation] = useState('')
   const [ligneDebitAaffecter, setLigneDebitAaffecter] = useState<LigneBancaireAvecStatut | null>(null)
-  const [lettrageAutoOuvert, setLettrageAutoOuvert] = useState(false)
 
   const { rafraichir: rafraichirDonnees, mettreAJourResteDuLocal, supprimerFactureLocale, clients, facturesActives } = useAppData()
   const exportComptable = useExportComptable()
@@ -341,7 +340,7 @@ export function PageLettrage() {
             onHistorique={historique.toggle}
             nbComptes={lignes411Client.length + liste.lignes.filter(l => l.en_attente_411).length}
             nbDetections={detection.detections.size}
-            onLettrageAuto={() => setLettrageAutoOuvert(true)}
+            onLettrageAuto={() => { /* modal à implémenter */ }}
           />
           <div key={liste.filtre} className="animate-fade-in">
             {liste.filtre === 'compte' ? (
