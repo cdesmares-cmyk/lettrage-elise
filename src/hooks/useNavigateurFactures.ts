@@ -38,12 +38,21 @@ const STOPWORDS = new Set([
   'DE', 'DU', 'LE', 'LA', 'LES', 'ET', 'EN', 'AU', 'AUX', 'SUR', 'PAR', 'POUR',
 ])
 
+// Formes juridiques et qualificatifs génériques — jamais des identifiants primaires
+const FORMES_JURIDIQUES = new Set([
+  'SAS', 'SARL', 'SASU', 'EURL', 'SNC', 'SCOP', 'SCIC', 'GIE', 'COOP',
+  'GROUP', 'GROUPE', 'HOLDING',
+])
+
 export function normaliserLibelle(s: string): string {
   return s
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase()
     .replace(/\bSTE\b/g, 'SAINTE')
     .replace(/\bST\b/g, 'SAINT')
+    .replace(/\bCIE\b/g, 'COMPAGNIE')
+    .replace(/\bETS\b/g, 'ETABLISSEMENTS')
+    .replace(/\bGRP\b/g, 'GROUPE')
     .replace(/[^A-Z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -53,6 +62,61 @@ export function tokeniserLibelle(s: string): string[] {
   return normaliserLibelle(s)
     .split(' ')
     .filter(t => t.length >= 3 && !STOPWORDS.has(t))
+}
+
+// Tokens ordonnés par position de lecture, formes juridiques retirées.
+// Ancre = premier token (identifiant principal), géographie en fin → poids faible.
+export function extraireTokensClient(libelle: string): string[] {
+  return normaliserLibelle(libelle)
+    .split(' ')
+    .filter(t => t.length >= 3 && !STOPWORDS.has(t) && !FORMES_JURIDIQUES.has(t))
+}
+
+// Couches 2-4 : qualification progressive → Jaccard → poids position.
+// Retourne le code_client gagnant parmi les candidats fournis.
+export function sélectionnerClient(
+  candidats: Array<{ code: string; nom: string }>,
+  tokens: string[],
+): string | null {
+  if (!candidats.length || !tokens.length) return null
+
+  // Couche 2 : qualification progressive (ordre de lecture)
+  let actifs = candidats.filter(c => c.nom.includes(tokens[0]))
+  if (!actifs.length) return null
+  if (actifs.length === 1) return actifs[0].code
+
+  for (let i = 1; i < tokens.length; i++) {
+    const affines = actifs.filter(c => c.nom.includes(tokens[i]))
+    if (affines.length === 1) return affines[0].code
+    if (affines.length === 0) break
+    actifs = affines
+  }
+  if (actifs.length === 1) return actifs[0].code
+
+  // Couche 3 : Jaccard sur les tokens normalisés
+  const tokensLib = new Set(tokens)
+  let maxJaccard = 0
+  let winnerJaccard: string | null = null
+  for (const { code, nom } of actifs) {
+    const nomToks = new Set(nom.split(' ').filter(t => t.length >= 3 && !STOPWORDS.has(t) && !FORMES_JURIDIQUES.has(t)))
+    if (!nomToks.size) continue
+    const inter = [...nomToks].filter(t => tokensLib.has(t)).length
+    const union = new Set([...nomToks, ...tokensLib]).size
+    const score = union > 0 ? inter / union : 0
+    if (score > maxJaccard) { maxJaccard = score; winnerJaccard = code }
+  }
+  if (winnerJaccard && maxJaccard >= 0.3) return winnerJaccard
+
+  // Couche 4 : poids position (tiebreaker)
+  const POIDS = [4, 2, 1, 0.5]
+  let maxPoids = -1
+  let winnerPoids: string | null = null
+  for (const { code, nom } of actifs) {
+    const score = tokens.reduce((acc, tok, idx) =>
+      nom.includes(tok) ? acc + (POIDS[idx] ?? 0.5) : acc, 0)
+    if (score > maxPoids) { maxPoids = score; winnerPoids = code }
+  }
+  return winnerPoids
 }
 
 function similariteLibelle(a: string, b: string): number {
@@ -270,36 +334,40 @@ async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavig
 }
 
 // Recherche directe du nom client dans le libellé bancaire.
-// Tokenise le libellé, ancre sur le token le plus long, valide le match client-side.
+// Étape 1 : découverte des clients via l'ancre (pos-0 token, ordre de lecture).
+// Étape 2 : factures du client gagnant via couches 2-4 client-side.
 async function fetchParNomClient(libelle: string): Promise<FactureNavigateur[] | null> {
-  const tokens = tokeniserLibelle(libelle).filter(t => t.length >= 4)
+  const tokens = extraireTokensClient(libelle)
   if (!tokens.length) return null
-  const ancre = [...tokens].sort((a, b) => b.length - a.length)[0]
   try {
-    const { data } = await supabase
+    const { data: discovery } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select('code_client, nom_client')
+      .ilike('nom_client', `%${tokens[0]}%`)
+      .gt('reste_du', TOLERANCE_CENT)
+      .eq('est_avoir', false)
+      .limit(50)
+    if (!discovery?.length) return null
+
+    const nomMap = new Map<string, string>()
+    for (const r of discovery as { code_client: string; nom_client: string | null }[]) {
+      if (!nomMap.has(r.code_client)) nomMap.set(r.code_client, normaliserLibelle(r.nom_client ?? ''))
+    }
+    const winnerCode = sélectionnerClient(
+      [...nomMap.entries()].map(([code, nom]) => ({ code, nom })),
+      tokens,
+    )
+    if (!winnerCode) return null
+
+    const { data: factures } = await supabase
       .from('v_factures_avec_reste_du')
       .select(COLS)
-      .ilike('nom_client', `%${ancre}%`)
+      .eq('code_client', winnerCode)
       .gt('reste_du', TOLERANCE_CENT)
       .eq('est_avoir', false)
       .order('date_echeance', { ascending: true })
       .limit(20)
-    if (!data?.length) return null
-    // Regrouper par code_client
-    const parClient = new Map<string, { nom: string; factures: FactureNavigateur[] }>()
-    for (const f of data as FactureNavigateur[]) {
-      if (!parClient.has(f.code_client)) parClient.set(f.code_client, { nom: f.nom_client ?? '', factures: [] })
-      parClient.get(f.code_client)!.factures.push(f)
-    }
-    // Client dont le nom contient le plus de tokens du libellé
-    const seuil = tokens.length === 1 ? 1 : 2
-    let meilleur: { score: number; factures: FactureNavigateur[] } | null = null
-    for (const { nom, factures } of parClient.values()) {
-      const nomNorm = normaliserLibelle(nom)
-      const score = tokens.filter(t => nomNorm.includes(t)).length
-      if (score >= seuil && (!meilleur || score > meilleur.score)) meilleur = { score, factures }
-    }
-    return meilleur?.factures ?? null
+    return (factures as FactureNavigateur[]) ?? null
   } catch { return null }
 }
 

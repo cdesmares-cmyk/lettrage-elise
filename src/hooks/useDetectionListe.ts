@@ -1,4 +1,4 @@
-// Détection silencieuse batch — 3 requêtes Supabase pour N lignes visibles
+// Détection silencieuse batch — 2 rounds Supabase pour N lignes visibles
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { TOLERANCE_CENT } from '../lib/constantes'
@@ -9,7 +9,8 @@ import {
   exempleVersRegex,
   fallbackNumerique,
   extraireNumerosTexte,
-  tokeniserLibelle,
+  extraireTokensClient,
+  sélectionnerClient,
   normaliserLibelle,
 } from './useNavigateurFactures'
 
@@ -44,92 +45,108 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
     async function detecter() {
       setChargement(true)
       try {
-        // ── Batch SEPA (match exact) ──────────────────────────────────────
-        const libelles = [...new Set(candidats.map(l => l.libelle))]
-        const { data: sepaRows } = await supabase
-          .from('libelles_sepa')
-          .select('libelle, code_client, nb_utilisations')
-          .in('libelle', libelles)
+        // ── Préparer tokens côté client ───────────────────────────────────
 
-        const sepaMap = new Map<string, string>()
-        const codeClients: string[] = []
-        for (const row of (sepaRows ?? []) as { libelle: string; code_client: string; nb_utilisations: number }[]) {
-          sepaMap.set(row.libelle, row.code_client)
-          codeClients.push(row.code_client)
+        // SEPA : libellés distincts pour match exact
+        const libelles = [...new Set(candidats.map(l => l.libelle))]
+
+        // Nom client : ancre = pos-0 token par libellé
+        const tokensParLigne = new Map<string, string[]>()
+        const tousAncres = new Set<string>()
+        for (const l of candidats) {
+          const toks = extraireTokensClient(l.libelle)
+          if (toks.length) {
+            tokensParLigne.set(l.id_operation, toks)
+            tousAncres.add(toks[0])
+          }
         }
 
-        // ── Batch numérique — prépare les tokens avant les requêtes ───────
+        // Numérique : patterns sur libellé + détail
         const formats = formatsRef.current
         const patterns = formats.map(exempleVersRegex).filter((r): r is RegExp => r !== null)
         const fallback = fallbackNumerique(formats)
         const allPatterns = fallback ? [...patterns, fallback] : patterns
 
         const numerosParLigne = new Map<string, string[]>()
-        const tousNumerosSet = new Set<string>()
+        const tousNumeros = new Set<string>()
         if (allPatterns.length) {
           for (const l of candidats) {
             const nums = extraireNumerosTexte(l.libelle, l.detail, l.infos_complementaires, allPatterns)
             if (nums.length) {
               numerosParLigne.set(l.id_operation, nums)
-              nums.forEach(n => tousNumerosSet.add(n))
+              nums.forEach(n => tousNumeros.add(n))
             }
           }
         }
 
-        // ── Batch nom client — extrait les tokens d'ancrage ───────────────
-        const tokensNomParLigne = new Map<string, string[]>()
-        const tousTokensNom = new Set<string>()
-        for (const l of candidats) {
-          const toks = tokeniserLibelle(l.libelle).filter(t => t.length >= 4)
-          if (toks.length) {
-            tokensNomParLigne.set(l.id_operation, toks)
-            toks.forEach(t => tousTokensNom.add(t))
-          }
+        // ── Round 1 : SEPA + nom découverte (parallel) ───────────────────
+        const [sepaRows, nomDiscovery] = await Promise.all([
+          supabase
+            .from('libelles_sepa')
+            .select('libelle, code_client')
+            .in('libelle', libelles),
+          tousAncres.size
+            ? supabase
+                .from('v_factures_avec_reste_du')
+                .select('code_client, nom_client')
+                .or([...tousAncres].slice(0, 40).map(t => `nom_client.ilike.%${t}%`).join(','))
+                .gt('reste_du', TOLERANCE_CENT)
+                .eq('est_avoir', false)
+                .limit(100)
+            : Promise.resolve({ data: [] }),
+        ])
+
+        // sepaMap : libellé → code_client
+        const sepaMap = new Map<string, string>()
+        for (const r of (sepaRows.data ?? []) as { libelle: string; code_client: string }[]) {
+          sepaMap.set(r.libelle, r.code_client)
         }
 
-        // ── 3 requêtes en parallèle ───────────────────────────────────────
-        const [fSepaRows, fNoms, fNums] = await Promise.all([
-          codeClients.length
+        // nomMap global : code_client → nom normalisé (pour sélectionnerClient)
+        const nomGlobalMap = new Map<string, string>()
+        for (const r of (nomDiscovery.data ?? []) as { code_client: string; nom_client: string | null }[]) {
+          if (!nomGlobalMap.has(r.code_client)) nomGlobalMap.set(r.code_client, normaliserLibelle(r.nom_client ?? ''))
+        }
+        const nomCandidats = [...nomGlobalMap.entries()].map(([code, nom]) => ({ code, nom }))
+
+        // Trouver le code_client gagnant par nom pour chaque ligne
+        const winnerNomParLigne = new Map<string, string>()
+        for (const [idOp, toks] of tokensParLigne) {
+          const w = sélectionnerClient(nomCandidats, toks)
+          if (w) winnerNomParLigne.set(idOp, w)
+        }
+
+        // Collecter tous les code_clients à résoudre
+        const sepaCodeClients = [...new Set(sepaMap.values())]
+        const nomCodeClients = [...new Set(winnerNomParLigne.values())]
+        const allCodeClients = [...new Set([...sepaCodeClients, ...nomCodeClients])]
+
+        // ── Round 2 : factures + numérique (parallel) ─────────────────────
+        const [fRows, fNums] = await Promise.all([
+          allCodeClients.length
             ? supabase
                 .from('v_factures_avec_reste_du')
                 .select(COLS)
-                .in('code_client', [...new Set(codeClients)])
+                .in('code_client', allCodeClients)
                 .gt('reste_du', TOLERANCE_CENT)
                 .eq('est_avoir', false)
                 .order('date_echeance', { ascending: true })
             : Promise.resolve({ data: [] }),
-          tousTokensNom.size
+          tousNumeros.size
             ? supabase
                 .from('v_factures_avec_reste_du')
                 .select(COLS)
-                .or([...tousTokensNom].slice(0, 40).map(t => `nom_client.ilike.%${t}%`).join(','))
-                .gt('reste_du', TOLERANCE_CENT)
-                .eq('est_avoir', false)
-                .order('date_echeance', { ascending: true })
-            : Promise.resolve({ data: [] }),
-          tousNumerosSet.size
-            ? supabase
-                .from('v_factures_avec_reste_du')
-                .select(COLS)
-                .or([...tousNumerosSet].slice(0, 50).map(n => `numero_piece.ilike.%${n}%`).join(','))
+                .or([...tousNumeros].slice(0, 50).map(n => `numero_piece.ilike.%${n}%`).join(','))
                 .gt('reste_du', TOLERANCE_CENT)
                 .eq('est_avoir', false)
             : Promise.resolve({ data: [] }),
         ])
 
-        // ── Construire les maps de résultats ──────────────────────────────
-        const facturesParClientSepa = new Map<string, FactureNavigateur[]>()
-        for (const f of (fSepaRows.data ?? []) as FactureNavigateur[]) {
-          const list = facturesParClientSepa.get(f.code_client) ?? []
+        const facturesParCodeClient = new Map<string, FactureNavigateur[]>()
+        for (const f of (fRows.data ?? []) as FactureNavigateur[]) {
+          const list = facturesParCodeClient.get(f.code_client) ?? []
           list.push(f)
-          facturesParClientSepa.set(f.code_client, list)
-        }
-
-        const facturesParClientNom = new Map<string, FactureNavigateur[]>()
-        for (const f of (fNoms.data ?? []) as FactureNavigateur[]) {
-          const list = facturesParClientNom.get(f.code_client) ?? []
-          list.push(f)
-          facturesParClientNom.set(f.code_client, list)
+          facturesParCodeClient.set(f.code_client, list)
         }
 
         const facturesParNumero = new Map<string, FactureNavigateur>()
@@ -145,14 +162,13 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           const cible = ligne.restant
           if (cible < 0.01) continue
 
-          // Priorité 1 : numéro détecté dans le libellé
+          // Priorité 1 : numéro de facture dans le libellé
           const nums = numerosParLigne.get(ligne.id_operation)
           if (nums?.length) {
             const facturesDeLigne: FactureNavigateur[] = []
             for (const [numPiece, facture] of facturesParNumero) {
-              if (nums.some(n => numPiece.toLowerCase().includes(n.toLowerCase()))) {
+              if (nums.some(n => numPiece.toLowerCase().includes(n.toLowerCase())))
                 facturesDeLigne.push(facture)
-              }
             }
             if (facturesDeLigne.length) {
               const d = trouverDistribution(facturesDeLigne, cible)
@@ -161,26 +177,22 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           }
 
           // Priorité 2 : client reconnu via SEPA exact
-          const codeClientSepa = sepaMap.get(ligne.libelle)
-          if (codeClientSepa) {
-            const factures = facturesParClientSepa.get(codeClientSepa) ?? []
+          const sepaCode = sepaMap.get(ligne.libelle)
+          if (sepaCode) {
+            const factures = facturesParCodeClient.get(sepaCode) ?? []
             if (factures.length) {
               const d = trouverDistribution(factures, cible)
               if (d?.confiance === 3) { detected.add(ligne.id_operation); continue }
             }
           }
 
-          // Priorité 3 : nom client détecté dans le libellé
-          const toks = tokensNomParLigne.get(ligne.id_operation) ?? []
-          if (toks.length) {
-            const seuil = toks.length === 1 ? 1 : 2
-            for (const [, factures] of facturesParClientNom) {
-              const nomNorm = normaliserLibelle(factures[0]?.nom_client ?? '')
-              const score = toks.filter(t => nomNorm.includes(t)).length
-              if (score >= seuil) {
-                const d = trouverDistribution(factures, cible)
-                if (d?.confiance === 3) { detected.add(ligne.id_operation); break }
-              }
+          // Priorité 3 : nom client détecté (qualification progressive + Jaccard + poids)
+          const nomCode = winnerNomParLigne.get(ligne.id_operation)
+          if (nomCode) {
+            const factures = facturesParCodeClient.get(nomCode) ?? []
+            if (factures.length) {
+              const d = trouverDistribution(factures, cible)
+              if (d?.confiance === 3) detected.add(ligne.id_operation)
             }
           }
         }
