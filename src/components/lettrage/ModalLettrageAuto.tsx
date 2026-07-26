@@ -1,5 +1,5 @@
 // Modal de lettrage automatique en bulk — confiance 3/3 uniquement
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
@@ -35,9 +35,13 @@ export function ModalLettrageAuto({ ouvert, distributions, onFermer, onSuccess }
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [enCours, setEnCours] = useState(false)
   const [succes, setSucces] = useState<{ nbValides: number; nbIgnores: number } | null>(null)
+  const etaitOuvertRef = useRef(false)
 
+  // Reset uniquement à l'ouverture (fermé → ouvert), pas à chaque changement de distributions
   useEffect(() => {
-    if (ouvert) {
+    const vientDeSOuvrir = ouvert && !etaitOuvertRef.current
+    etaitOuvertRef.current = ouvert
+    if (vientDeSOuvrir) {
       setSelection(new Set(distributions.keys()))
       setEnCours(false)
       setSucces(null)
