@@ -188,8 +188,10 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
     onFermer()
   }
 
-  const montreResultats = nav.query.length >= 2
-  const montreSuggestions = !montreResultats && (nav.suggestions.length > 0 || nav.chargementSugg)
+  const queryIsNumeric = nav.query.length >= 2 && /^\d+([,.]\d{1,2})?$/.test(nav.query.trim())
+  const montreResultats = nav.query.length >= 2 && !queryIsNumeric
+  const montreSuggestions = !montreResultats && !queryIsNumeric && (nav.suggestions.length > 0 || nav.chargementSugg)
+  const montreParMontant = !montreResultats && !montreSuggestions && (nav.resultatsParMontant.length > 0 || nav.chargementMontant)
 
   return (
     <div
@@ -254,7 +256,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
               type="text"
               value={nav.query}
               onChange={e => nav.setQuery(e.target.value)}
-              placeholder="Code client, nom, N° facture… (2 caractères min)"
+              placeholder="Code client, nom, N° facture, montant… (2 caractères min)"
               className="w-full pl-9 pr-8 py-2.5 text-sm border border-gray-200 rounded-lg outline-none focus:border-ockham-teal transition-colors"
             />
             {nav.chargement && (
@@ -336,8 +338,56 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
             </div>
           )}
 
-          {/* État vide — aucune recherche, aucune suggestion */}
-          {!montreResultats && !montreSuggestions && (
+          {/* Section résultats par montant */}
+          {montreParMontant && (
+            <div className="px-6 pt-5 pb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
+                  Factures correspondant au montant
+                  {nav.montantRecherche !== null && (
+                    <span className="ml-1 normal-case font-mono">{fmt(nav.montantRecherche)}</span>
+                  )}
+                </span>
+                {nav.chargementMontant && (
+                  <span className="text-[10px] text-gray-400 animate-pulse">Recherche…</span>
+                )}
+              </div>
+              {nav.chargementMontant ? (
+                <SkeletonRows n={4} />
+              ) : nav.resultatsParMontant.length === 0 ? (
+                <p className="text-xs text-gray-400 py-4 text-center">Aucune facture ouverte ne correspond à ce montant</p>
+              ) : (
+                <>
+                  {nav.resultatsParMontant.length > 15 && (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700">
+                      Montant très courant — <strong>{nav.resultatsParMontant.length}+</strong> factures correspondent. Ajoutez un nom client pour affiner.
+                    </div>
+                  )}
+                  {nav.resultatsParMontant.length > 5 && nav.resultatsParMontant.length <= 15 && (
+                    <div className="mb-3 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-xs text-gray-500">
+                      Plusieurs factures correspondent — précisez avec un nom client si besoin.
+                    </div>
+                  )}
+                  <table className="w-full">
+                    <EnteteTable avecConfiance={false} />
+                    <tbody className="divide-y divide-gray-50">
+                      {nav.resultatsParMontant.slice(0, nav.resultatsParMontant.length > 15 ? 10 : undefined).map(f => (
+                        <LigneFacture
+                          key={f.numero_piece}
+                          facture={f}
+                          selectionne={nav.selection.has(f.numero_piece)}
+                          onToggle={() => nav.toggleSelection(f)}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* État vide — aucune recherche, aucune suggestion, aucun résultat montant */}
+          {!montreResultats && !montreSuggestions && !montreParMontant && (
             <div className="flex flex-col items-center justify-center py-16 text-center px-8">
               <div className="mb-3 opacity-20 text-gray-400"><IcSearch size={36} /></div>
               <p className="text-sm font-semibold text-gray-700 mb-1">Recherchez une facture</p>

@@ -432,6 +432,9 @@ export function useNavigateurFactures(
   const [chargementSugg, setChargementSugg] = useState(false)
   const [selection, setSelection] = useState<Map<string, FactureNavigateur>>(new Map())
   const [distributionSuggérée, setDistributionSuggérée] = useState<DistributionSuggérée | null>(null)
+  const [resultatsParMontant, setResultatsParMontant] = useState<FactureNavigateur[]>([])
+  const [chargementMontant, setChargementMontant] = useState(false)
+  const [montantRecherche, setMontantRecherche] = useState<number | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const formatsRef = useRef<string[]>([])
 
@@ -454,6 +457,9 @@ export function useNavigateurFactures(
       setSuggestions([])
       setSelection(new Map())
       setDistributionSuggérée(null)
+      setResultatsParMontant([])
+      setMontantRecherche(null)
+      setChargementMontant(false)
       return
     }
     if (ligneActive) computeSuggestions(ligneActive)
@@ -516,6 +522,8 @@ export function useNavigateurFactures(
 
       setDistributionSuggérée(distrib)
       if (distrib) setSelection(new Map(distrib.factures.map(f => [f.numero_piece, f])))
+
+      if (found.size === 0) rechercherParMontant(ligne.restant)
     } finally {
       setChargementSugg(false)
     }
@@ -539,6 +547,28 @@ export function useNavigateurFactures(
     }
   }
 
+  async function rechercherParMontant(montant: number, estRequete = false) {
+    setChargementMontant(true)
+    try {
+      const { data } = await supabase
+        .from('v_factures_avec_reste_du')
+        .select(COLS)
+        .gte('reste_du', montant - TOLERANCE_CENT)
+        .lte('reste_du', montant + TOLERANCE_CENT)
+        .gt('reste_du', TOLERANCE_CENT)
+        .eq('est_avoir', false)
+        .order('date_echeance', { ascending: true })
+        .limit(20)
+      setResultatsParMontant((data as FactureNavigateur[]) ?? [])
+      setMontantRecherche(montant)
+    } catch {
+      setResultatsParMontant([])
+    } finally {
+      setChargementMontant(false)
+      if (estRequete) setChargement(false)
+    }
+  }
+
   function setQuery(q: string) {
     setQueryRaw(q)
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -547,6 +577,18 @@ export function useNavigateurFactures(
       setChargement(false)
       return
     }
+    const normalized = q.trim().replace(',', '.')
+    const asNumber = parseFloat(normalized)
+    const isNumeric = !isNaN(asNumber) && asNumber > 0 && /^\d+([,.]\d{1,2})?$/.test(q.trim())
+    if (isNumeric) {
+      setResultats([])
+      setResultatsParMontant([])
+      setChargement(true)
+      debounceRef.current = setTimeout(() => rechercherParMontant(asNumber, true), 300)
+      return
+    }
+    setResultatsParMontant([])
+    setMontantRecherche(null)
     setChargement(true)
     debounceRef.current = setTimeout(() => rechercherFactures(q), 300)
   }
@@ -598,5 +640,6 @@ export function useNavigateurFactures(
     selection, toggleSelection, reset,
     selectionArray, totalSelection,
     distributionSuggérée,
+    resultatsParMontant, chargementMontant, montantRecherche,
   }
 }
