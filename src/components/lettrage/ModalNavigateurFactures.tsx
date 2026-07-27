@@ -204,7 +204,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-3">
             <IcSearch size={15} className="text-ockham-teal flex-shrink-0" />
-            <h3 className="text-base font-bold text-gray-900">Détection auto</h3>
+            <h3 className="text-base font-bold text-gray-900">Recherche</h3>
           </div>
           <button
             onClick={onFermer}

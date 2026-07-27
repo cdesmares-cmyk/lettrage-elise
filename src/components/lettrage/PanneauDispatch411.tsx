@@ -186,7 +186,7 @@ export function PanneauDispatch411(props: Props) {
           disabled={chargement || !factureActive}
           className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-ockham-teal border border-ockham-teal/30 hover:border-ockham-teal hover:bg-ockham-teal-muted disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-all"
         >
-          <IcSearch size={13} className="flex-shrink-0" /> Détection auto
+          <IcSearch size={13} className="flex-shrink-0" /> Recherche
         </button>
       </div>
 
