@@ -544,11 +544,14 @@ export function useNavigateurFactures(
   async function rechercherParMontant(montant: number, estRequete = false) {
     setChargementMontant(true)
     try {
+      // Plage positive (factures) + plage négative miroir (avoirs dont ABS = montant)
       const { data } = await supabase
         .from('v_factures_avec_reste_du')
         .select(COLS)
-        .gte('reste_du', montant - TOLERANCE_CENT)
-        .lte('reste_du', montant + TOLERANCE_CENT)
+        .or(
+          `and(reste_du.gte.${montant - TOLERANCE_CENT},reste_du.lte.${montant + TOLERANCE_CENT}),` +
+          `and(reste_du.gte.${-(montant + TOLERANCE_CENT)},reste_du.lte.${-(montant - TOLERANCE_CENT)})`
+        )
         .order('date_echeance', { ascending: true })
         .limit(20)
       setResultatsParMontant((data as FactureNavigateur[]) ?? [])
