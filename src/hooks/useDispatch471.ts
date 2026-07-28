@@ -86,6 +86,7 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
     if (!lignesForme.length) return 'Aucune ligne de dispatch'
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
     if (attribue > creditDisponible + TOLERANCE_CENT) return `Dépassement du crédit disponible (${creditDisponible.toFixed(2)} €)`
+    if (attribue <= TOLERANCE_CENT) return 'Le montant net dispatché doit être positif'
     for (const l of lignesForme) {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         if (!l.info_facture) return 'Facture introuvable ou non saisie'

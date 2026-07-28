@@ -152,6 +152,7 @@ export function useLettrageForm(
     const disp = ligneActive.restant ?? 0
     const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
     if (attribue > disp + TOLERANCE_CENT) return false
+    if (attribue <= TOLERANCE_CENT) return false
     const restantCalc = Math.round((disp - attribue) * 100) / 100
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
