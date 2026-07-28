@@ -155,8 +155,12 @@ export function useLettrageForm(
     const restantCalc = Math.round((disp - attribue) * 100) / 100
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
+        if (!l.info_facture || !l.montant) return false
         const m = parseFloat(l.montant)
-        return !!l.info_facture && !!l.montant && !isNaN(m) && m !== 0
+        if (isNaN(m)) return false
+        // Signe cohérent : avoir (reste_du < 0) → montant négatif attendu
+        if (l.info_facture.reste_du < 0) return m < -TOLERANCE_CENT
+        return m > TOLERANCE_CENT
       }
       if (l.classe === 'compte_client') return !!l.client_411 && restantCalc > TOLERANCE_CENT
       if (l.classe === 'attente_411') return restantCalc > TOLERANCE_CENT

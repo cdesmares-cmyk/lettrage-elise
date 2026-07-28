@@ -424,11 +424,17 @@ export function PanneauLettrage(props: Props) {
                 </div>
               )}
               {(ligne.classe === 'facture' || ligne.classe === 'cheque' || ligne.classe === 'lcr') && ligne.info_facture && (
-                <div className="mt-1 text-[10px] text-emerald-600 font-medium">
+                <div className={`mt-1 text-[10px] font-medium ${ligne.info_facture.reste_du < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
                   ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client}
-                  {' · '}reste dû : {fmt(ligne.info_facture.reste_du)}
-                  {ligne.info_facture.reste_du === 0 && (
-                    <span className="ml-1 text-amber-500">— déjà soldée</span>
+                  {ligne.info_facture.reste_du < 0 ? (
+                    <span className="ml-1">· <span className="font-bold bg-rose-100 text-rose-700 px-1 py-0.5 rounded">Avoir</span> · à solder : {fmt(ligne.info_facture.reste_du)}</span>
+                  ) : (
+                    <>
+                      {' · '}reste dû : {fmt(ligne.info_facture.reste_du)}
+                      {ligne.info_facture.reste_du === 0 && (
+                        <span className="ml-1 text-amber-500">— déjà soldée</span>
+                      )}
+                    </>
                   )}
                 </div>
               )}

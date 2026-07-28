@@ -71,7 +71,9 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         if (!l.info_facture) return 'Facture introuvable ou non saisie'
         const m = parseFloat(l.montant)
-        if (!l.montant || isNaN(m) || m === 0) return 'Montant invalide'
+        if (!l.montant || isNaN(m) || Math.abs(m) < TOLERANCE_CENT) return 'Montant invalide'
+        if (l.info_facture.reste_du < 0 && m > TOLERANCE_CENT) return 'Avoir : saisissez un montant négatif'
+        if (l.info_facture.reste_du > 0 && m < -TOLERANCE_CENT) return 'Facture : saisissez un montant positif'
       } else if (!l.numero_facture.trim()) {
         return 'Commentaire requis pour la ligne "Autres"'
       }
