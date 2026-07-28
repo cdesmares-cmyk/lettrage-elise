@@ -52,11 +52,10 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
       .maybeSingle()
     const row = data as unknown as RowFactureInfo | null
     if (row) {
-      const resteDu = Math.max(0, row.reste_du)
       modifierLigne(key, {
         chargement: false,
         info_facture: row as InfoFacture,
-        montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '',
+        montant: Math.abs(row.reste_du) > TOLERANCE_CENT ? String(Math.round(row.reste_du * 100) / 100) : '',
       })
     } else {
       modifierLigne(key, { chargement: false, info_facture: null })
@@ -97,7 +96,7 @@ export function useDispatch411(onSuccess: (data: Dispatch411Data) => void) {
         montant: l.classe === 'autres' && !l.montant
           ? resteAutres
           : Math.round(parseFloat(l.montant) * 100) / 100,
-      })).filter(l => l.montant > 0)
+      })).filter(l => Math.abs(l.montant) > TOLERANCE_CENT)
 
       // @ts-expect-error dispatch_411 absente du schéma généré
       const { error } = await supabase.rpc('dispatch_411', {

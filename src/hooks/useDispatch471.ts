@@ -71,11 +71,10 @@ export function useDispatch411Attente(onSuccess: (data: Dispatch411AttenteData) 
       .maybeSingle()
     const row = data as unknown as RowFactureInfo | null
     if (row) {
-      const resteDu = Math.max(0, row.reste_du)
       modifierLigne(key, {
         chargement: false,
         info_facture: row as InfoFacture,
-        montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '',
+        montant: Math.abs(row.reste_du) > TOLERANCE_CENT ? String(Math.round(row.reste_du * 100) / 100) : '',
       })
     } else {
       modifierLigne(key, { chargement: false, info_facture: null })
