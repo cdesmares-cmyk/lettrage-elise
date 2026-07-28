@@ -67,15 +67,25 @@ function LigneFacture({
   source?: SourceSuggestion
   confiance?: 1 | 2 | 3
 }) {
+  const isAvoir = facture.est_avoir
   return (
     <tr
       onClick={onToggle}
-      className={`cursor-pointer transition-colors ${selectionne ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50'}`}
+      className={`cursor-pointer transition-colors ${
+        selectionne
+          ? isAvoir ? 'bg-rose-50' : 'bg-ockham-teal-muted'
+          : isAvoir ? 'hover:bg-rose-50/60' : 'hover:bg-gray-50'
+      }`}
     >
       <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{facture.code_client}</td>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono font-semibold text-gray-800">{facture.numero_piece}</span>
+          {isAvoir && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+              Avoir
+            </span>
+          )}
           {source && (
             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${SOURCE_META[source].cls}`}>
               {SOURCE_META[source].label}
@@ -87,7 +97,9 @@ function LigneFacture({
         )}
       </td>
       <td className="px-4 py-2.5 text-xs font-mono text-right text-gray-600 tabular-nums">{fmt(facture.montant_ttc)}</td>
-      <td className="px-4 py-2.5 text-xs font-mono text-right font-semibold text-amber-700 tabular-nums">{fmt(facture.reste_du)}</td>
+      <td className={`px-4 py-2.5 text-xs font-mono text-right font-semibold tabular-nums ${isAvoir ? 'text-rose-600' : 'text-amber-700'}`}>
+        {fmt(facture.reste_du)}
+      </td>
       <td className="px-4 py-2.5 text-xs text-gray-400 text-right">{fmtDate(facture.date_echeance)}</td>
       {confiance !== undefined && (
         <td className="px-4 py-2.5"><ConfidenceDots n={confiance} /></td>
@@ -97,8 +109,10 @@ function LigneFacture({
           onClick={e => { e.stopPropagation(); onToggle() }}
           className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold transition-all ${
             selectionne
-              ? 'bg-ockham-teal text-white'
-              : 'bg-gray-100 text-gray-400 hover:bg-ockham-teal/10 hover:text-ockham-teal'
+              ? isAvoir ? 'bg-rose-500 text-white' : 'bg-ockham-teal text-white'
+              : isAvoir
+                ? 'bg-gray-100 text-gray-400 hover:bg-rose-100 hover:text-rose-600'
+                : 'bg-gray-100 text-gray-400 hover:bg-ockham-teal/10 hover:text-ockham-teal'
           }`}
         >
           {selectionne ? <IcCheck size={12} /> : '+'}
@@ -140,6 +154,10 @@ function SkeletonRows({ n }: { n: number }) {
 function BandeauDistribution({ distrib }: { distrib: DistributionSuggérée }) {
   const total = distrib.montantTotal.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const n = distrib.factures.length
+  const nAvoirs = distrib.factures.filter(f => f.est_avoir).length
+  const labelPieces = nAvoirs > 0
+    ? `${n - nAvoirs} facture${n - nAvoirs > 1 ? 's' : ''} + ${nAvoirs} avoir${nAvoirs > 1 ? 's' : ''}`
+    : `${n} facture${n > 1 ? 's' : ''}`
   return (
     <div className={`mx-6 mt-3 mb-1 flex items-center gap-3 rounded-lg px-4 py-2.5 border ${
       distrib.exact
@@ -151,7 +169,7 @@ function BandeauDistribution({ distrib }: { distrib: DistributionSuggérée }) {
           Répartition détectée
         </p>
         <p className="text-xs font-semibold text-gray-700">
-          {n} facture{n > 1 ? 's' : ''} · {total} €
+          {labelPieces} · {total} €
           {!distrib.exact && <span className="text-amber-600 ml-1">(approx.)</span>}
         </p>
         <p className="text-[10px] text-gray-400 mt-0.5">Pré-sélectionnée{n > 1 ? 's' : ''} ci-dessous — ajustez si besoin</p>
@@ -404,7 +422,7 @@ export function ModalNavigateurFactures({ ouvert, ligneActive, onFermer, onInjec
           {nav.selectionArray.length > 0 ? (
             <p className="text-sm text-gray-600">
               <span className="font-bold text-gray-900">{nav.selectionArray.length}</span>
-              {' '}facture{nav.selectionArray.length > 1 ? 's' : ''} sélectionnée{nav.selectionArray.length > 1 ? 's' : ''}
+              {' '}pièce{nav.selectionArray.length > 1 ? 's' : ''} sélectionnée{nav.selectionArray.length > 1 ? 's' : ''}
               {' · '}Total :{' '}
               <span className="font-bold text-ockham-teal">{fmt(nav.totalSelection)}</span>
             </p>
