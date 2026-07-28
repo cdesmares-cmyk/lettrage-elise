@@ -137,11 +137,10 @@ export function useLettrageForm(
       .maybeSingle()
     const row = data as unknown as RowFactureInfo | null
     if (row) {
-      const resteDu = Math.max(0, row.reste_du)
       modifierLigne(key, {
         chargement: false,
         info_facture: row as InfoFacture,
-        montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '',
+        montant: Math.abs(row.reste_du) > TOLERANCE_CENT ? String(Math.round(row.reste_du * 100) / 100) : '',
       })
     } else {
       modifierLigne(key, { chargement: false, info_facture: null })
@@ -251,7 +250,7 @@ export function useLettrageForm(
         if (l.classe === 'compte_client' || l.classe === 'attente_411') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
-        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
+        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && Math.abs(m) > TOLERANCE_CENT
       })
       const numerosLettres: { numeroPiece: string; montant: number }[] = []
       let montantMix = 0
@@ -321,7 +320,7 @@ export function useLettrageForm(
         if (l.classe === 'compte_client' || l.classe === 'attente_411') return false
         if (l.classe === 'autres') return !!l.numero_facture.trim()
         const m = parseFloat(l.montant)
-        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && m > 0
+        return !!l.info_facture && !!l.numero_facture && !isNaN(m) && Math.abs(m) > TOLERANCE_CENT
       })
       const numerosLettres: { numeroPiece: string; montant: number }[] = []
       let montantMix = 0
