@@ -107,8 +107,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .from('v_factures_avec_reste_du')
                 .select('code_client, nom_client')
                 .or([...tousAncres].slice(0, 40).map(t => `nom_client.ilike.%${t}%`).join(','))
-                .gt('reste_du', TOLERANCE_CENT)
-                .eq('est_avoir', false)
+                .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
                 .limit(500)
             : Promise.resolve({ data: [] }),
         ])
@@ -145,8 +144,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .from('v_factures_avec_reste_du')
                 .select(COLS)
                 .in('code_client', allCodeClients)
-                .gt('reste_du', TOLERANCE_CENT)
-                .eq('est_avoir', false)
+                .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
                 .order('date_echeance', { ascending: true })
             : Promise.resolve({ data: [] }),
           tousNumeros.size
@@ -154,8 +152,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .from('v_factures_avec_reste_du')
                 .select(COLS)
                 .or([...tousNumeros].slice(0, 50).map(n => `numero_piece.ilike.%${n}%`).join(','))
-                .gt('reste_du', TOLERANCE_CENT)
-                .eq('est_avoir', false)
+                .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
             : Promise.resolve({ data: [] }),
         ])
 

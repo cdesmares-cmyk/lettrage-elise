@@ -11,6 +11,7 @@ export interface FactureNavigateur {
   montant_ttc: number
   reste_du: number
   date_echeance: string | null
+  est_avoir: boolean
 }
 
 export type SourceSuggestion = 'numero_detecte' | 'client_reconnu' | 'client_approx' | 'client_nom' | 'historique'
@@ -28,7 +29,7 @@ export interface DistributionSuggérée {
   confiance: 2 | 3
 }
 
-const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
+const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance, est_avoir'
 
 // ── Correspondance approximative des libellés bancaires ────────────────────
 
@@ -284,8 +285,7 @@ async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
       .from('v_factures_avec_reste_du')
       .select(COLS)
       .or(nums.map(n => `numero_piece.ilike.%${n}%`).join(','))
-      .gt('reste_du', TOLERANCE_CENT)
-      .eq('est_avoir', false)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
       .limit(10)
     return (data as FactureNavigateur[]) ?? []
   } catch { return [] }
@@ -306,8 +306,7 @@ async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavig
         .from('v_factures_avec_reste_du')
         .select(COLS)
         .eq('code_client', r.code_client)
-        .gt('reste_du', TOLERANCE_CENT)
-        .eq('est_avoir', false)
+        .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
         .order('date_echeance', { ascending: true })
         .limit(10)
       return { factures: (data as FactureNavigateur[]) ?? [], nbUtil: r.nb_utilisations, fuzzy: false }
@@ -339,8 +338,7 @@ async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavig
       .from('v_factures_avec_reste_du')
       .select(COLS)
       .eq('code_client', meilleur.code_client)
-      .gt('reste_du', TOLERANCE_CENT)
-      .eq('est_avoir', false)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
       .order('date_echeance', { ascending: true })
       .limit(10)
 
@@ -359,8 +357,7 @@ async function fetchParNomClient(libelle: string): Promise<FactureNavigateur[] |
       .from('v_factures_avec_reste_du')
       .select('code_client, nom_client')
       .ilike('nom_client', `%${tokens[0]}%`)
-      .gt('reste_du', TOLERANCE_CENT)
-      .eq('est_avoir', false)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
       .limit(50)
     if (!discovery?.length) return null
 
@@ -378,8 +375,7 @@ async function fetchParNomClient(libelle: string): Promise<FactureNavigateur[] |
       .from('v_factures_avec_reste_du')
       .select(COLS)
       .eq('code_client', winnerCode)
-      .gt('reste_du', TOLERANCE_CENT)
-      .eq('est_avoir', false)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
       .order('date_echeance', { ascending: true })
       .limit(20)
     return (factures as FactureNavigateur[]) ?? null
@@ -414,8 +410,7 @@ async function fetchHistorique(ligne: LigneBancaireAvecStatut): Promise<FactureN
       .from('v_factures_avec_reste_du')
       .select(COLS)
       .in('numero_piece', numsFact)
-      .gt('reste_du', TOLERANCE_CENT)
-      .eq('est_avoir', false)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
     return (data as FactureNavigateur[]) ?? []
   } catch { return [] }
 }
@@ -536,8 +531,7 @@ export function useNavigateurFactures(
         .from('v_factures_avec_reste_du')
         .select(COLS)
         .eq('code_client', code)
-        .gt('reste_du', TOLERANCE_CENT)
-        .eq('est_avoir', false)
+        .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
         .order('date_echeance', { ascending: true })
         .limit(20)
       const factures = (data as FactureNavigateur[]) ?? []
@@ -555,8 +549,6 @@ export function useNavigateurFactures(
         .select(COLS)
         .gte('reste_du', montant - TOLERANCE_CENT)
         .lte('reste_du', montant + TOLERANCE_CENT)
-        .gt('reste_du', TOLERANCE_CENT)
-        .eq('est_avoir', false)
         .order('date_echeance', { ascending: true })
         .limit(20)
       setResultatsParMontant((data as FactureNavigateur[]) ?? [])
@@ -599,8 +591,7 @@ export function useNavigateurFactures(
         .from('v_factures_avec_reste_du')
         .select(COLS)
         .or(`numero_piece.ilike.%${q}%,code_client.ilike.%${q}%,nom_client.ilike.%${q}%`)
-        .gt('reste_du', TOLERANCE_CENT)
-        .eq('est_avoir', false)
+        .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
         .order('date_echeance', { ascending: true })
         .limit(50)
       setResultats((data as FactureNavigateur[]) ?? [])
