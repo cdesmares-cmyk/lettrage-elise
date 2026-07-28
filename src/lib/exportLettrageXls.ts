@@ -63,6 +63,7 @@ interface AffectationRow {
   debit_credit: string
   code_client: string
   numero_facture: string
+  type: string
   montant: number
   commentaire: string
   operateur: string
@@ -209,6 +210,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       debit_credit: info?.debit_credit ?? '',
       code_client: l.code_client,
       numero_facture: l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
+      type: l.montant < 0 ? 'Avoir' : '',
       montant: l.montant,
       commentaire: l.commentaire ?? '',
       operateur: l.operateur ?? '',
@@ -224,6 +226,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       debit_credit: '',
       code_client: '',
       numero_facture: c.numero_facture ?? '',
+      type: c.montant < 0 ? 'Avoir' : '',
       montant: c.montant,
       commentaire: c.commentaire ?? '',
       operateur: '',
@@ -239,6 +242,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       debit_credit: '',
       code_client: imp.code_client,
       numero_facture: imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
+      type: imp.montant < 0 ? 'Avoir' : '',
       montant: imp.montant,
       commentaire: imp.commentaire ?? '',
       operateur: imp.operateur ?? '',
@@ -254,6 +258,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       debit_credit: '',
       code_client: corr.code_client,
       numero_facture: corr.numero_facture ?? '',
+      type: '',
       montant: corr.montant,
       commentaire: corr.commentaire ?? '',
       operateur: corr.operateur ?? '',
@@ -263,17 +268,17 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   affectations.sort((a, b) => a.date.localeCompare(b.date))
 
   const aoa1: (string | number)[][] = [
-    ['Date', 'Ligne bancaire', 'Détail', 'Infos complémentaires', 'Débit / Crédit', 'Code client', 'N° Facture', 'Montant', 'Commentaire', 'Opérateur'],
+    ['Date', 'Ligne bancaire', 'Détail', 'Infos complémentaires', 'Débit / Crédit', 'Code client', 'N° Facture', 'Type', 'Montant', 'Commentaire', 'Opérateur'],
   ]
   for (const r of affectations) {
-    aoa1.push([fmtDate(r.date), r.ligne, r.detail, r.infos_complementaires, r.debit_credit, r.code_client, r.numero_facture, r.montant, r.commentaire, r.operateur])
+    aoa1.push([fmtDate(r.date), r.ligne, r.detail, r.infos_complementaires, r.debit_credit, r.code_client, r.numero_facture, r.type, r.montant, r.commentaire, r.operateur])
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet(aoa1)
   ws1['!cols'] = [
-    { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 15 },
+    { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 18 }, { wch: 15 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 32 }, { wch: 15 },
   ]
-  styleHeaderRow(ws1, 10)
+  styleHeaderRow(ws1, 11)
 
   // ── Feuille 2 : Lignes bancaires (débits + crédits) ──────────────
   const aoa2: (string | number)[][] = [
