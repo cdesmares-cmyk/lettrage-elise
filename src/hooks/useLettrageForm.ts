@@ -394,11 +394,20 @@ export function useLettrageForm(
     }
   }
 
+  const clientsDispatches = [...new Set(
+    lignesForme
+      .filter(l => l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr')
+      .map(l => l.info_facture?.code_client)
+      .filter(Boolean)
+  )]
+  const warningMultiClient = clientsDispatches.length > 1
+
   return {
     ligneActive, lettragesExistants, lignesForme,
     modeAlerte, chargement, propositionAuto,
     selectionnerLigne, annuler, ajouterLigne, supprimerLigne,
     modifierLigne, chercherInfoFacture, injecterFactures, valider, peutValider,
     creditDisponible, montantAttribue, restant,
+    warningMultiClient,
   }
 }

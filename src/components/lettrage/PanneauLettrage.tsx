@@ -31,6 +31,7 @@ export function PanneauLettrage(props: Props) {
     annuler, ajouterLigne, supprimerLigne, modifierLigne,
     chercherInfoFacture, valider, peutValider,
     creditDisponible, montantAttribue, restant,
+    warningMultiClient,
     onOuvrirCorrection, onOuvrirNavigateur, remisesEnAttente, onEncaisser, clients,
     dateExport,
   } = props
@@ -456,6 +457,16 @@ export function PanneauLettrage(props: Props) {
           </button>
         )}
       </div>
+
+      {/* Avertissement multi-client */}
+      {warningMultiClient && (
+        <div className="mx-5 mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
+          <IcWarning size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-700 font-medium leading-snug">
+            Pièces de clients différents — vérifiez avant de valider.
+          </p>
+        </div>
+      )}
 
       {/* Totaux */}
       <div className="mx-5 mb-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-sm">
