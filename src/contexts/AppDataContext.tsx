@@ -183,9 +183,9 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   // Focus limité à 1 appel par tranche de 30s pour éviter les doubles rechargements
   useEffect(() => {
     if (!session) return
-    const timer = setInterval(() => { rafraichir() }, 60_000)
+    const timer = setInterval(() => { rafraichir() }, 300_000)
     const onFocus = () => {
-      if (Date.now() - lastFetchAtRef.current < 30_000) return
+      if (Date.now() - lastFetchAtRef.current < 120_000) return
       rafraichir()
     }
     window.addEventListener('focus', onFocus)

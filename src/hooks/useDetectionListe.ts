@@ -146,6 +146,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .in('code_client', allCodeClients)
                 .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
                 .order('date_echeance', { ascending: true })
+                .limit(500)
             : Promise.resolve({ data: [] }),
           tousNumeros.size
             ? supabase
@@ -153,6 +154,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .select(COLS)
                 .or([...tousNumeros].slice(0, 50).map(n => `numero_piece.ilike.%${n}%`).join(','))
                 .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
+                .limit(200)
             : Promise.resolve({ data: [] }),
         ])
 
@@ -248,7 +250,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
         const nonResolus = candidats.filter(l => !detected.has(l.id_operation) && l.restant >= 0.01)
         if (nonResolus.length && !annule) {
           const passe2 = await Promise.all(
-            nonResolus.map(l =>
+            nonResolus.slice(0, 15).map(l =>
               detecterAutoSilencieux(l, formats).then(r => ({ id: l.id_operation, ligne: l, r }))
             )
           )
