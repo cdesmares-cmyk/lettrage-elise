@@ -380,6 +380,7 @@ export function PageLettrage() {
                 onSelect411Client={handleSelect411ClientLigne}
                 detectionsAuto={detection.detections}
                 detectionsApprox={detection.detectionsApprox}
+                detectionsDoublePaiement={detection.detectionDoublePaiement}
                 chargementDetection={detection.chargement}
               />
             )}

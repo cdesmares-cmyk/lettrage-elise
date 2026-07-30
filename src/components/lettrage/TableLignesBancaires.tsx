@@ -1,6 +1,6 @@
 // Panneau gauche : liste des lignes bancaires avec statut de lettrage
 import type { LigneBancaireAvecStatut, StatutLettrage } from '../../types/lettrage'
-import { IcX, IcFlash, IcLoader } from '../Icones'
+import { IcX, IcFlash, IcLoader, IcWarning } from '../Icones'
 import { Pagination } from '../Pagination'
 
 interface Props {
@@ -19,6 +19,7 @@ interface Props {
   onSelect411Client?: (l: LigneBancaireAvecStatut, compte411: string) => void
   detectionsAuto?: Set<string>
   detectionsApprox?: Set<string>
+  detectionsDoublePaiement?: Set<string>
   chargementDetection?: boolean
 }
 
@@ -51,6 +52,7 @@ export function TableLignesBancaires({
   onSelect411Client,
   detectionsAuto,
   detectionsApprox,
+  detectionsDoublePaiement,
   chargementDetection,
 }: Props) {
   const hasActive = ligneActiveId !== null
@@ -174,6 +176,13 @@ export function TableLignesBancaires({
                           className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-amber-50 border border-amber-200 text-amber-500"
                         >
                           <IcFlash size={11} />
+                        </div>
+                      ) : detectionsDoublePaiement?.has(ligne.id_operation) ? (
+                        <div
+                          title="Double paiement probable — cette facture est déjà soldée"
+                          className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-orange-50 border border-orange-300 text-orange-500"
+                        >
+                          <IcWarning size={11} />
                         </div>
                       ) : null}
                     </td>

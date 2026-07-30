@@ -13,6 +13,7 @@ import {
   sélectionnerClient,
   normaliserLibelle,
   detecterAutoSilencieux,
+  detecterDoublePaiementSilencieux,
 } from './useNavigateurFactures'
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance'
@@ -26,6 +27,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   const [detections, setDetections] = useState<Set<string>>(new Set())
   const [distributionsAuto, setDistributionsAuto] = useState<Map<string, DistribAuto>>(new Map())
   const [detectionsApprox, setDetectionsApprox] = useState<Set<string>>(new Set())
+  const [detectionDoublePaiement, setDetectionDoublePaiement] = useState<Set<string>>(new Set())
   const [chargement, setChargement] = useState(false)
   const formatsRef = useRef<string[]>([])
 
@@ -55,7 +57,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
     const candidats = lignes.filter(
       l => l.statut_lettrage === 'non_lettre' || l.statut_lettrage === 'partiel'
     )
-    if (!candidats.length) { setDetections(new Set()); setDistributionsAuto(new Map()); setDetectionsApprox(new Set()); return }
+    if (!candidats.length) { setDetections(new Set()); setDistributionsAuto(new Map()); setDetectionsApprox(new Set()); setDetectionDoublePaiement(new Set()); return }
 
     let annule = false
 
@@ -270,6 +272,27 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           }
           if (b < nbBatches - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
         }
+
+        // ── Passe 3 : double paiement — uniquement sur les encore non résolus ──
+        if (!annule) {
+          const encoreNonResolus = candidats.filter(
+            l => !detected.has(l.id_operation) && l.restant >= 0.01
+          )
+          const BATCH_DP = 10
+          const MAX_BATCHES_DP = 5
+          const nbBatchesDP = Math.min(Math.ceil(encoreNonResolus.length / BATCH_DP), MAX_BATCHES_DP)
+          for (let b = 0; b < nbBatchesDP; b++) {
+            if (annule) break
+            const lot = encoreNonResolus.slice(b * BATCH_DP, (b + 1) * BATCH_DP)
+            const resultats = await Promise.all(
+              lot.map(l => detecterDoublePaiementSilencieux(l, formats).then(dp => ({ id: l.id_operation, dp })))
+            )
+            if (annule) break
+            const dp2 = new Set(resultats.filter(r => r.dp).map(r => r.id))
+            if (dp2.size > 0) setDetectionDoublePaiement(prev => new Set([...prev, ...dp2]))
+            if (b < nbBatchesDP - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
+          }
+        }
       } catch {
         // silencieux — la liste s'affiche sans icônes en cas d'erreur
       } finally {
@@ -282,5 +305,5 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lignesKey])
 
-  return { detections, distributionsAuto, detectionsApprox, chargement, ajouterDetection }
+  return { detections, distributionsAuto, detectionsApprox, detectionDoublePaiement, chargement, ajouterDetection }
 }

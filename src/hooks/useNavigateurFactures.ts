@@ -278,6 +278,30 @@ export async function detecterAutoSilencieux(
   }
 }
 
+// Vérifie si une ligne bancaire correspond à une facture déjà soldée (double paiement probable).
+// Uniquement par numéro de facture — précision maximale, pas de faux positifs sur nom/client seul.
+export async function detecterDoublePaiementSilencieux(
+  ligne: LigneBancaireAvecStatut,
+  formats: string[],
+): Promise<boolean> {
+  try {
+    const patterns = formats.map(exempleVersRegex).filter((r): r is RegExp => r !== null)
+    const fallback = fallbackNumerique(formats)
+    const allPatterns = fallback ? [...patterns, fallback] : patterns
+    const nums = extraireNumerosTexte(ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns)
+    if (!nums.length) return false
+    const { data } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select('montant_ttc, reste_du')
+      .or(nums.map(n => `numero_piece.ilike.%${n}%`).join(','))
+      .limit(10)
+    if (!data?.length) return false
+    return (data as { montant_ttc: number; reste_du: number }[]).some(
+      f => Math.abs(f.reste_du) <= TOLERANCE_CENT && Math.abs(f.montant_ttc - ligne.restant) <= TOLERANCE_CENT
+    )
+  } catch { return false }
+}
+
 async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
   if (!nums.length) return []
   try {
