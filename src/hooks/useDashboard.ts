@@ -78,6 +78,10 @@ function computeBalanceAgee(factures: FactureDetail[]): TrancheAge[] {
   ]
 }
 
+function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function computeEncaissements(
   raw: { date_operation: string; credit: number }[],
   periode: PeriodeEncaissement
@@ -89,22 +93,19 @@ function computeEncaissements(
   if (periode === 'jour') {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now); d.setDate(d.getDate() - i)
-      const iso = d.toISOString().slice(0, 10)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: iso, end: iso })
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: isoDate(d), end: isoDate(d) })
     }
   } else if (periode === 'semaine') {
     for (let i = 11; i >= 0; i--) {
       const end = new Date(now); end.setDate(end.getDate() - i * 7)
       const start = new Date(end); start.setDate(start.getDate() - 6)
-      const s = start.toISOString().slice(0, 10), e = end.toISOString().slice(0, 10)
-      buckets.push({ label: `S ${start.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`, start: s, end: e })
+      buckets.push({ label: `S ${start.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`, start: isoDate(start), end: isoDate(end) })
     }
   } else if (periode === 'mois') {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const endD = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-      const s = d.toISOString().slice(0, 10), e = endD.toISOString().slice(0, 10)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: s, end: e })
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: isoDate(d), end: isoDate(endD) })
     }
   } else if (periode === 'trimestre') {
     const cQ = Math.floor(now.getMonth() / 3)
@@ -113,8 +114,7 @@ function computeEncaissements(
       while (qIdx < 0) { qIdx += 4; yr-- }
       const startD = new Date(yr, qIdx * 3, 1)
       const endD = new Date(yr, qIdx * 3 + 3, 0)
-      const s = startD.toISOString().slice(0, 10), e = endD.toISOString().slice(0, 10)
-      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: s, end: e })
+      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: isoDate(startD), end: isoDate(endD) })
     }
   } else {
     for (let i = 1; i >= 0; i--) {
