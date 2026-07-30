@@ -246,27 +246,29 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
         setDistributionsAuto(distribMap)
         setDetectionsApprox(detectedApprox)
 
-        // ── Passe 2 : relance ciblée sur les non résolus, sans slice ────────
+        // ── Passe 2 : lots séquentiels — couverture maximale sans surcharge Supabase ──
         const nonResolus = candidats.filter(l => !detected.has(l.id_operation) && l.restant >= 0.01)
-        if (nonResolus.length && !annule) {
-          const passe2 = await Promise.all(
-            nonResolus.slice(0, 15).map(l =>
-              detecterAutoSilencieux(l, formats).then(r => ({ id: l.id_operation, ligne: l, r }))
-            )
+        const BATCH = 20
+        const MAX_BATCHES = 10
+        const PAUSE_MS = 150
+        const nbBatches = Math.min(Math.ceil(nonResolus.length / BATCH), MAX_BATCHES)
+        for (let b = 0; b < nbBatches; b++) {
+          if (annule) break
+          const lot = nonResolus.slice(b * BATCH, (b + 1) * BATCH)
+          const resultats = await Promise.all(
+            lot.map(l => detecterAutoSilencieux(l, formats).then(r => ({ id: l.id_operation, ligne: l, r })))
           )
-          if (annule) return
+          if (annule) break
           const detected2 = new Set<string>()
           const distribMap2 = new Map<string, DistribAuto>()
-          for (const { id, ligne, r } of passe2) {
-            if (r) {
-              detected2.add(id)
-              distribMap2.set(id, { factures: r.factures, ligne })
-            }
+          for (const { id, ligne, r } of resultats) {
+            if (r) { detected2.add(id); distribMap2.set(id, { factures: r.factures, ligne }) }
           }
           if (detected2.size > 0) {
             setDetections(prev => new Set([...prev, ...detected2]))
             setDistributionsAuto(prev => new Map([...prev, ...distribMap2]))
           }
+          if (b < nbBatches - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
         }
       } catch {
         // silencieux — la liste s'affiche sans icônes en cas d'erreur
