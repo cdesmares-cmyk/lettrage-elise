@@ -9,16 +9,18 @@ function fmtK(n: number)    { return n >= 1000 ? _fmtK.format(n / 1000) + 'k€'
 function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 
 const PERIODES: { val: PeriodeEncaissement; label: string }[] = [
-  { val: 'semaine',   label: 'Semaine'    },
-  { val: 'mois',      label: '12 mois'   },
+  { val: 'jour',      label: '7 jours'    },
+  { val: 'semaine',   label: '12 sem.'    },
+  { val: 'mois',      label: '12 mois'    },
   { val: 'trimestre', label: 'Trimestres' },
-  { val: 'annee',     label: 'Années'    },
+  { val: 'annee',     label: 'Années'     },
 ]
 
 function TooltipCustom({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; fill: string }[]; label?: string }) {
   if (!active || !payload?.length) return null
+  const total = payload.reduce((s, p) => s + p.value, 0)
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2.5 text-xs min-w-[160px]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2.5 text-xs min-w-[180px]">
       <p className="font-semibold text-gray-600 mb-1.5">{label}</p>
       {payload.map(p => (
         <div key={p.name} className="flex items-center justify-between gap-4">
@@ -29,17 +31,23 @@ function TooltipCustom({ active, payload, label }: { active?: boolean; payload?:
           <span className="font-mono font-semibold text-gray-800 tabular-nums">{fmtEuro(p.value)}</span>
         </div>
       ))}
+      {payload.length > 1 && total > 0 && (
+        <div className="flex items-center justify-between gap-4 mt-1.5 pt-1.5 border-t border-gray-100">
+          <span className="text-gray-400">Total</span>
+          <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtEuro(total)}</span>
+        </div>
+      )}
     </div>
   )
 }
 
 export function BlocEncaissements({
   pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
-  afficherNm1, setAfficherNm1, labelPeriodePrec,
 }: Props) {
-  const totalCourant = pointsEncaissement.reduce((s, p) => s + p.courant, 0)
-  const totalPrec    = pointsEncaissement.reduce((s, p) => s + p.precedent, 0)
-  const evolution    = totalPrec > 0 ? ((totalCourant - totalPrec) / totalPrec) * 100 : null
+  const totalClient = pointsEncaissement.reduce((s, p) => s + p.client, 0)
+  const totalAutres = pointsEncaissement.reduce((s, p) => s + p.autres, 0)
+  const totalCourant = totalClient + totalAutres
+  const hasAutres = totalAutres > 0
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -49,46 +57,26 @@ export function BlocEncaissements({
           {totalCourant > 0 && (
             <span className="text-[11px] font-mono font-bold text-gray-600">{fmtEuro(totalCourant)}</span>
           )}
-          {afficherNm1 && evolution !== null && (
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-              evolution >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-            }`}>
-              {evolution >= 0 ? '▲' : '▼'} {Math.abs(evolution).toFixed(1)}% vs {labelPeriodePrec}
-            </span>
-          )}
         </div>
-
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1">
-            {PERIODES.map(p => (
-              <button
-                key={p.val}
-                onClick={() => setPeriodeEncaissement(p.val)}
-                className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${
-                  periodeEncaissement === p.val
-                    ? 'bg-ockham-navy text-white'
-                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <label className="flex items-center gap-1.5 cursor-pointer select-none">
-            <span className="text-[10px] text-gray-500 font-medium">{labelPeriodePrec}</span>
+        <div className="flex gap-1">
+          {PERIODES.map(p => (
             <button
-              onClick={() => setAfficherNm1(!afficherNm1)}
-              className={`relative rounded-full transition-colors ${afficherNm1 ? 'bg-ockham-teal' : 'bg-gray-200'}`}
-              style={{ width: 28, height: 16 }}
+              key={p.val}
+              onClick={() => setPeriodeEncaissement(p.val)}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded transition-colors ${
+                periodeEncaissement === p.val
+                  ? 'bg-ockham-navy text-white'
+                  : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
             >
-              <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${afficherNm1 ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+              {p.label}
             </button>
-          </label>
+          ))}
         </div>
       </div>
 
       <div className="p-5">
-        {pointsEncaissement.every(p => p.courant === 0 && p.precedent === 0) ? (
+        {pointsEncaissement.every(p => p.client === 0 && p.autres === 0) ? (
           <div className="flex items-center justify-center h-48 text-xs text-gray-400">
             Aucun encaissement enregistré sur la période
           </div>
@@ -99,13 +87,13 @@ export function BlocEncaissements({
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={46} />
               <Tooltip content={<TooltipCustom />} cursor={{ fill: '#f9fafb' }} />
-              {afficherNm1 && (
+              {hasAutres && (
                 <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
               )}
-              {afficherNm1 && (
-                <Bar dataKey="precedent" name={labelPeriodePrec} fill="#A7F3EE" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
+              <Bar dataKey="client" name="Crédits clients" stackId="a" fill="#4CC5BB" radius={hasAutres ? [0, 0, 0, 0] : [3, 3, 0, 0]} maxBarSize={36} />
+              {hasAutres && (
+                <Bar dataKey="autres" name="Autres (471)" stackId="a" fill="#1B2A4A" radius={[3, 3, 0, 0]} maxBarSize={36} />
               )}
-              <Bar dataKey="courant" name="Encaissements" fill="#4CC5BB" radius={[3, 3, 0, 0]} maxBarSize={afficherNm1 ? 18 : 36} />
             </ComposedChart>
           </ResponsiveContainer>
         )}

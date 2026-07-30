@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAppData } from '../contexts/AppDataContext'
 import type { FactureDetail } from '../types/client'
 
-export type PeriodeEncaissement = 'semaine' | 'mois' | 'trimestre' | 'annee'
+export type PeriodeEncaissement = 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee'
 export type TopNb = 5 | 10 | 15
 export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
@@ -13,7 +13,7 @@ export interface TopFacture {
   dateEcheance: string | null; joursRetard: number
 }
 export interface TrancheAge { label: string; montant: number }
-export interface PointEncaissement { label: string; courant: number; precedent: number }
+export interface PointEncaissement { label: string; client: number; autres: number }
 
 const _ref = new Date()
 _ref.setHours(0, 0, 0, 0)
@@ -79,32 +79,32 @@ function computeBalanceAgee(factures: FactureDetail[]): TrancheAge[] {
 }
 
 function computeEncaissements(
-  raw: { date_lettrage: string; montant: number }[],
+  raw: { date_lettrage: string; montant: number; code_client: string }[],
   periode: PeriodeEncaissement
 ): PointEncaissement[] {
-  type Bucket = { label: string; start: string; end: string; startP: string; endP: string }
+  type Bucket = { label: string; start: string; end: string }
   const buckets: Bucket[] = []
   const now = TODAY
 
-  function shiftAnIso(iso: string): string {
-    const d = new Date(iso); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10)
-  }
-  function shiftSemIso(iso: string): string {
-    const d = new Date(iso); d.setDate(d.getDate() - 7); return d.toISOString().slice(0, 10)
-  }
-
-  if (periode === 'semaine') {
+  if (periode === 'jour') {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now); d.setDate(d.getDate() - i)
       const iso = d.toISOString().slice(0, 10)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: iso, end: iso, startP: shiftSemIso(iso), endP: shiftSemIso(iso) })
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: iso, end: iso })
+    }
+  } else if (periode === 'semaine') {
+    for (let i = 11; i >= 0; i--) {
+      const end = new Date(now); end.setDate(end.getDate() - i * 7)
+      const start = new Date(end); start.setDate(start.getDate() - 6)
+      const s = start.toISOString().slice(0, 10), e = end.toISOString().slice(0, 10)
+      buckets.push({ label: `S ${start.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`, start: s, end: e })
     }
   } else if (periode === 'mois') {
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       const endD = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
       const s = d.toISOString().slice(0, 10), e = endD.toISOString().slice(0, 10)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: s, end: e, startP: shiftAnIso(s), endP: shiftAnIso(e) })
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: s, end: e })
     }
   } else if (periode === 'trimestre') {
     const cQ = Math.floor(now.getMonth() / 3)
@@ -114,20 +114,23 @@ function computeEncaissements(
       const startD = new Date(yr, qIdx * 3, 1)
       const endD = new Date(yr, qIdx * 3 + 3, 0)
       const s = startD.toISOString().slice(0, 10), e = endD.toISOString().slice(0, 10)
-      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: s, end: e, startP: shiftAnIso(s), endP: shiftAnIso(e) })
+      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: s, end: e })
     }
   } else {
     for (let i = 1; i >= 0; i--) {
       const yr = now.getFullYear() - i
-      buckets.push({ label: String(yr), start: `${yr}-01-01`, end: `${yr}-12-31`, startP: `${yr - 1}-01-01`, endP: `${yr - 1}-12-31` })
+      buckets.push({ label: String(yr), start: `${yr}-01-01`, end: `${yr}-12-31` })
     }
   }
 
-  return buckets.map(b => ({
-    label: b.label,
-    courant: raw.filter(l => l.date_lettrage >= b.start && l.date_lettrage <= b.end).reduce((s, l) => s + l.montant, 0),
-    precedent: raw.filter(l => l.date_lettrage >= b.startP && l.date_lettrage <= b.endP).reduce((s, l) => s + l.montant, 0),
-  }))
+  return buckets.map(b => {
+    const dans = raw.filter(l => l.date_lettrage >= b.start && l.date_lettrage <= b.end)
+    return {
+      label: b.label,
+      client: dans.filter(l => l.code_client !== '471').reduce((s, l) => s + l.montant, 0),
+      autres: dans.filter(l => l.code_client === '471').reduce((s, l) => s + l.montant, 0),
+    }
+  })
 }
 
 export function useDashboard() {
@@ -135,19 +138,18 @@ export function useDashboard() {
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
-  const [afficherNm1, setAfficherNm1] = useState(false)
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
-  const [lettragesRaw, setLettragesRaw] = useState<{ date_lettrage: string; montant: number }[]>([])
+  const [lettragesRaw, setLettragesRaw] = useState<{ date_lettrage: string; montant: number; code_client: string }[]>([])
   const [chargement, setChargement] = useState(true)
 
   // Encaissements 24 mois — indépendant de moisMax
   useEffect(() => {
     const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
-    supabase.from('lettrages').select('date_lettrage, montant')
+    supabase.from('lettrages').select('date_lettrage, montant, code_client')
       .gte('date_lettrage', il24Mois.toISOString().slice(0, 10))
       .gt('montant', 0).order('date_lettrage').limit(20000)
       .then(({ data }) => {
-        if (data) setLettragesRaw(data as { date_lettrage: string; montant: number }[])
+        if (data) setLettragesRaw(data as { date_lettrage: string; montant: number; code_client: string }[])
         setChargement(false)
       })
   }, [])
@@ -241,8 +243,6 @@ export function useDashboard() {
     topClients, topNbClients, setTopNbClients,
     topFactures, balanceAgee,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
-    afficherNm1, setAfficherNm1,
-    labelPeriodePrec: ({ semaine: 'S-1', mois: 'M-1', trimestre: 'T-1', annee: 'N-1' } as const)[periodeEncaissement],
     encoursCourant, chargement,
     factures, clients,
   }
