@@ -79,7 +79,7 @@ function computeBalanceAgee(factures: FactureDetail[]): TrancheAge[] {
 }
 
 function computeEncaissements(
-  raw: { date_lettrage: string; montant: number; code_client: string }[],
+  raw: { date_operation: string; credit: number }[],
   periode: PeriodeEncaissement
 ): PointEncaissement[] {
   type Bucket = { label: string; start: string; end: string }
@@ -123,14 +123,11 @@ function computeEncaissements(
     }
   }
 
-  return buckets.map(b => {
-    const dans = raw.filter(l => l.date_lettrage >= b.start && l.date_lettrage <= b.end)
-    return {
-      label: b.label,
-      client: dans.filter(l => l.code_client !== '471').reduce((s, l) => s + l.montant, 0),
-      autres: dans.filter(l => l.code_client === '471').reduce((s, l) => s + l.montant, 0),
-    }
-  })
+  return buckets.map(b => ({
+    label: b.label,
+    client: raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end).reduce((s, l) => s + l.credit, 0),
+    autres: 0,
+  }))
 }
 
 export function useDashboard() {
@@ -139,17 +136,20 @@ export function useDashboard() {
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
-  const [lettragesRaw, setLettragesRaw] = useState<{ date_lettrage: string; montant: number; code_client: string }[]>([])
+  const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; credit: number }[]>([])
   const [chargement, setChargement] = useState(true)
 
-  // Encaissements 24 mois — indépendant de moisMax
+  // Crédits bancaires 24 mois — date_operation = argent réellement reçu en banque
   useEffect(() => {
     const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
-    supabase.from('lettrages').select('date_lettrage, montant, code_client')
-      .gte('date_lettrage', il24Mois.toISOString().slice(0, 10))
-      .gt('montant', 0).order('date_lettrage').limit(20000)
+    supabase.from('lignes_bancaires').select('date_operation, credit')
+      .gte('date_operation', il24Mois.toISOString().slice(0, 10))
+      .not('credit', 'is', null)
+      .gt('credit', 0)
+      .order('date_operation')
+      .limit(20000)
       .then(({ data }) => {
-        if (data) setLettragesRaw(data as { date_lettrage: string; montant: number; code_client: string }[])
+        if (data) setEncaissementsRaw(data as { date_operation: string; credit: number }[])
         setChargement(false)
       })
   }, [])
@@ -227,7 +227,7 @@ export function useDashboard() {
   const topClients = useMemo(() => computeTopClients(facsFiltrees, topNbClients), [facsFiltrees, topNbClients])
   const topFactures = useMemo(() => computeTopFactures(facsFiltrees), [facsFiltrees])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsFiltrees), [facsFiltrees])
-  const pointsEncaissement = useMemo(() => computeEncaissements(lettragesRaw, periodeEncaissement), [lettragesRaw, periodeEncaissement])
+  const pointsEncaissement = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
 
   const moisExclusLabel = moisMax
     ? new Date(moisMax + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
