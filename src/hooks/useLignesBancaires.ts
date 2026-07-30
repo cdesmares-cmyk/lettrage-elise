@@ -13,7 +13,7 @@ interface RowLigne {
   en_attente_411: boolean; est_virement_471: boolean
 }
 
-interface RowTotaux { statut_lettrage: string; restant: number }
+interface KpisRow { nb_lignes_global: number; nb_non_lettres: number; nb_en_attente_411: number; montant_restant: number }
 
 export type FiltreStatut = 'toutes' | 'a_lettrer' | 'partiel' | 'lettre' | 'compte' | 'autres_virements'
 
@@ -98,27 +98,28 @@ export function useLignesBancaires() {
           : qCount.or(textFilters)
       }
 
-      // Requête KPI globale (sans filtre statut ni limite, hors débits)
-      let qTotaux = supabase
-        .from('v_lignes_bancaires_avec_statut')
-        .select('statut_lettrage, restant')
-        .neq('statut_lettrage', 'debit')
-      if (dateDebut) qTotaux = qTotaux.gte('date_operation', dateDebut)
-      if (dateFin)   qTotaux = qTotaux.lte('date_operation', dateFin)
-
-      const [{ data }, { count }, { data: dataTotaux }] = await Promise.all([q, qCount, qTotaux])
+      const [{ data }, { count }, kpisResult] = await Promise.all([
+        q,
+        qCount,
+        // @ts-expect-error fn_kpis_lignes_bancaires absente du schéma généré
+        supabase.rpc('fn_kpis_lignes_bancaires', {
+          p_date_debut: dateDebut || null,
+          p_date_fin:   dateFin   || null,
+        }),
+      ])
       if (annule) return
 
       const rows = (data as unknown as RowLigne[]) ?? []
       setLignes(rows.map(r => ({ ...r, statut_lettrage: r.statut_lettrage as StatutLettrage, en_attente_411: r.en_attente_411 ?? false, est_virement_471: r.est_virement_471 ?? false })))
       setTotalLignes(count ?? 0)
 
-      const nonDebits = (dataTotaux as unknown as RowTotaux[]) ?? []
-      setNbLignesGlobal(nonDebits.length)
-      setNbEnAttente471(nonDebits.filter((r: RowTotaux) => r.statut_lettrage === 'en_attente_411').length)
-      const nonDebitsActifs = nonDebits.filter((r: RowTotaux) => r.statut_lettrage !== 'en_attente_411')
-      setNbNonLettres(nonDebitsActifs.filter((r: RowTotaux) => r.statut_lettrage === 'non_lettre' || r.statut_lettrage === 'partiel').length)
-      setMontantRestant(nonDebitsActifs.reduce((s: number, r: RowTotaux) => s + Math.max(0, r.restant), 0))
+      const kpis = ((kpisResult.data as unknown as KpisRow[]) ?? [])[0]
+      if (kpis) {
+        setNbLignesGlobal(Number(kpis.nb_lignes_global))
+        setNbEnAttente471(Number(kpis.nb_en_attente_411))
+        setNbNonLettres(Number(kpis.nb_non_lettres))
+        setMontantRestant(Number(kpis.montant_restant))
+      }
 
       setChargement(false)
     }
