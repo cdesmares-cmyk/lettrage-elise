@@ -150,10 +150,17 @@ export function useLettrageForm(
   function peutValider(): boolean {
     if (!ligneActive || !lignesForme.length) return false
     const disp = ligneActive.restant ?? 0
-    const attribue = Math.round(lignesForme.reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100) / 100
-    if (attribue > disp + TOLERANCE_CENT) return false
+    // attente_411 / compte_client / 471 : input désactivé, l.montant est toujours ''.
+    // Ils absorbent implicitement le crédit restant → ne pas les inclure dans la somme explicite.
+    const implicitClasses = new Set(['attente_411', 'compte_client', '471'])
+    const hasImplicit = lignesForme.some(l => implicitClasses.has(l.classe))
+    const attribueExplicite = Math.round(
+      lignesForme.filter(l => !implicitClasses.has(l.classe)).reduce((s, l) => s + (parseFloat(l.montant) || 0), 0) * 100
+    ) / 100
+    if (attribueExplicite > disp + TOLERANCE_CENT) return false
+    const attribue = hasImplicit ? disp : attribueExplicite
     if (attribue <= TOLERANCE_CENT) return false
-    const restantCalc = Math.round((disp - attribue) * 100) / 100
+    const restantCalc = Math.round((disp - attribueExplicite) * 100) / 100
     return lignesForme.every(l => {
       if (l.classe === 'facture' || l.classe === 'cheque' || l.classe === 'lcr') {
         if (!l.info_facture || !l.montant) return false
