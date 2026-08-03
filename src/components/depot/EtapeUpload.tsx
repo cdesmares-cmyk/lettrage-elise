@@ -49,8 +49,8 @@ const CONFIG: Record<TypeFichier, { accept: string; extensions: string[]; label:
     accept: ACCEPT_TOUS,
     extensions: EXT_TOUS,
     label: 'Contacts',
-    nomModele: 'modele_contacts.csv',
-    modeleXlsx: false,
+    nomModele: 'modele_contacts.xlsx',
+    modeleXlsx: true,
   },
 }
 
