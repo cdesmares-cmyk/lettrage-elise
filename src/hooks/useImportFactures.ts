@@ -87,18 +87,6 @@ export function useImportFactures() {
     mapping: LigneMapping[],
     hash: string
   ): Promise<ResultatValidation> {
-    // Anti-replay au niveau fichier
-    const { data: d1 } = await supabase
-      .from('imports')
-      .select('id, cree_le')
-      .eq('hash_fichier', hash)
-      .maybeSingle()
-    const dejaimporte = d1 as unknown as RowImportRef | null
-    if (dejaimporte) {
-      const d = new Date(dejaimporte.cree_le).toLocaleDateString('fr-FR')
-      throw new Error(`Ce fichier a déjà été importé le ${d}.`)
-    }
-
     const { lignes } = await parserFichier(fichier)
     const colPivot = mapping.find(m => m.champ_cible === 'numero_piece')?.colonne_source
     if (!colPivot) throw new Error('La colonne N° de pièce (pivot) doit être mappée.')
@@ -125,7 +113,7 @@ export function useImportFactures() {
       rows?.forEach(r => clientsEnBase.set(r.code_dso, r.nom))
     }
 
-    // Vérification par lots de 500
+    // Vérification doublons par lots de 500
     const existantes = new Set<string>()
     for (let i = 0; i < toutesLesCles.length; i += 500) {
       const { data: d2 } = await supabase
@@ -136,10 +124,43 @@ export function useImportFactures() {
       rows?.forEach(r => existantes.add(r.numero_piece))
     }
 
-    // Doublons vs base de données
-    const candidats = lignes.filter(l => !existantes.has(String(l[colPivot] ?? '')))
+    // Catégorisation : nouveaux / mise à jour reste_du / doublons ignorés
+    // Les doublons avec reste_du non-null → UPDATE uniquement (pas d'INSERT, pas de hash-check)
+    const candidats: typeof lignes = []
+    const lignesMajMap = new Map<string, number>() // numero_piece → reste_du (dernière occurrence gagne)
+    const vraisDoublons: typeof lignes = []
 
-    // Doublons intra-fichier : même clé pivot en double dans le fichier
+    for (const l of lignes) {
+      const cle = String(l[colPivot] ?? '')
+      if (!existantes.has(cle)) {
+        candidats.push(l)
+      } else {
+        const mapped = appliquerMapping(l, mapping)
+        const restedu = mapped['reste_du']
+        if (typeof restedu === 'number') {
+          lignesMajMap.set(cle, restedu)
+        } else {
+          vraisDoublons.push(l)
+        }
+      }
+    }
+    const lignes_a_mettre_a_jour = [...lignesMajMap.entries()].map(([numero_piece, reste_du]) => ({ numero_piece, reste_du }))
+
+    // Anti-replay uniquement quand il y a de nouvelles lignes à insérer
+    if (candidats.length > 0) {
+      const { data: d1 } = await supabase
+        .from('imports')
+        .select('id, cree_le')
+        .eq('hash_fichier', hash)
+        .maybeSingle()
+      const dejaimporte = d1 as unknown as RowImportRef | null
+      if (dejaimporte) {
+        const d = new Date(dejaimporte.cree_le).toLocaleDateString('fr-FR')
+        throw new Error(`Ce fichier a déjà été importé le ${d}.`)
+      }
+    }
+
+    // Doublons intra-fichier parmi les candidats (nouveaux)
     const vuesDansFichier = new Set<string>()
     const nouvelles: typeof lignes = []
     const doublonsIntraFichier: typeof lignes = []
@@ -149,15 +170,22 @@ export function useImportFactures() {
       else { vuesDansFichier.add(cle); nouvelles.push(l) }
     }
 
-    // Aperçu avec détection de doublon en ordre de lecture
+    // Aperçu : nouveau / modification / doublon
     const vuesApercu = new Set<string>()
     const apercu = lignes.slice(0, 10).map(l => {
       const cle = String(l[colPivot] ?? '')
-      const estDoublon = existantes.has(cle) || vuesApercu.has(cle)
+      let statut: 'nouveau' | 'doublon' | 'modification'
+      if (existantes.has(cle)) {
+        statut = lignesMajMap.has(cle) ? 'modification' : 'doublon'
+      } else if (vuesApercu.has(cle)) {
+        statut = 'doublon'
+      } else {
+        statut = 'nouveau'
+      }
       vuesApercu.add(cle)
       return {
         donnees: Object.fromEntries(Object.entries(l).map(([k, v]) => [k, String(v ?? '')])),
-        statut: estDoublon ? 'doublon' as const : 'nouveau' as const,
+        statut: statut as 'nouveau' | 'doublon' | 'modification',
         cle_pivot: cle,
       }
     })
@@ -202,10 +230,12 @@ export function useImportFactures() {
 
     return {
       lignes_a_inserer,
+      lignes_a_mettre_a_jour: lignes_a_mettre_a_jour.length > 0 ? lignes_a_mettre_a_jour : undefined,
       apercu,
       nb_total: lignes.length,
       nb_nouvelles: lignes_a_inserer.length,
-      nb_doublons: (lignes.length - candidats.length) + doublonsIntraFichier.length,
+      nb_mises_a_jour: lignes_a_mettre_a_jour.length > 0 ? lignes_a_mettre_a_jour.length : undefined,
+      nb_doublons: vraisDoublons.length + doublonsIntraFichier.length,
       nb_invalides: nb_invalides > 0 ? nb_invalides : undefined,
       total_ttc_fichier: totalTtcFichier,
       noms_differents: noms_differents.length > 0 ? noms_differents : undefined,
@@ -273,7 +303,7 @@ export function useImportFactures() {
       const importRec = d3 as unknown as RowImportId | null
       if (!importRec) throw new Error('Enregistrement d\'import non créé.')
 
-      // 3. Insertion des factures par lots de 500 (import_id tracé pour annulation)
+      // 3. Insertion des nouvelles factures par lots de 500 (import_id tracé pour annulation)
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500).map((l: Record<string, unknown>) => ({
@@ -286,6 +316,20 @@ export function useImportFactures() {
       } catch (err) {
         await supabase.from('imports').delete().eq('id', importRec.id)
         throw err
+      }
+
+      // 4. Mise à jour reste_du uniquement pour les doublons avec solde fourni
+      // UPDATE direct sur factures — le trigger sync_reste_du ne se déclenche pas (il surveille lettrages)
+      if (resultat.lignes_a_mettre_a_jour?.length) {
+        const mises = resultat.lignes_a_mettre_a_jour
+        const BATCH = 50
+        for (let i = 0; i < mises.length; i += BATCH) {
+          await Promise.all(
+            mises.slice(i, i + BATCH).map(l =>
+              supabase.from('factures').update({ reste_du: l.reste_du } as never).eq('numero_piece', l.numero_piece)
+            )
+          )
+        }
       }
 
       // Récupération ciblée des PDFs Axonaut pour les factures importées

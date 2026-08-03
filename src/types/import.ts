@@ -41,9 +41,11 @@ export interface LigneApercu {
 // Résultat de la préparation (étape mapping → validation)
 export interface ResultatValidation {
   lignes_a_inserer: Record<string, unknown>[]
+  lignes_a_mettre_a_jour?: { numero_piece: string; reste_du: number }[]  // xlsx_factures : doublons avec reste_du → UPDATE uniquement
   apercu: LigneApercu[]
   nb_total: number
   nb_nouvelles: number
+  nb_mises_a_jour?: number            // xlsx_factures : nombre de factures dont seul reste_du sera écrasé
   nb_doublons: number
   nb_avertissements?: number  // lettrages sur factures déjà soldées (sur-paiement)
   nb_invalides?: number       // factures introuvables en base
