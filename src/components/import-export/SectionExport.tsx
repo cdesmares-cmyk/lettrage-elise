@@ -24,7 +24,7 @@ async function fetchAll<T>(
   return acc
 }
 
-type TypeExport = 'lettrage' | 'contacts' | 'clients' | 'relances'
+type TypeExport = 'factures' | 'lettrage' | 'contacts' | 'clients' | 'relances'
 
 const OPTIONS: {
   type: TypeExport
@@ -33,6 +33,13 @@ const OPTIONS: {
   description: string
   info: string
 }[] = [
+  {
+    type: 'factures',
+    icone: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+    titre: 'Factures',
+    description: 'Toutes les factures avec leur solde actuel — format identique à l\'import, prêt à être corrigé et ré-importé.',
+    info: 'Export instantané. Par défaut : factures non soldées uniquement (reste_du > 0). Décochez pour tout exporter.',
+  },
   {
     type: 'lettrage',
     icone: <IcBarChart size={26} />,
@@ -138,13 +145,79 @@ function genererCSVContacts(contacts: RowContact[]): string {
   return [entete.join(','), ...lignes].join('\n')
 }
 
+interface RowFacture {
+  numero_piece: string
+  code_client: string
+  nom_client: string | null
+  date_emission: string | null
+  date_echeance: string | null
+  montant_ht: number | null
+  montant_ttc: number
+  est_avoir: boolean
+  reste_du: number
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return ''
+  const s = iso.split('T')[0]
+  const [y, m, d] = s.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function exporterFacturesXlsx(factures: RowFacture[]) {
+  const lignes = factures.map(f => ({
+    'numero_piece':  f.numero_piece,
+    'code_client':   f.code_client,
+    'nom_client':    f.nom_client ?? '',
+    'date_emission': fmtDate(f.date_emission),
+    'date_echeance': fmtDate(f.date_echeance),
+    'montant_ht':    f.montant_ht ?? '',
+    'montant_ttc':   f.montant_ttc,
+    'est_avoir':     f.est_avoir ? 'A' : 'F',
+    'reste_du':      f.reste_du,
+  }))
+  const ws = XLSX.utils.json_to_sheet(lignes)
+  ws['!cols'] = [
+    { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 14 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Factures')
+  XLSX.writeFile(wb, `factures_${new Date().toISOString().split('T')[0]}.xlsx`)
+}
+
 export function SectionExport() {
   const [type, setType] = useState<TypeExport | null>(null)
   const [dateDebut, setDateDebut] = useState(debutMoisCourant)
   const [dateFin, setDateFin] = useState(today)
   const [chargement, setChargement] = useState(false)
+  const [facturesSoldees, setFacturesSoldees] = useState(false)
 
   const optionSelectionnee = OPTIONS.find(o => o.type === type)
+
+  async function handleExportFactures() {
+    setChargement(true)
+    try {
+      const factures = await fetchAll<RowFacture>((from, to) => {
+        let q = supabase
+          .from('v_factures_avec_reste_du')
+          .select('numero_piece, code_client, nom_client, date_emission, date_echeance, montant_ht, montant_ttc, est_avoir, reste_du')
+          .not('numero_piece', 'like', '411_%')
+          .order('code_client')
+          .order('date_emission')
+          .range(from, to)
+        if (!facturesSoldees) q = q.gt('reste_du', 0.005)
+        return q
+      })
+      if (factures.length === 0) { toast('Aucune facture à exporter', { icon: 'ℹ️' }); return }
+      exporterFacturesXlsx(factures)
+      toast.success(`${factures.length.toLocaleString('fr-FR')} facture${factures.length > 1 ? 's' : ''} exportée${factures.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Erreur lors de l\'export des factures')
+    } finally {
+      setChargement(false)
+    }
+  }
 
   async function handleExportLettrage() {
     if (!dateDebut || !dateFin) { toast.error('Veuillez sélectionner une période'); return }
@@ -339,6 +412,37 @@ export function SectionExport() {
         </div>
 
         {/* Panneau de configuration — affiché une fois le type choisi */}
+        {type === 'factures' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <div className="flex items-start justify-between flex-wrap gap-4">
+              <div className="space-y-3">
+                <div className="text-[11px] text-gray-500">
+                  <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                  <p>numero_piece · code_client · nom_client · date_emission · date_echeance</p>
+                  <p>montant_ht · montant_ttc · est_avoir (F/A) · <strong className="text-gray-600">reste_du</strong></p>
+                  <p className="mt-1 text-gray-400">Format identique à l'import — ré-importable directement après correction des soldes.</p>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={facturesSoldees}
+                    onChange={e => setFacturesSoldees(e.target.checked)}
+                    className="w-3.5 h-3.5 accent-ockham-teal"
+                  />
+                  <span className="text-xs text-gray-600">Inclure les factures soldées (reste_du = 0)</span>
+                </label>
+              </div>
+              <button
+                onClick={handleExportFactures}
+                disabled={chargement}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+              >
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
+              </button>
+            </div>
+          </div>
+        )}
+
         {type === 'lettrage' && (
           <div className="border border-gray-200 rounded-xl p-5">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Plage de dates</p>
