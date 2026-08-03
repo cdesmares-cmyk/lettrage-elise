@@ -38,7 +38,7 @@ const OPTIONS: {
     icone: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
     titre: 'Factures',
     description: 'Toutes les factures avec leur solde actuel — format identique à l\'import, prêt à être corrigé et ré-importé.',
-    info: 'Export instantané. Par défaut : factures non soldées uniquement (reste_du > 0). Décochez pour tout exporter.',
+    info: 'Export instantané. Par défaut : toutes les pièces avec un solde ≠ 0 (factures, avoirs, comptes 411). Cochez pour exporter 100% des pièces.',
   },
   {
     type: 'lettrage',
@@ -429,7 +429,7 @@ export function SectionExport() {
                     onChange={e => setFacturesSoldees(e.target.checked)}
                     className="w-3.5 h-3.5 accent-ockham-teal"
                   />
-                  <span className="text-xs text-gray-600">Inclure les factures soldées (reste_du = 0)</span>
+                  <span className="text-xs text-gray-600">Inclure toutes les pièces soldées (reste_du = 0)</span>
                 </label>
               </div>
               <button
