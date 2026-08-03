@@ -9,9 +9,8 @@ interface Props { kpis: KpisCompteClient; chargement: boolean; rafraichissement?
 
 export function BarreKpis({ kpis, chargement, rafraichissement = false }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
-  const encoursNet   = kpis.encoursSommeNette
-  const avoirs       = kpis.encoursTotalAvoirs
-  const credits411   = kpis.encours411
+  const encoursNet = kpis.encoursSommeNette
+  const avoirs     = kpis.encoursTotalAvoirs
 
   return (
     <div className={`grid gap-3 mb-5 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr 1fr' }}>
@@ -31,13 +30,7 @@ export function BarreKpis({ kpis, chargement, rafraichissement = false }: Props)
           {fmt(encoursNet)}
         </p>
         <p className="text-[11px] text-gray-400 mt-1.5">
-          {avoirs > 0 && credits411 > 0
-            ? `avoirs ${fmt(avoirs)} · crédits 411 ${fmt(credits411)}`
-            : avoirs > 0
-            ? `dont ${fmt(avoirs)} d'avoirs déduits`
-            : credits411 > 0
-            ? `dont ${fmt(credits411)} de crédits 411 déduits`
-            : 'encours brut · aucun avoir'}
+          {avoirs > 0 ? `dont ${fmt(avoirs)} de débits déduits` : 'aucun débit client'}
         </p>
         <div style={{
           position: 'absolute', right: -30, top: -30,
@@ -51,7 +44,10 @@ export function BarreKpis({ kpis, chargement, rafraichissement = false }: Props)
       <div className="bg-white border border-red-100 rounded-xl px-4 py-3 shadow-sm">
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Factures en attente</p>
         <p className="text-xl font-extrabold tabular-nums text-red-600">{fmt(kpis.encoursTotalTtc)}</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">{kpis.nbFacturesAttente} pièce{kpis.nbFacturesAttente > 1 ? 's' : ''} · restant dû &gt; 0</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          {kpis.nbFacturesAttente} pièce{kpis.nbFacturesAttente > 1 ? 's' : ''} · restant dû &gt; 0
+          {kpis.nbAvoirsCredits > 0 && ` · dont ${kpis.nbAvoirsCredits} avoir${kpis.nbAvoirsCredits > 1 ? 's' : ''}`}
+        </p>
       </div>
 
       {/* Avoirs non soldés */}

@@ -169,14 +169,15 @@ export function PageCompteClient() {
     let facs = facturesActives
     if (factureDateDebut) facs = facs.filter(f => (f.date_emission ?? '') >= factureDateDebut)
     if (factureDateFin)   facs = facs.filter(f => (f.date_emission ?? '') <= factureDateFin)
-    const impayees = facs.filter(f => f.reste_du > 0.005 && !f.est_avoir)
+    const credits = facs.filter(f => f.reste_du > 0.005)
+    const debits  = facs.filter(f => f.reste_du < -0.005)
     return {
-      nbClientsActifs: new Set(impayees.map(f => f.code_client)).size,
+      nbClientsActifs: new Set(credits.map(f => f.code_client)).size,
       encoursSommeNette: facs.reduce((s, f) => s + f.reste_du, 0),
-      encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
-      encoursTotalAvoirs: facs.filter(f => f.est_avoir && f.reste_du < -0.005).reduce((s, f) => s + Math.abs(f.reste_du), 0),
-      nbFacturesAttente: impayees.length,
-      encours411: facs.filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005).reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      encoursTotalTtc: credits.reduce((s, f) => s + f.reste_du, 0),
+      encoursTotalAvoirs: debits.reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      nbFacturesAttente: credits.length,
+      nbAvoirsCredits: credits.filter(f => f.est_avoir).length,
     }
   }, [vue, factureDateDebut, factureDateFin, facturesActives, comptes.kpis])
 

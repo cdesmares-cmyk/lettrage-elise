@@ -69,18 +69,15 @@ export function useComptesClients() {
   }, [raw, recherche, facturesActives, codesFallback])
 
   const kpis = useMemo((): KpisCompteClient => {
-    const impayees = facturesActives.filter(f => f.reste_du > 0.005 && !f.est_avoir)
+    const credits = facturesActives.filter(f => f.reste_du > 0.005)
+    const debits  = facturesActives.filter(f => f.reste_du < -0.005)
     return {
       nbClientsActifs: clients.filter(c => c.encours_total > 0).length,
       encoursSommeNette: facturesActives.reduce((s, f) => s + f.reste_du, 0),
-      encoursTotalTtc: impayees.reduce((s, f) => s + f.reste_du, 0),
-      encoursTotalAvoirs: facturesActives
-        .filter(f => f.est_avoir && f.reste_du < 0)
-        .reduce((s, f) => s + Math.abs(f.reste_du), 0),
-      nbFacturesAttente: impayees.length,
-      encours411: facturesActives
-        .filter(f => f.numero_piece.startsWith('411_') && f.reste_du < -0.005)
-        .reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      encoursTotalTtc: credits.reduce((s, f) => s + f.reste_du, 0),
+      encoursTotalAvoirs: debits.reduce((s, f) => s + Math.abs(f.reste_du), 0),
+      nbFacturesAttente: credits.length,
+      nbAvoirsCredits: credits.filter(f => f.est_avoir).length,
     }
   }, [clients, facturesActives])
 
