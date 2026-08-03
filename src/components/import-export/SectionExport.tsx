@@ -202,11 +202,11 @@ export function SectionExport() {
         let q = supabase
           .from('v_factures_avec_reste_du')
           .select('numero_piece, code_client, nom_client, date_emission, date_echeance, montant_ht, montant_ttc, est_avoir, reste_du')
-          .not('numero_piece', 'like', '411_%')
+          .neq('numero_piece', '411_ATTENTE')
           .order('code_client')
           .order('date_emission')
           .range(from, to)
-        if (!facturesSoldees) q = q.gt('reste_du', 0.005)
+        if (!facturesSoldees) q = q.or('reste_du.gt.0.005,reste_du.lt.-0.005')
         return q
       })
       if (factures.length === 0) { toast('Aucune facture à exporter', { icon: 'ℹ️' }); return }
