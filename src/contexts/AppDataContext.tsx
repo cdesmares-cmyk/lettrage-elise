@@ -78,6 +78,7 @@ async function paginateFactures(initial: FactureDetail[]): Promise<FactureDetail
   while (all.length === offset) {
     const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
       .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+      .neq('numero_piece', '411_ATTENTE')
       .order('code_client', { ascending: true })
       .order('date_emission', { ascending: false })
       .range(offset, offset + PAGE - 1)
@@ -124,6 +125,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
           .or('reste_du.gt.0.005,reste_du.lt.-0.005')
+          .neq('numero_piece', '411_ATTENTE')
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(0, PAGE - 1),
