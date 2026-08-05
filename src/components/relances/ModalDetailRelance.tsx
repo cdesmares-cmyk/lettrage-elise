@@ -64,7 +64,7 @@ function renderStatutBadge(
 }
 
 export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
-  const { facturesActives, clients } = useAppData()
+  const { facturesActives, clients, mettreAJourStatutLocal } = useAppData()
   const { utilisateur } = useAuth()
 
   // ── Tous les hooks en tête, avant tout return conditionnel ──
@@ -147,6 +147,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
 
   async function changerStatutFac(numeroPiece: string, statut: StatutFacture | null) {
     setStatutsFac(prev => { const n = new Map(prev); n.set(numeroPiece, statut); return n })
+    mettreAJourStatutLocal(numeroPiece, statut)
     setPopupStatut(null)
     await supabase.from('factures').update({ statut_facture: statut } as never).eq('numero_piece', numeroPiece)
     toast.success(statut === 'litige' ? 'Facture passée en litige' : statut === 'provisionne' ? 'Facture provisionnée' : 'Statut effacé')
