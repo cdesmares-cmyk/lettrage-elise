@@ -7,52 +7,10 @@ import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from './ModalDetailRelance'
 
-// 1.1 · Badge "envoyee" = traitement minimal (blanc/gris) — les statuts exceptionnels gardent leur couleur
-const STATUTS: { val: StatutRelance; label: string; cls: string; dot: string; menuCls: string }[] = [
-  { val: 'brouillon',          label: 'Brouillon',            cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-400',    menuCls: 'text-gray-600' },
-  { val: 'envoyee',            label: 'Relance en cours',     cls: 'bg-white text-gray-400 border-gray-200',            dot: 'bg-blue-400',    menuCls: 'text-blue-700' },
-  { val: 'repondue',           label: 'Prise de contact',     cls: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500',  menuCls: 'text-violet-700' },
-  { val: 'promesse_paiement',  label: 'Promesse de paiement', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',    dot: 'bg-indigo-500',  menuCls: 'text-indigo-700' },
-  { val: 'sans_reponse',       label: 'Sans réponse',         cls: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400',   menuCls: 'text-amber-700' },
-  { val: 'payee',              label: 'Payée',                cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', menuCls: 'text-emerald-700' },
-]
+type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant'
 
-const STATUTS_ORDRE = ['envoyee', 'repondue', 'promesse_paiement', 'sans_reponse', 'payee']
-
-const TRANSITIONS: Partial<Record<StatutRelance, StatutRelance[]>> = {
-  envoyee:           ['repondue', 'sans_reponse', 'payee'],
-  sans_reponse:      ['repondue', 'payee'],
-  repondue:          ['promesse_paiement', 'payee'],
-  promesse_paiement: ['payee'],
-}
-
-const FILTRES_STATUT: { val: StatutRelance | 'tous'; label: string }[] = [
-  { val: 'tous',              label: 'Tous les statuts' },
-  { val: 'envoyee',           label: 'Relance en cours' },
-  { val: 'repondue',          label: 'Prise de contact' },
-  { val: 'promesse_paiement', label: 'Promesse de paiement' },
-  { val: 'sans_reponse',      label: 'Sans réponse' },
-  { val: 'payee',             label: 'Payée' },
-]
-
-type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'statut' | 'montant' | 'operateur'
-
-function BadgeStatut({ statut, peutModifier, onClick }: { statut: StatutRelance; peutModifier: boolean; onClick: (e: React.MouseEvent) => void }) {
-  const s = STATUTS.find(x => x.val === statut) ?? STATUTS[0]
-  const hasTransitions = !!TRANSITIONS[statut]?.length
-  const interactive = peutModifier && hasTransitions
-  return (
-    <button
-      onClick={interactive ? onClick : undefined}
-      className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-1 rounded-lg border whitespace-nowrap transition-all ${s.cls} ${
-        interactive ? 'cursor-pointer hover:brightness-95 hover:shadow-sm' : 'cursor-default'
-      }`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${s.dot}`} />
-      {s.label}
-      {interactive && <span className="opacity-40 text-[8px] ml-0.5">▾</span>}
-    </button>
-  )
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
 }
 
 function fmtEuros(n: number) {
@@ -91,9 +49,7 @@ interface Props {
 export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
-  const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
   const [recherche, setRecherche] = useState('')
-  const [popupStatut, setPopupStatut] = useState<{ id: string; top: number; left: number } | null>(null)
   const [relanceOuverteId, setRelanceOuverteId] = useState<string | null>(null)
   const relanceOuverte = relances.find(r => r.id === relanceOuverteId) ?? null
   const [filtreOpOuvert, setFiltreOpOuvert] = useState(false)
@@ -125,7 +81,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const totalActives = filtreOp === 'tous' ? actives.length : actives.filter(r => r.operateur_id === filtreOp).length
 
   const filtrees = actives.filter(r => {
-    if (filtreStatut !== 'tous' && r.statut !== filtreStatut) return false
     if (filtreOp !== 'tous' && r.operateur_id !== filtreOp) return false
     if (recherche.trim()) {
       const q = recherche.toLowerCase()
@@ -151,13 +106,11 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           const jb = b.envoyee_le ? joursDepuis(b.envoyee_le) : -1
           cmp = ja - jb; break
         }
-        case 'statut':   cmp = STATUTS_ORDRE.indexOf(a.statut) - STATUTS_ORDRE.indexOf(b.statut); break
-        case 'montant':  cmp = getMontant(a) - getMontant(b); break
-        case 'operateur': cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
+        case 'montant': cmp = getMontant(a) - getMontant(b); break
       }
       return triAsc ? cmp : -cmp
     })
-  }, [filtrees, tri, triAsc, clientsMap, opMap])
+  }, [filtrees, tri, triAsc, clientsMap])
 
   function toggleTri(col: ColSort) {
     if (tri === col) setTriAsc(v => !v)
@@ -173,24 +126,8 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   return (
     <div className="space-y-3">
-      {/* Barre filtres : pills statut + recherche + filtre opérateur (2.1 · icône) */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 gap-0.5">
-          {FILTRES_STATUT.map(f => (
-            <button
-              key={f.val}
-              onClick={() => setFiltreStatut(f.val)}
-              className={`text-[11px] font-semibold px-2.5 py-1 rounded-md transition-colors whitespace-nowrap ${
-                filtreStatut === f.val
-                  ? 'bg-ockham-navy text-white'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-
+      {/* Barre : recherche + filtre opérateur */}
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 min-w-[200px] flex-1 max-w-xs">
           <IcSearch size={13} className="text-gray-300 flex-shrink-0" />
           <input
@@ -204,7 +141,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           )}
         </div>
 
-        {/* 2.1 · Filtre opérateur derrière icône */}
         {operateursDispo.length > 0 && (
           <div className="relative">
             <button
@@ -217,9 +153,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
               }`}
             >
               <IcSliders size={12} />
-              {filtreOp !== 'tous' && (
-                <span className="font-semibold">{opMap.get(filtreOp)}</span>
-              )}
+              {filtreOp !== 'tous' && <span className="font-semibold">{opMap.get(filtreOp)}</span>}
             </button>
             {filtreOpOuvert && (
               <>
@@ -268,53 +202,55 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
             className="flex-1 bg-white border border-gray-100 rounded-xl overflow-y-auto"
             style={{ height: 520, scrollbarWidth: 'none', msOverflowStyle: 'none', overscrollBehavior: 'contain' } as React.CSSProperties}
           >
-          <table className="w-full text-sm">
-            <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_#f3f4f6]">
-              <tr className="border-b border-gray-100 bg-gray-50/60">
-                {/* 2.2 · 4 colonnes : CLIENT (+ code), J+, STATUT, MONTANT TTC */}
-                {([
-                  ['nom_client', 'Client'],
-                  ['jours',      'J+'],
-                  ['statut',     'Statut'],
-                  ['montant',    'Montant TTC'],
-                ] as [ColSort, string][]).map(([col, label]) => (
-                  <th
-                    key={col}
-                    onClick={() => toggleTri(col)}
-                    className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 py-3 cursor-pointer hover:text-ockham-teal select-none whitespace-nowrap"
-                  >
-                    {label}{fleche(col)}
-                  </th>
-                ))}
-                {peutModifier && <th className="px-3 py-3 w-16" />}
-              </tr>
-            </thead>
-            <tbody>
-              {affichees.map(r => {
-                const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
-                const nomClient = clientsMap.get(r.code_client) ?? '—'
-                const montant = getMontant(r)
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_#f3f4f6]">
+                <tr className="border-b border-gray-100 bg-gray-50/60">
+                  {([
+                    ['code_client', 'Code'],
+                    ['nom_client',  'Client'],
+                    ['envoyee_le',  'Envoyée le'],
+                    ['jours',       'J+'],
+                    ['montant',     'Montant TTC'],
+                  ] as [ColSort, string][]).map(([col, label]) => (
+                    <th
+                      key={col}
+                      onClick={() => toggleTri(col)}
+                      className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 py-3 cursor-pointer hover:text-ockham-teal select-none whitespace-nowrap"
+                    >
+                      {label}{fleche(col)}
+                    </th>
+                  ))}
+                  {peutModifier && <th className="px-3 py-3 w-16" />}
+                </tr>
+              </thead>
+              <tbody>
+                {affichees.map(r => {
+                  const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
 
-                return (
-                  <>
+                  return (
                     <tr
                       key={r.id}
                       onClick={() => setRelanceOuverteId(r.id)}
                       className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40"
                     >
-                      {/* CLIENT + code en secondaire */}
-                      <td className="px-3 py-2.5 max-w-[240px]">
-                        <div className="text-xs font-medium text-gray-700 truncate">{nomClient}</div>
-                        <div className="font-mono text-[10px] text-gray-400 mt-0.5">{r.code_client}</div>
+                      <td className="px-3 py-2.5 font-mono text-xs text-gray-400 whitespace-nowrap">
+                        {r.code_client}
                       </td>
 
-                      {/* 1.2 · J+ : rouge ≥30j, amber ≥10j, gris sinon */}
+                      <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[200px] truncate">
+                        {clientsMap.get(r.code_client) ?? '—'}
+                      </td>
+
+                      <td className="px-3 py-2.5 text-xs text-gray-400 tabular-nums whitespace-nowrap">
+                        {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
+                      </td>
+
                       <td className="px-3 py-2.5 text-center">
                         {jours !== null ? (
                           <span className={`text-[11px] font-bold tabular-nums ${
-                            r.statut === 'payee'                              ? 'text-gray-300' :
-                            jours >= 30 && r.statut === 'envoyee'            ? 'text-red-600'  :
-                            jours >= SEUIL_ALERTE && r.statut === 'envoyee'  ? 'text-amber-600' :
+                            r.statut === 'payee'                             ? 'text-gray-300'  :
+                            jours >= 30 && r.statut === 'envoyee'           ? 'text-red-600'   :
+                            jours >= SEUIL_ALERTE && r.statut === 'envoyee' ? 'text-amber-600' :
                             'text-gray-500'
                           }`}>
                             {jours === 0 ? 'Auj.' : `${jours}j`}
@@ -322,24 +258,10 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                         ) : <span className="text-gray-300">—</span>}
                       </td>
 
-                      {/* STATUT — 1.1 badge désaccentué pour 'envoyee' */}
-                      <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                        <BadgeStatut
-                          statut={r.statut}
-                          peutModifier={peutModifier && !r.archivee}
-                          onClick={e => {
-                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                            setPopupStatut(prev => prev?.id === r.id ? null : { id: r.id, top: rect.bottom + 6, left: rect.left })
-                          }}
-                        />
-                      </td>
-
-                      {/* MONTANT TTC */}
                       <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">
-                        {montant > 0 ? fmtEuros(montant) : '—'}
+                        {getMontant(r) > 0 ? fmtEuros(getMontant(r)) : '—'}
                       </td>
 
-                      {/* Archive */}
                       {peutModifier && (
                         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                           {!r.archivee && (
@@ -354,19 +276,17 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                         </td>
                       )}
                     </tr>
-                  </>
-                )
-              })}
-            </tbody>
-          </table>
-          {affichees.length > 10 && (
-            <div className="px-4 py-2 border-t border-gray-50 text-center text-[10px] text-gray-300">
-              {affichees.length} relances · défiler pour toutes les voir
-            </div>
-          )}
+                  )
+                })}
+              </tbody>
+            </table>
+            {affichees.length > 10 && (
+              <div className="px-4 py-2 border-t border-gray-50 text-center text-[10px] text-gray-300">
+                {affichees.length} relances · défiler pour toutes les voir
+              </div>
+            )}
           </div>
 
-          {/* Dots de scroll dynamiques */}
           {affichees.length > 10 && (() => {
             const active = scrollRatio < 0.33 ? 'top' : scrollRatio < 0.67 ? 'mid' : 'bot'
             const dot = (zone: 'top' | 'mid' | 'bot') =>
@@ -382,7 +302,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         </div>
       )}
 
-      {/* Modal détail relance */}
       <ModalDetailRelance
         relance={relanceOuverte}
         onFermer={() => setRelanceOuverteId(null)}
@@ -392,52 +311,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         commentaires={commentaires}
         onSauvegarderCommentaire={onSauvegarderCommentaire}
       />
-
-      {/* Overlay transparent pour fermer le popup statut au clic extérieur */}
-      {popupStatut && (
-        <div className="fixed inset-0 z-40" onClick={() => setPopupStatut(null)} />
-      )}
-
-      {/* Popover changement de statut */}
-      {popupStatut && (() => {
-        const relance = affichees.find(r => r.id === popupStatut.id)
-        if (!relance) return null
-        const options = TRANSITIONS[relance.statut] ?? []
-        const current = STATUTS.find(s => s.val === relance.statut)
-        return (
-          <div
-            className="fixed z-50 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden"
-            style={{ top: popupStatut.top, left: popupStatut.left, minWidth: 220 }}
-          >
-            <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Statut actuel</p>
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${current?.dot}`} />
-                <span className="text-[12px] font-semibold text-gray-700">{current?.label}</span>
-              </div>
-            </div>
-            <div className="py-1.5">
-              <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Passer à</p>
-              {options.map(val => {
-                const s = STATUTS.find(x => x.val === val)!
-                return (
-                  <button
-                    key={val}
-                    onClick={async () => {
-                      setPopupStatut(null)
-                      await onMajStatut(relance.id, val)
-                    }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors text-left group"
-                  >
-                    <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${s.dot}`} />
-                    <span className={`text-[13px] font-semibold ${s.menuCls} group-hover:opacity-90`}>{s.label}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )
-      })()}
     </div>
   )
 }
