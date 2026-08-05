@@ -49,22 +49,13 @@ export function BarreKpisRelances({ relances, filtreOp, chargement }: Props) {
   return (
     <div className={`grid gap-3 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr' }}>
 
-      {/* Hero — Total relances € */}
-      <div
-        className="rounded-xl border px-5 py-4 shadow-sm relative overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #fff 60%, #ECFDFB)', borderColor: '#CFEDE9' }}
-      >
+      {/* Hero — Total relances € : même traitement que les autres cartes, bordure gauche teal */}
+      <div className="bg-white rounded-xl px-5 py-4 shadow-sm" style={{ border: '1px solid #CFEDE9', borderLeftWidth: 3, borderLeftColor: '#4CC5BB' }}>
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Total relances actives</p>
         <p className="font-extrabold tabular-nums leading-tight" style={{ fontSize: 28, color: '#3BA89F' }}>
           {fmtEuros(totalMontant)}
         </p>
         <p className="text-[11px] text-gray-400 mt-1.5">{nbActives} relance{nbActives !== 1 ? 's' : ''} en cours</p>
-        <div style={{
-          position: 'absolute', right: -30, top: -30,
-          width: 130, height: 130, borderRadius: '50%',
-          background: 'conic-gradient(#4CC5BB 0 200deg, #E5E7EB 200deg 360deg)',
-          opacity: 0.12, pointerEvents: 'none',
-        }} />
       </div>
 
       {/* 4 blocs pipeline */}

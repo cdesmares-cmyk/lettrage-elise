@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
-import { IcSearch, IcClock } from '../Icones'
+import { IcSearch, IcSliders } from '../Icones'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -7,9 +7,10 @@ import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from './ModalDetailRelance'
 
+// 1.1 · Badge "envoyee" = traitement minimal (blanc/gris) — les statuts exceptionnels gardent leur couleur
 const STATUTS: { val: StatutRelance; label: string; cls: string; dot: string; menuCls: string }[] = [
   { val: 'brouillon',          label: 'Brouillon',            cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-400',    menuCls: 'text-gray-600' },
-  { val: 'envoyee',            label: 'Relance en cours',     cls: 'bg-blue-50 text-blue-700 border-blue-200',          dot: 'bg-blue-500',    menuCls: 'text-blue-700' },
+  { val: 'envoyee',            label: 'Relance en cours',     cls: 'bg-white text-gray-400 border-gray-200',            dot: 'bg-blue-400',    menuCls: 'text-blue-700' },
   { val: 'repondue',           label: 'Prise de contact',     cls: 'bg-violet-50 text-violet-700 border-violet-200',    dot: 'bg-violet-500',  menuCls: 'text-violet-700' },
   { val: 'promesse_paiement',  label: 'Promesse de paiement', cls: 'bg-indigo-50 text-indigo-700 border-indigo-200',    dot: 'bg-indigo-500',  menuCls: 'text-indigo-700' },
   { val: 'sans_reponse',       label: 'Sans réponse',         cls: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-400',   menuCls: 'text-amber-700' },
@@ -54,10 +55,6 @@ function BadgeStatut({ statut, peutModifier, onClick }: { statut: StatutRelance;
   )
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-}
-
 function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
@@ -65,7 +62,6 @@ function fmtEuros(n: number) {
 function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
-
 
 const SEUIL_ALERTE = 10
 
@@ -100,6 +96,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const [popupStatut, setPopupStatut] = useState<{ id: string; top: number; left: number } | null>(null)
   const [relanceOuverteId, setRelanceOuverteId] = useState<string | null>(null)
   const relanceOuverte = relances.find(r => r.id === relanceOuverteId) ?? null
+  const [filtreOpOuvert, setFiltreOpOuvert] = useState(false)
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -140,7 +137,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   const affichees = useMemo(() => {
     return [...filtrees].sort((a, b) => {
-      // Relances en alerte remontent en premier dans tous les cas
       const aAlert = estEnAlerte(a) ? 0 : 1
       const bAlert = estEnAlerte(b) ? 0 : 1
       if (aAlert !== bAlert) return aAlert - bAlert
@@ -177,7 +173,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
   return (
     <div className="space-y-3">
-      {/* Barre filtres ligne 1 : pills statut + recherche */}
+      {/* Barre filtres : pills statut + recherche + filtre opérateur (2.1 · icône) */}
       <div className="flex items-center gap-2 flex-wrap">
         <div className="flex items-center bg-white border border-gray-200 rounded-lg p-0.5 gap-0.5">
           {FILTRES_STATUT.map(f => (
@@ -208,15 +204,46 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           )}
         </div>
 
+        {/* 2.1 · Filtre opérateur derrière icône */}
         {operateursDispo.length > 0 && (
-          <select
-            value={filtreOp}
-            onChange={e => onFiltreOpChange(e.target.value)}
-            className="text-xs border border-gray-200 rounded-lg px-3 py-1.5 outline-none focus:border-ockham-teal bg-white text-gray-600"
-          >
-            <option value="tous">Tous les opérateurs</option>
-            {operateursDispo.map(o => <option key={o.id} value={o.id}>{o.nom}</option>)}
-          </select>
+          <div className="relative">
+            <button
+              onClick={() => setFiltreOpOuvert(v => !v)}
+              title="Filtrer par opérateur"
+              className={`flex items-center gap-1.5 text-xs border rounded-lg px-2.5 py-1.5 transition-colors ${
+                filtreOp !== 'tous'
+                  ? 'border-ockham-teal text-ockham-teal bg-ockham-teal-muted'
+                  : 'border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-500 bg-white'
+              }`}
+            >
+              <IcSliders size={12} />
+              {filtreOp !== 'tous' && (
+                <span className="font-semibold">{opMap.get(filtreOp)}</span>
+              )}
+            </button>
+            {filtreOpOuvert && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setFiltreOpOuvert(false)} />
+                <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-40 min-w-[160px] py-1 overflow-hidden">
+                  <button
+                    onClick={() => { onFiltreOpChange('tous'); setFiltreOpOuvert(false) }}
+                    className={`w-full text-left text-xs px-3 py-2 hover:bg-gray-50 transition-colors ${filtreOp === 'tous' ? 'font-semibold text-ockham-teal' : 'text-gray-600'}`}
+                  >
+                    Tous les opérateurs
+                  </button>
+                  {operateursDispo.map(o => (
+                    <button
+                      key={o.id}
+                      onClick={() => { onFiltreOpChange(o.id); setFiltreOpOuvert(false) }}
+                      className={`w-full text-left text-xs px-3 py-2 hover:bg-gray-50 transition-colors ${filtreOp === o.id ? 'font-semibold text-ockham-teal' : 'text-gray-600'}`}
+                    >
+                      {o.nom}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         )}
 
         <div className="ml-auto flex items-center gap-2">
@@ -244,19 +271,17 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_#f3f4f6]">
               <tr className="border-b border-gray-100 bg-gray-50/60">
+                {/* 2.2 · 4 colonnes : CLIENT (+ code), J+, STATUT, MONTANT TTC */}
                 {([
-                  ['code_client', 'Code'],
-                  ['nom_client',  'Client'],
-                  ['envoyee_le',  'Envoyée le'],
-                  ['jours',       'J+'],
-                  ['statut',      'Statut'],
-                  ['montant',     'Montant TTC'],
-                  ['operateur',   'Op.'],
+                  ['nom_client', 'Client'],
+                  ['jours',      'J+'],
+                  ['statut',     'Statut'],
+                  ['montant',    'Montant TTC'],
                 ] as [ColSort, string][]).map(([col, label]) => (
                   <th
                     key={col}
                     onClick={() => toggleTri(col)}
-                    className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider px-3 py-3 cursor-pointer hover:text-ockham-teal select-none whitespace-nowrap"
+                    className="text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 py-3 cursor-pointer hover:text-ockham-teal select-none whitespace-nowrap"
                   >
                     {label}{fleche(col)}
                   </th>
@@ -267,60 +292,54 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
             <tbody>
               {affichees.map(r => {
                 const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
-                const enRetard = jours !== null && jours >= SEUIL_ALERTE && r.statut === 'envoyee'
-                const alerte = estEnAlerte(r)
                 const nomClient = clientsMap.get(r.code_client) ?? '—'
                 const montant = getMontant(r)
-                const opNom = opMap.get(r.operateur_id) ?? ''
-                const rowCls = enRetard ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-gray-50/40'
 
                 return (
                   <>
                     <tr
                       key={r.id}
                       onClick={() => setRelanceOuverteId(r.id)}
-                      className={`transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 ${rowCls}`}
+                      className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40"
                     >
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-500">
-                        <div className="flex items-center gap-1.5">
-                          {alerte && <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />}
-                          {r.code_client}
-                        </div>
+                      {/* CLIENT + code en secondaire */}
+                      <td className="px-3 py-2.5 max-w-[240px]">
+                        <div className="text-xs font-medium text-gray-700 truncate">{nomClient}</div>
+                        <div className="font-mono text-[10px] text-gray-400 mt-0.5">{r.code_client}</div>
                       </td>
-                      <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[160px] truncate">{nomClient}</td>
-                      <td className="px-3 py-2.5 text-xs text-gray-400 tabular-nums whitespace-nowrap">
-                        {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
-                      </td>
+
+                      {/* 1.2 · J+ : rouge ≥30j, amber ≥10j, gris sinon */}
                       <td className="px-3 py-2.5 text-center">
                         {jours !== null ? (
-                          <span className={`text-[11px] font-bold tabular-nums ${enRetard ? 'text-amber-600' : r.statut === 'payee' ? 'text-gray-300' : 'text-gray-500'}`}>
+                          <span className={`text-[11px] font-bold tabular-nums ${
+                            r.statut === 'payee'                              ? 'text-gray-300' :
+                            jours >= 30 && r.statut === 'envoyee'            ? 'text-red-600'  :
+                            jours >= SEUIL_ALERTE && r.statut === 'envoyee'  ? 'text-amber-600' :
+                            'text-gray-500'
+                          }`}>
                             {jours === 0 ? 'Auj.' : `${jours}j`}
                           </span>
                         ) : <span className="text-gray-300">—</span>}
                       </td>
+
+                      {/* STATUT — 1.1 badge désaccentué pour 'envoyee' */}
                       <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1">
-                          <BadgeStatut
-                            statut={r.statut}
-                            peutModifier={peutModifier && !r.archivee}
-                            onClick={e => {
-                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-                              setPopupStatut(prev => prev?.id === r.id ? null : { id: r.id, top: rect.bottom + 6, left: rect.left })
-                            }}
-                          />
-                          {enRetard && <span className="text-amber-500"><IcClock size={10} /></span>}
-                        </div>
+                        <BadgeStatut
+                          statut={r.statut}
+                          peutModifier={peutModifier && !r.archivee}
+                          onClick={e => {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setPopupStatut(prev => prev?.id === r.id ? null : { id: r.id, top: rect.bottom + 6, left: rect.left })
+                          }}
+                        />
                       </td>
+
+                      {/* MONTANT TTC */}
                       <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">
                         {montant > 0 ? fmtEuros(montant) : '—'}
                       </td>
-                      <td className="px-3 py-2.5">
-                        {opNom ? (
-                          <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide">
-                            {opNom}
-                          </span>
-                        ) : <span className="text-gray-300">—</span>}
-                      </td>
+
+                      {/* Archive */}
                       {peutModifier && (
                         <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                           {!r.archivee && (
@@ -335,7 +354,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                         </td>
                       )}
                     </tr>
-
                   </>
                 )
               })}
@@ -375,12 +393,12 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
         onSauvegarderCommentaire={onSauvegarderCommentaire}
       />
 
-      {/* Overlay transparent pour fermer le popup au clic extérieur */}
+      {/* Overlay transparent pour fermer le popup statut au clic extérieur */}
       {popupStatut && (
         <div className="fixed inset-0 z-40" onClick={() => setPopupStatut(null)} />
       )}
 
-      {/* Popover statut — design soigné */}
+      {/* Popover changement de statut */}
       {popupStatut && (() => {
         const relance = affichees.find(r => r.id === popupStatut.id)
         if (!relance) return null
@@ -391,7 +409,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
             className="fixed z-50 bg-white border border-gray-200 rounded-2xl shadow-2xl overflow-hidden"
             style={{ top: popupStatut.top, left: popupStatut.left, minWidth: 220 }}
           >
-            {/* Statut actuel — en-tête du menu */}
             <div className="px-4 py-2.5 border-b border-gray-100 bg-gray-50/60">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Statut actuel</p>
               <div className="flex items-center gap-2">
@@ -399,8 +416,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                 <span className="text-[12px] font-semibold text-gray-700">{current?.label}</span>
               </div>
             </div>
-
-            {/* Options de transition */}
             <div className="py-1.5">
               <p className="px-4 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Passer à</p>
               {options.map(val => {
