@@ -50,18 +50,33 @@ interface Props {
   onSauvegarderCommentaire: (data: SauvegarderComData) => Promise<boolean>
 }
 
+// Rendu du badge statut — fonction simple (pas un composant) pour éviter les remounts
+function renderStatutBadge(
+  id: string,
+  statut: StatutFacture | null,
+  onOpen: (e: React.MouseEvent, id: string) => void
+) {
+  if (statut === 'litige')
+    return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200 whitespace-nowrap"><IcLitige /> Litige</button>
+  if (statut === 'provisionne')
+    return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200 whitespace-nowrap"><IcProv /> Provisionné</button>
+  return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
+}
+
 export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
   const { facturesActives, clients } = useAppData()
   const { utilisateur } = useAuth()
 
-  const [noteTexte, setNoteTexte]       = useState('')
-  const [noteSaving, setNoteSaving]     = useState(false)
-  const [etatsCom, setEtatsCom]         = useState<Map<string, EtatCom>>(new Map())
-  const [nePasRelancer, setNePasRelancer] = useState<Map<string, boolean>>(new Map())
-  const [statutsFac, setStatutsFac]     = useState<Map<string, StatutFacture | null>>(new Map())
-  const [comOuvertes, setComOuvertes]   = useState<Set<string>>(new Set())
-  const [popupStatut, setPopupStatut]   = useState<{ id: string; top: number; left: number } | null>(null)
-  const [statutSaving, setStatutSaving] = useState(false)
+  // ── Tous les hooks en tête, avant tout return conditionnel ──
+  const [noteTexte, setNoteTexte]           = useState('')
+  const [noteSaving, setNoteSaving]         = useState(false)
+  const [etatsCom, setEtatsCom]             = useState<Map<string, EtatCom>>(new Map())
+  const [nePasRelancer, setNePasRelancer]   = useState<Map<string, boolean>>(new Map())
+  const [statutsFac, setStatutsFac]         = useState<Map<string, StatutFacture | null>>(new Map())
+  const [comOuvertes, setComOuvertes]       = useState<Set<string>>(new Set())
+  const [popupStatut, setPopupStatut]       = useState<{ id: string; top: number; left: number } | null>(null)
+  const [statutSaving, setStatutSaving]     = useState(false)
+  const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
@@ -94,6 +109,15 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     return () => document.removeEventListener('keydown', onEsc)
   }, [!!relance, onFermer])
 
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setPopupStatut(null)
+    }
+    if (popupStatut) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [!!popupStatut])
+
+  // ── Return conditionnel après tous les hooks ──
   if (!relance) return null
 
   const factures  = (relance.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
@@ -116,7 +140,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     await onSauvegarderCommentaire({ numero_piece: id, contact: '', date_contact: '', commentaire: etat.texte, operateur, ne_pas_relancer: nr })
     setCom(id, { saving: false })
     toast.success('Commentaire enregistré')
-    // Avancement automatique si premier retour client
     if (relance.statut === 'envoyee' && etat.texte.trim().length > 0) {
       await onMajStatut(relance.id, 'repondue')
     }
@@ -129,11 +152,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   }
 
   function toggleCom(id: string) {
-    setComOuvertes(prev => {
-      const n = new Set(prev)
-      n.has(id) ? n.delete(id) : n.add(id)
-      return n
-    })
+    setComOuvertes(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
   function openPopup(e: React.MouseEvent, id: string) {
@@ -143,27 +162,9 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     setPopupStatut({ id, top: rect.bottom + 6, left: rect.left })
   }
 
-  function StatutBadge({ id }: { id: string }) {
-    const s = statutsFac.get(id) ?? null
-    if (s === 'litige')
-      return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200 whitespace-nowrap"><IcLitige /> Litige</button>
-    if (s === 'provisionne')
-      return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200 whitespace-nowrap"><IcProv /> Provisionné</button>
-    return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
-  }
-
-  const popupRef = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setPopupStatut(null)
-    }
-    if (popupStatut) document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
-  }, [!!popupStatut])
-
   return (
     <>
-      {/* Popup statut — en dehors du modal pour éviter le overflow:hidden */}
+      {/* Popup statut — en dehors du modal pour éviter overflow:hidden */}
       {popupStatut && (
         <div
           ref={popupRef}
@@ -224,7 +225,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
             <div className="px-5 py-4 border-r border-gray-100 flex flex-col gap-3 min-w-[220px]">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avancement</p>
               <div className="flex items-center">
-                {/* Step 1 */}
                 <div className="flex flex-col items-center gap-1">
                   <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
                     step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-ockham-teal text-ockham-teal shadow-[0_0_0_3px_#E6F7F5]'
@@ -233,9 +233,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                   </div>
                   <span className={`text-[9px] font-semibold ${step2Done ? 'text-ockham-navy' : 'text-ockham-teal'}`}>Envoyée</span>
                 </div>
-                {/* Ligne */}
                 <div className={`h-0.5 w-10 mx-1 mb-3.5 ${step2Done ? 'bg-ockham-teal' : 'bg-gray-200'}`} />
-                {/* Step 2 */}
                 <div className="flex flex-col items-center gap-1">
                   <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
                     step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-[rgba(76,197,187,0.4)] text-[rgba(76,197,187,0.6)]'
@@ -297,69 +295,74 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                 )}
                 {factures.map(f => {
                   if (!f) return null
-                  const etat     = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
-                  const nr       = nePasRelancer.get(f.numero_piece) ?? false
-                  const comOpen  = comOuvertes.has(f.numero_piece)
-                  const hasCom   = (commentaires.get(f.numero_piece)?.commentaire ?? '').trim().length > 0
+                  const etat    = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
+                  const nr      = nePasRelancer.get(f.numero_piece) ?? false
+                  const comOpen = comOuvertes.has(f.numero_piece)
+                  const hasCom  = (commentaires.get(f.numero_piece)?.commentaire ?? '').trim().length > 0
+                  const statut  = statutsFac.get(f.numero_piece) ?? null
                   return (
-                    <>
-                      <tr key={f.numero_piece} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
-                        <td className="px-5 py-2.5">
-                          <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <StatutBadge id={f.numero_piece} />
-                        </td>
-                        <td className="px-3 py-2.5">
-                          <label className="flex items-center gap-2 cursor-pointer w-fit">
-                            <input
-                              type="checkbox"
-                              checked={nr}
-                              onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
-                              className="w-3.5 h-3.5 accent-amber-500"
-                            />
-                            {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
-                          </label>
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
+                    <tr key={f.numero_piece} className="[&>td]:border-b [&>td]:border-gray-50 hover:bg-gray-50/60 transition-colors">
+                      <td className="px-5 py-2.5">
+                        <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
+                      </td>
+                      <td className="px-3 py-2.5 text-right">
+                        <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
+                      </td>
+                      <td className="px-3 py-2.5">
+                        {renderStatutBadge(f.numero_piece, statut, openPopup)}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <label className="flex items-center gap-2 cursor-pointer w-fit">
+                          <input
+                            type="checkbox"
+                            checked={nr}
+                            onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
+                            className="w-3.5 h-3.5 accent-amber-500"
+                          />
+                          {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
+                        </label>
+                      </td>
+                      <td className="px-3 py-2.5 text-center" colSpan={comOpen ? 0 : 1}>
+                        <button
+                          onClick={() => toggleCom(f.numero_piece)}
+                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer whitespace-nowrap ${
+                            hasCom
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                              : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
+                          }`}
+                        >
+                          <IcComment /> Commentaire
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {/* Tiroirs commentaires — séparés pour HTML valide */}
+                {factures.map(f => {
+                  if (!f) return null
+                  if (!comOuvertes.has(f.numero_piece)) return null
+                  const etat = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
+                  return (
+                    <tr key={`${f.numero_piece}-com`} className="bg-gray-50/80">
+                      <td colSpan={5} className="px-5 py-3 border-b border-gray-100">
+                        <div className="flex gap-3 items-end pl-4">
+                          <textarea
+                            value={etat.texte}
+                            onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
+                            placeholder="Note sur cette facture…"
+                            rows={2}
+                            className="flex-1 text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
+                          />
                           <button
-                            onClick={() => toggleCom(f.numero_piece)}
-                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer whitespace-nowrap ${
-                              hasCom
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                                : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
-                            }`}
+                            disabled={etat.saving}
+                            onClick={() => sauvegarderCom(f.numero_piece)}
+                            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
                           >
-                            <IcComment /> Commentaire
+                            {etat.saving ? '…' : '✓ Enregistrer'}
                           </button>
-                        </td>
-                      </tr>
-                      {comOpen && (
-                        <tr key={`${f.numero_piece}-com`} className="bg-gray-50/80 border-b border-gray-100">
-                          <td colSpan={5} className="px-5 py-3">
-                            <div className="flex gap-3 items-end pl-4">
-                              <textarea
-                                value={etat.texte}
-                                onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
-                                placeholder="Note sur cette facture…"
-                                rows={2}
-                                className="flex-1 text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
-                              />
-                              <button
-                                disabled={etat.saving}
-                                onClick={() => sauvegarderCom(f.numero_piece)}
-                                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
-                              >
-                                {etat.saving ? '…' : '✓ Enregistrer'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </>
+                        </div>
+                      </td>
+                    </tr>
                   )
                 })}
               </tbody>
