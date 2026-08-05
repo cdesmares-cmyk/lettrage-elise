@@ -275,6 +275,9 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                     await onSauvegarderNote(relance.id, noteTexte)
                     setNoteSaving(false)
                     toast.success('Note enregistrée')
+                    if (relance.statut === 'envoyee' && noteTexte.trim().length > 0) {
+                      await onMajStatut(relance.id, 'repondue')
+                    }
                   }}
                   className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer"
                 >
