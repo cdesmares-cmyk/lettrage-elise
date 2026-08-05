@@ -282,7 +282,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
 
   // ── Feuille 2 : Lignes bancaires (débits + crédits) ──────────────
   const aoa2: (string | number)[][] = [
-    ['Date', 'Libellé', 'Détail', 'Infos complémentaires', 'Débit', 'Crédit', 'Type', 'Commentaire'],
+    ['Référence', 'Date', 'Libellé', 'Détail', 'Infos complémentaires', 'Débit', 'Crédit', 'Type', 'Commentaire'],
   ]
   for (const lb of lignes) {
     const isDebit = lb.statut_lettrage === 'debit'
@@ -300,6 +300,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .filter(Boolean)
       .join(' / ')
     aoa2.push([
+      lb.id_operation,
       fmtDate(lb.date_operation),
       lb.libelle,
       lb.detail ?? '',
@@ -313,9 +314,9 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
 
   const ws2 = XLSX.utils.aoa_to_sheet(aoa2)
   ws2['!cols'] = [
-    { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 38 },
+    { wch: 28 }, { wch: 12 }, { wch: 42 }, { wch: 28 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 38 },
   ]
-  styleHeaderRow(ws2, 8)
+  styleHeaderRow(ws2, 9)
 
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
   const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number }>()
