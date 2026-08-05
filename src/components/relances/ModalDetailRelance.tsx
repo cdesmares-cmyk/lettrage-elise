@@ -1,20 +1,27 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
+import { supabase } from '../../lib/supabase'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
-import type { CommentaireFacture } from '../../types/client'
+import type { CommentaireFacture, StatutFacture } from '../../types/client'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { useRole } from '../../contexts/RoleContext'
 
-const TRANSITIONS: Partial<Record<StatutRelance, StatutRelance[]>> = {
-  envoyee:           ['repondue', 'sans_reponse', 'payee'],
-  sans_reponse:      ['repondue', 'payee'],
-  repondue:          ['promesse_paiement', 'payee'],
-  promesse_paiement: ['payee'],
-}
-
-const PIPELINE: StatutRelance[] = ['envoyee', 'repondue', 'promesse_paiement', 'payee']
-const LABELS_PIPELINE = ['Envoyée', 'Prise de contact', 'Promesse', 'Payée']
+const IcLitige = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+)
+const IcProv = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+)
+const IcComment = () => (
+  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+)
 
 function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -22,8 +29,11 @@ function fmtEuros(n: number) {
 function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
+function isRetourClient(statut: StatutRelance) {
+  return ['repondue', 'promesse_paiement', 'payee'].includes(statut)
+}
 
-type EtatCom = { texte: string; nePasRelancer: boolean; saving: boolean }
+type EtatCom = { texte: string; saving: boolean }
 
 interface SauvegarderComData {
   numero_piece: string; contact: string; date_contact: string
@@ -43,50 +53,55 @@ interface Props {
 export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
   const { facturesActives, clients } = useAppData()
   const { utilisateur } = useAuth()
-  const { peutModifier } = useRole()
 
-  const [noteTexte, setNoteTexte] = useState('')
-  const [noteSaving, setNoteSaving] = useState(false)
-  const [etatsCom, setEtatsCom] = useState<Map<string, EtatCom>>(new Map())
+  const [noteTexte, setNoteTexte]       = useState('')
+  const [noteSaving, setNoteSaving]     = useState(false)
+  const [etatsCom, setEtatsCom]         = useState<Map<string, EtatCom>>(new Map())
+  const [nePasRelancer, setNePasRelancer] = useState<Map<string, boolean>>(new Map())
+  const [statutsFac, setStatutsFac]     = useState<Map<string, StatutFacture | null>>(new Map())
+  const [comOuvertes, setComOuvertes]   = useState<Set<string>>(new Set())
+  const [popupStatut, setPopupStatut]   = useState<{ id: string; top: number; left: number } | null>(null)
   const [statutSaving, setStatutSaving] = useState(false)
-  const [sansReponseOpen, setSansReponseOpen] = useState(false)
-  const [dateRappel, setDateRappel] = useState('')
 
   const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
+  const operateur   = utilisateur?.email?.split('@')[0] ?? ''
 
   useEffect(() => {
     setNoteTexte(relance?.note ?? '')
-    setSansReponseOpen(false)
-    setDateRappel('')
+    setComOuvertes(new Set())
+    setPopupStatut(null)
     if (!relance) return
-    const m = new Map<string, EtatCom>()
+    const com = new Map<string, EtatCom>()
+    const npr = new Map<string, boolean>()
+    const stf = new Map<string, StatutFacture | null>()
     for (const id of relance.factures_ids ?? []) {
-      const com = commentaires.get(id)
-      m.set(id, { texte: com?.commentaire ?? '', nePasRelancer: com?.ne_pas_relancer ?? false, saving: false })
+      const c = commentaires.get(id)
+      const f = facturesMap.get(id)
+      com.set(id, { texte: c?.commentaire ?? '', saving: false })
+      npr.set(id, c?.ne_pas_relancer ?? false)
+      stf.set(id, f?.statut_facture ?? null)
     }
-    setEtatsCom(m)
+    setEtatsCom(com)
+    setNePasRelancer(npr)
+    setStatutsFac(stf)
   }, [relance?.id])
 
   useEffect(() => {
     if (!relance) return
-    function handleEsc(e: KeyboardEvent) { if (e.key === 'Escape') onFermer() }
-    document.addEventListener('keydown', handleEsc)
-    return () => document.removeEventListener('keydown', handleEsc)
+    function onEsc(e: KeyboardEvent) { if (e.key === 'Escape') onFermer() }
+    document.addEventListener('keydown', onEsc)
+    return () => document.removeEventListener('keydown', onEsc)
   }, [!!relance, onFermer])
 
   if (!relance) return null
 
-  const factures    = (relance.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
-  const nomClient   = clientsMap.get(relance.code_client) ?? relance.code_client
-  const montant     = factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
-  const jours       = relance.envoyee_le ? joursDepuis(relance.envoyee_le) : null
-  const enRetard    = jours !== null && jours >= 10
-  const pipelineIdx = PIPELINE.indexOf(relance.statut)
-  // sans_reponse n'est pas un step du pipeline — on marque step 0 (envoyée) comme fait
-  const displayIdx  = relance.statut === 'sans_reponse' ? 0 : pipelineIdx
-  const transitions = TRANSITIONS[relance.statut] ?? []
-  const operateur   = utilisateur?.email?.split('@')[0] ?? ''
+  const factures  = (relance.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
+  const nomClient = clientsMap.get(relance.code_client) ?? relance.code_client
+  const montant   = factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
+  const jours     = relance.envoyee_le ? joursDepuis(relance.envoyee_le) : null
+  const enRetard  = jours !== null && jours >= 10
+  const step2Done = isRetourClient(relance.statut)
 
   function setCom(id: string, patch: Partial<EtatCom>) {
     setEtatsCom(prev => { const n = new Map(prev); n.set(id, { ...prev.get(id)!, ...patch }); return n })
@@ -96,232 +111,155 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     const etat = etatsCom.get(id)
     if (!etat) return
     setCom(id, { saving: true })
-    await onSauvegarderCommentaire({ numero_piece: id, contact: '', date_contact: '', commentaire: etat.texte, operateur, ne_pas_relancer: etat.nePasRelancer })
+    const nr = nePasRelancer.get(id) ?? false
+    await onSauvegarderCommentaire({ numero_piece: id, contact: '', date_contact: '', commentaire: etat.texte, operateur, ne_pas_relancer: nr })
     setCom(id, { saving: false })
     toast.success('Commentaire enregistré')
+    // Avancement automatique si premier retour client
+    if (relance.statut === 'envoyee' && etat.texte.trim().length > 0) {
+      await onMajStatut(relance.id, 'repondue')
+    }
   }
 
-  async function changerStatut(statut: StatutRelance, rappel?: string) {
-    if (!relance || statutSaving) return
-    setStatutSaving(true)
-    await onMajStatut(relance.id, statut, rappel)
-    setStatutSaving(false)
-    setSansReponseOpen(false)
+  async function changerStatutFac(numeroPiece: string, statut: StatutFacture | null) {
+    setStatutsFac(prev => { const n = new Map(prev); n.set(numeroPiece, statut); return n })
+    setPopupStatut(null)
+    await supabase.from('factures').update({ statut_facture: statut } as never).eq('numero_piece', numeroPiece)
   }
+
+  function toggleCom(id: string) {
+    setComOuvertes(prev => {
+      const n = new Set(prev)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+  }
+
+  function openPopup(e: React.MouseEvent, id: string) {
+    e.stopPropagation()
+    if (popupStatut?.id === id) { setPopupStatut(null); return }
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setPopupStatut({ id, top: rect.bottom + 6, left: rect.left })
+  }
+
+  function StatutBadge({ id }: { id: string }) {
+    const s = statutsFac.get(id) ?? null
+    if (s === 'litige')
+      return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200 whitespace-nowrap"><IcLitige /> Litige</button>
+    if (s === 'provisionne')
+      return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200 whitespace-nowrap"><IcProv /> Provisionné</button>
+    return <button onClick={e => openPopup(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
+  }
+
+  const popupRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setPopupStatut(null)
+    }
+    if (popupStatut) document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [!!popupStatut])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onFermer}>
-      <div className="absolute inset-0 bg-ockham-navy/50" />
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-3xl max-h-[88vh] overflow-hidden"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* En-tête navy */}
-        <div className="px-6 py-4 bg-ockham-navy flex items-start justify-between gap-4 flex-shrink-0 rounded-t-2xl">
-          <div className="min-w-0">
-            <h2 className="text-base font-bold text-white truncate">{nomClient}</h2>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="font-mono text-[11px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded">{relance.code_client}</span>
-              {relance.envoyee_le && (
-                <span className="text-[11px] text-white/50">
-                  Envoyée le {new Date(relance.envoyee_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+    <>
+      {/* Popup statut — en dehors du modal pour éviter le overflow:hidden */}
+      {popupStatut && (
+        <div
+          ref={popupRef}
+          className="fixed z-[60] bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-[160px]"
+          style={{ top: popupStatut.top, left: popupStatut.left }}
+        >
+          {(['litige', 'provisionne', null] as const).map(val => (
+            <button
+              key={String(val)}
+              onClick={() => changerStatutFac(popupStatut.id, val)}
+              className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 transition-colors text-gray-700"
+            >
+              {val === 'litige' ? 'Litige' : val === 'provisionne' ? 'Provisionné' : '✕ Effacer'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onFermer}>
+        <div className="absolute inset-0 bg-ockham-navy/50" />
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl flex flex-col w-full max-w-3xl max-h-[88vh] overflow-hidden"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* En-tête navy */}
+          <div className="px-6 py-4 bg-ockham-navy flex items-start justify-between gap-4 flex-shrink-0 rounded-t-2xl">
+            <div className="min-w-0">
+              <h2 className="text-base font-bold text-white truncate">{nomClient}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-mono text-[11px] text-white/50 bg-white/10 px-1.5 py-0.5 rounded">{relance.code_client}</span>
+                {relance.envoyee_le && (
+                  <span className="text-[11px] text-white/50">
+                    Envoyée le {new Date(relance.envoyee_le).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-xl font-bold text-ockham-teal tabular-nums">{fmtEuros(montant)}</span>
+              {jours !== null && (
+                <span className={`text-[11px] font-bold px-2 py-1 rounded-lg border ${enRetard ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-white/10 text-white/70 border-white/20'}`}>
+                  {jours === 0 ? 'Auj.' : `J+${jours}`}
                 </span>
               )}
+              <button
+                onClick={onFermer}
+                className="w-7 h-7 rounded-lg border border-white/20 flex items-center justify-center text-white/60 hover:text-red-400 hover:border-red-400/40 hover:bg-red-500/10 transition-colors text-sm leading-none"
+              >
+                ✕
+              </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-xl font-bold text-ockham-teal tabular-nums">{fmtEuros(montant)}</span>
-            {jours !== null && (
-              <span className={`text-[11px] font-bold px-2 py-1 rounded-lg border ${enRetard ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' : 'bg-white/10 text-white/70 border-white/20'}`}>
-                {jours === 0 ? 'Auj.' : `J+${jours}`}
-              </span>
-            )}
-            <button
-              onClick={onFermer}
-              className="w-7 h-7 rounded-lg border border-white/20 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors text-lg leading-none"
-            >
-              ×
-            </button>
-          </div>
-        </div>
 
-        {/* Corps */}
-        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* Ligne 1 : Avancement + Note de suivi */}
+          <div className="flex border-b border-gray-100 flex-shrink-0">
 
-          {/* Colonne gauche : Factures + commentaires inline */}
-          <div className="w-[55%] border-r border-gray-100 px-5 py-4 overflow-y-auto flex flex-col gap-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Factures liées</p>
-            {factures.length === 0 && <p className="text-xs text-gray-400 italic">Aucune facture trouvée</p>}
-            {factures.map(f => {
-              if (!f) return null
-              const etat = etatsCom.get(f.numero_piece) ?? { texte: '', nePasRelancer: false, saving: false }
-              return (
-                <div key={f.numero_piece} className="border border-gray-100 rounded-xl p-3 bg-gray-50/50 flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
-                    <span className="text-sm font-bold text-ockham-navy">{fmtEuros(f.montant_ttc ?? 0)}</span>
+            {/* Pipeline 2 steps */}
+            <div className="px-5 py-4 border-r border-gray-100 flex flex-col gap-3 min-w-[220px]">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avancement</p>
+              <div className="flex items-center">
+                {/* Step 1 */}
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
+                    step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-ockham-teal text-ockham-teal shadow-[0_0_0_3px_#E6F7F5]'
+                  }`}>
+                    {step2Done ? '✓' : '1'}
                   </div>
-                  {f.date_echeance && (
-                    <p className="text-[11px] text-gray-400">Échéance : {new Date(f.date_echeance).toLocaleDateString('fr-FR')}</p>
-                  )}
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="checkbox"
-                      checked={etat.nePasRelancer}
-                      onChange={e => setCom(f.numero_piece, { nePasRelancer: e.target.checked })}
-                      className="w-3.5 h-3.5 accent-amber-500"
-                    />
-                    <span className={`text-[11px] font-semibold ${etat.nePasRelancer ? 'text-amber-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
-                      Ne pas relancer
-                    </span>
-                    {etat.nePasRelancer && <span className="text-[10px] text-amber-500 ml-auto">Exclue des prochaines relances</span>}
-                  </label>
-                  <textarea
-                    value={etat.texte}
-                    onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
-                    placeholder="Note sur cette facture…"
-                    rows={2}
-                    className="w-full text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
-                  />
-                  <button
-                    disabled={etat.saving}
-                    onClick={() => sauvegarderCom(f.numero_piece)}
-                    className="self-end text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer"
-                  >
-                    {etat.saving ? '…' : '✓ Enregistrer'}
-                  </button>
+                  <span className={`text-[9px] font-semibold ${step2Done ? 'text-ockham-navy' : 'text-ockham-teal'}`}>Envoyée</span>
                 </div>
-              )
-            })}
-          </div>
-
-          {/* Colonne droite : Statut + Note */}
-          <div className="flex-1 px-5 py-4 overflow-y-auto flex flex-col gap-5">
-
-            {/* Pipeline statut */}
-            <div>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Statut de la relance</p>
-              <div className="flex items-start gap-0 mb-3">
-                {PIPELINE.map((step, i) => {
-                  const done      = displayIdx > i
-                  const active    = pipelineIdx === i
-                  const canClick  = peutModifier && !statutSaving && transitions.includes(step) && !done && !active
-                  // Premier step cliquable du pipeline : hint visuel renforcé
-                  const isNext    = canClick && !PIPELINE.slice(0, i).some(s => transitions.includes(s))
-                  return (
-                    <div key={step} className="flex items-center flex-1">
-                      <button
-                        disabled={!canClick}
-                        onClick={() => canClick && changerStatut(step)}
-                        className={`flex flex-col items-center gap-1 flex-1 group ${canClick ? 'cursor-pointer' : 'cursor-default'}`}
-                      >
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold transition-all ${
-                          done    ? 'bg-ockham-teal border-ockham-teal text-white' :
-                          active  ? 'bg-white border-ockham-teal text-ockham-teal shadow-[0_0_0_3px_#E6F7F5]' :
-                          isNext  ? 'bg-white border-ockham-teal/50 text-ockham-teal/70 group-hover:border-ockham-teal group-hover:text-ockham-teal' :
-                          canClick? 'bg-white border-gray-300 text-gray-400 group-hover:border-ockham-teal group-hover:text-ockham-teal' :
-                                    'bg-white border-gray-200 text-gray-300'
-                        }`}>
-                          {done ? '✓' : i + 1}
-                        </div>
-                        <span className={`text-[9px] font-semibold text-center leading-tight ${
-                          done    ? 'text-ockham-navy' :
-                          active  ? 'text-ockham-teal' :
-                          isNext  ? 'text-ockham-teal/70 group-hover:text-ockham-teal' :
-                          canClick? 'text-gray-400 group-hover:text-ockham-teal' :
-                                    'text-gray-200'
-                        }`}>
-                          {LABELS_PIPELINE[i]}
-                        </span>
-                      </button>
-                      {i < PIPELINE.length - 1 && (
-                        <div className={`h-0.5 w-3 flex-shrink-0 mb-4 ${done ? 'bg-ockham-teal' : 'bg-gray-200'}`} />
-                      )}
-                    </div>
-                  )
-                })}
+                {/* Ligne */}
+                <div className={`h-0.5 w-10 mx-1 mb-3.5 ${step2Done ? 'bg-ockham-teal' : 'bg-gray-200'}`} />
+                {/* Step 2 */}
+                <div className="flex flex-col items-center gap-1">
+                  <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
+                    step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-[rgba(76,197,187,0.4)] text-[rgba(76,197,187,0.6)]'
+                  }`}>
+                    {step2Done ? '✓' : '2'}
+                  </div>
+                  <span className={`text-[9px] font-semibold ${step2Done ? 'text-ockham-navy' : 'text-gray-300'}`}>Retour client</span>
+                </div>
               </div>
-
-              {/* Bouton "Sans réponse" ou panneau date de rappel */}
-              {peutModifier && transitions.includes('sans_reponse') && !sansReponseOpen && (
-                <button
-                  disabled={statutSaving}
-                  onClick={() => setSansReponseOpen(true)}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors disabled:opacity-50 cursor-pointer"
-                >
-                  <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                  <span className="text-[11px] font-semibold flex-1 text-left">Marquer « Sans réponse »</span>
-                  <span className="text-[10px] text-amber-400">Alerte J+10</span>
-                </button>
-              )}
-
-              {sansReponseOpen && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex flex-col gap-2.5">
-                  <p className="text-[11px] font-semibold text-amber-700">Fixer une date de rappel (facultatif)</p>
-                  <input
-                    type="date"
-                    value={dateRappel}
-                    onChange={e => setDateRappel(e.target.value)}
-                    min={new Date().toISOString().slice(0, 10)}
-                    className="text-[12px] text-gray-700 bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-amber-400 transition-colors"
-                  />
-                  <p className="text-[10px] text-amber-500">Un rappel sera généré à cette date si la relance reste sans réponse.</p>
-                  <div className="flex gap-2">
-                    <button
-                      disabled={statutSaving}
-                      onClick={() => changerStatut('sans_reponse', dateRappel || undefined)}
-                      className="flex-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 transition-colors cursor-pointer"
-                    >
-                      {statutSaving ? '…' : 'Confirmer'}
-                    </button>
-                    <button
-                      onClick={() => setSansReponseOpen(false)}
-                      className="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {relance.statut === 'payee' && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-emerald-200 bg-emerald-50">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                  <span className="text-[11px] font-semibold text-emerald-700">Relance payée — terminée</span>
-                </div>
-              )}
-              {relance.statut === 'sans_reponse' && (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50">
-                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                  <span className="text-[11px] font-semibold text-amber-700">Sans réponse</span>
-                  {peutModifier && transitions.length > 0 && (
-                    <div className="ml-auto flex gap-1.5">
-                      {transitions.map(t => (
-                        <button key={t} disabled={statutSaving} onClick={() => changerStatut(t)}
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded border border-gray-200 bg-white hover:border-ockham-teal hover:text-ockham-teal transition-colors disabled:opacity-50 cursor-pointer">
-                          {t === 'repondue' ? 'Prise de contact' : 'Payée'}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <p className="text-[9px] text-gray-300 italic leading-relaxed">
+                Passe en retour client dès qu'un<br />commentaire facture est enregistré.
+              </p>
             </div>
-
-            <div className="h-px bg-gray-100" />
 
             {/* Note de suivi */}
-            <div className="flex flex-col gap-2">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Note de suivi</p>
+            <div className="flex-1 px-5 py-4 flex flex-col gap-2">
+              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Note de suivi</p>
               <textarea
                 value={noteTexte}
                 onChange={e => setNoteTexte(e.target.value)}
                 placeholder="Saisir une note de suivi…"
-                rows={4}
-                className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-xl px-3 py-2.5 outline-none resize-none placeholder-gray-300 transition-colors"
+                rows={3}
+                className="flex-1 w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-xl px-3 py-2.5 outline-none resize-none placeholder-gray-300 transition-colors"
               />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-gray-300">Visible dans le compte client · Modifiable par tous</span>
+              <div className="flex justify-end">
                 <button
                   disabled={noteSaving}
                   onClick={async () => {
@@ -337,27 +275,117 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Pied de page */}
-        <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between flex-shrink-0">
-          <button
-            onClick={async () => { await onArchiver(relance.id); onFermer() }}
-            className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 border border-gray-200 bg-white hover:border-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
-            </svg>
-            Archiver cette relance
-          </button>
-          <button
-            onClick={onFermer}
-            className="text-[11px] font-semibold text-ockham-navy border border-ockham-navy/20 bg-white hover:bg-ockham-navy hover:text-white px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            Fermer
-          </button>
+          {/* Ligne 2 : Tableau factures */}
+          <div className="flex-1 overflow-y-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className="text-left px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">N° Facture</th>
+                  <th className="text-right px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Montant</th>
+                  <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Statut</th>
+                  <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Exclure de la prochaine relance</th>
+                  <th className="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Commentaire</th>
+                </tr>
+              </thead>
+              <tbody>
+                {factures.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-4 text-xs text-gray-400 italic">Aucune facture trouvée</td>
+                  </tr>
+                )}
+                {factures.map(f => {
+                  if (!f) return null
+                  const etat     = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
+                  const nr       = nePasRelancer.get(f.numero_piece) ?? false
+                  const comOpen  = comOuvertes.has(f.numero_piece)
+                  const hasCom   = (commentaires.get(f.numero_piece)?.commentaire ?? '').trim().length > 0
+                  return (
+                    <>
+                      <tr key={f.numero_piece} className="border-b border-gray-50 hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-2.5">
+                          <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <StatutBadge id={f.numero_piece} />
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <label className="flex items-center gap-2 cursor-pointer w-fit">
+                            <input
+                              type="checkbox"
+                              checked={nr}
+                              onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
+                              className="w-3.5 h-3.5 accent-amber-500"
+                            />
+                            {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
+                          </label>
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <button
+                            onClick={() => toggleCom(f.numero_piece)}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer whitespace-nowrap ${
+                              hasCom
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
+                            }`}
+                          >
+                            <IcComment /> Commentaire
+                          </button>
+                        </td>
+                      </tr>
+                      {comOpen && (
+                        <tr key={`${f.numero_piece}-com`} className="bg-gray-50/80 border-b border-gray-100">
+                          <td colSpan={5} className="px-5 py-3">
+                            <div className="flex gap-3 items-end pl-4">
+                              <textarea
+                                value={etat.texte}
+                                onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
+                                placeholder="Note sur cette facture…"
+                                rows={2}
+                                className="flex-1 text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
+                              />
+                              <button
+                                disabled={etat.saving}
+                                onClick={() => sauvegarderCom(f.numero_piece)}
+                                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                {etat.saving ? '…' : '✓ Enregistrer'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pied de page */}
+          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between flex-shrink-0">
+            <button
+              disabled={statutSaving}
+              onClick={async () => { setStatutSaving(true); await onArchiver(relance.id); setStatutSaving(false); onFermer() }}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 border border-gray-200 bg-white hover:border-red-300 hover:text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+              Archiver
+            </button>
+            <button
+              onClick={onFermer}
+              className="text-[11px] font-semibold text-ockham-navy border border-ockham-navy/20 bg-white hover:bg-ockham-navy hover:text-white px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
