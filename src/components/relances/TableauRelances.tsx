@@ -153,7 +153,9 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
               }`}
             >
               <IcSliders size={12} />
-              {filtreOp !== 'tous' && <span className="font-semibold">{opMap.get(filtreOp)}</span>}
+              <span className="font-semibold">
+                {filtreOp !== 'tous' ? opMap.get(filtreOp) : 'Opérateur'}
+              </span>
             </button>
             {filtreOpOuvert && (
               <>

@@ -9,10 +9,8 @@ function fmtEuros(n: number) {
 }
 
 const ETAPES = [
-  { statut: 'envoyee',           label: 'Envoyée',        dotCls: 'bg-slate-400',   numCls: 'text-gray-800'    },
-  { statut: 'repondue',          label: 'Contact établi', dotCls: 'bg-sky-400',     numCls: 'text-sky-700'     },
-  { statut: 'promesse_paiement', label: 'Promesse',       dotCls: 'bg-amber-400',   numCls: 'text-amber-700'   },
-  { statut: 'payee',             label: 'Payée',          dotCls: 'bg-emerald-500', numCls: 'text-emerald-700' },
+  { statut: 'envoyee',  label: 'Envoyée',        dotCls: 'bg-slate-400', numCls: 'text-gray-800' },
+  { statut: 'repondue', label: 'Contact établi', dotCls: 'bg-sky-400',   numCls: 'text-sky-700'  },
 ] as const
 
 interface Props {
@@ -47,7 +45,7 @@ export function BarreKpisRelances({ relances, filtreOp, chargement }: Props) {
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
 
   return (
-    <div className={`grid gap-3 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr 1fr 1fr' }}>
+    <div className={`grid gap-3 ${cls}`} style={{ gridTemplateColumns: '1.6fr 1fr 1fr' }}>
 
       {/* Hero — Total relances € : même traitement que les autres cartes, bordure gauche teal */}
       <div className="bg-white rounded-xl px-5 py-4 shadow-sm" style={{ border: '1px solid #CFEDE9', borderLeftWidth: 3, borderLeftColor: '#4CC5BB' }}>
