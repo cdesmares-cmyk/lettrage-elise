@@ -94,7 +94,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   }
 
   async function changerStatut(statut: StatutRelance) {
-    if (statutSaving) return
+    if (!relance || statutSaving) return
     setStatutSaving(true)
     await onMajStatut(relance.id, statut)
     setStatutSaving(false)
