@@ -9,11 +9,10 @@ import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalParametresRelances } from '../components/admin/ModalParametresRelances'
-import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
 import { IcSliders } from '../components/Icones'
-import type { CompteClient, FactureDetail } from '../types/client'
+import type { CompteClient } from '../types/client'
 
 export function PageRelances() {
   const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
@@ -22,7 +21,6 @@ export function PageRelances() {
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
-  const [factureCommentee, setFactureCommentee] = useState<FactureDetail | null>(null)
   const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
@@ -70,7 +68,7 @@ export function PageRelances() {
           onMajStatut={mettreAJourStatut}
           onArchiver={archiver}
           onSauvegarderNote={mettreAJourNote}
-          onOuvrirCommentaire={setFactureCommentee}
+          onSauvegarderCommentaire={sauvegarder}
           classement={classement}
           commentaires={commentaires}
           filtreOp={filtreOp}
@@ -102,19 +100,6 @@ export function PageRelances() {
           </div>
         </div>
       )}
-
-      {/* Panneau commentaire facture */}
-      <PanneauCommentaireFacture
-        facture={factureCommentee}
-        commentaire={factureCommentee ? (commentaires.get(factureCommentee.numero_piece) ?? null) : null}
-        onFermer={() => setFactureCommentee(null)}
-        onSauvegarder={async data => {
-          const ok = await sauvegarder(data)
-          if (ok) setFactureCommentee(null)
-          return ok
-        }}
-        onStatutChange={() => {}}
-      />
 
       {/* Modal composition relance (depuis priorités) */}
       <ModalCompositionRelance

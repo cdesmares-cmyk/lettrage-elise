@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
-import { IcSearch, IcFileText, IcClock } from '../Icones'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { IcSearch, IcClock } from '../Icones'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { StatsOperateur } from '../../hooks/useLeaderboard'
-import type { FactureDetail, CommentaireFacture } from '../../types/client'
+import type { CommentaireFacture } from '../../types/client'
+import { ModalDetailRelance } from './ModalDetailRelance'
 
 const STATUTS: { val: StatutRelance; label: string; cls: string; dot: string; menuCls: string }[] = [
   { val: 'brouillon',          label: 'Brouillon',            cls: 'bg-gray-100 text-gray-500 border-gray-200',         dot: 'bg-gray-400',    menuCls: 'text-gray-600' },
@@ -73,28 +74,31 @@ function estEnAlerte(r: Relance): boolean {
     (r.statut === 'envoyee' && r.envoyee_le != null && joursDepuis(r.envoyee_le) > SEUIL_ALERTE)
 }
 
+interface SauvegarderComData {
+  numero_piece: string; contact: string; date_contact: string
+  commentaire: string; operateur: string; ne_pas_relancer?: boolean
+}
+
 interface Props {
   relances: Relance[]
   chargement: boolean
   onMajStatut: (id: string, statut: StatutRelance) => Promise<boolean>
   onArchiver: (id: string) => Promise<boolean>
   onSauvegarderNote: (id: string, note: string) => Promise<boolean>
-  onOuvrirCommentaire: (fac: FactureDetail) => void
+  onSauvegarderCommentaire: (data: SauvegarderComData) => Promise<boolean>
   classement: StatsOperateur[]
   commentaires: Map<string, CommentaireFacture>
   filtreOp: string
   onFiltreOpChange: (op: string) => void
 }
 
-export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, onSauvegarderNote, onOuvrirCommentaire, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
+export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
   const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
   const [recherche, setRecherche] = useState('')
   const [popupStatut, setPopupStatut] = useState<{ id: string; top: number; left: number } | null>(null)
-  const [ligneOuverte, setLigneOuverte] = useState<string | null>(null)
-  const [noteTexte, setNoteTexte] = useState('')
-  const [noteSaving, setNoteSaving] = useState(false)
+  const [relanceOuverte, setRelanceOuverte] = useState<Relance | null>(null)
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -114,11 +118,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
     const ids = [...new Set(relances.filter(r => r.statut !== 'brouillon' && !r.archivee).map(r => r.operateur_id))]
     return ids.filter(id => opMap.has(id)).map(id => ({ id, nom: opMap.get(id)! }))
   }, [relances, opMap])
-
-  useEffect(() => {
-    const r = relances.find(x => x.id === ligneOuverte)
-    setNoteTexte(r?.note ?? '')
-  }, [ligneOuverte])
 
   function getMontant(r: Relance): number {
     return (r.factures_ids ?? []).reduce((sum, id) => sum + (facturesMap.get(id)?.montant_ttc ?? 0), 0)
@@ -274,17 +273,13 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                 const nomClient = clientsMap.get(r.code_client) ?? '—'
                 const montant = getMontant(r)
                 const opNom = opMap.get(r.operateur_id) ?? ''
-                const ouvert = ligneOuverte === r.id
-                const rowCls = enRetard ? 'bg-amber-50/50 hover:bg-amber-50' : ouvert ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50/40'
-
-                // Factures liées
-                const factures = (r.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
+                const rowCls = enRetard ? 'bg-amber-50/50 hover:bg-amber-50' : 'hover:bg-gray-50/40'
 
                 return (
                   <>
                     <tr
                       key={r.id}
-                      onClick={() => setLigneOuverte(ouvert ? null : r.id)}
+                      onClick={() => setRelanceOuverte(r)}
                       className={`transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 ${rowCls}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-xs text-gray-500">
@@ -342,83 +337,6 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                       )}
                     </tr>
 
-                    {/* Ligne expandée — split : factures | note */}
-                    {ouvert && (
-                      <tr className="bg-ockham-teal-muted/60 border-t border-ockham-teal/10">
-                        <td colSpan={nbCols} className="px-6 py-4">
-                          <div className="flex gap-6">
-                            {/* Gauche : factures liées */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[10px] font-bold text-ockham-navy/50 uppercase tracking-wider mb-2">Factures liées</p>
-                              {factures.length === 0 ? (
-                                <p className="text-xs text-gray-400 italic">Aucune facture liée trouvée</p>
-                              ) : (
-                                <div className="space-y-1">
-                                  {factures.map(f => {
-                                    if (!f) return null
-                                    const com = commentaires.get(f.numero_piece)
-                                    return (
-                                      <div key={f.numero_piece} className="flex items-center gap-2 text-xs bg-white/70 border border-white rounded-lg px-3 py-1.5">
-                                        <span className="font-mono font-semibold text-ockham-teal-dark w-28 flex-shrink-0">{f.numero_piece}</span>
-                                        <span className="text-gray-600 font-medium tabular-nums w-20 flex-shrink-0">{fmtEuros(f.montant_ttc ?? 0)}</span>
-                                        {com?.ne_pas_relancer && (
-                                          <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded flex-shrink-0">⛔ Ne pas relancer</span>
-                                        )}
-                                        <button
-                                          onClick={e => { e.stopPropagation(); onOuvrirCommentaire(f) }}
-                                          className={`ml-auto flex items-center gap-1 text-[10px] font-semibold border px-2 py-0.5 rounded transition-colors whitespace-nowrap flex-shrink-0 ${
-                                            com?.ne_pas_relancer
-                                              ? 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100'
-                                              : (com?.commentaire ?? '').trim().length > 0
-                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                                                : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
-                                          }`}
-                                        >
-                                          <IcFileText size={10} /> Commentaire
-                                        </button>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Droite : note libre */}
-                            <div className="w-64 flex-shrink-0 flex flex-col gap-2">
-                              <p className="text-[10px] font-bold text-ockham-navy/50 uppercase tracking-wider">Note de suivi</p>
-                              {r.archivee ? (
-                                <div className="flex-1 bg-white/70 border border-white rounded-lg px-3 py-2 text-xs text-gray-500 italic min-h-[80px]">
-                                  {r.note || 'Aucune note'}
-                                </div>
-                              ) : (
-                                <>
-                                  <textarea
-                                    value={noteTexte}
-                                    onChange={e => setNoteTexte(e.target.value)}
-                                    onClick={e => e.stopPropagation()}
-                                    placeholder="Saisir une note de suivi…"
-                                    rows={4}
-                                    className="w-full resize-y bg-white/80 border border-white focus:border-ockham-teal/40 rounded-lg px-3 py-2 text-xs text-gray-700 outline-none transition-colors placeholder-gray-300"
-                                  />
-                                  <button
-                                    disabled={noteSaving}
-                                    onClick={async e => {
-                                      e.stopPropagation()
-                                      setNoteSaving(true)
-                                      await onSauvegarderNote(r.id, noteTexte)
-                                      setNoteSaving(false)
-                                    }}
-                                    className="self-end text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors"
-                                  >
-                                    {noteSaving ? '…' : '✓ Enregistrer'}
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </>
                 )
               })}
@@ -446,6 +364,17 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           })()}
         </div>
       )}
+
+      {/* Modal détail relance */}
+      <ModalDetailRelance
+        relance={relanceOuverte}
+        onFermer={() => setRelanceOuverte(null)}
+        onMajStatut={onMajStatut}
+        onArchiver={onArchiver}
+        onSauvegarderNote={onSauvegarderNote}
+        commentaires={commentaires}
+        onSauvegarderCommentaire={onSauvegarderCommentaire}
+      />
 
       {/* Overlay transparent pour fermer le popup au clic extérieur */}
       {popupStatut && (
