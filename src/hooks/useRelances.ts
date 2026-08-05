@@ -21,6 +21,7 @@ export interface Relance {
   note: string | null
   note_operateur: string | null
   note_archivee_le: string | null
+  date_rappel: string | null
 }
 
 export interface KpisRelance {
@@ -79,7 +80,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le')
+      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel')
       .order('cree_le', { ascending: false })
       .then(({ data }) => {
         setRelances((data ?? []) as Relance[])
@@ -102,10 +103,11 @@ export function useRelances() {
     return { scoreMois, streak, nbRelancesMois, tauxReponse, nbSansReponse }
   }, [relances])
 
-  async function mettreAJourStatut(id: string, statut: StatutRelance) {
+  async function mettreAJourStatut(id: string, statut: StatutRelance, dateRappel?: string) {
     const pts = POINTS[statut]
     const patch: Record<string, unknown> = { statut, points_attribues: pts }
     if (statut === 'envoyee') patch.envoyee_le = new Date().toISOString()
+    if (statut === 'sans_reponse' && dateRappel) patch.date_rappel = dateRappel
     const { error } = await supabase.from('relances').update(patch as never).eq('id', id)
     if (error) { toast.error('Erreur mise à jour statut'); return false }
     setRelances(prev => prev.map(r => r.id === id ? { ...r, ...patch } as Relance : r))

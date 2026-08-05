@@ -82,7 +82,7 @@ interface SauvegarderComData {
 interface Props {
   relances: Relance[]
   chargement: boolean
-  onMajStatut: (id: string, statut: StatutRelance) => Promise<boolean>
+  onMajStatut: (id: string, statut: StatutRelance, dateRappel?: string) => Promise<boolean>
   onArchiver: (id: string) => Promise<boolean>
   onSauvegarderNote: (id: string, note: string) => Promise<boolean>
   onSauvegarderCommentaire: (data: SauvegarderComData) => Promise<boolean>
