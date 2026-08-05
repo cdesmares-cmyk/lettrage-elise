@@ -295,7 +295,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                 )}
                 {factures.map(f => {
                   if (!f) return null
-                  const etat    = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
                   const nr      = nePasRelancer.get(f.numero_piece) ?? false
                   const comOpen = comOuvertes.has(f.numero_piece)
                   const hasCom  = (commentaires.get(f.numero_piece)?.commentaire ?? '').trim().length > 0
