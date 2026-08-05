@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { IcSearch, IcSliders } from '../Icones'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import { useRole } from '../../contexts/RoleContext'
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export function TableauRelances({ relances, chargement, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
+  const navigate = useNavigate()
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
   const [recherche, setRecherche] = useState('')
@@ -237,8 +239,14 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                       onClick={() => setRelanceOuverteId(r.id)}
                       className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40"
                     >
-                      <td className="px-3 py-2.5 font-mono text-xs text-gray-400 whitespace-nowrap">
-                        {r.code_client}
+                      <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
+                        <button
+                          onClick={() => navigate(`/compte-client?client=${r.code_client}`)}
+                          title="Ouvrir le compte client"
+                          className="font-mono text-xs text-ockham-teal hover:underline whitespace-nowrap cursor-pointer"
+                        >
+                          {r.code_client}
+                        </button>
                       </td>
 
                       <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[200px] truncate">
