@@ -243,9 +243,12 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                         <button
                           onClick={() => navigate(`/compte-client?client=${r.code_client}`)}
                           title="Ouvrir le compte client"
-                          className="font-mono text-xs text-ockham-teal hover:underline whitespace-nowrap cursor-pointer"
+                          className="group/code flex items-center gap-1 font-mono text-xs text-ockham-teal whitespace-nowrap cursor-pointer"
                         >
                           {r.code_client}
+                          <svg className="w-3 h-3 opacity-0 group-hover/code:opacity-100 transition-opacity flex-shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 6h8M7 3l3 3-3 3" />
+                          </svg>
                         </button>
                       </td>
 
