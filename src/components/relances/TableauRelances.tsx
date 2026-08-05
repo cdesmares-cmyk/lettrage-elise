@@ -7,7 +7,7 @@ import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from './ModalDetailRelance'
 
-type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant'
+type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant' | 'operateur'
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
@@ -106,7 +106,8 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
           const jb = b.envoyee_le ? joursDepuis(b.envoyee_le) : -1
           cmp = ja - jb; break
         }
-        case 'montant': cmp = getMontant(a) - getMontant(b); break
+        case 'montant':   cmp = getMontant(a) - getMontant(b); break
+        case 'operateur': cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
       }
       return triAsc ? cmp : -cmp
     })
@@ -213,6 +214,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                     ['envoyee_le',  'Envoyée le'],
                     ['jours',       'J+'],
                     ['montant',     'Montant TTC'],
+                    ['operateur',   'Op.'],
                   ] as [ColSort, string][]).map(([col, label]) => (
                     <th
                       key={col}
@@ -247,7 +249,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                         {r.envoyee_le ? fmtDate(r.envoyee_le) : '—'}
                       </td>
 
-                      <td className="px-3 py-2.5 text-center">
+                      <td className="px-3 py-2.5">
                         {jours !== null ? (
                           <span className={`text-[11px] font-bold tabular-nums ${
                             r.statut === 'payee'                             ? 'text-gray-300'  :
@@ -262,6 +264,14 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
 
                       <td className="px-3 py-2.5 text-xs tabular-nums text-gray-600 whitespace-nowrap">
                         {getMontant(r) > 0 ? fmtEuros(getMontant(r)) : '—'}
+                      </td>
+
+                      <td className="px-3 py-2.5">
+                        {opMap.get(r.operateur_id) ? (
+                          <span className="text-[10px] font-bold text-ockham-navy/50 bg-ockham-teal-muted px-1.5 py-0.5 rounded tracking-wide">
+                            {opMap.get(r.operateur_id)}
+                          </span>
+                        ) : <span className="text-gray-300">—</span>}
                       </td>
 
                       {peutModifier && (
