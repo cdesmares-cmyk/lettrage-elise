@@ -98,7 +98,8 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
   const [filtreStatut, setFiltreStatut] = useState<StatutRelance | 'tous'>('tous')
   const [recherche, setRecherche] = useState('')
   const [popupStatut, setPopupStatut] = useState<{ id: string; top: number; left: number } | null>(null)
-  const [relanceOuverte, setRelanceOuverte] = useState<Relance | null>(null)
+  const [relanceOuverteId, setRelanceOuverteId] = useState<string | null>(null)
+  const relanceOuverte = relances.find(r => r.id === relanceOuverteId) ?? null
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -277,7 +278,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
                   <>
                     <tr
                       key={r.id}
-                      onClick={() => setRelanceOuverte(r)}
+                      onClick={() => setRelanceOuverteId(r.id)}
                       className={`transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 ${rowCls}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-xs text-gray-500">
@@ -366,7 +367,7 @@ export function TableauRelances({ relances, chargement, onMajStatut, onArchiver,
       {/* Modal détail relance */}
       <ModalDetailRelance
         relance={relanceOuverte}
-        onFermer={() => setRelanceOuverte(null)}
+        onFermer={() => setRelanceOuverteId(null)}
         onMajStatut={onMajStatut}
         onArchiver={onArchiver}
         onSauvegarderNote={onSauvegarderNote}

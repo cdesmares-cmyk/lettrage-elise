@@ -149,6 +149,14 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     setStatutsFac(prev => { const n = new Map(prev); n.set(numeroPiece, statut); return n })
     setPopupStatut(null)
     await supabase.from('factures').update({ statut_facture: statut } as never).eq('numero_piece', numeroPiece)
+    toast.success(statut === 'litige' ? 'Facture passée en litige' : statut === 'provisionne' ? 'Facture provisionnée' : 'Statut effacé')
+  }
+
+  async function autoSaveNePasRelancer(numeroPiece: string, value: boolean) {
+    setNePasRelancer(prev => { const n = new Map(prev); n.set(numeroPiece, value); return n })
+    const etat = etatsCom.get(numeroPiece) ?? { texte: '', saving: false }
+    await onSauvegarderCommentaire({ numero_piece: numeroPiece, contact: '', date_contact: '', commentaire: etat.texte, operateur, ne_pas_relancer: value })
+    toast.success(value ? 'Facture exclue des prochaines relances' : 'Facture réintégrée aux relances')
   }
 
   function toggleCom(id: string) {
@@ -317,7 +325,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                             <input
                               type="checkbox"
                               checked={nr}
-                              onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
+                              onChange={e => autoSaveNePasRelancer(f.numero_piece, e.target.checked)}
                               className="w-3.5 h-3.5 accent-amber-500"
                             />
                             {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
