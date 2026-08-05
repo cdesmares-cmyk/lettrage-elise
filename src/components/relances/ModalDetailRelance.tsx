@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
@@ -299,69 +299,66 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                   const comOpen = comOuvertes.has(f.numero_piece)
                   const hasCom  = (commentaires.get(f.numero_piece)?.commentaire ?? '').trim().length > 0
                   const statut  = statutsFac.get(f.numero_piece) ?? null
+                  const etat    = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
                   return (
-                    <tr key={f.numero_piece} className="[&>td]:border-b [&>td]:border-gray-50 hover:bg-gray-50/60 transition-colors">
-                      <td className="px-5 py-2.5">
-                        <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        {renderStatutBadge(f.numero_piece, statut, openPopup)}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <label className="flex items-center gap-2 cursor-pointer w-fit">
-                          <input
-                            type="checkbox"
-                            checked={nr}
-                            onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
-                            className="w-3.5 h-3.5 accent-amber-500"
-                          />
-                          {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
-                        </label>
-                      </td>
-                      <td className="px-3 py-2.5 text-center" colSpan={comOpen ? 0 : 1}>
-                        <button
-                          onClick={() => toggleCom(f.numero_piece)}
-                          className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer whitespace-nowrap ${
-                            hasCom
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
-                              : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
-                          }`}
-                        >
-                          <IcComment /> Commentaire
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {/* Tiroirs commentaires — séparés pour HTML valide */}
-                {factures.map(f => {
-                  if (!f) return null
-                  if (!comOuvertes.has(f.numero_piece)) return null
-                  const etat = etatsCom.get(f.numero_piece) ?? { texte: '', saving: false }
-                  return (
-                    <tr key={`${f.numero_piece}-com`} className="bg-gray-50/80">
-                      <td colSpan={5} className="px-5 py-3 border-b border-gray-100">
-                        <div className="flex gap-3 items-end pl-4">
-                          <textarea
-                            value={etat.texte}
-                            onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
-                            placeholder="Note sur cette facture…"
-                            rows={2}
-                            className="flex-1 text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
-                          />
+                    <Fragment key={f.numero_piece}>
+                      <tr className="[&>td]:border-b [&>td]:border-gray-50 hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-2.5">
+                          <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{f.numero_piece}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          {renderStatutBadge(f.numero_piece, statut, openPopup)}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <label className="flex items-center gap-2 cursor-pointer w-fit">
+                            <input
+                              type="checkbox"
+                              checked={nr}
+                              onChange={e => setNePasRelancer(prev => { const n = new Map(prev); n.set(f.numero_piece, e.target.checked); return n })}
+                              className="w-3.5 h-3.5 accent-amber-500"
+                            />
+                            {nr && <span className="text-[10px] text-amber-600 font-semibold">Exclue</span>}
+                          </label>
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
                           <button
-                            disabled={etat.saving}
-                            onClick={() => sauvegarderCom(f.numero_piece)}
-                            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+                            onClick={() => toggleCom(f.numero_piece)}
+                            className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors cursor-pointer whitespace-nowrap ${
+                              hasCom
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                                : 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/40 hover:bg-ockham-teal/10'
+                            }`}
                           >
-                            {etat.saving ? '…' : '✓ Enregistrer'}
+                            <IcComment /> Commentaire
                           </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {comOpen && (
+                        <tr className="bg-gray-50/80">
+                          <td colSpan={5} className="px-5 py-3 border-b border-gray-100">
+                            <div className="flex gap-3 items-end pl-4">
+                              <textarea
+                                value={etat.texte}
+                                onChange={e => setCom(f.numero_piece, { texte: e.target.value })}
+                                placeholder="Note sur cette facture…"
+                                rows={2}
+                                className="flex-1 text-[12px] text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-lg px-2.5 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
+                              />
+                              <button
+                                disabled={etat.saving}
+                                onClick={() => sauvegarderCom(f.numero_piece)}
+                                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                {etat.saving ? '…' : '✓ Enregistrer'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   )
                 })}
               </tbody>
