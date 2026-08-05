@@ -108,6 +108,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   }
 
   async function sauvegarderCom(id: string) {
+    if (!relance) return
     const etat = etatsCom.get(id)
     if (!etat) return
     setCom(id, { saving: true })
