@@ -9,6 +9,7 @@ export interface CompteClient {
   nom: string
   statut_juridique: StatutJuridique | null
   commercial: string | null
+  commercial_id: string | null
   operateur: string | null
   plateforme: string | null
   code_groupement: string | null

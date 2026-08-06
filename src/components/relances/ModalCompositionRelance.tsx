@@ -59,10 +59,10 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   useEffect(() => {
     setEmailCommercial(null)
     setCcCommercial(false)
-    if (!client?.commercial) return
-    supabase.from('utilisateurs').select('email').eq('nom', client.commercial).maybeSingle()
+    if (!client?.commercial_id) return
+    supabase.from('utilisateurs').select('email').eq('id', client.commercial_id).maybeSingle()
       .then(({ data }) => setEmailCommercial((data as { email: string } | null)?.email ?? null))
-  }, [client?.commercial])
+  }, [client?.commercial_id])
 
   useEffect(() => {
     if (!client) return

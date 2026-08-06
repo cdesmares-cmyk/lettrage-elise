@@ -111,13 +111,13 @@ function SelectRef({
 }
 
 export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
-  const [commerciauxData, setCommerciauxData] = useState<{ nom: string; prenom: string }[]>([])
+  const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
   const chargerCommerciaux = useCallback(async () => {
-    const { data } = await supabase.from('utilisateurs').select('prenom, nom').order('nom')
-    setCommerciauxData((data as unknown as { nom: string; prenom: string }[] | null)?.filter(u => u.nom) ?? [])
+    const { data } = await supabase.from('utilisateurs').select('id, prenom, nom').order('nom')
+    setCommerciauxData((data as unknown as { id: string; nom: string; prenom: string }[] | null)?.filter(u => u.nom) ?? [])
   }, [])
 
   useEffect(() => { chargerCommerciaux() }, [chargerCommerciaux])
@@ -126,6 +126,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
   const [statut, setStatut]           = useState<StatutJuridique | ''>('')
   const [commercial, setCommercial]   = useState('')
+  const [commercialId, setCommercialId] = useState<string | null>(null)
   const [operateur, setOperateur]     = useState('')
   const [plateforme, setPlateforme]   = useState('')
   const [groupement, setGroupement]   = useState('')
@@ -184,6 +185,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
 
       setStatut(client.statut_juridique ?? '')
       setCommercial(client.commercial ?? '')
+      setCommercialId(client.commercial_id ?? null)
       setOperateur(client.operateur ?? '')
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
@@ -224,6 +226,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     const ok = await onSauvegarder(client!.code_dso, {
       statut_juridique: statut || null,
       commercial: commercial.trim() || null,
+      commercial_id: commercialId,
       operateur: operateur.trim() || null,
       plateforme: valPlateforme || null,
       code_groupement: groupement.trim() || null,
@@ -557,10 +560,13 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             <SelectRef
               label="Commercial"
               valeur={commercial}
-              setValeur={setCommercial}
+              setValeur={name => {
+                setCommercial(name)
+                const match = commerciauxData.find(u => (u.prenom ? `${u.nom} ${u.prenom}` : u.nom) === name)
+                setCommercialId(match?.id ?? null)
+              }}
               options={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
             />
-            <SelectRef label="Opérateur" valeur={operateur} setValeur={setOperateur} options={operateurs} />
             <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
 
             <div>

@@ -10,7 +10,7 @@ import type { CompteClient, FactureDetail, StatutFacture, StatutJuridique } from
 
 interface RowCompteClient {
   code_dso: string; nom: string; statut_juridique: string | null
-  commercial: string | null; operateur: string | null
+  commercial: string | null; commercial_id: string | null; operateur: string | null
   plateforme: string | null; code_groupement: string | null
   nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null; siret: string | null
   score_risque: number | null
@@ -20,6 +20,7 @@ interface RowCompteClient {
 interface OptsClientLocal {
   statut_juridique?: StatutJuridique | null
   commercial?: string | null
+  commercial_id?: string | null
   operateur?: string | null
   plateforme?: string | null
   code_groupement?: string | null
