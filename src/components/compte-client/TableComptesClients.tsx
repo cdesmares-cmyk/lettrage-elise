@@ -173,20 +173,20 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         </div>
       )}
       {nbASuivre > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-ockham-copper-light">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C07840" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="#C07840" fillOpacity="0.25"/>
-            <line x1="4" y1="22" x2="4" y2="15"/>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-[#F5F3FF]">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3" fill="#7C3AED" fillOpacity="0.3"/>
           </svg>
-          <span className="text-xs text-ockham-copper font-medium flex-1">
+          <span className="text-xs text-[#7C3AED] font-medium flex-1">
             {nbASuivre} client{nbASuivre > 1 ? 's' : ''} à suivre
           </span>
           <button
             onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
             className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors ${
               filtreASuivre
-                ? 'bg-ockham-copper text-white border-ockham-copper'
-                : 'bg-white text-ockham-copper border-ockham-copper/40 hover:bg-ockham-copper-light'
+                ? 'bg-[#7C3AED] text-white border-[#7C3AED]'
+                : 'bg-white text-[#7C3AED] border-[#7C3AED]/40 hover:bg-[#F5F3FF]'
             }`}
           >
             {filtreASuivre ? 'Voir tous' : 'Filtrer'}
@@ -218,8 +218,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <th className="px-3 py-2.5 text-center">
               <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
-                  <line x1="4" y1="22" x2="4" y2="15"/>
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
                 </svg>
                 À Suivre
               </span>
@@ -290,13 +290,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       title={c.a_suivre ? 'Retirer de "À Suivre"' : 'Marquer À Suivre'}
                       className={`p-1 rounded transition-colors ${
                         c.a_suivre
-                          ? 'text-ockham-copper'
-                          : 'text-gray-300 hover:text-ockham-copper'
+                          ? 'text-[#7C3AED]'
+                          : 'text-gray-300 hover:text-[#7C3AED]'
                       } ${(!peutModifier || !onToggleASuivre) ? 'cursor-default' : 'cursor-pointer'}`}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" {...(c.a_suivre ? { fill: 'currentColor', fillOpacity: '0.2' } : {})}/>
-                        <line x1="4" y1="22" x2="4" y2="15"/>
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle cx="12" cy="12" r="3" {...(c.a_suivre ? { fill: 'currentColor', fillOpacity: '0.3' } : {})}/>
                       </svg>
                     </button>
                   </td>
