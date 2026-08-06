@@ -76,11 +76,30 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   const [comOuvertes, setComOuvertes]       = useState<Set<string>>(new Set())
   const [popupStatut, setPopupStatut]       = useState<{ id: string; top: number; left: number } | null>(null)
   const [statutSaving, setStatutSaving]     = useState(false)
+  const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string }[]>([])
   const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
   const operateur   = utilisateur?.email?.split('@')[0] ?? ''
+
+  // Afficher les contacts — priorité au snapshot sauvegardé (résistant aux suppressions)
+  // Fallback live pour les relances antérieures à la migration 118
+  useEffect(() => {
+    setContacts([])
+    if (!relance) return
+    if (relance.contacts_snapshot?.length) {
+      setContacts(relance.contacts_snapshot)
+      return
+    }
+    const ids = relance.contacts_ids
+    if (!ids?.length) return
+    supabase
+      .from('contacts_client')
+      .select('id,nom,prenom,email')
+      .in('id', ids)
+      .then(({ data }) => setContacts((data ?? []) as typeof contacts))
+  }, [relance?.id])
 
   useEffect(() => {
     setNoteTexte(relance?.note ?? '')
@@ -210,6 +229,16 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                   </span>
                 )}
               </div>
+              {contacts.length > 0 && (
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <span className="text-[10px] text-white/40">Contact :</span>
+                  {contacts.map(c => (
+                    <span key={c.id} className="text-[10px] text-white/65 bg-white/10 px-1.5 py-0.5 rounded">
+                      {c.prenom ? `${c.prenom} ${c.nom}` : c.email}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className="text-xl font-bold text-ockham-teal tabular-nums">{fmtEuros(montant)}</span>

@@ -1,15 +1,12 @@
-// Timeline unifiée — relances manuelles + automatiques, triées chronologiquement
+// Cartouches minimalistes des relances d'un client — Date · Montant · Manuel/Auto · Initiales op.
+// Limite 5 items visibles, bouton "X relances plus anciennes" pour tout voir.
+// Clic sur une relance manuelle → ouvre ModalDetailRelance (identique à l'onglet Relances).
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
-
-interface RelanceManuelle {
-  id: string
-  note: string | null
-  note_operateur: string | null
-  envoyee_le: string
-  contacts_ids: string[] | null
-  factures_ids: string[] | null
-}
+import { useAppData } from '../../contexts/AppDataContext'
+import type { Relance, StatutRelance } from '../../hooks/useRelances'
+import type { CommentaireFacture } from '../../types/client'
+import { ModalDetailRelance } from '../relances/ModalDetailRelance'
 
 interface LogAuto {
   id: string
@@ -20,35 +17,35 @@ interface LogAuto {
   resend_id: string | null
 }
 
-type EntreeTimeline =
-  | { type: 'manuelle'; data: RelanceManuelle; date: string }
-  | { type: 'auto'; groupe: LogAuto[]; date: string }
+type Entree =
+  | { type: 'manuelle'; relance: Relance; montant: number }
+  | { type: 'auto'; groupe: LogAuto[]; montant: number; date: string }
 
-interface Apercu {
-  type: 'manuelle' | 'auto'
-  id: string
-  html: string | null
-  chargement: boolean
+interface SauvegarderComData {
+  numero_piece: string; contact: string; date_contact: string
+  commentaire: string; operateur: string; ne_pas_relancer?: boolean
 }
 
-interface Props {
-  codeClient: string
+const LIMITE = 5
+
+function fmt(iso: string) {
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+}
+function fmtEuros(n: number) {
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
-}
-
-function formatMontant(v: number | null) {
-  if (v == null) return null
-  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(v)
-}
+interface Props { codeClient: string }
 
 export function SectionTimelineRelances({ codeClient }: Props) {
-  const [relancesManuelles, setRelancesManuelles] = useState<RelanceManuelle[]>([])
-  const [logsAuto, setLogsAuto] = useState<LogAuto[]>([])
+  const { facturesActives } = useAppData()
+  const [relances, setRelances]   = useState<Relance[]>([])
+  const [logsAuto, setLogsAuto]   = useState<LogAuto[]>([])
+  const [initOp, setInitOp]       = useState<Map<string, string>>(new Map())
+  const [commentaires, setCommentaires] = useState<Map<string, CommentaireFacture>>(new Map())
   const [chargement, setChargement] = useState(true)
-  const [apercu, setApercu] = useState<Apercu | null>(null)
+  const [tout, setTout]           = useState(false)
+  const [ouvert, setOuvert]       = useState<Relance | null>(null)
 
   useEffect(() => {
     let actif = true
@@ -56,56 +53,122 @@ export function SectionTimelineRelances({ codeClient }: Props) {
     Promise.all([
       supabase
         .from('relances')
-        .select('id, note, note_operateur, envoyee_le, contacts_ids, factures_ids')
+        .select('id,code_client,operateur_id,contacts_ids,contacts_snapshot,factures_ids,objet,statut,points_attribues,cree_le,envoyee_le,mis_a_jour_le,archivee,note,note_operateur,note_archivee_le,date_rappel')
         .eq('code_client', codeClient)
+        .eq('archivee', false)
         .not('envoyee_le', 'is', null)
         .order('envoyee_le', { ascending: false })
-        .limit(20),
+        .limit(50),
       supabase
         .from('relances_auto_log')
-        .select('id, envoye_le, statut, contact_email, montant_total, resend_id')
+        .select('id,envoye_le,statut,contact_email,montant_total,resend_id')
         .eq('code_client', codeClient)
         .order('envoye_le', { ascending: false })
-        .limit(60),
-    ]).then(([{ data: manuelles }, { data: auto }]) => {
+        .limit(100),
+      supabase.from('utilisateurs').select('id,nom,prenom'),
+    ]).then(([{ data: r }, { data: a }, { data: u }]) => {
       if (!actif) return
-      setRelancesManuelles((manuelles ?? []) as RelanceManuelle[])
-      setLogsAuto((auto ?? []) as LogAuto[])
+      setRelances((r ?? []) as Relance[])
+      setLogsAuto((a ?? []) as LogAuto[])
+      const map = new Map<string, string>()
+      for (const usr of (u ?? []) as { id: string; nom: string; prenom: string | null }[]) {
+        map.set(usr.id, ((usr.nom[0] ?? '') + (usr.prenom?.[0] ?? '')).toUpperCase())
+      }
+      setInitOp(map)
       setChargement(false)
     })
     return () => { actif = false }
   }, [codeClient])
 
-  // Grouper les logs auto par resend_id (= un email = une capsule)
-  const groupesAuto = logsAuto.reduce<Record<string, LogAuto[]>>((acc, log) => {
-    const key = log.resend_id ?? log.id
+  // Commentaires des factures de la relance ouverte
+  useEffect(() => {
+    const ids = ouvert?.factures_ids
+    if (!ids?.length) return
+    supabase
+      .from('commentaires_factures')
+      .select('id,numero_piece,contact,date_contact,commentaire,operateur,updated_at,ne_pas_relancer')
+      .in('numero_piece', ids)
+      .then(({ data }) => {
+        const map = new Map<string, CommentaireFacture>()
+        for (const c of (data ?? []) as CommentaireFacture[]) map.set(c.numero_piece, c)
+        setCommentaires(map)
+      })
+  }, [ouvert?.id])
+
+  const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
+  function montantR(r: Relance): number {
+    return (r.factures_ids ?? []).reduce((s, id) => s + (facturesMap.get(id)?.montant_ttc ?? 0), 0)
+  }
+
+  const groupesAuto = logsAuto.reduce<Record<string, LogAuto[]>>((acc, l) => {
+    const key = l.resend_id ?? l.id
     if (!acc[key]) acc[key] = []
-    acc[key].push(log)
+    acc[key].push(l)
     return acc
   }, {})
 
-  const timeline: EntreeTimeline[] = [
-    ...relancesManuelles.map(r => ({ type: 'manuelle' as const, data: r, date: r.envoyee_le })),
-    ...Object.values(groupesAuto).map(logs => ({ type: 'auto' as const, groupe: logs, date: logs[0].envoye_le })),
-  ].sort((a, b) => b.date.localeCompare(a.date))
+  const timeline: Entree[] = [
+    ...relances.map(r => ({ type: 'manuelle' as const, relance: r, montant: montantR(r) })),
+    ...Object.values(groupesAuto).map(g => ({
+      type: 'auto' as const, groupe: g, montant: g[0].montant_total ?? 0, date: g[0].envoye_le,
+    })),
+  ].sort((a, b) => {
+    const da = a.type === 'manuelle' ? (a.relance.envoyee_le ?? '') : a.date
+    const db = b.type === 'manuelle' ? (b.relance.envoyee_le ?? '') : b.date
+    return db.localeCompare(da)
+  })
 
-  async function ouvrirApercu(type: 'manuelle' | 'auto', id: string) {
-    setApercu({ type, id, html: null, chargement: true })
-    let html: string | null = null
-    if (type === 'manuelle') {
-      const { data } = await supabase.from('relances').select('corps_html').eq('id', id).maybeSingle()
-      html = (data as { corps_html: string | null } | null)?.corps_html ?? null
-    } else {
-      const { data } = await supabase.from('relances_auto_log').select('corps_html').eq('id', id).maybeSingle()
-      html = (data as { corps_html: string | null } | null)?.corps_html ?? null
+  const visible = tout ? timeline : timeline.slice(0, LIMITE)
+  const hasMore = timeline.length > LIMITE
+
+  // Handlers locaux pour ModalDetailRelance
+  async function onMajStatut(id: string, statut: StatutRelance, dateRappel?: string): Promise<boolean> {
+    setRelances(prev => prev.map(r => r.id === id ? { ...r, statut, date_rappel: dateRappel ?? r.date_rappel } : r))
+    setOuvert(prev => prev?.id === id ? { ...prev, statut, date_rappel: dateRappel ?? prev?.date_rappel } : prev)
+    const update: Record<string, unknown> = { statut }
+    if (dateRappel) update.date_rappel = dateRappel
+    const { error } = await supabase.from('relances').update(update as never).eq('id', id)
+    return !error
+  }
+
+  async function onArchiver(id: string): Promise<boolean> {
+    setRelances(prev => prev.filter(r => r.id !== id))
+    const { error } = await supabase.from('relances').update({ archivee: true } as never).eq('id', id)
+    return !error
+  }
+
+  async function onSauvegarderNote(id: string, note: string): Promise<boolean> {
+    setRelances(prev => prev.map(r => r.id === id ? { ...r, note } : r))
+    const { error } = await supabase.from('relances').update({ note } as never).eq('id', id)
+    return !error
+  }
+
+  async function onSauvegarderCommentaire(data: SauvegarderComData): Promise<boolean> {
+    const { error } = await supabase
+      .from('commentaires_factures')
+      .upsert(
+        { numero_piece: data.numero_piece, contact: data.contact, date_contact: data.date_contact, commentaire: data.commentaire, operateur: data.operateur, ne_pas_relancer: data.ne_pas_relancer ?? false },
+        { onConflict: 'numero_piece' }
+      )
+    if (!error) {
+      setCommentaires(prev => {
+        const n = new Map(prev)
+        n.set(data.numero_piece, {
+          id: '', numero_piece: data.numero_piece, contact: data.contact,
+          date_contact: data.date_contact, commentaire: data.commentaire,
+          operateur: data.operateur, ne_pas_relancer: data.ne_pas_relancer ?? false,
+          updated_at: new Date().toISOString(),
+        })
+        return n
+      })
     }
-    setApercu(prev => prev?.id === id ? { ...prev, html, chargement: false } : prev)
+    return !error
   }
 
   if (chargement) {
     return (
-      <div className="space-y-2 pt-3 border-t border-gray-100">
-        {[1, 2, 3].map(i => <div key={i} className="h-14 rounded-xl bg-gray-100 animate-pulse" />)}
+      <div className="space-y-1.5 pt-3 border-t border-gray-100">
+        {[1, 2, 3].map(i => <div key={i} className="h-9 rounded-lg bg-gray-100 animate-pulse" />)}
       </div>
     )
   }
@@ -120,121 +183,97 @@ export function SectionTimelineRelances({ codeClient }: Props) {
 
   return (
     <>
-      <div className="space-y-2 pt-3 border-t border-gray-100">
-        {timeline.map((entree, idx) => {
+      <div className="space-y-1.5 pt-3 border-t border-gray-100">
+        {visible.map((entree, idx) => {
+          const isPremiere = idx === 0
+
           if (entree.type === 'manuelle') {
-            const r = entree.data
-            const nbDest = r.contacts_ids?.length ?? 0
-            const nbFact = r.factures_ids?.length ?? 0
+            const r   = entree.relance
+            const date = r.envoyee_le ? fmt(r.envoyee_le) : '—'
+            const op   = initOp.get(r.operateur_id) ?? '?'
+
             return (
               <button
                 key={r.id}
-                onClick={() => ouvrirApercu('manuelle', r.id)}
-                className="w-full text-left bg-gray-50 border border-gray-200 hover:border-gray-300 rounded-xl px-4 py-3 space-y-1.5 transition-colors"
+                onClick={() => setOuvert(r)}
+                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors group cursor-pointer ${
+                  isPremiere
+                    ? 'border-ockham-teal/40 bg-ockham-teal-muted/50 hover:bg-ockham-teal-muted'
+                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-gray-500">{formatDate(r.envoyee_le)}</span>
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">Manuelle</span>
-                  </div>
-                  <span className="text-[9px] text-gray-400 flex-shrink-0">
-                    {nbFact > 0 && `${nbFact} fact.`}
-                    {nbFact > 0 && nbDest > 0 && ' · '}
-                    {nbDest > 0 && `${nbDest} dest.`}
-                  </span>
-                </div>
-                {r.note && <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-2">{r.note}</p>}
-                {r.note_operateur && <p className="text-[10px] text-gray-400">{r.note_operateur}</p>}
+                <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${isPremiere ? 'text-ockham-teal-dark' : 'text-gray-500'}`}>
+                  {date}
+                </span>
+                <span className={`text-[11px] font-bold flex-1 tabular-nums ${isPremiere ? 'text-ockham-navy' : 'text-gray-700'}`}>
+                  {fmtEuros(entree.montant)}
+                </span>
+                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                  isPremiere
+                    ? 'bg-ockham-teal/10 text-ockham-teal-dark border-ockham-teal/30'
+                    : 'bg-slate-50 text-slate-500 border-slate-200'
+                }`}>Manuel</span>
+                <span className={`text-[10px] font-bold w-5 text-center flex-shrink-0 ${isPremiere ? 'text-ockham-teal' : 'text-gray-400'}`}>
+                  {op}
+                </span>
+                <svg
+                  className={`w-3 h-3 flex-shrink-0 transition-colors ${isPremiere ? 'text-ockham-teal/60 group-hover:text-ockham-teal' : 'text-gray-300 group-hover:text-gray-400'}`}
+                  viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                >
+                  <path d="M4.5 2.5l4 3.5-4 3.5" />
+                </svg>
               </button>
             )
           }
 
-          // Capsule auto
-          const logs = entree.groupe
-          const statut = logs.some(l => l.statut === 'bounce') ? 'bounce'
-            : logs.some(l => l.statut === 'erreur') ? 'erreur'
-            : 'envoye'
-          const badgeClass = statut === 'envoye'
-            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-            : statut === 'bounce'
-            ? 'bg-amber-50 text-amber-700 border-amber-200'
-            : 'bg-red-50 text-red-700 border-red-200'
-          const badgeLabel = statut === 'envoye' ? 'Envoyé' : statut === 'bounce' ? 'Contact' : 'Erreur'
-          const contact = logs[0].contact_email
-          const montant = formatMontant(logs[0].montant_total)
+          // Capsule auto (non cliquable, pas de modal)
+          const g     = entree.groupe
+          const date  = fmt(entree.date)
+          const bounce = g.some(l => l.statut === 'bounce')
 
           return (
-            <button
-              key={`auto-${idx}`}
-              onClick={() => ouvrirApercu('auto', logs[0].id)}
-              className="w-full text-left bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3 space-y-1.5 transition-colors"
+            <div
+              key={`auto-${entree.date}-${idx}`}
+              className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border ${
+                isPremiere
+                  ? 'border-ockham-teal/40 bg-ockham-teal-muted/50'
+                  : 'border-gray-100 bg-gray-50/60'
+              }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-gray-500">{formatDate(entree.date)}</span>
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 border border-blue-200">Auto</span>
-                </div>
-                <span className={`text-[9px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${badgeClass}`}>{badgeLabel}</span>
-              </div>
-              {(contact || montant) && (
-                <div className="flex items-center gap-3">
-                  {contact && <span className="text-[11px] text-gray-500 truncate">{contact}</span>}
-                  {montant && <span className="text-[11px] font-mono font-semibold text-gray-700 flex-shrink-0">{montant}</span>}
-                </div>
-              )}
-            </button>
+              <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${isPremiere ? 'text-ockham-teal-dark' : 'text-gray-500'}`}>
+                {date}
+              </span>
+              <span className={`text-[11px] font-bold flex-1 tabular-nums ${isPremiere ? 'text-ockham-navy' : 'text-gray-600'}`}>
+                {fmtEuros(entree.montant)}
+              </span>
+              <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${
+                bounce ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-500 border-blue-200'
+              }`}>Auto</span>
+              <span className="w-5 flex-shrink-0" />
+              <span className="w-3 flex-shrink-0" />
+            </div>
           )
         })}
+
+        {hasMore && (
+          <button
+            onClick={() => setTout(p => !p)}
+            className="w-full text-center text-[10px] font-semibold text-ockham-teal hover:text-ockham-teal-dark py-1.5 transition-colors cursor-pointer"
+          >
+            {tout ? '↑ Réduire' : `↓ ${timeline.length - LIMITE} relance${timeline.length - LIMITE > 1 ? 's' : ''} plus ancienne${timeline.length - LIMITE > 1 ? 's' : ''}`}
+          </button>
+        )}
       </div>
 
-      {/* Modal aperçu mail — rendu en fixed pour passer au-dessus du panneau */}
-      {apercu && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4"
-          onClick={() => setApercu(null)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${
-                  apercu.type === 'auto'
-                    ? 'bg-blue-50 text-blue-500 border-blue-200'
-                    : 'bg-slate-100 text-slate-500 border-slate-200'
-                }`}>
-                  {apercu.type === 'auto' ? 'Auto' : 'Manuelle'}
-                </span>
-                <p className="text-sm font-semibold text-gray-800">Aperçu du mail envoyé</p>
-              </div>
-              <button
-                onClick={() => setApercu(null)}
-                className="w-7 h-7 rounded-full border border-gray-200 text-gray-400 text-sm hover:bg-gray-50 flex items-center justify-center transition-colors"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="flex-1 overflow-auto p-1 min-h-0">
-              {apercu.chargement ? (
-                <div className="flex items-center justify-center h-48 text-sm text-gray-400">Chargement…</div>
-              ) : apercu.html ? (
-                <iframe
-                  srcDoc={apercu.html}
-                  className="w-full border-0 rounded-b-2xl"
-                  style={{ height: '70vh' }}
-                  sandbox="allow-same-origin"
-                  title="Aperçu mail"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-48 text-sm text-gray-400 italic">
-                  Contenu non disponible — ce mail a été envoyé avant l'activation de l'historique.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalDetailRelance
+        relance={ouvert}
+        onFermer={() => setOuvert(null)}
+        onMajStatut={onMajStatut}
+        onArchiver={onArchiver}
+        onSauvegarderNote={onSauvegarderNote}
+        commentaires={commentaires}
+        onSauvegarderCommentaire={onSauvegarderCommentaire}
+      />
     </>
   )
 }

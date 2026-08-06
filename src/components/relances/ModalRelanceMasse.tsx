@@ -166,15 +166,16 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       }
 
       const payload: Record<string, unknown> = {
-        code_client:      e.client.code_dso,
-        operateur_id:     utilisateur.id,
-        contacts_ids:     contactsEmail.map(c => c.id),
-        factures_ids:     impayees.map(f => f.numero_piece),
-        objet:            objetClient,
-        corps_html:       corpsHtml,
-        statut:           'envoyee',
-        envoyee_le:       new Date().toISOString(),
-        points_attribues: 10,
+        code_client:        e.client.code_dso,
+        operateur_id:       utilisateur.id,
+        contacts_ids:       contactsEmail.map(c => c.id),
+        contacts_snapshot:  contactsEmail.map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email })),
+        factures_ids:       impayees.map(f => f.numero_piece),
+        objet:              objetClient,
+        corps_html:         corpsHtml,
+        statut:             'envoyee',
+        envoyee_le:         new Date().toISOString(),
+        points_attribues:   10,
       }
       if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 

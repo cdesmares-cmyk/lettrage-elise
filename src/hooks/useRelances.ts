@@ -5,11 +5,19 @@ import { useAuth } from '../contexts/AuthContext'
 
 export type StatutRelance = 'brouillon' | 'envoyee' | 'repondue' | 'promesse_paiement' | 'sans_reponse' | 'payee'
 
+export interface ContactSnapshot {
+  id: string
+  nom: string
+  prenom: string | null
+  email: string
+}
+
 export interface Relance {
   id: string
   code_client: string
   operateur_id: string
   contacts_ids: string[]
+  contacts_snapshot: ContactSnapshot[] | null
   factures_ids: string[]
   objet: string
   statut: StatutRelance
@@ -80,7 +88,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel')
+      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel')
       .order('cree_le', { ascending: false })
       .then(({ data }) => {
         setRelances((data ?? []) as Relance[])

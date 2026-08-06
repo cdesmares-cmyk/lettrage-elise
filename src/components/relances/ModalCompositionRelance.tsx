@@ -138,16 +138,22 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       gmailThreadId = res.threadId
     }
 
+    // Snapshot des contacts au moment de l'envoi (préserve l'info si le contact est supprimé plus tard)
+    const contactsSnapshot = sanContacts
+      ? [{ id: '', nom: nomFallback.trim(), prenom: null, email: emailFallback.trim() }]
+      : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email }))
+
     const payload: Record<string, unknown> = {
-      code_client:      client!.code_dso,
-      operateur_id:     utilisateur.id,
-      contacts_ids:     cIds,
-      factures_ids:     facturesSel,
-      objet:            objetFinal.trim(),
-      corps_html:       previewHtml,
-      statut:           'envoyee',
-      envoyee_le:       new Date().toISOString(),
-      points_attribues: 10,
+      code_client:        client!.code_dso,
+      operateur_id:       utilisateur.id,
+      contacts_ids:       cIds,
+      contacts_snapshot:  contactsSnapshot,
+      factures_ids:       facturesSel,
+      objet:              objetFinal.trim(),
+      corps_html:         previewHtml,
+      statut:             'envoyee',
+      envoyee_le:         new Date().toISOString(),
+      points_attribues:   10,
     }
     if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 
