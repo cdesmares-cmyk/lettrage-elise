@@ -41,6 +41,7 @@ interface Props {
   onSauvegarder: (codeDso: string, opts: {
     statut_juridique: StatutJuridique | null
     commercial: string | null
+    commercial_id: string | null
     operateur: string | null
     plateforme: string | null
     code_groupement: string | null
@@ -112,7 +113,6 @@ function SelectRef({
 
 export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
-  const { valeurs: operateurs } = useRefValeurs('operateur')
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
   const chargerCommerciaux = useCallback(async () => {
