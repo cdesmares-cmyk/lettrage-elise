@@ -9,7 +9,9 @@ interface Props {
   factures: FactureDetail[]
   chargement: boolean
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
-  onHistorique: (fac: FactureDetail) => void
+  onHistorique?: (fac: FactureDetail) => void
+  onRelancer?: (codeClient: string) => void
+  derniereRelanceParClient?: Map<string, string>
   compact?: boolean
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -88,7 +90,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, compact, controlSort, commentaires, onOuvrirCommentaire, recherche }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -159,7 +161,9 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
-            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">Historique</th>
+            <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">
+              {onRelancer ? 'Relancer' : 'Historique'}
+            </th>
             {onOuvrirCommentaire && (
               <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">Commentaire</th>
             )}
@@ -218,12 +222,32 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
                 <td className="px-3 py-2 text-center">
-                  <button
-                    onClick={e => { e.stopPropagation(); onHistorique(f) }}
-                    className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
-                  >
-                    <IcInfo size={10} /> Historique
-                  </button>
+                  {onRelancer && peutModifier ? (() => {
+                    const derniere = derniereRelanceParClient?.get(f.code_client)
+                    const recente = derniere
+                      ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
+                      : false
+                    return (
+                      <button
+                        onClick={e => { e.stopPropagation(); onRelancer(f.code_client) }}
+                        title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-colors whitespace-nowrap ${
+                          recente
+                            ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                            : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                        }`}
+                      >
+                        ✉ Relancer
+                      </button>
+                    )
+                  })() : onHistorique ? (
+                    <button
+                      onClick={e => { e.stopPropagation(); onHistorique(f) }}
+                      className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
+                    >
+                      <IcInfo size={10} /> Historique
+                    </button>
+                  ) : null}
                 </td>
                 {onOuvrirCommentaire && (
                   <td className="px-3 py-2 text-center">

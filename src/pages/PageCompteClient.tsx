@@ -387,7 +387,11 @@ export function PageCompteClient() {
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
-          onHistorique={setFacHistorique}
+          onRelancer={codeClient => {
+            const c = comptes.clients.find(x => x.code_dso === codeClient)
+            if (c) setClientRelance(c)
+          }}
+          derniereRelanceParClient={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
           dateDebut={factureDateDebut}

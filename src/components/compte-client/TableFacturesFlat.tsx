@@ -26,7 +26,9 @@ interface Props {
   estChargement: (codes: string[]) => boolean
   onExpand: (codes: string[]) => void
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
-  onHistorique: (fac: FactureDetail) => void
+  onHistorique?: (fac: FactureDetail) => void
+  onRelancer?: (codeClient: string) => void
+  derniereRelanceParClient?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
   dateDebut: string
@@ -36,7 +38,7 @@ interface Props {
   recherche?: string
 }
 
-export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
+export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
   const codes = clients.map(c => c.code_dso)
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState('date_emission')
@@ -185,6 +187,8 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         chargement={chargement}
         onStatutChange={onStatutChange}
         onHistorique={onHistorique}
+        onRelancer={onRelancer}
+        derniereRelanceParClient={derniereRelanceParClient}
         commentaires={commentaires}
         onOuvrirCommentaire={onOuvrirCommentaire}
         recherche={recherche}
