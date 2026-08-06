@@ -108,7 +108,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const checkboxToutRef = useRef<HTMLInputElement>(null)
 
   const nbAlertes = clients.filter(c => c.relance_auto_alerte).length
-  const nbASuivre = clients.filter(c => c.a_suivre).length
 
   // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
   useEffect(() => { setPage(0) }, [recherche])
