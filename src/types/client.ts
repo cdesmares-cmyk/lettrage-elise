@@ -20,6 +20,7 @@ export interface CompteClient {
   note_risque: number
   siret: string | null
   relance_auto_alerte: boolean
+  note_client: string | null
 }
 
 export interface RefValeur {

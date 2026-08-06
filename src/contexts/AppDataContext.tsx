@@ -15,6 +15,7 @@ interface RowCompteClient {
   nb_factures_total: number; nb_impayees: number; encours_total: number; derniere_emission: string | null; siret: string | null
   score_risque: number | null
   relance_auto_alerte: boolean | null
+  note_client: string | null
 }
 
 interface OptsClientLocal {
@@ -25,6 +26,7 @@ interface OptsClientLocal {
   plateforme?: string | null
   code_groupement?: string | null
   siret?: string | null
+  note_client?: string | null
 }
 
 export interface ScenarioRelance {

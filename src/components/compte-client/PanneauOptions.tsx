@@ -1,5 +1,5 @@
 // Volet latéral coulissant — édition des infos client + contacts
-import { useState, useEffect, useRef, useId, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useId, useCallback } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
@@ -140,7 +140,10 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [alertesBodacc, setAlertesBodacc]           = useState<AlerteBodacc[]>([])
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
+  const [noteClient, setNoteClient]     = useState('')
+  const [noteSaving, setNoteSaving]     = useState(false)
   const clientCodeRef = useRef<string | null>(null)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
 
   async function chargerAlertesBodacc() {
     if (!client) return
@@ -190,6 +193,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       setPlateforme(client.plateforme ?? '')
       setGroupement(client.code_groupement ?? '')
       setSiret(client.siret ?? '')
+      setNoteClient(client.note_client ?? '')
 
       if (switching) {
         setEtatSync('idle')
@@ -210,6 +214,14 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
     if (onglet !== 'bodacc' || !client) return
     chargerAlertesBodacc()
   }, [onglet, client])
+
+  // Auto-grow textarea note interne
+  useLayoutEffect(() => {
+    const el = noteRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }, [noteClient])
 
   if (!client) return null
 
@@ -567,6 +579,37 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               }}
               options={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
             />
+            {/* Note interne — sauvegarde indépendante */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Note interne</label>
+                {noteClient !== (client.note_client ?? '') && (
+                  <button
+                    disabled={noteSaving}
+                    onClick={async () => {
+                      setNoteSaving(true)
+                      const val = noteClient.trim() || null
+                      mettreAJourClientLocal(client!.code_dso, { note_client: val })
+                      await supabase.from('clients').update({ note_client: val } as never).eq('code_dso', client!.code_dso)
+                      setNoteSaving(false)
+                    }}
+                    className="text-[10px] font-semibold text-ockham-teal border border-ockham-teal/30 px-2 py-0.5 rounded-md hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    {noteSaving ? '…' : '✓ Enregistrer'}
+                  </button>
+                )}
+              </div>
+              <textarea
+                ref={noteRef}
+                value={noteClient}
+                onChange={e => setNoteClient(e.target.value)}
+                placeholder="Commentaire libre sur ce client…"
+                rows={3}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 placeholder-gray-300 outline-none focus:border-ockham-teal/50 transition-colors resize-none overflow-y-auto"
+                style={{ minHeight: '4.5rem', maxHeight: '10rem' }}
+              />
+            </div>
+
             <ComboRef label="Plateforme d'envoi" valeur={plateforme} setValeur={setPlateforme} options={plateformes} placeholder="Ex : Chorus, Cegedim…" />
 
             <div>

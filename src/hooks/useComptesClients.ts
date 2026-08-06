@@ -148,6 +148,7 @@ export function useComptesClients() {
     plateforme: string | null
     code_groupement: string | null
     siret: string | null
+    note_client?: string | null
   }) {
     // Mise à jour locale immédiate — l'UI reflète le changement sans attendre Supabase
     mettreAJourClientLocal(codeDso, opts)
