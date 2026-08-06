@@ -25,13 +25,24 @@ export function useComptesClients() {
     const version = ++searchVersionRef.current
     setChargementServeur(true)
     try {
-      const { data } = await supabase
-        .from('factures')
-        .select('code_client')
-        .ilike('numero_piece', `%${escapeIlike(terme)}%`)
-        .limit(200)
-      if (version !== searchVersionRef.current) return  // réponse périmée, on ignore
-      setCodesFallback(new Set(((data ?? []) as { code_client: string }[]).map(r => r.code_client)))
+      const escaped = escapeIlike(terme)
+      const [{ data: dataFact }, { data: dataContacts }] = await Promise.all([
+        supabase
+          .from('factures')
+          .select('code_client')
+          .ilike('numero_piece', `%${escaped}%`)
+          .limit(200),
+        supabase
+          .from('contacts_client')
+          .select('code_client')
+          .or(`email.ilike.%${escaped}%,nom.ilike.%${escaped}%,prenom.ilike.%${escaped}%`)
+          .limit(200),
+      ])
+      if (version !== searchVersionRef.current) return
+      const codes = new Set<string>()
+      for (const r of (dataFact ?? []) as { code_client: string }[]) codes.add(r.code_client)
+      for (const r of (dataContacts ?? []) as { code_client: string }[]) codes.add(r.code_client)
+      setCodesFallback(codes)
     } catch {
       if (version !== searchVersionRef.current) return
       setCodesFallback(new Set())

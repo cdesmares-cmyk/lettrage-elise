@@ -241,7 +241,7 @@ export function PageCompteClient() {
             type="text"
             value={inputRecherche}
             onChange={e => handleRechercheChange(e.target.value)}
-            placeholder="Code, client, n° facture…"
+            placeholder="Code, client, n° facture, e-mail contact…"
             className="text-xs text-gray-700 placeholder-gray-400 outline-none w-full bg-transparent"
           />
           {(rechercheEnAttente || comptes.chargementServeur) ? (
