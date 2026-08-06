@@ -76,7 +76,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   const [comOuvertes, setComOuvertes]       = useState<Set<string>>(new Set())
   const [popupStatut, setPopupStatut]       = useState<{ id: string; top: number; left: number } | null>(null)
   const [statutSaving, setStatutSaving]     = useState(false)
-  const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string }[]>([])
+  const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string; role_contact?: string | null }[]>([])
   const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
@@ -96,7 +96,7 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     if (!ids?.length) return
     supabase
       .from('contacts_client')
-      .select('id,nom,prenom,email')
+      .select('id,nom,prenom,email,role_contact')
       .in('id', ids)
       .then(({ data }) => setContacts((data ?? []) as typeof contacts))
   }, [relance?.id])
@@ -308,17 +308,27 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
 
           {/* Ligne 2 : Destinataires */}
           {contacts.length > 0 && (
-            <div className="flex items-center gap-4 px-5 py-3 border-b border-gray-100 flex-shrink-0 flex-wrap">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">Destinataires</p>
-              {contacts.map(c => (
-                <div key={c.id} className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal flex-shrink-0" />
-                  <span className="text-[12px] font-semibold text-ockham-navy">
-                    {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
-                  </span>
-                  <span className="text-[11px] text-gray-400">{c.email}</span>
-                </div>
-              ))}
+            <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Destinataires</p>
+              <div className="flex flex-wrap gap-2">
+                {contacts.map(c => (
+                  <div
+                    key={c.id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-ockham-teal/25 bg-ockham-teal-muted/60"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal flex-shrink-0" />
+                    <span className="text-[12px] font-semibold text-ockham-navy leading-none">
+                      {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                    </span>
+                    {c.role_contact && (
+                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500 flex-shrink-0">
+                        {c.role_contact}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-gray-400 font-mono">{c.email}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

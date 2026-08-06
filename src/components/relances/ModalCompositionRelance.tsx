@@ -140,8 +140,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
     // Snapshot des contacts au moment de l'envoi (préserve l'info si le contact est supprimé plus tard)
     const contactsSnapshot = sanContacts
-      ? [{ id: '', nom: nomFallback.trim(), prenom: null, email: emailFallback.trim() }]
-      : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email }))
+      ? [{ id: '', nom: nomFallback.trim(), prenom: null, email: emailFallback.trim(), role_contact: null }]
+      : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email, role_contact: c.role_contact ?? null }))
 
     const payload: Record<string, unknown> = {
       code_client:        client!.code_dso,

@@ -10,6 +10,7 @@ export interface ContactSnapshot {
   nom: string
   prenom: string | null
   email: string
+  role_contact?: string | null
 }
 
 export interface Relance {
