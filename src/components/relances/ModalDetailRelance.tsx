@@ -229,19 +229,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
                   </span>
                 )}
               </div>
-              {contacts.length > 0 && (
-                <div className="flex flex-col gap-0.5 mt-1.5">
-                  {contacts.map(c => (
-                    <div key={c.id} className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal flex-shrink-0" />
-                      <span className="text-[11px] font-semibold text-white/80">
-                        {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
-                      </span>
-                      <span className="text-[11px] text-white/45">{c.email}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className="text-xl font-bold text-ockham-teal tabular-nums">{fmtEuros(montant)}</span>
@@ -319,7 +306,23 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
             </div>
           </div>
 
-          {/* Ligne 2 : Tableau factures */}
+          {/* Ligne 2 : Destinataires */}
+          {contacts.length > 0 && (
+            <div className="flex items-center gap-4 px-5 py-3 border-b border-gray-100 flex-shrink-0 flex-wrap">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex-shrink-0">Destinataires</p>
+              {contacts.map(c => (
+                <div key={c.id} className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal flex-shrink-0" />
+                  <span className="text-[12px] font-semibold text-ockham-navy">
+                    {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                  </span>
+                  <span className="text-[11px] text-gray-400">{c.email}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Ligne 3 : Tableau factures */}
           <div className="flex-1 overflow-y-auto">
             <table className="w-full text-xs border-collapse">
               <thead>
