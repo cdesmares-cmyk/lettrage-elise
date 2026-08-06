@@ -46,6 +46,7 @@ interface Props {
     plateforme: string | null
     code_groupement: string | null
     siret: string | null
+    note_client?: string | null
   }) => Promise<boolean>
 }
 
@@ -141,7 +142,6 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
   const [noteClient, setNoteClient]     = useState('')
-  const [noteSaving, setNoteSaving]     = useState(false)
   const clientCodeRef = useRef<string | null>(null)
   const noteRef = useRef<HTMLTextAreaElement>(null)
 
@@ -243,6 +243,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
       plateforme: valPlateforme || null,
       code_groupement: groupement.trim() || null,
       siret: siret.trim() || null,
+      note_client: noteClient.trim() || null,
     })
     setEnregistrement(false)
     if (ok) onFermer()
@@ -291,6 +292,14 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   }
 
   const sc = classeScore(client.note_risque)
+
+  const isDirty =
+    commercial   !== (client.commercial    ?? '') ||
+    operateur    !== (client.operateur     ?? '') ||
+    plateforme   !== (client.plateforme    ?? '') ||
+    groupement   !== (client.code_groupement ?? '') ||
+    siret        !== (client.siret         ?? '') ||
+    noteClient   !== (client.note_client   ?? '')
 
   const LABELS_ONGLETS: Record<Onglet, string> = {
     infos:    'Informations',
@@ -579,25 +588,10 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
               }}
               options={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
             />
-            {/* Note interne — sauvegarde indépendante */}
+            {/* Note interne — sauvegardée avec le bouton principal */}
             <div>
-              <div className="flex items-center justify-between mb-2">
+              <div className="mb-2">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Note interne</label>
-                {noteClient !== (client.note_client ?? '') && (
-                  <button
-                    disabled={noteSaving}
-                    onClick={async () => {
-                      setNoteSaving(true)
-                      const val = noteClient.trim() || null
-                      mettreAJourClientLocal(client!.code_dso, { note_client: val })
-                      await supabase.from('clients').update({ note_client: val } as never).eq('code_dso', client!.code_dso)
-                      setNoteSaving(false)
-                    }}
-                    className="text-[10px] font-semibold text-ockham-teal border border-ockham-teal/30 px-2 py-0.5 rounded-md hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
-                  >
-                    {noteSaving ? '…' : '✓ Enregistrer'}
-                  </button>
-                )}
               </div>
               <textarea
                 ref={noteRef}
@@ -672,8 +666,16 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
             <button onClick={fermerEtReset} disabled={enregistrement} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors disabled:opacity-40">
               Annuler
             </button>
-            <button onClick={handleSauvegarder} disabled={enregistrement} className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-              {enregistrement ? '…' : '✓ Enregistrer'}
+            <button
+              onClick={handleSauvegarder}
+              disabled={enregistrement}
+              className={`flex-[2] flex items-center justify-center gap-2 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors ${
+                isDirty
+                  ? 'bg-ockham-copper hover:bg-ockham-copper-dark'
+                  : 'bg-ockham-teal hover:bg-ockham-teal-dark'
+              }`}
+            >
+              {enregistrement ? '…' : isDirty ? '⚠ Enregistrer les modifications' : '✓ Enregistrer'}
             </button>
           </div>
         )}
