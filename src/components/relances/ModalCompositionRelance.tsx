@@ -25,9 +25,10 @@ interface Props {
   onSent: () => void
   gmailAuth: GmailAuthProps
   commentaires?: Map<string, CommentaireFacture>
+  onOuvrirContacts?: () => void
 }
 
-export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires }: Props) {
+export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires, onOuvrirContacts }: Props) {
   const { utilisateur } = useAuth()
   const { peutModifier } = useRole()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
@@ -45,6 +46,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [facturesSel, setFacturesSel] = useState<string[]>([])
   const [scenarioId, setScenarioId] = useState<string>('')
   const [emailFallback, setEmailFallback] = useState('')
+  const [prenomFallback, setPrenomFallback] = useState('')
   const [nomFallback, setNomFallback] = useState('')
   const [envoi, setEnvoi] = useState(false)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
@@ -118,7 +120,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
     let cIds = contactsSel
     if (sanContacts && emailFallback.trim()) {
-      const ok = await ajouterContact({ nom: nomFallback.trim(), prenom: null, email: emailFallback.trim(), telephone: null, role_contact: 'relance' })
+      const ok = await ajouterContact({ nom: nomFallback.trim(), prenom: prenomFallback.trim() || null, email: emailFallback.trim(), telephone: null, role_contact: 'relance' })
       if (!ok) { setEnvoi(false); return }
       cIds = []
     }
@@ -140,7 +142,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
     // Snapshot des contacts au moment de l'envoi (préserve l'info si le contact est supprimé plus tard)
     const contactsSnapshot = sanContacts
-      ? [{ id: '', nom: nomFallback.trim(), prenom: null, email: emailFallback.trim(), role_contact: null }]
+      ? [{ id: '', nom: nomFallback.trim(), prenom: prenomFallback.trim() || null, email: emailFallback.trim(), role_contact: null }]
       : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email, role_contact: c.role_contact ?? null }))
 
     const payload: Record<string, unknown> = {
@@ -203,11 +205,21 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
               {/* 1 — Destinataires */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">1 —</span>Destinataires</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">1 —</span>Destinataires</label>
+                  {peutModifier && onOuvrirContacts && (
+                    <button onClick={onOuvrirContacts} className="text-[10px] font-semibold text-gray-400 hover:text-ockham-teal transition-colors">
+                      Gérer les contacts ↗
+                    </button>
+                  )}
+                </div>
                 {sanContacts ? (
                   <div className="space-y-2">
                     <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
-                    <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom du contact *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                    <div className="flex gap-2">
+                      <input value={prenomFallback} onChange={e => setPrenomFallback(e.target.value)} placeholder="Prénom" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                      <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom *" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                    </div>
                     <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
                   </div>
                 ) : (

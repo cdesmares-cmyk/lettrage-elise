@@ -35,6 +35,7 @@ export function PageCompteClient() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptionsDso, setClientOptionsDso] = useState<string | null>(null)
+  const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc'>('infos')
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
@@ -414,7 +415,8 @@ export function PageCompteClient() {
       {/* Panneau Options */}
       <PanneauOptions
         client={clientOptions}
-        onFermer={() => setClientOptionsDso(null)}
+        onFermer={() => { setClientOptionsDso(null); setPanneauOngletInitial('infos') }}
+        ongletInitial={panneauOngletInitial}
         onSauvegarder={comptes.sauvegarderOptions}
       />
 
@@ -453,6 +455,11 @@ export function PageCompteClient() {
         onSent={() => setClientRelance(null)}
         gmailAuth={gmailAuth}
         commentaires={commentaires}
+        onOuvrirContacts={clientRelance ? () => {
+          setPanneauOngletInitial('contacts')
+          setClientOptionsDso(clientRelance.code_dso)
+          setClientRelance(null)
+        } : undefined}
       />
 
       {/* Modal Relance Massive */}

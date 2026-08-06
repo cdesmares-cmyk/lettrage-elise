@@ -38,6 +38,7 @@ interface AlerteBodacc {
 interface Props {
   client: CompteClient | null
   onFermer: () => void
+  ongletInitial?: Onglet
   onSauvegarder: (codeDso: string, opts: {
     statut_juridique: StatutJuridique | null
     commercial: string | null
@@ -112,7 +113,7 @@ function SelectRef({
   )
 }
 
-export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
+export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder }: Props) {
   const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
@@ -137,7 +138,7 @@ export function PanneauOptions({ client, onFermer, onSauvegarder }: Props) {
   const [enregistrement, setEnregistrement] = useState(false)
   const [etatSync, setEtatSync]       = useState<EtatSync>('idle')
   const [syncAlertes, setSyncAlertes] = useState(0)
-  const [onglet, setOnglet]           = useState<Onglet>('infos')
+  const [onglet, setOnglet]           = useState<Onglet>(ongletInitial ?? 'infos')
   const [alertesBodacc, setAlertesBodacc]           = useState<AlerteBodacc[]>([])
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
