@@ -38,9 +38,9 @@ function fmt(n: number) {
 }
 
 function classeScore(note: number) {
-  if (note <= 40) return { bar: 'bg-emerald-500', txt: 'text-emerald-600' }
-  if (note <= 70) return { bar: 'bg-amber-500', txt: 'text-amber-600' }
-  return { bar: 'bg-red-500', txt: 'text-red-600' }
+  if (note <= 40) return { bar: 'bg-gray-200', txt: 'text-gray-400' }
+  if (note <= 70) return { bar: 'bg-gray-400', txt: 'text-gray-600' }
+  return { bar: 'bg-red-400', txt: 'text-red-600' }
 }
 
 const STATUT_LABELS: Record<string, string> = {
@@ -172,27 +172,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           </button>
         </div>
       )}
-      {nbASuivre > 0 && (
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-[#F5F3FF]">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3" fill="#7C3AED" fillOpacity="0.3"/>
-          </svg>
-          <span className="text-xs text-[#7C3AED] font-medium flex-1">
-            {nbASuivre} client{nbASuivre > 1 ? 's' : ''} à suivre
-          </span>
-          <button
-            onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
-            className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors ${
-              filtreASuivre
-                ? 'bg-[#7C3AED] text-white border-[#7C3AED]'
-                : 'bg-white text-[#7C3AED] border-[#7C3AED]/40 hover:bg-[#F5F3FF]'
-            }`}
-          >
-            {filtreASuivre ? 'Voir tous' : 'Filtrer'}
-          </button>
-        </div>
-      )}
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
@@ -215,13 +194,18 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
             <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
-            <th className="px-3 py-2.5 text-center">
-              <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+            <th
+              onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
+              className={`px-3 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
+              title={filtreASuivre ? 'Voir tous les clients' : 'Filtrer : À Suivre uniquement'}
+            >
+              <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
+                  <circle cx="12" cy="12" r="3" {...(filtreASuivre ? { fill: 'currentColor', fillOpacity: '0.3' } : {})}/>
                 </svg>
                 À Suivre
+                {filtreASuivre && <span className="text-[9px]">▼</span>}
               </span>
             </th>
             <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
@@ -273,7 +257,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{nbPieces}</span>
+                    <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{nbPieces}</span>
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
@@ -290,13 +274,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       title={c.a_suivre ? 'Retirer de "À Suivre"' : 'Marquer À Suivre'}
                       className={`p-1 rounded transition-colors ${
                         c.a_suivre
-                          ? 'text-[#7C3AED]'
-                          : 'text-gray-300 hover:text-[#7C3AED]'
+                          ? 'text-ockham-teal'
+                          : 'text-gray-300 hover:text-ockham-teal'
                       } ${(!peutModifier || !onToggleASuivre) ? 'cursor-default' : 'cursor-pointer'}`}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={c.a_suivre ? '2.5' : '2'} strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                        <circle cx="12" cy="12" r="3" {...(c.a_suivre ? { fill: 'currentColor', fillOpacity: '0.3' } : {})}/>
+                        <circle cx="12" cy="12" r="3" {...(c.a_suivre ? { fill: 'currentColor', fillOpacity: '0.35' } : {})}/>
                       </svg>
                     </button>
                   </td>
