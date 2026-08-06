@@ -16,6 +16,7 @@ interface RowCompteClient {
   score_risque: number | null
   relance_auto_alerte: boolean | null
   note_client: string | null
+  a_suivre: boolean | null
 }
 
 interface OptsClientLocal {
@@ -27,6 +28,7 @@ interface OptsClientLocal {
   code_groupement?: string | null
   siret?: string | null
   note_client?: string | null
+  a_suivre?: boolean
 }
 
 export interface ScenarioRelance {
@@ -159,6 +161,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           statut_juridique: r.statut_juridique as StatutJuridique | null,
           note_risque: r.score_risque ?? 0,
           relance_auto_alerte: r.relance_auto_alerte ?? false,
+          a_suivre: r.a_suivre ?? false,
         })))
         setFacturesActives(toutes)
       })

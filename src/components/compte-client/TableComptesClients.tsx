@@ -28,6 +28,7 @@ interface Props {
   onSelectionnerPage?: (codes: string[]) => void
   creditParClient?: Map<string, number>
   nbPiecesParClient?: Map<string, number>
+  onToggleASuivre?: (codeDso: string) => void
 }
 
 const PAGE_SIZE = 25
@@ -96,16 +97,18 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
   const [sortCol, setSortCol] = useState<string>('encours_total')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filtreAlertes, setFiltreAlertes] = useState(false)
+  const [filtreASuivre, setFiltreASuivre] = useState(false)
   const checkboxToutRef = useRef<HTMLInputElement>(null)
 
   const nbAlertes = clients.filter(c => c.relance_auto_alerte).length
+  const nbASuivre = clients.filter(c => c.a_suivre).length
 
   // Réinitialiser la page uniquement quand la recherche change (pas lors d'un refresh data)
   useEffect(() => { setPage(0) }, [recherche])
@@ -132,7 +135,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
   // Ces calculs et ce hook doivent rester AVANT les early returns pour ne jamais
   // modifier le nombre de hooks appelés entre deux rendus (règle React).
-  const clientsFiltres = filtreAlertes ? clients.filter(c => c.relance_auto_alerte) : clients
+  const clientsFiltres = clients
+    .filter(c => !filtreAlertes || c.relance_auto_alerte)
+    .filter(c => !filtreASuivre || c.a_suivre)
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -167,6 +172,27 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           </button>
         </div>
       )}
+      {nbASuivre > 0 && (
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-ockham-copper-light">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#C07840" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="#C07840" fillOpacity="0.25"/>
+            <line x1="4" y1="22" x2="4" y2="15"/>
+          </svg>
+          <span className="text-xs text-ockham-copper font-medium flex-1">
+            {nbASuivre} client{nbASuivre > 1 ? 's' : ''} à suivre
+          </span>
+          <button
+            onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors ${
+              filtreASuivre
+                ? 'bg-ockham-copper text-white border-ockham-copper'
+                : 'bg-white text-ockham-copper border-ockham-copper/40 hover:bg-ockham-copper-light'
+            }`}
+          >
+            {filtreASuivre ? 'Voir tous' : 'Filtrer'}
+          </button>
+        </div>
+      )}
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
@@ -189,7 +215,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
             <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
-            <ColTh label="Plateforme" col="plateforme" {...thProps} align="left" />
+            <th className="px-3 py-2.5 text-center">
+              <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+                  <line x1="4" y1="22" x2="4" y2="15"/>
+                </svg>
+                À Suivre
+              </span>
+            </th>
             <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
             <ColTh label="Groupement" col="code_groupement" {...thProps} align="left" />
             <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Options</th>
@@ -249,10 +283,22 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       <span className={`text-xs font-bold tabular-nums ${sc.txt}`}>{c.note_risque}</span>
                     </div>
                   </td>
-                  <td className="px-3 py-3">
-                    {c.plateforme ? (
-                      <span className="text-[11px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded border border-gray-200">{c.plateforme}</span>
-                    ) : <span className="text-[10px] text-gray-300">—</span>}
+                  <td className="px-3 py-3 text-center">
+                    <button
+                      onClick={e => { e.stopPropagation(); onToggleASuivre?.(c.code_dso) }}
+                      disabled={!peutModifier || !onToggleASuivre}
+                      title={c.a_suivre ? 'Retirer de "À Suivre"' : 'Marquer À Suivre'}
+                      className={`p-1 rounded transition-colors ${
+                        c.a_suivre
+                          ? 'text-ockham-copper'
+                          : 'text-gray-300 hover:text-ockham-copper'
+                      } ${(!peutModifier || !onToggleASuivre) ? 'cursor-default' : 'cursor-pointer'}`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" {...(c.a_suivre ? { fill: 'currentColor', fillOpacity: '0.2' } : {})}/>
+                        <line x1="4" y1="22" x2="4" y2="15"/>
+                      </svg>
+                    </button>
                   </td>
                   <td className="px-3 py-3">
                     {c.statut_juridique ? (() => {

@@ -162,6 +162,14 @@ export function useComptesClients() {
     return true
   }
 
+  async function toggleASuivre(codeDso: string) {
+    const client = raw.find(c => c.code_dso === codeDso)
+    if (!client) return
+    const nouvelleValeur = !client.a_suivre
+    mettreAJourClientLocal(codeDso, { a_suivre: nouvelleValeur })
+    await supabase.from('clients').update({ a_suivre: nouvelleValeur } as never).eq('code_dso', codeDso)
+  }
+
   // Avoirs + sur-lettrages par client (reste_du < 0, hors _compte) — pour affichage solde net
   const creditParClient = useMemo(() => {
     const map = new Map<string, number>()
@@ -182,5 +190,5 @@ export function useComptesClients() {
     return map
   }, [facturesActives])
 
-  return { clients, chargement, enRafraichissement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions, creditParClient, nbPiecesParClient }
+  return { clients, chargement, enRafraichissement, chargementServeur, recherche, setRecherche, kpis, nebuleuse: nebuleuseFiltered, rafraichir, sauvegarderOptions, toggleASuivre, creditParClient, nbPiecesParClient }
 }

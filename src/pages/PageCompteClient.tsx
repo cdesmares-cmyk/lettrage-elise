@@ -363,6 +363,7 @@ export function PageCompteClient() {
           onSelectionnerPage={selectionnerPage}
           creditParClient={comptes.creditParClient}
           nbPiecesParClient={comptes.nbPiecesParClient}
+          onToggleASuivre={comptes.toggleASuivre}
         />
       )}
 

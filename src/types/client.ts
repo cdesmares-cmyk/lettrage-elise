@@ -21,6 +21,7 @@ export interface CompteClient {
   siret: string | null
   relance_auto_alerte: boolean
   note_client: string | null
+  a_suivre: boolean
 }
 
 export interface RefValeur {
