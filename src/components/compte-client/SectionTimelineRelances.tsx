@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
+import { useAuth } from '../../contexts/AuthContext'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from '../relances/ModalDetailRelance'
@@ -39,6 +40,7 @@ interface Props { codeClient: string }
 
 export function SectionTimelineRelances({ codeClient }: Props) {
   const { facturesActives } = useAppData()
+  const { profil } = useAuth()
   const [relances, setRelances]   = useState<Relance[]>([])
   const [logsAuto, setLogsAuto]   = useState<LogAuto[]>([])
   const [initOp, setInitOp]       = useState<Map<string, string>>(new Map())
@@ -144,20 +146,30 @@ export function SectionTimelineRelances({ codeClient }: Props) {
   }
 
   async function onSauvegarderCommentaire(data: SauvegarderComData): Promise<boolean> {
-    const { error } = await supabase
-      .from('commentaires_factures')
-      .upsert(
-        { numero_piece: data.numero_piece, contact: data.contact, date_contact: data.date_contact, commentaire: data.commentaire, operateur: data.operateur, ne_pas_relancer: data.ne_pas_relancer ?? false },
-        { onConflict: 'numero_piece' }
-      )
+    const payload = {
+      numero_piece:    data.numero_piece,
+      organisation_id: profil?.organisation_id,
+      contact:         data.contact.trim() || null,
+      date_contact:    data.date_contact || null,
+      commentaire:     data.commentaire.trim() || null,
+      operateur:       data.operateur.trim() || null,
+      ne_pas_relancer: data.ne_pas_relancer ?? false,
+      updated_at:      new Date().toISOString(),
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await supabase.from('commentaires_factures').upsert(payload as any, { onConflict: 'organisation_id,numero_piece' })
     if (!error) {
       setCommentaires(prev => {
         const n = new Map(prev)
         n.set(data.numero_piece, {
-          id: '', numero_piece: data.numero_piece, contact: data.contact,
-          date_contact: data.date_contact, commentaire: data.commentaire,
-          operateur: data.operateur, ne_pas_relancer: data.ne_pas_relancer ?? false,
-          updated_at: new Date().toISOString(),
+          id:              prev.get(data.numero_piece)?.id ?? '',
+          numero_piece:    data.numero_piece,
+          contact:         data.contact.trim() || null,
+          date_contact:    data.date_contact || null,
+          commentaire:     data.commentaire.trim() || null,
+          operateur:       data.operateur.trim() || null,
+          ne_pas_relancer: data.ne_pas_relancer ?? false,
+          updated_at:      new Date().toISOString(),
         })
         return n
       })
