@@ -43,16 +43,22 @@ function classeScore(note: number) {
 }
 
 const STATUT_LABELS: Record<string, string> = {
-  sauvegarde:   '📁 Sauvegarde',
-  liquidation:  '🚫 Liquidation',
-  redressement: '🔄 Redressement',
-  cloture:      '✅ Clôture',
+  sauvegarde:   'Sauvegarde',
+  liquidation:  'Liquidation',
+  redressement: 'Redressement',
+  cloture:      'Clôture',
 }
 const STATUT_CLASSES: Record<string, string> = {
-  sauvegarde:   'bg-amber-50 border-amber-300 text-amber-800',
-  liquidation:  'bg-red-50 border-red-300 text-red-800',
-  redressement: 'bg-orange-50 border-orange-300 text-orange-800',
-  cloture:      'bg-gray-50 border-gray-300 text-gray-600',
+  sauvegarde:   'bg-amber-50 border-amber-200 text-amber-700',
+  liquidation:  'bg-red-50 border-red-200 text-red-700',
+  redressement: 'bg-orange-50 border-orange-200 text-orange-700',
+  cloture:      'bg-gray-50 border-gray-200 text-gray-500',
+}
+const STATUT_ICONES = {
+  liquidation:  () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  redressement: () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  sauvegarde:   () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  cloture:      () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
 }
 
 type SortDir = 'asc' | 'desc'
@@ -249,11 +255,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     ) : <span className="text-[10px] text-gray-300">—</span>}
                   </td>
                   <td className="px-3 py-3">
-                    {c.statut_juridique ? (
-                      <span className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border ${STATUT_CLASSES[c.statut_juridique]}`}>
-                        {STATUT_LABELS[c.statut_juridique]}
-                      </span>
-                    ) : (
+                    {c.statut_juridique ? (() => {
+                      const Icon = STATUT_ICONES[c.statut_juridique!]
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded border ${STATUT_CLASSES[c.statut_juridique!]}`}>
+                          {Icon && <Icon />}
+                          {STATUT_LABELS[c.statut_juridique!]}
+                        </span>
+                      )
+                    })() : (
                       <span className="text-[10px] text-gray-300">—</span>
                     )}
                   </td>
