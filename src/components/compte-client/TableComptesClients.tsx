@@ -410,8 +410,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         </tbody>
       </table>
 
-      <div className="h-14" />
       <Pagination page={page} total={nbPages} onChange={setPage} />
+      <div className="h-9" />
     </div>
   )
 }
