@@ -152,7 +152,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-clip">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-clip min-h-[1400px]">
       {nbAlertes > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-amber-50">
           <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
@@ -250,7 +250,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="text-sm font-semibold text-gray-800">{c.nom}</span>
+                    <span className="text-sm font-semibold text-gray-800 line-clamp-2">{c.nom}</span>
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>
@@ -411,7 +411,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       </table>
 
       <Pagination page={page} total={nbPages} onChange={setPage} />
-      <div className="h-9" />
     </div>
   )
 }

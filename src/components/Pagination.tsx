@@ -19,7 +19,7 @@ export function Pagination({ page, total, onChange }: Props) {
   const pages = fenetre(page, total)
 
   return (
-    <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-100 bg-white shadow-[0_-2px_8px_rgba(0,0,0,0.06)] rounded-b-xl">
+    <div className="flex items-center justify-between gap-2 px-4 py-2.5 border-t border-gray-100 bg-gray-50 rounded-b-xl">
       <span className="text-[11px] text-gray-400 tabular-nums min-w-[72px]">
         Page {page + 1} / {total}
       </span>
