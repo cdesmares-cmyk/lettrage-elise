@@ -152,7 +152,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-clip">
       {nbAlertes > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-amber-50">
           <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
