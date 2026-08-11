@@ -24,17 +24,36 @@ const LABELS_ROLE: Record<Role, string> = {
 }
 
 const BADGE_ROLE: Record<Role, string> = {
-  admin: 'bg-red-50 border border-red-200 text-red-700',
-  responsable_poste_client: 'bg-violet-50 border border-violet-200 text-violet-700',
-  commercial: 'bg-amber-50 border border-amber-200 text-amber-700',
-  externe: 'bg-gray-100 border border-gray-200 text-gray-600',
+  admin:                    'bg-red-50 border border-red-200 text-red-600',
+  responsable_poste_client: 'bg-indigo-50 border border-indigo-200 text-indigo-600',
+  commercial:               'bg-amber-50 border border-amber-200 text-amber-600',
+  externe:                  'bg-slate-100 border border-slate-200 text-slate-500',
 }
 
-const DOT_ROLE: Record<Role, string> = {
-  admin: 'bg-red-500',
-  responsable_poste_client: 'bg-violet-600',
-  commercial: 'bg-amber-500',
-  externe: 'bg-gray-400',
+function IcRole({ role }: { role: Role }) {
+  const cls = 'flex-shrink-0'
+  if (role === 'admin') return (
+    <svg className={cls} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L3 7v5c0 5.25 3.75 10.15 9 11.35C17.25 22.15 21 17.25 21 12V7L12 2z"/>
+      <polyline points="9 12 11 14 15 10"/>
+    </svg>
+  )
+  if (role === 'responsable_poste_client') return (
+    <svg className={cls} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="13" width="5" height="8" rx="1"/><rect x="9.5" y="8" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="18" rx="1"/>
+    </svg>
+  )
+  if (role === 'commercial') return (
+    <svg className={cls} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M19 8l3 3-3 3M22 11h-6"/>
+    </svg>
+  )
+  return (
+    <svg className={cls} width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+    </svg>
+  )
 }
 
 async function callAdminUsers(body: Record<string, unknown>) {
@@ -234,7 +253,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
                   className={`w-full flex items-center justify-between px-3.5 py-2 text-[12.5px] font-medium text-left transition-colors ${filtre === f.value ? 'bg-ockham-teal-muted text-ockham-teal-dark' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
                   <div className="flex items-center gap-2">
-                    {f.value !== 'all' && <span className={`w-2 h-2 rounded-full ${DOT_ROLE[f.value as Role]}`} />}
+                    {f.value !== 'all' && <IcRole role={f.value as Role} />}
                     {f.label}
                   </div>
                   <span className="text-[11px] text-gray-400 font-semibold">{comptesParRole[f.value]}</span>
@@ -316,8 +335,8 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
                   <td className="px-3 py-2.5 text-[13px] font-semibold text-gray-800 truncate">{u.nom || <span className="text-gray-300 font-normal italic">—</span>}</td>
                   <td className="px-3 py-2.5 text-[12px] text-gray-500 truncate">{u.email}</td>
                   <td className="px-3 py-2.5">
-                    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-bold px-2 py-0.5 rounded ${BADGE_ROLE[u.role]}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${DOT_ROLE[u.role]}`} />
+                    <span className={`inline-flex items-center gap-1.5 text-[10.5px] font-semibold px-2.5 py-1 rounded-full ${BADGE_ROLE[u.role]}`}>
+                      <IcRole role={u.role} />
                       {LABELS_ROLE[u.role]}
                     </span>
                   </td>
