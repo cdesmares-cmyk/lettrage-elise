@@ -77,24 +77,28 @@ function IcImportExport() {
 }
 
 const NAV_PRINCIPALE = [
-  { chemin: '/tableau-de-bord', label: 'Tableau de bord', icone: <IcDashboard />, commercial: true },
-  { chemin: '/lettrage',        label: 'Lettrage',        icone: <IcLettrage />,  commercial: false },
-  { chemin: '/compte-client',   label: 'Compte client',   icone: <IcCompteClient />, commercial: true },
-  { chemin: '/relances',        label: 'Relances',        icone: <IcRelances />,  commercial: false },
+  { chemin: '/tableau-de-bord', label: 'Tableau de bord', icone: <IcDashboard />, commercial: true,  externe: false },
+  { chemin: '/lettrage',        label: 'Lettrage',        icone: <IcLettrage />,  commercial: true,  externe: false },
+  { chemin: '/compte-client',   label: 'Compte client',   icone: <IcCompteClient />, commercial: true, externe: true },
+  { chemin: '/relances',        label: 'Relances',        icone: <IcRelances />,  commercial: true,  externe: false },
 ]
 
 const NAV_OUTILS = [
-  { chemin: '/import-export', label: 'Import / Export', icone: <IcImportExport />, commercial: false },
+  { chemin: '/import-export', label: 'Import / Export', icone: <IcImportExport />, commercial: false, externe: true },
 ]
 
 
 export function Layout() {
-  const { isCommercial } = useRole()
+  const { isCommercial, isExterne } = useRole()
   const { profil } = useAuth()
   const nbRelancesEnAttente = useCompteurRelances()
 
-  const navPrincipale = NAV_PRINCIPALE.filter(o => !isCommercial || o.commercial)
-  const navOutils     = NAV_OUTILS.filter(o => !isCommercial || o.commercial)
+  const navPrincipale = NAV_PRINCIPALE.filter(o =>
+    (!isCommercial || o.commercial) && (!isExterne || o.externe)
+  )
+  const navOutils = NAV_OUTILS.filter(o =>
+    (!isCommercial || o.commercial) && (!isExterne || o.externe)
+  )
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50 dark:bg-slate-950">
@@ -183,9 +187,9 @@ export function Layout() {
         {/* Bas sidebar — profil + menu admin (auto-suffisant) */}
         <div className="border-t border-white/[0.06] px-2 py-3">
           {/* Badge lecture seule */}
-          {isCommercial && (
+          {(isCommercial || isExterne) && (
             <div className="mx-1 mb-2 px-2.5 py-1.5 rounded-lg bg-amber-900/30 border border-amber-700/40 text-[11px] font-semibold text-amber-400 text-center">
-              Lecture seule
+              {isExterne ? 'Accès externe' : 'Lecture seule'}
             </div>
           )}
 

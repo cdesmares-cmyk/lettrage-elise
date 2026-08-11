@@ -371,10 +371,20 @@ async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: 
 }
 
 // ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
+const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? ''
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
+    // ── MODE CRON : appelé par pg_cron avec x-cron-secret → scan quotidien direct
+    if (CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET) {
+      const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
+      const résumé = await scanQuotidien(supabase)
+      console.log('[bodacc-sync] cron terminé :', résumé)
+      return json(résumé)
+    }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Non autorisé' }, 401)
 

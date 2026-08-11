@@ -55,12 +55,17 @@ export function PageCompteClient() {
   const rechercheDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [filtreCommercial, setFiltreCommercial] = useState('')
-  const [utilisateurs, setUtilisateurs] = useState<{ nom: string; prenom: string }[]>([])
+  const [utilisateurs, setUtilisateurs] = useState<{ id: string; nom: string; prenom: string; role: string }[]>([])
 
   useEffect(() => {
-    supabase.from('utilisateurs').select('prenom, nom').order('nom').then(({ data }) => {
-      setUtilisateurs((data as { prenom: string; nom: string }[] | null) ?? [])
-    })
+    supabase
+      .from('utilisateurs')
+      .select('id, prenom, nom, role')
+      .not('role', 'in', '(externe,superadmin)')
+      .order('nom')
+      .then(({ data }) => {
+        setUtilisateurs((data as { id: string; prenom: string; nom: string; role: string }[] | null) ?? [])
+      })
   }, [])
 
   const { facturesActives } = useAppData()
@@ -76,34 +81,25 @@ export function PageCompteClient() {
     }, 1000)
   }
 
-  // Valeurs uniques de clients.commercial (peut être "Tournebize" ancien format ou "Tournebize Clément" nouveau)
-  const nomsAssignes = useMemo(
-    () => new Set(comptes.clients.map(c => c.commercial).filter(Boolean) as string[]),
-    [comptes.clients]
-  )
+  // Tous les utilisateurs actifs hors externe/superadmin (déjà filtrés côté query)
+  const commerciauxActifs = utilisateurs
 
-  // Utilisateurs dont le nom (ou "Nom Prénom") apparaît dans les clients affectés
-  const commerciauxActifs = useMemo(
-    () => utilisateurs.filter(u => {
-      const fullName = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
-      return nomsAssignes.has(u.nom) || nomsAssignes.has(fullName)
-    }),
-    [utilisateurs, nomsAssignes]
-  )
-
-  // Réinitialise le filtre si le commercial sélectionné n'existe plus dans la liste
+  // Réinitialise le filtre si l'utilisateur sélectionné n'existe plus dans la liste
   useEffect(() => {
     if (!filtreCommercial) return
-    const labels = commerciauxActifs.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)
-    if (!labels.includes(filtreCommercial)) setFiltreCommercial('')
-  }, [commerciauxActifs, filtreCommercial])
+    if (!utilisateurs.find(u => u.id === filtreCommercial)) setFiltreCommercial('')
+  }, [utilisateurs, filtreCommercial])
 
   const clientsFiltres = useMemo(() => {
     if (!filtreCommercial) return comptes.clients
-    // Compatibilité ancien format (nom seul) et nouveau format (Nom Prénom)
-    const u = utilisateurs.find(x => (x.prenom ? `${x.nom} ${x.prenom}` : x.nom) === filtreCommercial)
-    const fullName = u ? (u.prenom ? `${u.nom} ${u.prenom}` : u.nom) : filtreCommercial
-    return comptes.clients.filter(c => c.commercial === fullName || (u && c.commercial === u.nom))
+    const u = utilisateurs.find(x => x.id === filtreCommercial)
+    if (!u) return comptes.clients
+    const fullName = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
+    // Filtre par commercial_id (migration 117) avec fallback sur le champ texte commercial
+    return comptes.clients.filter(c =>
+      (c.commercial_id && c.commercial_id === u.id) ||
+      (!c.commercial_id && (c.commercial === fullName || c.commercial === u.nom))
+    )
   }, [comptes.clients, filtreCommercial, utilisateurs])
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
@@ -271,10 +267,10 @@ export function PageCompteClient() {
                   : 'border-gray-200 text-gray-500 hover:border-gray-300'
               }`}
             >
-              <option value="">Tous les commerciaux</option>
+              <option value="">Tous les utilisateurs</option>
               {commerciauxActifs.map(u => {
                 const label = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
-                return <option key={label} value={label}>{label}</option>
+                return <option key={u.id} value={u.id}>{label}</option>
               })}
             </select>
             <span className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>

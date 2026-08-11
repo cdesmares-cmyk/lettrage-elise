@@ -50,14 +50,14 @@ function Item({ label, icon, onClick, danger, separator }: ItemProps) {
 
 export function MenuAdmin() {
   const { utilisateur, profil } = useAuth()
-  const { isAdmin, peutModifier, isCommercial } = useRole()
+  const { isAdmin, peutModifier, isCommercial, isExterne } = useRole()
   const [ouvert, setOuvert] = useState(false)
   const [modal, setModal] = useState<ModalId | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const initiales = getInitiales(utilisateur?.email)
   const nomAffiche = profil?.nom_organisation ?? utilisateur?.email?.split('@')[0] ?? '—'
-  const roleAffiche = profil?.role === 'superadmin' ? 'Super Admin' : isCommercial ? 'Commercial' : 'Administrateur'
+  const roleAffiche = profil?.role === 'superadmin' ? 'Super Admin' : isExterne ? 'Externe' : isCommercial ? 'Commercial' : 'Administrateur'
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -91,25 +91,25 @@ export function MenuAdmin() {
               </div>
             )}
 
-            {isAdmin && (
+            {!isExterne && isAdmin && (
               <Item label="Gestion des ressources" icon={<IcUsers size={14} />} onClick={() => ouvrir('ressources')} />
             )}
-            {peutModifier && (
+            {!isExterne && peutModifier && (
               <Item label="Champs personnalisés" icon={<IcSliders size={14} />} onClick={() => ouvrir('champs')} />
             )}
-            {peutModifier && (
+            {!isExterne && peutModifier && (
               <Item label="Historique d'import" icon={<IcClock size={14} />} onClick={() => ouvrir('imports')} />
             )}
-            {peutModifier && (
+            {!isExterne && peutModifier && (
               <Item label="Correction lettrage" icon={<IcEdit size={14} />} onClick={() => ouvrir('lettrages')} />
             )}
-            {peutModifier && (
+            {!isExterne && peutModifier && (
               <Item label="Alertes & Scoring" icon={<IcBell size={14} />} onClick={() => ouvrir('alertes')} />
             )}
-            {peutModifier && (
+            {!isExterne && peutModifier && (
               <Item label="Intégrations" icon={<IcLink size={14} />} onClick={() => ouvrir('integrations')} separator />
             )}
-            {isAdmin && (
+            {!isExterne && isAdmin && (
               <Item label="Réinitialisation" icon={<IcTrash size={14} />} onClick={() => ouvrir('reset')} danger separator />
             )}
             <Item

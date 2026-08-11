@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { IcFileText } from '../Icones'
 import { useAppData } from '../../contexts/AppDataContext'
+import { useRole } from '../../contexts/RoleContext'
 import type { Relance } from '../../hooks/useRelances'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 
@@ -41,6 +42,7 @@ interface Props {
 export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
   const [mode, setMode] = useState<ModePriorite>('score')
   const { clients, facturesActives } = useAppData()
+  const { peutModifier } = useRole()
 
   const SEUIL_ALERTE = 10
 
@@ -151,12 +153,14 @@ export function ListePriorites({ relances, onRelancer, commentaires }: Props) {
                 {badgeAnc(c.ancMax)}
                 <span className="text-[11px] font-semibold text-gray-600 tabular-nums">{fmtEuros(c.encours_total)}</span>
               </div>
-              <button
-                onClick={() => onRelancer(c)}
-                className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-ockham-teal/40 text-ockham-teal bg-white hover:bg-ockham-teal hover:text-white hover:border-ockham-teal transition-all opacity-0 group-hover:opacity-100"
-              >
-                ✉
-              </button>
+              {peutModifier && (
+                <button
+                  onClick={() => onRelancer(c)}
+                  className="flex-shrink-0 text-[10px] font-bold px-2 py-1 rounded border border-ockham-teal/40 text-ockham-teal bg-white hover:bg-ockham-teal hover:text-white hover:border-ockham-teal transition-all opacity-0 group-hover:opacity-100"
+                >
+                  ✉
+                </button>
+              )}
             </div>
           ))}
         </div>

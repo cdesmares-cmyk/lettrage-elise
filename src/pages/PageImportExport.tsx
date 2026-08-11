@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { IcUpload, IcDownload } from '../components/Icones'
 import { PageDepot } from './PageDepot'
 import { SectionExport } from '../components/import-export/SectionExport'
+import { useRole } from '../contexts/RoleContext'
 
 type Vue = 'import' | 'export'
 
 export function PageImportExport() {
-  const [vue, setVue] = useState<Vue>('import')
+  const { isExterne } = useRole()
+  const [vue, setVue] = useState<Vue>(isExterne ? 'export' : 'import')
 
   return (
     <div>
@@ -21,6 +23,7 @@ export function PageImportExport() {
               : 'Exportez vos données comptables'}
           </p>
         </div>
+        {!isExterne && (
         <div className="flex items-center bg-gray-100 rounded-lg p-1 gap-0.5">
           <button
             onClick={() => setVue('import')}
@@ -39,6 +42,7 @@ export function PageImportExport() {
             <IcDownload size={13} className="inline-block mr-1.5" /> Export
           </button>
         </div>
+        )}
       </div>
 
       {vue === 'import' && <PageDepot hideEnTete />}

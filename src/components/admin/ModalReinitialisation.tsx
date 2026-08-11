@@ -41,7 +41,7 @@ export function ModalReinitialisation({ onClose }: { onClose: () => void }) {
   }
 
   async function handleReset() {
-    if (confirmTexte !== 'RESET' || selection.size === 0) return
+    if (confirmTexte !== 'CONFIRMER' || selection.size === 0) return
     setChargement(true)
     try {
       for (const entite of ORDRE_SUPPRESSION) {
@@ -105,19 +105,19 @@ export function ModalReinitialisation({ onClose }: { onClose: () => void }) {
           </button>
         ) : (
           <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-4 space-y-3">
-            <p className="text-sm font-semibold text-red-700">Tapez <strong>RESET</strong> pour confirmer la suppression :</p>
+            <p className="text-sm font-semibold text-red-700">Tapez <strong>CONFIRMER</strong> pour valider la suppression :</p>
             <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={confirmTexte}
                 onChange={e => setConfirmTexte(e.target.value)}
-                placeholder="RESET"
+                placeholder="CONFIRMER"
                 autoFocus
-                className="border border-red-300 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-red-500 w-28 bg-white"
+                className="border border-red-300 rounded-lg px-3 py-2 text-sm font-mono outline-none focus:border-red-500 w-36 bg-white"
               />
               <button
                 onClick={handleReset}
-                disabled={confirmTexte !== 'RESET' || chargement}
+                disabled={confirmTexte !== 'CONFIRMER' || chargement}
                 className="text-sm font-bold text-white bg-red-600 hover:bg-red-700 px-5 py-2 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {chargement ? '⏳ En cours…' : 'Confirmer'}
