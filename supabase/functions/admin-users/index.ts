@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
       const { user_id, prenom, nom, role } = body
       if (!user_id) return json({ error: 'user_id requis' }, 400)
       if (user_id === user.id) return json({ error: 'Impossible de modifier son propre compte' }, 400)
-      const ROLES_VALIDES = ['admin', 'responsable_poste_client', 'commercial']
+      const ROLES_VALIDES = ['admin', 'responsable_poste_client', 'commercial', 'externe']
       if (role && !ROLES_VALIDES.includes(role)) return json({ error: 'Rôle invalide' }, 400)
       const { data: target } = await supabaseAdmin
         .from('utilisateurs')
@@ -165,7 +165,7 @@ Deno.serve(async (req: Request) => {
       const { user_id, role } = body
       if (!user_id || !role) return json({ error: 'user_id et role requis' }, 400)
       if (user_id === user.id) return json({ error: 'Impossible de modifier son propre rôle' }, 400)
-      const ROLES_VALIDES = ['admin', 'responsable_poste_client', 'commercial']
+      const ROLES_VALIDES = ['admin', 'responsable_poste_client', 'commercial', 'externe']
       if (!ROLES_VALIDES.includes(role)) return json({ error: 'Rôle invalide' }, 400)
       const { error } = await supabaseAdmin
         .from('utilisateurs')
