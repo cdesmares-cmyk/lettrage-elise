@@ -297,7 +297,7 @@ export function PageCompteClient() {
             }`}
           >
             <IcEdit size={12} />
-            {modeSelection ? `✓ Sélection de factures (${selection.size})` : 'Sélection de factures'}
+            {modeSelection ? `✓ Sélection de clients (${selection.size})` : 'Sélection de clients'}
           </button>
         )}
 
