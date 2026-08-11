@@ -82,11 +82,9 @@ export function ModalAlertesParametres({ onClose }: Props) {
     setUsers(prev => prev.map(u => u.id === userId ? { ...u, [champ]: valeur } : u))
   }
 
-  const commerciaux = users.filter(u => u.role === 'commercial' && u.id !== utilisateur?.id)
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden max-h-[90vh]">
 
         <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 rounded-t-2xl" style={{ background: '#0E1A2B' }}>
           <div className="flex items-center gap-3">
@@ -97,7 +95,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-lg leading-none" style={{ background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.4)' }}>×</button>
         </div>
-        <div className="p-6 flex flex-col gap-5">
+        <div className="p-6 flex flex-col gap-5 overflow-y-auto">
 
         {/* Abonnement personnel */}
         {moiMeme && (
@@ -188,32 +186,6 @@ export function ModalAlertesParametres({ onClose }: Props) {
             Durée pendant laquelle un client "pris en charge" disparaît des alertes.
           </p>
         </div>
-
-        {/* Opt-in commerciaux */}
-        {commerciaux.length > 0 && (
-          <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-              Digest email — Commerciaux
-            </label>
-            <div className="space-y-2">
-              {commerciaux.map(u => (
-                <div key={u.id} className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  <span className="text-sm text-gray-700">{u.email}</span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={u.recoit_digest_alertes}
-                      onChange={e => toggleDigest(u.id, e.target.checked)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-gray-200 peer-checked:bg-ockham-teal rounded-full transition-colors after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4" />
-                  </label>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-1.5">Admin et responsables poste client reçoivent toujours le digest.</p>
-          </div>
-        )}
 
         <div className="flex gap-2 justify-end pt-1">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">

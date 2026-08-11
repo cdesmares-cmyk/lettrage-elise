@@ -59,6 +59,16 @@ function colorType(type: string): string {
   return m[type] ?? '#111827'
 }
 
+function iconType(type: string): string {
+  const m: Record<string, string> = {
+    liquidation:  '&#10005;',
+    redressement: '&#9650;',
+    sauvegarde:   '&#11044;',
+    cloture:      '&#9711;',
+  }
+  return m[type] ?? '&middot;'
+}
+
 const PRIORITE_TYPE: Record<string, number> = { liquidation: 1, redressement: 2, sauvegarde: 3, cloture: 4 }
 
 interface AlerteRaw {
@@ -81,7 +91,7 @@ interface LigneDigest {
 }
 
 // ── TEMPLATE DIGEST — tableau groupé par client ───────────────────────────────
-function buildDigestEmail(lignes: LigneDigest[], dateStr: string): string {
+function buildDigestEmail(lignes: LigneDigest[], dateStr: string, nomOrg?: string): string {
   const nbClients = lignes.length
 
   const lignesHtml = lignes.map((l, i) => {
@@ -98,8 +108,8 @@ function buildDigestEmail(lignes: LigneDigest[], dateStr: string): string {
         <td style="padding:12px 16px;font-size:12px;font-family:monospace;color:#4CC5BB;font-weight:700;white-space:nowrap;border-bottom:1px solid #f3f4f6;">${l.code_client}</td>
         <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#0E1A2B;border-bottom:1px solid #f3f4f6;">${l.nom_client ?? '—'}</td>
         <td style="padding:12px 16px;border-bottom:1px solid #f3f4f6;">
-          <span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em;color:${badgeColor};background:${badgeBg};">
-            ${labelAlerte}
+          <span style="display:inline-block;padding:3px 8px 3px 6px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em;color:${badgeColor};background:${badgeBg};border-left:3px solid ${badgeColor};">
+            ${iconType(l.type_prioritaire)}&nbsp;${labelAlerte}
           </span>
         </td>
         <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#dc2626;text-align:right;white-space:nowrap;border-bottom:1px solid #f3f4f6;">${l.encours_ttc > 0 ? formatEuros(l.encours_ttc) : '—'}</td>
@@ -131,7 +141,7 @@ function buildDigestEmail(lignes: LigneDigest[], dateStr: string): string {
             <h1 style="margin:0 0 4px;font-size:17px;font-weight:700;color:#0E1A2B;">
               ${nbClients} client${nbClients > 1 ? 's' : ''} en procédure collective
             </h1>
-            <p style="margin:0;font-size:12px;color:#6b7280;">Publications BODACC détectées — ${dateStr}</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;">Publications BODACC détectées - ${dateStr}${nomOrg ? ` &middot; ${nomOrg}` : ''}</p>
           </td>
         </tr>
 
@@ -189,9 +199,7 @@ function buildEmailRAS(dateStr: string): string {
 
         <tr>
           <td style="padding:48px 40px;text-align:center;">
-            <div style="width:56px;height:56px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;margin:0 auto 20px;display:flex;align-items:center;justify-content:center;font-size:26px;line-height:56px;">
-              ✓
-            </div>
+            <div style="width:56px;height:56px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;margin:0 auto 20px;font-size:26px;line-height:56px;text-align:center;">&#10003;</div>
             <h1 style="margin:0 0 10px;font-size:18px;font-weight:700;color:#111827;">Aucune alerte ce jour</h1>
             <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
               Le scan BODACC du ${dateStr} n'a détecté aucune procédure collective<br>sur les clients de votre portefeuille.
@@ -297,6 +305,13 @@ Deno.serve(async (req: Request) => {
     for (const [orgId, emails] of Object.entries(orgsAvecDest)) {
       const alertesOrg = alertesParOrg[orgId] ?? []
 
+      const { data: orgRow } = await supabase
+        .from('organisations')
+        .select('nom')
+        .eq('id', orgId)
+        .maybeSingle()
+      const nomOrg = (orgRow as { nom: string } | null)?.nom ?? ''
+
       if (alertesOrg.length > 0) {
         // — Groupement par client + enrichissement (1 appel RPC par client)
         const parClient: Record<string, AlerteRaw[]> = {}
@@ -336,8 +351,8 @@ Deno.serve(async (req: Request) => {
         lignes.sort((a, b) => (PRIORITE_TYPE[a.type_prioritaire] ?? 99) - (PRIORITE_TYPE[b.type_prioritaire] ?? 99))
 
         // — Envoi digest
-        const sujet = `[BODACC] ${lignes.length} client${lignes.length > 1 ? 's' : ''} en procédure — ${dateStr}`
-        const html  = buildDigestEmail(lignes, dateStr)
+        const sujet = `[Ockham] ${nomOrg ? nomOrg + ' - ' : ''}${lignes.length} client${lignes.length > 1 ? 's' : ''} en procédure identifiés- ${dateStr}`
+        const html  = buildDigestEmail(lignes, dateStr, nomOrg)
         for (const email of emails) {
           const ok = await envoyerEmail(email, sujet, html)
           if (ok) nbEmailsEnvoyés++
@@ -346,7 +361,7 @@ Deno.serve(async (req: Request) => {
 
       } else {
         // — Envoi RAS
-        const sujet = `[BODACC] Aucune alerte — ${dateStr}`
+        const sujet = `[Ockham] Aucune alerte BODACC - ${dateStr}`
         const html  = buildEmailRAS(dateStr)
         for (const email of emails) {
           const ok = await envoyerEmail(email, sujet, html)
