@@ -71,6 +71,16 @@ export function PageCompteClient() {
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
 
+  // Pré-filtre depuis URL : /compte-client?client=CODE_DSO (ouvert depuis la modale lettrage)
+  useEffect(() => {
+    const clientParam = searchParams.get('client')
+    if (!clientParam) return
+    setVue('clients')
+    setInputRecherche(clientParam)
+    comptes.setRecherche(clientParam)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   function handleRechercheChange(valeur: string) {
     setInputRecherche(valeur)
     setRechercheEnAttente(true)

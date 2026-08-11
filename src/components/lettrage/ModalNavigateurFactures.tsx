@@ -77,7 +77,17 @@ function LigneFacture({
           : isAvoir ? 'hover:bg-rose-50/60' : 'hover:bg-gray-50'
       }`}
     >
-      <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{facture.code_client}</td>
+      <td className="px-4 py-2.5">
+        <a
+          href={`/compte-client?client=${facture.code_client}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          className="text-xs font-mono text-gray-600 hover:text-ockham-teal hover:underline transition-colors"
+        >
+          {facture.code_client}
+        </a>
+      </td>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-mono font-semibold text-gray-800">{facture.numero_piece}</span>
