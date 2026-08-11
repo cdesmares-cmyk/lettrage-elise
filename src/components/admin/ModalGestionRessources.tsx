@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { ModalBase } from './ModalBase'
 import { IcUsers, IcEdit } from '../Icones'
 
-type Role = 'admin' | 'responsable_poste_client' | 'commercial'
+type Role = 'admin' | 'responsable_poste_client' | 'commercial' | 'externe'
 
 interface Utilisateur {
   id: string
@@ -20,18 +20,21 @@ const LABELS_ROLE: Record<Role, string> = {
   admin: 'Administrateur',
   responsable_poste_client: 'Credit Manager',
   commercial: 'Commercial',
+  externe: 'Externe',
 }
 
 const BADGE_ROLE: Record<Role, string> = {
   admin: 'bg-red-50 border border-red-200 text-red-700',
   responsable_poste_client: 'bg-violet-50 border border-violet-200 text-violet-700',
   commercial: 'bg-amber-50 border border-amber-200 text-amber-700',
+  externe: 'bg-gray-100 border border-gray-200 text-gray-600',
 }
 
 const DOT_ROLE: Record<Role, string> = {
   admin: 'bg-red-500',
   responsable_poste_client: 'bg-violet-600',
   commercial: 'bg-amber-500',
+  externe: 'bg-gray-400',
 }
 
 async function callAdminUsers(body: Record<string, unknown>) {
@@ -194,6 +197,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
     admin: users.filter(u => u.role === 'admin').length,
     responsable_poste_client: users.filter(u => u.role === 'responsable_poste_client').length,
     commercial: users.filter(u => u.role === 'commercial').length,
+    externe: users.filter(u => u.role === 'externe').length,
   }
 
   const selectedUser = users.find(u => u.id === selectedId)
@@ -204,6 +208,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
     { value: 'admin', label: 'Administrateur' },
     { value: 'responsable_poste_client', label: 'Credit Manager' },
     { value: 'commercial', label: 'Commercial' },
+    { value: 'externe', label: 'Externe' },
   ]
 
   return (
@@ -359,6 +364,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
                           >
                             <option value="responsable_poste_client">Credit Manager</option>
                             <option value="commercial">Commercial</option>
+                            <option value="externe">Externe</option>
                             <option value="admin">Administrateur</option>
                           </select>
                         </div>
@@ -427,6 +433,7 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal bg-white transition-colors">
               <option value="responsable_poste_client">Credit Manager</option>
               <option value="commercial">Commercial</option>
+              <option value="externe">Externe</option>
               <option value="admin">Administrateur</option>
             </select>
           </div>
