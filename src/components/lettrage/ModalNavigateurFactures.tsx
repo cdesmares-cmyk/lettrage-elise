@@ -83,9 +83,10 @@ function LigneFacture({
           target="_blank"
           rel="noopener noreferrer"
           onClick={e => e.stopPropagation()}
-          className="text-xs font-mono text-gray-600 hover:text-ockham-teal hover:underline transition-colors"
+          className="group/cc inline-flex items-center gap-1 text-xs font-mono text-gray-600 hover:text-ockham-teal hover:font-semibold transition-colors"
         >
           {facture.code_client}
+          <span className="opacity-0 group-hover/cc:opacity-100 transition-opacity text-[10px]">↗</span>
         </a>
       </td>
       <td className="px-4 py-2.5">
