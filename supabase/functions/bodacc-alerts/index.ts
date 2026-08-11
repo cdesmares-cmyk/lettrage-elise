@@ -59,6 +59,8 @@ function colorType(type: string): string {
   return m[type] ?? '#111827'
 }
 
+const PRIORITE_TYPE: Record<string, number> = { liquidation: 1, redressement: 2, sauvegarde: 3, cloture: 4 }
+
 interface AlerteRaw {
   id: string
   organisation_id: string
@@ -70,59 +72,43 @@ interface AlerteRaw {
   date_parution: string | null
 }
 
-interface AlerteEnrichie extends AlerteRaw {
+interface LigneDigest {
+  code_client: string
   nom_client: string | null
-  encours_ht: number
+  type_prioritaire: string
+  nb_alertes: number
   encours_ttc: number
 }
 
-// ── TEMPLATE DIGEST (alertes détectées) ──────────────────────────────────────
-function buildDigestEmail(alertes: AlerteEnrichie[], dateStr: string): string {
-  const nb = alertes.length
-  const cartes = alertes.map(a => {
-    const lienClient = `${APP_URL}/compte-client?client=${encodeURIComponent(a.code_client)}`
+// ── TEMPLATE DIGEST — tableau groupé par client ───────────────────────────────
+function buildDigestEmail(lignes: LigneDigest[], dateStr: string): string {
+  const nbClients = lignes.length
+
+  const lignesHtml = lignes.map((l, i) => {
+    const lienClient = `${APP_URL}/compte-client?client=${encodeURIComponent(l.code_client)}`
+    const bg = i % 2 === 0 ? '#ffffff' : '#f9fafb'
+    const badgeColor  = colorType(l.type_prioritaire)
+    const badgeBg     = l.type_prioritaire === 'liquidation' ? '#fef2f2'
+                      : l.type_prioritaire === 'redressement' ? '#fffbeb'
+                      : l.type_prioritaire === 'sauvegarde'   ? '#eff6ff'
+                      : '#f3f4f6'
+    const labelAlerte = `${labelType(l.type_prioritaire)}${l.nb_alertes > 1 ? ` (×${l.nb_alertes})` : ''}`
     return `
-    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:10px;margin-bottom:16px;overflow:hidden;">
-      <tr>
-        <td style="background:#fef2f2;padding:10px 20px;border-bottom:1px solid #fecaca;">
-          <span style="font-size:11px;font-weight:700;color:${colorType(a.type_procedure)};text-transform:uppercase;letter-spacing:0.08em;">
-            ⚠ ${labelType(a.type_procedure)}
+      <tr style="background:${bg};">
+        <td style="padding:12px 16px;font-size:12px;font-family:monospace;color:#4CC5BB;font-weight:700;white-space:nowrap;border-bottom:1px solid #f3f4f6;">${l.code_client}</td>
+        <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#0E1A2B;border-bottom:1px solid #f3f4f6;">${l.nom_client ?? '—'}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #f3f4f6;">
+          <span style="display:inline-block;padding:3px 8px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:0.04em;color:${badgeColor};background:${badgeBg};">
+            ${labelAlerte}
           </span>
         </td>
-      </tr>
-      <tr>
-        <td style="padding:16px 20px;">
-          <p style="margin:0 0 12px;font-size:15px;font-weight:700;color:#111827;">${a.nom_client ?? a.code_client}</p>
-          <table cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="font-size:12px;color:#6b7280;padding:2px 16px 2px 0;white-space:nowrap;">Code client</td>
-              <td style="font-size:12px;font-weight:600;color:#374151;padding:2px 0;">${a.code_client}</td>
-            </tr>
-            <tr>
-              <td style="font-size:12px;color:#6b7280;padding:2px 16px 2px 0;white-space:nowrap;">SIRET</td>
-              <td style="font-size:12px;font-weight:600;color:#374151;font-family:monospace;padding:2px 0;">${formatSiret(a.siret)}</td>
-            </tr>
-            ${a.tribunal ? `<tr>
-              <td style="font-size:12px;color:#6b7280;padding:2px 16px 2px 0;white-space:nowrap;">Tribunal</td>
-              <td style="font-size:12px;font-weight:600;color:#374151;padding:2px 0;">${a.tribunal}</td>
-            </tr>` : ''}
-            <tr>
-              <td style="font-size:12px;color:#6b7280;padding:2px 16px 2px 0;white-space:nowrap;">Date jugement</td>
-              <td style="font-size:12px;font-weight:600;color:#374151;padding:2px 0;">${formatDate(a.date_jugement)}</td>
-            </tr>
-            <tr>
-              <td style="font-size:12px;color:#6b7280;padding:2px 16px 2px 0;white-space:nowrap;">Encours TTC</td>
-              <td style="font-size:12px;font-weight:700;color:#dc2626;padding:2px 0;">${a.encours_ttc > 0 ? formatEuros(a.encours_ttc) : '—'}</td>
-            </tr>
-          </table>
-          <div style="margin-top:14px;">
-            <a href="${lienClient}" style="display:inline-block;background:#0E1A2B;color:#ffffff;text-decoration:none;padding:8px 18px;border-radius:6px;font-size:12px;font-weight:500;">
-              Voir la fiche client →
-            </a>
-          </div>
+        <td style="padding:12px 16px;font-size:13px;font-weight:700;color:#dc2626;text-align:right;white-space:nowrap;border-bottom:1px solid #f3f4f6;">${l.encours_ttc > 0 ? formatEuros(l.encours_ttc) : '—'}</td>
+        <td style="padding:12px 16px;text-align:center;border-bottom:1px solid #f3f4f6;">
+          <a href="${lienClient}" style="display:inline-block;padding:5px 12px;background:#0E1A2B;color:#4CC5BB;text-decoration:none;font-size:11px;font-weight:700;border-radius:5px;white-space:nowrap;">
+            Voir →
+          </a>
         </td>
-      </tr>
-    </table>`
+      </tr>`
   }).join('')
 
   return `<!DOCTYPE html>
@@ -131,32 +117,45 @@ function buildDigestEmail(alertes: AlerteEnrichie[], dateStr: string): string {
 <body style="margin:0;padding:0;background:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f7;padding:40px 20px;">
     <tr><td align="center">
-      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+      <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
 
         <tr>
-          <td style="background:#0E1A2B;padding:24px 40px;">
+          <td style="background:#0E1A2B;padding:24px 32px;">
             <span style="color:#ffffff;font-size:16px;font-weight:700;letter-spacing:0.12em;">OCKHAM</span>
             <span style="color:#4CC5BB;font-size:16px;font-weight:700;letter-spacing:0.12em;"> · Veille BODACC</span>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:32px 40px 20px;">
-            <h1 style="margin:0 0 6px;font-size:18px;font-weight:700;color:#111827;">
-              ${nb} procédure${nb > 1 ? 's' : ''} détectée${nb > 1 ? 's' : ''}
+          <td style="padding:28px 32px 20px;">
+            <h1 style="margin:0 0 4px;font-size:17px;font-weight:700;color:#0E1A2B;">
+              ${nbClients} client${nbClients > 1 ? 's' : ''} en procédure collective
             </h1>
-            <p style="margin:0;font-size:13px;color:#6b7280;">Publications BODACC du ${dateStr}</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;">Publications BODACC détectées — ${dateStr}</p>
           </td>
         </tr>
 
         <tr>
-          <td style="padding:0 40px 32px;">
-            ${cartes}
+          <td style="padding:0 32px 32px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">
+              <thead>
+                <tr style="background:#0E1A2B;">
+                  <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#4CC5BB;letter-spacing:0.08em;text-transform:uppercase;">Code</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#4CC5BB;letter-spacing:0.08em;text-transform:uppercase;">Nom</th>
+                  <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:#4CC5BB;letter-spacing:0.08em;text-transform:uppercase;">Alerte</th>
+                  <th style="padding:10px 16px;text-align:right;font-size:10px;font-weight:700;color:#4CC5BB;letter-spacing:0.08em;text-transform:uppercase;">Encours TTC</th>
+                  <th style="padding:10px 16px;text-align:center;font-size:10px;font-weight:700;color:#4CC5BB;letter-spacing:0.08em;text-transform:uppercase;"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${lignesHtml}
+              </tbody>
+            </table>
           </td>
         </tr>
 
         <tr>
-          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+          <td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:18px 32px;text-align:center;">
             <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.8;">
               Données issues du BODACC — Journal officiel des annonces civiles et commerciales.<br>
               Cet email est envoyé automatiquement par OCKHAM Finance.
@@ -299,32 +298,46 @@ Deno.serve(async (req: Request) => {
       const alertesOrg = alertesParOrg[orgId] ?? []
 
       if (alertesOrg.length > 0) {
-        // — Enrichissement des alertes
-        const alertesEnrichies: AlerteEnrichie[] = []
+        // — Groupement par client + enrichissement (1 appel RPC par client)
+        const parClient: Record<string, AlerteRaw[]> = {}
         for (const a of alertesOrg) {
-          const { data: client } = await supabase
+          if (!parClient[a.code_client]) parClient[a.code_client] = []
+          parClient[a.code_client].push(a)
+          notifiés.push(a.id)
+        }
+
+        const lignes: LigneDigest[] = []
+        for (const [codeClient, alertesClient] of Object.entries(parClient)) {
+          const { data: clientRow } = await supabase
             .from('clients')
             .select('nom')
-            .eq('code_dso', a.code_client)
+            .eq('code_dso', codeClient)
             .eq('organisation_id', orgId)
             .maybeSingle()
 
           const { data: enc } = await supabase
-            .rpc('encours_client', { p_code_client: a.code_client, p_organisation_id: orgId })
+            .rpc('encours_client', { p_code_client: codeClient, p_organisation_id: orgId })
             .single()
 
-          alertesEnrichies.push({
-            ...a,
-            nom_client:  (client as { nom: string } | null)?.nom ?? null,
-            encours_ht:  (enc as { encours_ht: number } | null)?.encours_ht ?? 0,
-            encours_ttc: (enc as { encours_ttc: number } | null)?.encours_ttc ?? 0,
+          const typePrioritaire = alertesClient.reduce((best, a) =>
+            (PRIORITE_TYPE[a.type_procedure] ?? 99) < (PRIORITE_TYPE[best] ?? 99) ? a.type_procedure : best
+          , alertesClient[0].type_procedure)
+
+          lignes.push({
+            code_client:      codeClient,
+            nom_client:       (clientRow as { nom: string } | null)?.nom ?? null,
+            type_prioritaire: typePrioritaire,
+            nb_alertes:       alertesClient.length,
+            encours_ttc:      (enc as { encours_ttc: number } | null)?.encours_ttc ?? 0,
           })
-          notifiés.push(a.id)
         }
 
+        // Tri : type le plus grave en premier
+        lignes.sort((a, b) => (PRIORITE_TYPE[a.type_prioritaire] ?? 99) - (PRIORITE_TYPE[b.type_prioritaire] ?? 99))
+
         // — Envoi digest
-        const sujet = `[BODACC] ${alertesEnrichies.length} procédure${alertesEnrichies.length > 1 ? 's' : ''} détectée${alertesEnrichies.length > 1 ? 's' : ''} — ${dateStr}`
-        const html  = buildDigestEmail(alertesEnrichies, dateStr)
+        const sujet = `[BODACC] ${lignes.length} client${lignes.length > 1 ? 's' : ''} en procédure — ${dateStr}`
+        const html  = buildDigestEmail(lignes, dateStr)
         for (const email of emails) {
           const ok = await envoyerEmail(email, sujet, html)
           if (ok) nbEmailsEnvoyés++
