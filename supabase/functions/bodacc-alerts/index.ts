@@ -270,7 +270,6 @@ Deno.serve(async (req: Request) => {
       .from('utilisateurs')
       .select('organisation_id, email')
       .in('role', ['admin', 'responsable_poste_client'])
-      .eq('invitation_en_attente', false)
       .eq('notif_bodacc', true)
 
     const orgsAvecDest: Record<string, string[]> = {}
