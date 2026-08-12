@@ -18,6 +18,8 @@ interface Props {
   recherche?: string
   // Quand fourni (vue plate uniquement) : active la colonne BODACC et masque Montant TTC
   statutJuridiqueMap?: Map<string, StatutJuridique | null>
+  filtreBodacc?: StatutJuridique | null
+  onBodaccFilter?: (v: StatutJuridique | null) => void
   // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
   controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
@@ -104,10 +106,12 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtreBodacc, onBodaccFilter }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [bodaccPopupOpen, setBodaccPopupOpen] = useState(false)
+  const bodaccPopupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [sortColInt, setSortColInt] = useState<string>('date_echeance')
   const [sortDirInt, setSortDirInt] = useState<SortDir>('desc')
 
@@ -177,7 +181,19 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
             {modeBodacc && (
-              <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">BODACC</th>
+              <th
+                onClick={onBodaccFilter ? e => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                  bodaccPopupPos.current = { top: rect.bottom + 4, left: rect.left }
+                  setBodaccPopupOpen(o => !o)
+                } : undefined}
+                className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wider select-none transition-colors ${onBodaccFilter ? 'cursor-pointer hover:text-gray-600' : ''} ${filtreBodacc ? 'text-ockham-teal' : 'text-gray-400'}`}
+              >
+                <span className="flex items-center gap-1">
+                  BODACC
+                  {onBodaccFilter && <span className={`text-[9px] ${filtreBodacc ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtreBodacc ? '▼' : '⬍'}</span>}
+                </span>
+              </th>
             )}
             <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">
               {onRelancer ? 'Relancer' : 'Historique'}
@@ -318,6 +334,34 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 transition-colors text-gray-700"
             >
               {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Popup filtre BODACC */}
+      {bodaccPopupOpen && onBodaccFilter && (
+        <div
+          className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-[170px]"
+          style={{ top: bodaccPopupPos.current.top, left: bodaccPopupPos.current.left }}
+          onMouseLeave={() => setBodaccPopupOpen(false)}
+        >
+          <button
+            onClick={() => { onBodaccFilter(null); setBodaccPopupOpen(false) }}
+            className={`w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 transition-colors ${!filtreBodacc ? 'text-ockham-teal font-semibold' : 'text-gray-700'}`}
+          >
+            Tous
+          </button>
+          {(['liquidation', 'redressement', 'sauvegarde', 'cloture'] as StatutJuridique[]).map(sj => (
+            <button
+              key={sj}
+              onClick={() => { onBodaccFilter(sj); setBodaccPopupOpen(false) }}
+              className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors"
+            >
+              <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded border ${BODACC_CLS[sj]} ${filtreBodacc === sj ? 'ring-1 ring-offset-1 ring-ockham-teal' : ''}`}>
+                {BODACC_ICO[sj]?.()}
+                {BODACC_LABELS[sj]}
+              </span>
             </button>
           ))}
         </div>

@@ -46,6 +46,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     () => new Map<string, StatutJuridique | null>(clients.map(c => [c.code_dso, c.statut_juridique])),
     [clients]
   )
+  const [filtreBodacc, setFiltreBodacc] = useState<StatutJuridique | null>(null)
   const [sortCol, setSortCol] = useState('date_emission')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -98,8 +99,9 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     let result = factures
     if (dateDebut) result = result.filter(f => (f.date_emission ?? '') >= dateDebut)
     if (dateFin) result = result.filter(f => (f.date_emission ?? '') <= dateFin)
+    if (filtreBodacc) result = result.filter(f => statutJuridiqueMap.get(f.code_client) === filtreBodacc)
     return result
-  }, [factures, dateDebut, dateFin])
+  }, [factures, dateDebut, dateFin, filtreBodacc, statutJuridiqueMap])
 
   const facturesTries = useMemo(
     () => sortRows(facturesFiltrees, sortCol, sortDir),
@@ -198,6 +200,8 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         onOuvrirCommentaire={onOuvrirCommentaire}
         recherche={recherche}
         statutJuridiqueMap={statutJuridiqueMap}
+        filtreBodacc={filtreBodacc}
+        onBodaccFilter={v => { setFiltreBodacc(v); setPage(0) }}
         controlSort={{ col: sortCol, dir: sortDir, onChange: handleSort }}
       />
 
