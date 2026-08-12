@@ -23,7 +23,7 @@ const PRIORITE: Record<string, number> = { liquidation: 1, redressement: 2, sauv
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
 function json(data: unknown, status = 200) {
