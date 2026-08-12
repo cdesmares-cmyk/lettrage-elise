@@ -1,5 +1,5 @@
 // Sous-tableau factures partagé entre la vue clients (expand) et la vue factures flat
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
 import { IcFileText, IcInfo } from '../Icones'
@@ -113,6 +113,18 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [bodaccPopupOpen, setBodaccPopupOpen] = useState(false)
   const bodaccPopupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const bodaccPopupRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!bodaccPopupOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (bodaccPopupRef.current && !bodaccPopupRef.current.contains(e.target as Node)) {
+        setBodaccPopupOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [bodaccPopupOpen])
   const [sortColInt, setSortColInt] = useState<string>('date_echeance')
   const [sortDirInt, setSortDirInt] = useState<SortDir>('desc')
 
@@ -183,6 +195,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             }
             {modeBodacc && (
               <th
+                onMouseDown={e => e.stopPropagation()}
                 onClick={onBodaccToggle ? e => {
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
                   bodaccPopupPos.current = { top: rect.bottom + 4, left: rect.left }
@@ -343,9 +356,9 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
       {/* Popup filtre BODACC — multi-sélection */}
       {bodaccPopupOpen && onBodaccToggle && filtresBodacc && (
         <div
+          ref={bodaccPopupRef}
           className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[190px]"
           style={{ top: bodaccPopupPos.current.top, left: bodaccPopupPos.current.left }}
-          onMouseLeave={() => setBodaccPopupOpen(false)}
         >
           <div className="px-4 pb-1.5 border-b border-gray-100 mb-1">
             <button
