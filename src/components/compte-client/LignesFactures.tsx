@@ -16,14 +16,13 @@ interface Props {
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
   recherche?: string
-  statutJuridique?: StatutJuridique | null
+  // Quand fourni (vue plate uniquement) : active la colonne BODACC et masque Montant TTC
+  statutJuridiqueMap?: Map<string, StatutJuridique | null>
   // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
   controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
 
-// Instances créées une seule fois — toLocaleDateString recrée Intl.DateTimeFormat à chaque appel (lent)
 const _fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
 const _today = new Date()
 
 function fmt(n: number) { return _fmt.format(n) + ' €' }
@@ -40,13 +39,18 @@ function badgeAnc(j: number) {
 const IcLitige = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 const IcProv   = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
 
-const BODACC_LABEL: Record<string, string> = { liquidation: 'Liquidation judiciaire', redressement: 'Redressement judiciaire', sauvegarde: 'Procédure de sauvegarde', cloture: 'Procédure clôturée' }
-const BODACC_CLS:   Record<string, string> = { liquidation: 'text-red-600', redressement: 'text-amber-600', sauvegarde: 'text-blue-600', cloture: 'text-gray-400' }
+const BODACC_LABELS: Record<string, string> = { sauvegarde: 'Sauvegarde', liquidation: 'Liquidation', redressement: 'Redressement', cloture: 'Clôture' }
+const BODACC_CLS: Record<string, string> = {
+  sauvegarde:   'bg-amber-50 border-amber-200 text-amber-700',
+  liquidation:  'bg-red-50 border-red-200 text-red-700',
+  redressement: 'bg-orange-50 border-orange-200 text-orange-700',
+  cloture:      'bg-gray-50 border-gray-200 text-gray-500',
+}
 const BODACC_ICO: Record<string, () => React.ReactElement> = {
-  liquidation:  () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
-  redressement: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-  sauvegarde:   () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-  cloture:      () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  liquidation:  () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  redressement: () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  sauvegarde:   () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  cloture:      () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
 }
 
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
@@ -100,7 +104,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridique }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -109,6 +113,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
 
   const sortCol = controlSort?.col ?? sortColInt
   const sortDir = controlSort?.dir ?? sortDirInt
+  const modeBodacc = statutJuridiqueMap !== undefined
 
   function handleSort(col: string) {
     if (controlSort) {
@@ -155,10 +160,10 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               ? <th className="text-left px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">N° Facture</th>
               : <ColTh label="N° Facture" col="numero_piece" {...thProps} align="left" />
             }
-            {compact
+            {!modeBodacc && (compact
               ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Montant TTC</th>
               : <ColTh label="Montant TTC" col="montant_ttc" {...thProps} align="right" />
-            }
+            )}
             {compact
               ? <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Restant Dû</th>
               : <ColTh label="Restant Dû" col="reste_du" {...thProps} align="right" />
@@ -171,8 +176,8 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
-            {statutJuridique !== undefined && (
-              <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">BODACC</th>
+            {modeBodacc && (
+              <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">BODACC</th>
             )}
             <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">
               {onRelancer ? 'Relancer' : 'Historique'}
@@ -191,6 +196,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
             const restantCls = estSolde ? 'text-gray-300' : estNegatif ? 'text-ockham-teal font-bold' : estImpayeTotal ? 'text-red-600' : 'text-amber-600'
             const isAvoir = f.est_avoir || f.montant_ttc < 0
             const estSurligne = !!recherche && f.numero_piece.toLowerCase().includes(recherche.toLowerCase())
+            const sj = statutJuridiqueMap?.get(f.code_client) ?? null
             return (
               <tr key={f.numero_piece} className={`border-b transition-colors ${
                 estSurligne
@@ -221,7 +227,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-right font-mono text-gray-700">{fmt(f.montant_ttc)}</td>
+                {!modeBodacc && <td className="px-3 py-2 text-right font-mono text-gray-700">{fmt(f.montant_ttc)}</td>}
                 <td className="px-3 py-2 text-right font-mono font-bold">
                   <span className={restantCls}>{fmt(f.reste_du)}</span>
                 </td>
@@ -234,12 +240,15 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 <td className="px-3 py-2">
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
-                {statutJuridique !== undefined && (
-                  <td className="px-3 py-2 text-center">
-                    {statutJuridique && BODACC_ICO[statutJuridique] && (
-                      <span title={BODACC_LABEL[statutJuridique]} className={`inline-flex items-center justify-center cursor-help ${BODACC_CLS[statutJuridique]}`}>
-                        {BODACC_ICO[statutJuridique]()}
+                {modeBodacc && (
+                  <td className="px-3 py-2">
+                    {sj ? (
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded border ${BODACC_CLS[sj]}`}>
+                        {BODACC_ICO[sj]?.()}
+                        {BODACC_LABELS[sj]}
                       </span>
+                    ) : (
+                      <span className="text-[10px] text-gray-300">—</span>
                     )}
                   </td>
                 )}

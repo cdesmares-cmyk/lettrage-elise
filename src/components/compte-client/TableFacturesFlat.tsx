@@ -1,6 +1,6 @@
 // Vue factures : liste plate avec filtres date, préfiltres années, tri global, pagination 50/50
 import { useState, useMemo, useEffect } from 'react'
-import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
+import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { exporterXls } from '../../lib/exportXls'
 import { Pagination } from '../Pagination'
@@ -41,6 +41,11 @@ interface Props {
 export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
   const codes = clients.map(c => c.code_dso)
   const [page, setPage] = useState(0)
+
+  const statutJuridiqueMap = useMemo(
+    () => new Map<string, StatutJuridique | null>(clients.map(c => [c.code_dso, c.statut_juridique])),
+    [clients]
+  )
   const [sortCol, setSortCol] = useState('date_emission')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -192,6 +197,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         commentaires={commentaires}
         onOuvrirCommentaire={onOuvrirCommentaire}
         recherche={recherche}
+        statutJuridiqueMap={statutJuridiqueMap}
         controlSort={{ col: sortCol, dir: sortDir, onChange: handleSort }}
       />
 
