@@ -47,20 +47,6 @@ function dateHier(): string {
   return d.toISOString().slice(0, 10)
 }
 
-function genererTranches(dateMin: string, dateMax: string): Array<{ debut: string; fin: string }> {
-  const tranches: Array<{ debut: string; fin: string }> = []
-  let debut = new Date(dateMin)
-  const fin = new Date(dateMax)
-  while (debut <= fin) {
-    const finTranche = new Date(debut)
-    finTranche.setMonth(finTranche.getMonth() + 6)
-    if (finTranche > fin) finTranche.setTime(fin.getTime())
-    tranches.push({ debut: debut.toISOString().slice(0, 10), fin: finTranche.toISOString().slice(0, 10) })
-    debut = new Date(finTranche)
-    debut.setDate(debut.getDate() + 1)
-  }
-  return tranches
-}
 
 type TypeProcedure = 'liquidation' | 'redressement' | 'sauvegarde' | 'cloture' | 'autre'
 
@@ -371,20 +357,6 @@ async function mettreAJourStatutsOrg(supabase: ReturnType<typeof createClient>, 
 async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: string) {
   const tDébut = Date.now()
 
-  // Date min = plus ancienne facture de l'org, plancher 2020-01-01
-  const { data: oldest } = await supabase
-    .from('factures')
-    .select('date_emission')
-    .eq('organisation_id', orgId)
-    .not('date_emission', 'is', null)
-    .order('date_emission', { ascending: true })
-    .limit(1)
-    .maybeSingle()
-  const dateMinBrut = (oldest as { date_emission: string } | null)?.date_emission ?? '2020-01-01'
-  const dateMin = dateMinBrut < '2020-01-01' ? '2020-01-01' : dateMinBrut
-  const dateMax = dateHier()
-  console.log(`[bodacc-sync] scan_global org=${orgId} de ${dateMin} à ${dateMax}`)
-
   // Clients de l'org avec SIRET (chargement unique)
   const clients: ClientRow[] = []
   let offset = 0
@@ -411,33 +383,39 @@ async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: stri
     return { mode: 'scan_global', org_id: orgId, clients_avec_siret: 0, alertes_insérées: 0, statuts_mis_a_jour: 0 }
   }
 
-  // Tranches de 6 mois → approche inversée par tranche
-  const tranches = genererTranches(dateMin, dateMax)
-  console.log(`[bodacc-sync] scan_global : ${tranches.length} tranche(s)`)
+  // SIRENs uniques (9 premiers chiffres du SIRET)
+  const sirensUniques = [...new Set(clients.map(c => siretToSiren(c.siret)))]
+  console.log(`[bodacc-sync] scan_global : ${sirensUniques.length} SIRENs uniques`)
 
+  // Batching par 50 SIRETs — approche ciblée, jamais de limite API atteinte
+  const BATCH = 50
   let nbInsérées = 0
-  for (const tranche of tranches) {
-    const filtre  = `familleavis="collective" AND dateparution>="${tranche.debut}" AND dateparution<="${tranche.fin}"`
+  const nbBatchs = Math.ceil(sirensUniques.length / BATCH)
+
+  for (let i = 0; i < sirensUniques.length; i += BATCH) {
+    const batch = sirensUniques.slice(i, i + BATCH)
+    const sirensPart = batch.map(s => `registre="${s}"`).join(' OR ')
+    const filtre = `familleavis="collective" AND dateparution>="2020-01-01" AND (${sirensPart})`
     const records = await fetchAllBodacc(filtre)
     if (!records.length) continue
     const alertes = construireAlertes(records, clients)
     if (!alertes.length) continue
-    for (let i = 0; i < alertes.length; i += 500) {
+    for (let j = 0; j < alertes.length; j += 500) {
       const { error } = await supabase
         .from('alertes_risque')
-        .upsert(alertes.slice(i, i + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
-      if (!error) nbInsérées += alertes.slice(i, i + 500).length
+        .upsert(alertes.slice(j, j + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+      if (!error) nbInsérées += alertes.slice(j, j + 500).length
     }
   }
 
   const nbStatuts = await mettreAJourStatutsOrg(supabase, orgId)
 
-  const message = `scan_global org=${orgId} · ${tranches.length} tranches · ${clients.length} clients · ${nbInsérées} alertes · ${nbStatuts} statuts MAJ`
+  const message = `scan_global org=${orgId} · ${nbBatchs} batchs · ${clients.length} clients · ${nbInsérées} alertes · ${nbStatuts} statuts MAJ`
   await supabase.from('cron_runs').insert({
     fonction: 'bodacc-sync', statut: 'ok', nb_traite: nbInsérées, message, duree_ms: Date.now() - tDébut,
   })
 
-  return { mode: 'scan_global', org_id: orgId, date_min: dateMin, tranches: tranches.length, clients_avec_siret: clients.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
+  return { mode: 'scan_global', org_id: orgId, batchs: nbBatchs, clients_avec_siret: clients.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
 }
 
 // ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
