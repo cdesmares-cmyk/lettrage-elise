@@ -1,6 +1,6 @@
 // Sous-tableau factures partagé entre la vue clients (expand) et la vue factures flat
 import { useState, useRef } from 'react'
-import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
+import type { FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
 import { IcFileText, IcInfo } from '../Icones'
 import { NumeroPiece } from '../NumeroPiece'
@@ -16,6 +16,7 @@ interface Props {
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
   recherche?: string
+  statutJuridique?: StatutJuridique | null
   // Quand fourni depuis le parent (vue flat), le tri s'applique sur l'ensemble des données avant pagination
   controlSort?: { col: string; dir: SortDir; onChange: (col: string) => void }
 }
@@ -38,6 +39,15 @@ function badgeAnc(j: number) {
 
 const IcLitige = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
 const IcProv   = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+
+const BODACC_LABEL: Record<string, string> = { liquidation: 'Liquidation judiciaire', redressement: 'Redressement judiciaire', sauvegarde: 'Procédure de sauvegarde', cloture: 'Procédure clôturée' }
+const BODACC_CLS:   Record<string, string> = { liquidation: 'text-red-600', redressement: 'text-amber-600', sauvegarde: 'text-blue-600', cloture: 'text-gray-400' }
+const BODACC_ICO: Record<string, () => React.ReactElement> = {
+  liquidation:  () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
+  redressement: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  sauvegarde:   () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  cloture:      () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+}
 
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
   { val: 'litige',      label: 'Litige'      },
@@ -90,7 +100,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridique }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -161,6 +171,9 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
               ? <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Statut</th>
               : <ColTh label="Statut" col="statut_facture" {...thProps} align="left" />
             }
+            {statutJuridique !== undefined && (
+              <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">BODACC</th>
+            )}
             <th className="px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">
               {onRelancer ? 'Relancer' : 'Historique'}
             </th>
@@ -221,6 +234,15 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                 <td className="px-3 py-2">
                   <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
+                {statutJuridique !== undefined && (
+                  <td className="px-3 py-2 text-center">
+                    {statutJuridique && BODACC_ICO[statutJuridique] && (
+                      <span title={BODACC_LABEL[statutJuridique]} className={`inline-flex items-center justify-center cursor-help ${BODACC_CLS[statutJuridique]}`}>
+                        {BODACC_ICO[statutJuridique]()}
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td className="px-3 py-2 text-center">
                   {onRelancer && peutModifier ? (() => {
                     const derniere = derniereRelanceParClient?.get(f.code_client)
