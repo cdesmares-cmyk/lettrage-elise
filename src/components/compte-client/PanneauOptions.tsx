@@ -130,7 +130,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
   const chargerCommerciaux = useCallback(async () => {
-    const { data } = await supabase.from('utilisateurs').select('id, prenom, nom').order('nom')
+    const { data } = await supabase.from('utilisateurs').select('id, prenom, nom').neq('role', 'externe').order('nom')
     setCommerciauxData((data as unknown as { id: string; nom: string; prenom: string }[] | null)?.filter(u => u.nom) ?? [])
   }, [])
 
