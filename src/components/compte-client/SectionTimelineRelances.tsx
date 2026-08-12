@@ -67,14 +67,14 @@ export function SectionTimelineRelances({ codeClient }: Props) {
         .eq('code_client', codeClient)
         .order('envoye_le', { ascending: false })
         .limit(100),
-      supabase.from('utilisateurs').select('id,nom,prenom'),
+      supabase.from('utilisateurs').select('id,initiales'),
     ]).then(([{ data: r }, { data: a }, { data: u }]) => {
       if (!actif) return
       setRelances((r ?? []) as Relance[])
       setLogsAuto((a ?? []) as LogAuto[])
       const map = new Map<string, string>()
-      for (const usr of (u ?? []) as { id: string; nom: string; prenom: string | null }[]) {
-        map.set(usr.id, ((usr.nom[0] ?? '') + (usr.prenom?.[0] ?? '')).toUpperCase())
+      for (const usr of (u ?? []) as { id: string; initiales: string | null }[]) {
+        if (usr.initiales) map.set(usr.id, usr.initiales)
       }
       setInitOp(map)
       setChargement(false)
