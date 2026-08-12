@@ -38,8 +38,8 @@ function fmt(n: number) {
 }
 
 function classeScore(note: number) {
-  if (note <= 40) return { bar: 'bg-gray-200', txt: 'text-gray-400' }
-  if (note <= 70) return { bar: 'bg-gray-400', txt: 'text-gray-600' }
+  if (note <= 40) return { bar: 'bg-[#4CC5BB]', txt: 'text-[#0D9488]' }
+  if (note <= 70) return { bar: 'bg-[#E8B888]', txt: 'text-[#C07840]' }
   return { bar: 'bg-red-400', txt: 'text-red-600' }
 }
 
