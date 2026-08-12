@@ -19,6 +19,7 @@ function sortRows(data: FactureDetail[], col: string, dir: SortDir): FactureDeta
 }
 
 const ITEMS_PER_PAGE = 50
+const BODACC_TOUTES = new Set<StatutJuridique | null>([null, 'liquidation', 'redressement', 'sauvegarde', 'cloture'])
 
 interface Props {
   clients: CompteClient[]
@@ -46,7 +47,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     () => new Map<string, StatutJuridique | null>(clients.map(c => [c.code_dso, c.statut_juridique])),
     [clients]
   )
-  const [filtreBodacc, setFiltreBodacc] = useState<StatutJuridique | null>(null)
+  const [filtresBodacc, setFiltresBodacc] = useState<Set<StatutJuridique | null>>(new Set(BODACC_TOUTES))
   const [sortCol, setSortCol] = useState('date_emission')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
@@ -99,9 +100,9 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     let result = factures
     if (dateDebut) result = result.filter(f => (f.date_emission ?? '') >= dateDebut)
     if (dateFin) result = result.filter(f => (f.date_emission ?? '') <= dateFin)
-    if (filtreBodacc) result = result.filter(f => statutJuridiqueMap.get(f.code_client) === filtreBodacc)
+    if (filtresBodacc.size < 5) result = result.filter(f => filtresBodacc.has(statutJuridiqueMap.get(f.code_client) ?? null))
     return result
-  }, [factures, dateDebut, dateFin, filtreBodacc, statutJuridiqueMap])
+  }, [factures, dateDebut, dateFin, filtresBodacc, statutJuridiqueMap])
 
   const facturesTries = useMemo(
     () => sortRows(facturesFiltrees, sortCol, sortDir),
@@ -200,8 +201,12 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         onOuvrirCommentaire={onOuvrirCommentaire}
         recherche={recherche}
         statutJuridiqueMap={statutJuridiqueMap}
-        filtreBodacc={filtreBodacc}
-        onBodaccFilter={v => { setFiltreBodacc(v); setPage(0) }}
+        filtresBodacc={filtresBodacc}
+        onBodaccToggle={v => {
+          setFiltresBodacc(prev => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
+          setPage(0)
+        }}
+        onBodaccSetAll={selectAll => { setFiltresBodacc(selectAll ? new Set(BODACC_TOUTES) : new Set()); setPage(0) }}
         controlSort={{ col: sortCol, dir: sortDir, onChange: handleSort }}
       />
 
