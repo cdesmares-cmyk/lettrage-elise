@@ -155,7 +155,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
   if (chargement) {
     return <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
   }
-  if (!factures.length) {
+  if (!factures.length && !bodaccPopupOpen) {
     return <div className="py-6 text-center text-xs text-gray-400">Aucune facture trouvée.</div>
   }
 
