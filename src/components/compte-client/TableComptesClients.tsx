@@ -425,22 +425,24 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 </svg>
                 <h2 className="text-sm font-bold text-white">Ne plus suivre ce client ?</h2>
               </div>
-              <div className="px-6 py-5 flex flex-col gap-4">
-                <p className="text-sm text-gray-600">
-                  Retirer <span className="font-semibold text-gray-900">{clientCible?.nom ?? pendingUnfollow}</span> de la liste "À suivre" ?
+              <div className="px-5 py-5 flex flex-col items-center gap-4 text-center">
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  Retirer <span className="font-semibold text-gray-800">{clientCible?.nom ?? pendingUnfollow}</span> de la liste "À suivre" ?
                 </p>
-                <div className="flex gap-3 justify-end">
+                <div className="flex gap-2.5 justify-center">
                   <button
                     onClick={() => { onToggleASuivre?.(pendingUnfollow); setPendingUnfollow(null) }}
-                    className="px-4 py-2 text-sm font-semibold bg-ockham-teal text-white rounded-lg hover:bg-ockham-teal/90 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11.5px] font-semibold border border-teal-600/30 bg-teal-600/[0.07] text-teal-700 hover:bg-teal-600/[0.14] transition-colors"
                   >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
                     Oui, retirer
                   </button>
                   <button
                     onClick={() => setPendingUnfollow(null)}
-                    className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11.5px] font-semibold border border-red-500/25 bg-red-500/[0.06] text-red-600 hover:bg-red-500/[0.12] transition-colors"
                   >
-                    Non, annuler
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    Annuler
                   </button>
                 </div>
               </div>
