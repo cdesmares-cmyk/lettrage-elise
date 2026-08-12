@@ -47,6 +47,21 @@ function dateHier(): string {
   return d.toISOString().slice(0, 10)
 }
 
+function genererTranches(dateMin: string, dateMax: string): Array<{ debut: string; fin: string }> {
+  const tranches: Array<{ debut: string; fin: string }> = []
+  let debut = new Date(dateMin)
+  const fin = new Date(dateMax)
+  while (debut <= fin) {
+    const finTranche = new Date(debut)
+    finTranche.setMonth(finTranche.getMonth() + 6)
+    if (finTranche > fin) finTranche.setTime(fin.getTime())
+    tranches.push({ debut: debut.toISOString().slice(0, 10), fin: finTranche.toISOString().slice(0, 10) })
+    debut = new Date(finTranche)
+    debut.setDate(debut.getDate() + 1)
+  }
+  return tranches
+}
+
 type TypeProcedure = 'liquidation' | 'redressement' | 'sauvegarde' | 'cloture' | 'autre'
 
 interface Jugement {
@@ -307,24 +322,71 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
   return { mode: 'quotidien', records_bodacc: records.length, sirens_uniques: sirens.length, clients_matchés: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
 }
 
-// ─── MODE ONBOARDING : scan historique client-par-client pour un tenant ──────
-async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: string, dateMinParam: string | null) {
-  let dateMin = dateMinParam
-  if (!dateMin) {
-    const { data: oldest } = await supabase
-      .from('factures')
-      .select('date_emission')
-      .eq('organisation_id', orgId)
-      .not('date_emission', 'is', null)
-      .order('date_emission', { ascending: true })
-      .limit(1)
-      .maybeSingle()
-    dateMin = (oldest as { date_emission: string } | null)?.date_emission ?? '2020-01-01'
-  }
-  console.log(`[bodacc-sync] onboarding org=${orgId} depuis ${dateMin}`)
-
-  const rows: ClientRow[] = []
+// ─── MODE SCAN GLOBAL : approche inversée sur l'historique complet d'une org ──
+async function mettreAJourStatutsOrg(supabase: ReturnType<typeof createClient>, orgId: string): Promise<number> {
+  const alertes: Array<{ code_client: string; type_procedure: string }> = []
   const PAGE = 1000
+  let offset = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('alertes_risque')
+      .select('code_client, type_procedure')
+      .eq('organisation_id', orgId)
+      .eq('masquee', false)
+      .range(offset, offset + PAGE - 1)
+    if (error || !data?.length) break
+    alertes.push(...(data as typeof alertes))
+    if (data.length < PAGE) break
+    offset += PAGE
+  }
+  if (!alertes.length) return 0
+
+  const parClient: Record<string, string> = {}
+  for (const a of alertes) {
+    const actuel = parClient[a.code_client]
+    if (!actuel || (PRIORITE[a.type_procedure] ?? 99) < (PRIORITE[actuel] ?? 99))
+      parClient[a.code_client] = a.type_procedure
+  }
+
+  const parType: Record<string, string[]> = {}
+  for (const [code, type] of Object.entries(parClient)) {
+    if (!parType[type]) parType[type] = []
+    parType[type].push(code)
+  }
+
+  let nbMaj = 0
+  for (const [type, codes] of Object.entries(parType)) {
+    for (let i = 0; i < codes.length; i += 500) {
+      const { error } = await supabase
+        .from('clients')
+        .update({ statut_juridique: type } as never)
+        .eq('organisation_id', orgId)
+        .in('code_dso', codes.slice(i, i + 500))
+      if (!error) nbMaj += codes.slice(i, i + 500).length
+    }
+  }
+  return nbMaj
+}
+
+async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: string) {
+  const tDébut = Date.now()
+
+  // Date min = plus ancienne facture de l'org, plancher 2020-01-01
+  const { data: oldest } = await supabase
+    .from('factures')
+    .select('date_emission')
+    .eq('organisation_id', orgId)
+    .not('date_emission', 'is', null)
+    .order('date_emission', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+  const dateMinBrut = (oldest as { date_emission: string } | null)?.date_emission ?? '2020-01-01'
+  const dateMin = dateMinBrut < '2020-01-01' ? '2020-01-01' : dateMinBrut
+  const dateMax = dateHier()
+  console.log(`[bodacc-sync] scan_global org=${orgId} de ${dateMin} à ${dateMax}`)
+
+  // Clients de l'org avec SIRET (chargement unique)
+  const clients: ClientRow[] = []
   let offset = 0
   while (true) {
     const { data, error } = await supabase
@@ -333,41 +395,49 @@ async function scanOnboarding(supabase: ReturnType<typeof createClient>, orgId: 
       .eq('organisation_id', orgId)
       .not('siret', 'is', null)
       .neq('siret', '')
-      .range(offset, offset + PAGE - 1)
+      .range(offset, offset + 999)
     if (error || !data?.length) break
-    rows.push(...(data as ClientRow[]))
-    if (data.length < PAGE) break
-    offset += PAGE
+    clients.push(...(data as ClientRow[]))
+    if (data.length < 1000) break
+    offset += 1000
   }
-  console.log(`[bodacc-sync] onboarding : ${rows.length} clients avec SIRET`)
+  console.log(`[bodacc-sync] scan_global : ${clients.length} clients avec SIRET`)
+
+  if (!clients.length) {
+    await supabase.from('cron_runs').insert({
+      fonction: 'bodacc-sync', statut: 'ok', nb_traite: 0,
+      message: `scan_global org=${orgId} : aucun client avec SIRET`, duree_ms: Date.now() - tDébut,
+    })
+    return { mode: 'scan_global', org_id: orgId, clients_avec_siret: 0, alertes_insérées: 0, statuts_mis_a_jour: 0 }
+  }
+
+  // Tranches de 6 mois → approche inversée par tranche
+  const tranches = genererTranches(dateMin, dateMax)
+  console.log(`[bodacc-sync] scan_global : ${tranches.length} tranche(s)`)
 
   let nbInsérées = 0
-  const erreursLog: string[] = []
-
-  for (const client of rows) {
-    const siren      = siretToSiren(client.siret)
-    const sirenSpace = sirenAvecEspaces(siren)
-    const filtre     = `familleavis="collective" AND (registre="${siren}" OR registre="${sirenSpace}")`
-
-    const records = await fetchAllBodacc(`${filtre} AND dateparution>="${dateMin}"`)
-    await sleep(250)
-
-    const alertes = construireAlertes(records, [client])
+  for (const tranche of tranches) {
+    const filtre  = `familleavis="collective" AND dateparution>="${tranche.debut}" AND dateparution<="${tranche.fin}"`
+    const records = await fetchAllBodacc(filtre)
+    if (!records.length) continue
+    const alertes = construireAlertes(records, clients)
     if (!alertes.length) continue
-
-    const { error } = await supabase
-      .from('alertes_risque')
-      .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
-    if (error) {
-      erreursLog.push(`${client.code_dso}: ${error.message}`)
-    } else {
-      nbInsérées += alertes.length
+    for (let i = 0; i < alertes.length; i += 500) {
+      const { error } = await supabase
+        .from('alertes_risque')
+        .upsert(alertes.slice(i, i + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+      if (!error) nbInsérées += alertes.slice(i, i + 500).length
     }
   }
 
-  const nbStatuts = await mettreAJourStatuts(supabase)
+  const nbStatuts = await mettreAJourStatutsOrg(supabase, orgId)
 
-  return { mode: 'onboarding', org_id: orgId, date_min: dateMin, clients_traités: rows.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts, erreurs: erreursLog }
+  const message = `scan_global org=${orgId} · ${tranches.length} tranches · ${clients.length} clients · ${nbInsérées} alertes · ${nbStatuts} statuts MAJ`
+  await supabase.from('cron_runs').insert({
+    fonction: 'bodacc-sync', statut: 'ok', nb_traite: nbInsérées, message, duree_ms: Date.now() - tDébut,
+  })
+
+  return { mode: 'scan_global', org_id: orgId, date_min: dateMin, tranches: tranches.length, clients_avec_siret: clients.length, alertes_insérées: nbInsérées, statuts_mis_a_jour: nbStatuts }
 }
 
 // ─── HANDLER PRINCIPAL ───────────────────────────────────────────────────────
@@ -407,9 +477,8 @@ Deno.serve(async (req: Request) => {
     let body: Record<string, unknown> = {}
     try { body = await req.json() as Record<string, unknown> } catch { /* body vide = mode quotidien */ }
 
-    const action  = typeof body.action   === 'string' ? body.action : null
-    const orgId   = typeof body.org_id   === 'string' ? body.org_id : null
-    const dateMin = typeof body.date_min === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date_min) ? body.date_min : null
+    const action = typeof body.action === 'string' ? body.action : null
+    const orgId  = typeof body.org_id === 'string' ? body.org_id : null
 
     // ── MODE CLIENT_UNIQUE : vérification à la demande ────────────────────────
     if (action === 'client_unique') {
@@ -523,12 +592,12 @@ Deno.serve(async (req: Request) => {
     if (!orgId && profil.role !== 'superadmin')
       return json({ error: 'Le mode quotidien est réservé au superadmin' }, 403)
 
-    // Mode onboarding : admin limité à sa propre org
+    // Mode scan_global : admin limité à sa propre org
     if (orgId && profil.role === 'admin' && orgId !== profil.organisation_id)
       return json({ error: 'Accès non autorisé à cette organisation' }, 403)
 
     const résumé = orgId
-      ? await scanOnboarding(supabase, orgId, dateMin)
+      ? await scanGlobal(supabase, orgId)
       : await scanQuotidien(supabase)
 
     console.log('[bodacc-sync] terminé :', résumé)
