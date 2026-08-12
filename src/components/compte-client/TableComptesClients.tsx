@@ -105,6 +105,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filtreAlertes, setFiltreAlertes] = useState(false)
   const [filtreASuivre, setFiltreASuivre] = useState(false)
+  const [pendingUnfollow, setPendingUnfollow] = useState<string | null>(null)
   const checkboxToutRef = useRef<HTMLInputElement>(null)
 
   const nbAlertes = clients.filter(c => c.relance_auto_alerte).length
@@ -268,7 +269,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                   <td className="px-3 py-3 text-center">
                     <button
-                      onClick={e => { e.stopPropagation(); onToggleASuivre?.(c.code_dso) }}
+                      onClick={e => { e.stopPropagation(); c.a_suivre ? setPendingUnfollow(c.code_dso) : onToggleASuivre?.(c.code_dso) }}
                       disabled={!peutModifier || !onToggleASuivre}
                       title={c.a_suivre ? 'Retirer de "À Suivre"' : 'Marquer À Suivre'}
                       className={`p-1 rounded transition-colors ${
@@ -411,6 +412,42 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       </table>
 
       <Pagination page={page} total={nbPages} onChange={setPage} />
+
+      {pendingUnfollow && (() => {
+        const clientCible = clients.find(c => c.code_dso === pendingUnfollow)
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+              <div className="px-6 py-4 flex items-center gap-3" style={{ background: '#0E1A2B' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4CC5BB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3" fill="#4CC5BB" fillOpacity="0.3"/>
+                </svg>
+                <h2 className="text-sm font-bold text-white">Ne plus suivre ce client ?</h2>
+              </div>
+              <div className="px-6 py-5 flex flex-col gap-4">
+                <p className="text-sm text-gray-600">
+                  Retirer <span className="font-semibold text-gray-900">{clientCible?.nom ?? pendingUnfollow}</span> de la liste "À suivre" ?
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => { onToggleASuivre?.(pendingUnfollow); setPendingUnfollow(null) }}
+                    className="px-4 py-2 text-sm font-semibold bg-ockham-teal text-white rounded-lg hover:bg-ockham-teal/90 transition-colors"
+                  >
+                    Oui, retirer
+                  </button>
+                  <button
+                    onClick={() => setPendingUnfollow(null)}
+                    className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    Non, annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }
