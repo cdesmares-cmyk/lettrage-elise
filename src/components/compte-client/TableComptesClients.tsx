@@ -43,6 +43,9 @@ function classeScore(note: number) {
   return { bar: 'bg-red-400', txt: 'text-red-600' }
 }
 
+type EtatRelance = 'a_relancer' | 'recente' | 'aucune_facture'
+const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'recente', 'aucune_facture'])
+
 const STATUT_LABELS: Record<string, string> = {
   sauvegarde:   'Sauvegarde',
   liquidation:  'Liquidation',
@@ -106,6 +109,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const [filtreAlertes, setFiltreAlertes] = useState(false)
   const [filtreASuivre, setFiltreASuivre] = useState(false)
   const [pendingUnfollow, setPendingUnfollow] = useState<string | null>(null)
+  const [filtresRelance, setFiltresRelance] = useState<Set<EtatRelance>>(new Set(RELANCE_ETATS_TOUS))
+  const [relancePopupOpen, setRelancePopupOpen] = useState(false)
+  const relancePopupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
+  const relancePopupRef = useRef<HTMLDivElement>(null)
   const checkboxToutRef = useRef<HTMLInputElement>(null)
 
   const nbAlertes = clients.filter(c => c.relance_auto_alerte).length
@@ -114,6 +121,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   useEffect(() => { setPage(0) }, [recherche])
   // Fermer le panneau ouvert uniquement si le client n'est plus dans la liste
   useEffect(() => { if (ouvert && !clients.find(c => c.code_dso === ouvert)) setOuvert(null) }, [clients, ouvert])
+  useEffect(() => {
+    if (!relancePopupOpen) return
+    function onClickOutside(e: MouseEvent) {
+      if (relancePopupRef.current && !relancePopupRef.current.contains(e.target as Node)) setRelancePopupOpen(false)
+    }
+    document.addEventListener('mousedown', onClickOutside)
+    return () => document.removeEventListener('mousedown', onClickOutside)
+  }, [relancePopupOpen])
 
   function toggle(code: string) {
     if (modeSelection) { onToggleSelection?.(code); return }
@@ -135,9 +150,20 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
   // Ces calculs et ce hook doivent rester AVANT les early returns pour ne jamais
   // modifier le nombre de hooks appelés entre deux rendus (règle React).
+  function etatRelance(c: CompteClient): EtatRelance {
+    if (c.nb_impayees === 0) return 'aucune_facture'
+    const derniere = dernieresRelances?.get(c.code_dso)
+    const recente = derniere ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30 : false
+    return recente ? 'recente' : 'a_relancer'
+  }
+  function toggleRelance(v: EtatRelance) {
+    setFiltresRelance(prev => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
+    setPage(0)
+  }
   const clientsFiltres = clients
     .filter(c => !filtreAlertes || c.relance_auto_alerte)
     .filter(c => !filtreASuivre || c.a_suivre)
+    .filter(c => filtresRelance.size === 3 || filtresRelance.has(etatRelance(c)))
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -210,7 +236,20 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             </th>
             <ColTh label="Statut juridique" col="statut_juridique" {...thProps} align="left" />
             <ColTh label="Groupement" col="code_groupement" {...thProps} align="left" />
-            <th className="text-center px-3 py-2.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Options</th>
+            <th
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                relancePopupPos.current = { top: rect.bottom + 4, left: Math.max(4, rect.right - 215) }
+                setRelancePopupOpen(o => !o)
+              }}
+              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < 3 ? 'text-ockham-teal' : 'text-gray-400'}`}
+            >
+              <span className="flex items-center justify-center gap-1">
+                Relances
+                <span className={`text-[9px] ${filtresRelance.size < 3 ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtresRelance.size < 3 ? '▼' : '⬍'}</span>
+              </span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -450,6 +489,41 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           </div>
         )
       })()}
+
+      {relancePopupOpen && (
+        <div
+          ref={relancePopupRef}
+          className="fixed z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-2 min-w-[215px]"
+          style={{ top: relancePopupPos.current.top, left: relancePopupPos.current.left }}
+        >
+          <div className="px-4 pb-1.5 border-b border-gray-100 mb-1">
+            <button
+              onClick={() => { setFiltresRelance(filtresRelance.size < 3 ? new Set(RELANCE_ETATS_TOUS) : new Set()); setPage(0) }}
+              className="text-[10px] font-semibold text-ockham-teal hover:text-ockham-teal-dark transition-colors cursor-pointer"
+            >
+              {filtresRelance.size === 3 ? 'Tout décocher' : 'Tout cocher'}
+            </button>
+          </div>
+          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
+            <input type="checkbox" checked={filtresRelance.has('a_relancer')} onChange={() => toggleRelance('a_relancer')} className="accent-ockham-teal w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-ockham-teal text-white border-ockham-teal">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              À relancer
+            </span>
+          </label>
+          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
+            <input type="checkbox" checked={filtresRelance.has('recente')} onChange={() => toggleRelance('recente')} className="accent-ockham-teal w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-300">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Relancé récemment
+            </span>
+          </label>
+          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
+            <input type="checkbox" checked={filtresRelance.has('aucune_facture')} onChange={() => toggleRelance('aucune_facture')} className="accent-ockham-teal w-3.5 h-3.5" />
+            <span className="text-[10px] font-medium text-gray-400">— Aucune facture impayée</span>
+          </label>
+        </div>
+      )}
     </div>
   )
 }
