@@ -1,31 +1,95 @@
-import { useState, useEffect } from 'react'
-import { useRelances } from '../hooks/useRelances'
-import { useGmailAuth } from '../hooks/useGmailAuth'
+import { useState, useEffect, useMemo } from 'react'
+import { useRelances, etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../hooks/useRelances'
+import type { EtatVueRelance } from '../hooks/useRelances'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
+import { useAppData } from '../contexts/AppDataContext'
 import { BarreKpisRelances } from '../components/relances/BarreKpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
-import { ListePriorites } from '../components/relances/ListePriorites'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
-import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalParametresRelances } from '../components/admin/ModalParametresRelances'
-import { PanneauGamification } from '../components/relances/PanneauGamification'
 import { useRole } from '../contexts/RoleContext'
 import { IcSliders } from '../components/Icones'
-import type { CompteClient } from '../types/client'
+
+const IcClock = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </svg>
+)
+const IcCheckCircle = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+  </svg>
+)
+const IcXCircle = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+  </svg>
+)
+
+const INFO_STRIP: Record<EtatVueRelance, string> = {
+  en_cours:   `1 relance affichée par client · seuil sans suite : ${SEUIL_SANS_SUITE_DEFAUT} jours · alerte à J-10`,
+  payee:      'Paiement détecté automatiquement à l\'ouverture · archivage automatique à 60 jours',
+  sans_suite: `Aucun retour client depuis ${SEUIL_SANS_SUITE_DEFAUT} jours · archivage automatique à 60 jours`,
+}
 
 export function PageRelances() {
-  const { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
+  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
   const { isCommercial, peutModifier } = useRole()
+  const [ongletActif, setOngletActif] = useState<EtatVueRelance>('en_cours')
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
-  const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
-  const gmailAuth = useGmailAuth()
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
+  const { facturesActives } = useAppData()
 
   useEffect(() => { chargerTous() }, [])
+
+  const facturesMap = useMemo(
+    () => new Map(facturesActives.map(f => [f.numero_piece, f])),
+    [facturesActives]
+  )
+
+  // Déduplication globale : 1 relance par client (la plus récente)
+  const grouped = useMemo(() => {
+    const base = relances.filter(r => !r.archivee && r.statut !== 'brouillon' && r.envoyee_le)
+    const parClient = new Map<string, typeof base[0]>()
+    for (const r of base) {
+      const ex = parClient.get(r.code_client)
+      if (!ex || r.envoyee_le! > ex.envoyee_le!) parClient.set(r.code_client, r)
+    }
+    const dedup = [...parClient.values()]
+    return {
+      en_cours:   dedup.filter(r => etatVue(r, facturesMap) === 'en_cours'),
+      payee:      dedup.filter(r => etatVue(r, facturesMap) === 'payee'),
+      sans_suite: dedup.filter(r => etatVue(r, facturesMap) === 'sans_suite'),
+    }
+  }, [relances, facturesMap])
+
+  const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode; activeCls: string; badgeCls: string }[] = [
+    {
+      id: 'en_cours',
+      label: 'En cours',
+      icon: <IcClock />,
+      activeCls: 'border-ockham-teal text-ockham-teal',
+      badgeCls: 'bg-ockham-teal-muted text-ockham-teal-dark',
+    },
+    {
+      id: 'payee',
+      label: 'Payées',
+      icon: <IcCheckCircle />,
+      activeCls: 'border-emerald-500 text-emerald-600',
+      badgeCls: 'bg-emerald-50 text-emerald-700',
+    },
+    {
+      id: 'sans_suite',
+      label: 'Sans suite',
+      icon: <IcXCircle />,
+      activeCls: 'border-[#C07840] text-[#C07840]',
+      badgeCls: 'bg-[#F5E9D8] text-[#C07840]',
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -56,32 +120,56 @@ export function PageRelances() {
         </div>
       </div>
 
-      {/* KPIs unifiés : Total € + pipeline */}
+      {/* KPIs 3 cartes */}
       <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} />
 
-      {/* Tableau relances */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">Relances récentes</p>
-        <TableauRelances
-          relances={relances}
-          chargement={chargement}
-          onMajStatut={mettreAJourStatut}
-          onArchiver={archiver}
-          onSauvegarderNote={mettreAJourNote}
-          onSauvegarderCommentaire={sauvegarder}
-          classement={classement}
-          commentaires={commentaires}
-          filtreOp={filtreOp}
-          onFiltreOpChange={setFiltreOp}
-        />
-      </div>
+      {/* Navigation 3 onglets */}
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+        <div className="flex border-b border-gray-100">
+          {onglets.map(o => {
+            const nb = grouped[o.id].length
+            const actif = ongletActif === o.id
+            return (
+              <button
+                key={o.id}
+                onClick={() => setOngletActif(o.id)}
+                className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold border-b-2 transition-colors select-none ${
+                  actif ? o.activeCls : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                {o.icon}
+                {o.label}
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${actif ? o.badgeCls : 'bg-gray-100 text-gray-400'}`}>
+                  {nb}
+                </span>
+              </button>
+            )
+          })}
+        </div>
 
-      {/* Priorités + gamification côte à côte */}
-      <div className="space-y-2">
-        <p className="text-[10px] font-bold text-ockham-navy/60 uppercase tracking-wider">À relancer en priorité</p>
-        <div className="grid gap-4" style={{ gridTemplateColumns: '2fr 1fr' }}>
-          <ListePriorites relances={relances} onRelancer={setClientRelance} commentaires={commentaires} />
-          <PanneauGamification relances={relances} kpis={kpis} classement={classement} />
+        {/* Info strip contextuel */}
+        <div className="px-5 py-2 border-b border-gray-50 bg-gray-50/50 flex items-center gap-1.5">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <p className="text-[10px] text-gray-400">{INFO_STRIP[ongletActif]}</p>
+        </div>
+
+        {/* Tableau filtré par onglet */}
+        <div className="p-4">
+          <TableauRelances
+            relances={grouped[ongletActif]}
+            chargement={chargement}
+            onglet={ongletActif}
+            onMajStatut={mettreAJourStatut}
+            onArchiver={archiver}
+            onSauvegarderNote={mettreAJourNote}
+            onSauvegarderCommentaire={sauvegarder}
+            classement={classement}
+            commentaires={commentaires}
+            filtreOp={filtreOp}
+            onFiltreOpChange={setFiltreOp}
+          />
         </div>
       </div>
 
@@ -100,15 +188,6 @@ export function PageRelances() {
           </div>
         </div>
       )}
-
-      {/* Modal composition relance (depuis priorités) */}
-      <ModalCompositionRelance
-        client={clientRelance}
-        onFermer={() => setClientRelance(null)}
-        onSent={() => setClientRelance(null)}
-        gmailAuth={gmailAuth}
-        commentaires={commentaires}
-      />
 
       {scenariosOuvert && <ModalParametresRelances onClose={() => setScenariosOuvert(false)} />}
     </div>

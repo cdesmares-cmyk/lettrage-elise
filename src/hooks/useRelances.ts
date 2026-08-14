@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 export type StatutRelance = 'brouillon' | 'envoyee' | 'repondue' | 'promesse_paiement' | 'sans_reponse' | 'payee'
+export type EtatVueRelance = 'en_cours' | 'payee' | 'sans_suite'
+
+export const SEUIL_SANS_SUITE_DEFAUT = 30
 
 export interface ContactSnapshot {
   id: string
@@ -31,6 +34,28 @@ export interface Relance {
   note_operateur: string | null
   note_archivee_le: string | null
   date_rappel: string | null
+  solde_snapshot: number
+}
+
+export function joursDepuis(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+}
+
+// Dérive l'état d'affichage d'une relance à partir des données actuelles.
+// Payée : le reste dû a diminué depuis l'envoi (lettrage détecté).
+// Sans suite : aucun paiement et seuil de jours dépassé.
+export function etatVue(
+  r: Relance,
+  facturesMap: Map<string, { reste_du: number }>,
+  seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
+): EtatVueRelance {
+  if (!r.envoyee_le) return 'en_cours'
+  const soldeCourant = (r.factures_ids ?? []).reduce(
+    (sum, id) => sum + (facturesMap.get(id)?.reste_du ?? 0), 0
+  )
+  if (r.solde_snapshot > 0 && soldeCourant < r.solde_snapshot) return 'payee'
+  if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
+  return 'en_cours'
 }
 
 export interface KpisRelance {
@@ -89,7 +114,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel')
+      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot')
       .order('cree_le', { ascending: false })
       .then(({ data }) => {
         setRelances((data ?? []) as Relance[])
