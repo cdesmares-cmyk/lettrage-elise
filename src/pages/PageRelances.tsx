@@ -27,14 +27,16 @@ const IcXCircle = () => (
   </svg>
 )
 
-const INFO_STRIP: Record<EtatVueRelance, string> = {
-  en_cours:   `1 relance affichée par client · seuil sans suite : ${SEUIL_SANS_SUITE_DEFAUT} jours · alerte à J-10`,
-  payee:      'Paiement détecté automatiquement à l\'ouverture · archivage automatique à 60 jours',
-  sans_suite: `Aucun retour client depuis ${SEUIL_SANS_SUITE_DEFAUT} jours · archivage automatique à 60 jours`,
+function infoStrip(seuil: number): Record<EtatVueRelance, string> {
+  return {
+    en_cours:   `1 relance affichée par client · seuil sans suite : ${seuil} jours · alerte à J-${seuil - 10}`,
+    payee:      'Paiement détecté automatiquement à l\'ouverture · archivage automatique à 60 jours',
+    sans_suite: `Aucun retour client depuis ${seuil} jours · archivage automatique à 60 jours`,
+  }
 }
 
 export function PageRelances() {
-  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver } = useRelances()
+  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite } = useRelances()
   const { isCommercial, peutModifier } = useRole()
   const [ongletActif, setOngletActif] = useState<EtatVueRelance>('en_cours')
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
@@ -61,11 +63,11 @@ export function PageRelances() {
     }
     const dedup = [...parClient.values()]
     return {
-      en_cours:   dedup.filter(r => etatVue(r, facturesMap) === 'en_cours'),
-      payee:      dedup.filter(r => etatVue(r, facturesMap) === 'payee'),
-      sans_suite: dedup.filter(r => etatVue(r, facturesMap) === 'sans_suite'),
+      en_cours:   dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'en_cours'),
+      payee:      dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'payee'),
+      sans_suite: dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'sans_suite'),
     }
-  }, [relances, facturesMap])
+  }, [relances, facturesMap, seuilSansSuite])
 
   const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode; activeCls: string; badgeCls: string }[] = [
     {
@@ -121,7 +123,7 @@ export function PageRelances() {
       </div>
 
       {/* KPIs 3 cartes */}
-      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} />
+      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} seuilSansSuite={seuilSansSuite} />
 
       {/* Navigation 3 onglets */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -152,7 +154,7 @@ export function PageRelances() {
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
           </svg>
-          <p className="text-[10px] text-gray-400">{INFO_STRIP[ongletActif]}</p>
+          <p className="text-[10px] text-gray-400">{infoStrip(seuilSansSuite)[ongletActif]}</p>
         </div>
 
         {/* Tableau filtré par onglet */}
@@ -169,6 +171,7 @@ export function PageRelances() {
             commentaires={commentaires}
             filtreOp={filtreOp}
             onFiltreOpChange={setFiltreOp}
+            seuilSansSuite={seuilSansSuite}
           />
         </div>
       </div>

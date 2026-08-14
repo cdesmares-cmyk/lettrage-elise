@@ -108,6 +108,15 @@ export function useRelances() {
   const { utilisateur, profil } = useAuth()
   const [relances, setRelances] = useState<Relance[]>([])
   const [chargement, setChargement] = useState(false)
+  const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
+
+  useEffect(() => {
+    supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
+      .then(({ data }) => {
+        const val = parseInt((data as { valeur: string } | null)?.valeur ?? '')
+        if (!isNaN(val) && val > 0) setSeuilSansSuite(val)
+      })
+  }, [])
 
   useEffect(() => {
     if (!utilisateur) { setRelances([]); return }
@@ -175,5 +184,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite }
 }

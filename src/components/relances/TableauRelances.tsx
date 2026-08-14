@@ -9,7 +9,7 @@ import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from './ModalDetailRelance'
 
-const SEUIL_ALERTE = SEUIL_SANS_SUITE_DEFAUT - 10
+// Calculé dynamiquement dans le composant via le prop seuilSansSuite
 
 type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant' | 'operateur'
 
@@ -51,9 +51,11 @@ interface Props {
   commentaires: Map<string, CommentaireFacture>
   filtreOp: string
   onFiltreOpChange: (op: string) => void
+  seuilSansSuite?: number
 }
 
-export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange }: Props) {
+export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT }: Props) {
+  const SEUIL_ALERTE = seuilSansSuite - 10
   const navigate = useNavigate()
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()

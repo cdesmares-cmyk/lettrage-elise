@@ -1,5 +1,6 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
 import { useState, useEffect, useRef } from 'react'
+import { joursDepuis, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
@@ -43,8 +44,8 @@ function classeScore(note: number) {
   return { bar: 'bg-red-400', txt: 'text-red-600' }
 }
 
-type EtatRelance = 'a_relancer' | 'recente' | 'aucune_facture'
-const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'recente', 'aucune_facture'])
+type EtatRelance = 'a_relancer' | 'recente' | 'sans_suite' | 'aucune_facture'
+const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'recente', 'sans_suite', 'aucune_facture'])
 
 const STATUT_LABELS: Record<string, string> = {
   sauvegarde:   'Sauvegarde',
@@ -153,8 +154,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   function etatRelance(c: CompteClient): EtatRelance {
     if (c.nb_impayees === 0) return 'aucune_facture'
     const derniere = dernieresRelances?.get(c.code_dso)
-    const recente = derniere ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30 : false
-    return recente ? 'recente' : 'a_relancer'
+    if (!derniere) return 'a_relancer'
+    const jours = joursDepuis(derniere)
+    if (jours < SEUIL_SANS_SUITE_DEFAUT) return 'recente'
+    return 'sans_suite'
   }
   function toggleRelance(v: EtatRelance) {
     setFiltresRelance(prev => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
@@ -163,7 +166,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const clientsFiltres = clients
     .filter(c => !filtreAlertes || c.relance_auto_alerte)
     .filter(c => !filtreASuivre || c.a_suivre)
-    .filter(c => filtresRelance.size === 3 || filtresRelance.has(etatRelance(c)))
+    .filter(c => filtresRelance.size === 4 || filtresRelance.has(etatRelance(c)))
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -243,11 +246,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 relancePopupPos.current = { top: rect.bottom + 4, left: Math.max(4, rect.right - 215) }
                 setRelancePopupOpen(o => !o)
               }}
-              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < 3 ? 'text-ockham-teal' : 'text-gray-400'}`}
+              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < 4 ? 'text-ockham-teal' : 'text-gray-400'}`}
             >
               <span className="flex items-center justify-center gap-1">
                 Relances
-                <span className={`text-[9px] ${filtresRelance.size < 3 ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtresRelance.size < 3 ? '▼' : '⬍'}</span>
+                <span className={`text-[9px] ${filtresRelance.size < 4 ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtresRelance.size < 3 ? '▼' : '⬍'}</span>
               </span>
             </th>
           </tr>
@@ -352,19 +355,18 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             ✉ Relancer
                           </button>
                         )
-                        const derniere = dernieresRelances?.get(c.code_dso)
-                        const recente = derniere
-                          ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
-                          : false
+                        const etat = etatRelance(c)
                         return (
                           <button
                             onClick={e => { e.stopPropagation(); onRelancer(c) }}
                             className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                              recente
+                              etat === 'recente'
                                 ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                : etat === 'sans_suite'
+                                ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
                                 : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
                             }`}
-                            title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                            style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
                           >
                             ✉ Relancer
                           </button>
@@ -498,10 +500,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         >
           <div className="px-4 pb-1.5 border-b border-gray-100 mb-1">
             <button
-              onClick={() => { setFiltresRelance(filtresRelance.size < 3 ? new Set(RELANCE_ETATS_TOUS) : new Set()); setPage(0) }}
+              onClick={() => { setFiltresRelance(filtresRelance.size < 4 ? new Set(RELANCE_ETATS_TOUS) : new Set()); setPage(0) }}
               className="text-[10px] font-semibold text-ockham-teal hover:text-ockham-teal-dark transition-colors cursor-pointer"
             >
-              {filtresRelance.size === 3 ? 'Tout décocher' : 'Tout cocher'}
+              {filtresRelance.size === 4 ? 'Tout décocher' : 'Tout cocher'}
             </button>
           </div>
           <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
@@ -516,6 +518,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-300">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               Relancé récemment
+            </span>
+          </label>
+          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
+            <input type="checkbox" checked={filtresRelance.has('sans_suite')} onChange={() => toggleRelance('sans_suite')} className="w-3.5 h-3.5" style={{ accentColor: '#C07840' }} />
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border" style={{ background: '#F5E9D8', color: '#C07840', borderColor: '#C0784050' }}>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              Sans suite
             </span>
           </label>
           <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">

@@ -2,10 +2,11 @@
 import { useState } from 'react'
 import { TabScenariosRelance } from './TabScenariosRelance'
 import { TabModeAutoRelance } from './TabModeAutoRelance'
+import { TabReglesRelance } from './TabReglesRelance'
 import { useRole } from '../../contexts/RoleContext'
 import { IcSliders } from '../Icones'
 
-type Onglet = 'scenarios' | 'auto'
+type Onglet = 'scenarios' | 'auto' | 'regles'
 
 interface Props {
   onClose: () => void
@@ -57,10 +58,21 @@ export function ModalParametresRelances({ onClose, ongletInitial = 'scenarios' }
                 Mode Auto
               </button>
             )}
+            {peutModifier && (
+              <button
+                onClick={() => setOnglet('regles')}
+                className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+                  onglet === 'regles' ? 'border-ockham-teal text-ockham-teal' : 'border-transparent text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                Règles
+              </button>
+            )}
           </div>
 
           {onglet === 'scenarios' && <TabScenariosRelance />}
           {onglet === 'auto' && <TabModeAutoRelance />}
+          {onglet === 'regles' && <TabReglesRelance />}
         </div>
       </div>
     </>
