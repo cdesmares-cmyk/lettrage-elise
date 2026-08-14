@@ -30,8 +30,8 @@ const IcAlerte = () => (
   </svg>
 )
 
-function estEnAlerte(r: Relance): boolean {
-  return r.envoyee_le != null && joursDepuis(r.envoyee_le) >= SEUIL_ALERTE
+function estEnAlerte(r: Relance, seuil: number): boolean {
+  return r.envoyee_le != null && joursDepuis(r.envoyee_le) >= seuil - 10
 }
 
 interface SauvegarderComData {
@@ -55,7 +55,6 @@ interface Props {
 }
 
 export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT }: Props) {
-  const SEUIL_ALERTE = seuilSansSuite - 10
   const navigate = useNavigate()
   const { peutModifier } = useRole()
   const { clients, facturesActives } = useAppData()
@@ -86,7 +85,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
   function getPct(r: Relance) { return r.solde_snapshot > 0 ? (getEncaisse(r) / r.solde_snapshot) * 100 : 0 }
 
   const nbAlertes = useMemo(
-    () => relances.filter(r => (filtreOp === 'tous' || r.operateur_id === filtreOp) && estEnAlerte(r)).length,
+    () => relances.filter(r => (filtreOp === 'tous' || r.operateur_id === filtreOp) && estEnAlerte(r, seuilSansSuite)).length,
     [relances, filtreOp]
   )
 
@@ -97,14 +96,14 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
       const nom = (clientsMap.get(r.code_client) ?? '').toLowerCase()
       if (!nom.includes(q) && !r.code_client.toLowerCase().includes(q)) return false
     }
-    if (onglet === 'en_cours' && alertesSeulement && !estEnAlerte(r)) return false
+    if (onglet === 'en_cours' && alertesSeulement && !estEnAlerte(r, seuilSansSuite)) return false
     return true
   }), [relances, filtreOp, recherche, clientsMap, onglet, alertesSeulement])
 
   const affichees = useMemo(() => [...filtrees].sort((a, b) => {
     if (onglet === 'en_cours') {
-      const pa = estEnAlerte(a) ? 0 : 1
-      const pb = estEnAlerte(b) ? 0 : 1
+      const pa = estEnAlerte(a, seuilSansSuite) ? 0 : 1
+      const pb = estEnAlerte(b, seuilSansSuite) ? 0 : 1
       if (pa !== pb) return pa - pb
     }
     let cmp = 0
@@ -210,8 +209,8 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
           <tbody>
             {affichees.map(r => {
               const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
-              const alerte = estEnAlerte(r)
-              const restant = jours !== null ? SEUIL_SANS_SUITE_DEFAUT - jours : null
+              const alerte = estEnAlerte(r, seuilSansSuite)
+              const restant = jours !== null ? seuilSansSuite - jours : null
               return (
                 <tr key={r.id} onClick={() => setRelanceOuverteId(r.id)} className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40">
                   {/* Code */}

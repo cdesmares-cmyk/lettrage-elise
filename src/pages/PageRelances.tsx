@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useRelances, etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../hooks/useRelances'
+import { useRelances, etatVue } from '../hooks/useRelances'
 import type { EtatVueRelance } from '../hooks/useRelances'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
