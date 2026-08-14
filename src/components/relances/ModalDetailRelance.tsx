@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import { etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture, StatutFacture } from '../../types/client'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -29,10 +30,6 @@ function fmtEuros(n: number) {
 function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
-function isRetourClient(statut: StatutRelance) {
-  return ['repondue', 'promesse_paiement', 'payee'].includes(statut)
-}
-
 type EtatCom = { texte: string; saving: boolean }
 
 interface SauvegarderComData {
@@ -79,9 +76,13 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string; role_contact?: string | null }[]>([])
   const popupRef                            = useRef<HTMLDivElement>(null)
 
-  const facturesMap = new Map(facturesActives.map(f => [f.numero_piece, f]))
+  const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
   const operateur   = utilisateur?.email?.split('@')[0] ?? ''
+  const etatActuel  = useMemo(
+    () => relance ? etatVue(relance, facturesMap, SEUIL_SANS_SUITE_DEFAUT) : null,
+    [relance, facturesMap]
+  )
 
   // Afficher les contacts — priorité au snapshot sauvegardé (résistant aux suppressions)
   // Fallback live pour les relances antérieures à la migration 118
@@ -144,7 +145,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
   const montant   = factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
   const jours     = relance.envoyee_le ? joursDepuis(relance.envoyee_le) : null
   const enRetard  = jours !== null && jours >= 10
-  const step2Done = isRetourClient(relance.statut)
 
   function setCom(id: string, patch: Partial<EtatCom>) {
     setEtatsCom(prev => { const n = new Map(prev); n.set(id, { ...prev.get(id)!, ...patch }); return n })
@@ -159,9 +159,6 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
     await onSauvegarderCommentaire({ numero_piece: id, contact: '', date_contact: '', commentaire: etat.texte, operateur, ne_pas_relancer: nr })
     setCom(id, { saving: false })
     toast.success('Commentaire enregistré')
-    if (relance.statut === 'envoyee' && etat.texte.trim().length > 0) {
-      await onMajStatut(relance.id, 'repondue')
-    }
   }
 
   async function changerStatutFac(numeroPiece: string, statut: StatutFacture | null) {
@@ -246,63 +243,45 @@ export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver,
             </div>
           </div>
 
-          {/* Ligne 1 : Avancement + Note de suivi */}
-          <div className="flex border-b border-gray-100 flex-shrink-0">
-
-            {/* Pipeline 2 steps */}
-            <div className="px-5 py-4 border-r border-gray-100 flex flex-col gap-3 min-w-[220px]">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Avancement</p>
-              <div className="flex items-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
-                    step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-ockham-teal text-ockham-teal shadow-[0_0_0_3px_#E6F7F5]'
-                  }`}>
-                    {step2Done ? '✓' : '1'}
-                  </div>
-                  <span className={`text-[9px] font-semibold ${step2Done ? 'text-ockham-navy' : 'text-ockham-teal'}`}>Envoyée</span>
-                </div>
-                <div className={`h-0.5 w-10 mx-1 mb-3.5 ${step2Done ? 'bg-ockham-teal' : 'bg-gray-200'}`} />
-                <div className="flex flex-col items-center gap-1">
-                  <div className={`w-[22px] h-[22px] rounded-full border-2 flex items-center justify-center text-[10px] font-bold ${
-                    step2Done ? 'bg-ockham-teal border-ockham-teal text-white' : 'bg-white border-[rgba(76,197,187,0.4)] text-[rgba(76,197,187,0.6)]'
-                  }`}>
-                    {step2Done ? '✓' : '2'}
-                  </div>
-                  <span className={`text-[9px] font-semibold ${step2Done ? 'text-ockham-navy' : 'text-gray-300'}`}>Retour client</span>
-                </div>
-              </div>
-              <p className="text-[9px] text-gray-300 italic leading-relaxed">
-                Passe en retour client dès qu'un<br />commentaire facture est enregistré.
-              </p>
+          {/* État de la relance */}
+          {etatActuel && (
+            <div className="px-5 py-2.5 border-b border-gray-100 flex-shrink-0 flex items-center gap-2 bg-gray-50/40">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">État</span>
+              {etatActuel === 'en_cours' && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border border-ockham-teal/30 bg-ockham-teal-muted text-ockham-teal-dark">En cours</span>
+              )}
+              {etatActuel === 'payee' && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700">Payée — paiement détecté</span>
+              )}
+              {etatActuel === 'sans_suite' && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border" style={{ borderColor: '#C07840', background: '#F5E9D8', color: '#C07840' }}>Sans suite</span>
+              )}
             </div>
+          )}
 
-            {/* Note de suivi */}
-            <div className="flex-1 px-5 py-4 flex flex-col gap-2">
-              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Note de suivi</p>
-              <textarea
-                value={noteTexte}
-                onChange={e => setNoteTexte(e.target.value)}
-                placeholder="Saisir une note de suivi…"
-                rows={3}
-                className="flex-1 w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-xl px-3 py-2.5 outline-none resize-none placeholder-gray-300 transition-colors"
-              />
-              <div className="flex justify-end">
-                <button
-                  disabled={noteSaving}
-                  onClick={async () => {
-                    setNoteSaving(true)
-                    await onSauvegarderNote(relance.id, noteTexte)
-                    setNoteSaving(false)
-                    toast.success('Note enregistrée')
-                    if (relance.statut === 'envoyee' && noteTexte.trim().length > 0) {
-                      await onMajStatut(relance.id, 'repondue')
-                    }
-                  }}
-                  className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer"
-                >
-                  {noteSaving ? '…' : '✓ Enregistrer'}
-                </button>
-              </div>
+          {/* Note de suivi */}
+          <div className="px-5 py-4 border-b border-gray-100 flex-shrink-0 flex flex-col gap-2">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Note de suivi</p>
+            <textarea
+              value={noteTexte}
+              onChange={e => setNoteTexte(e.target.value)}
+              placeholder="Saisir une note de suivi…"
+              rows={3}
+              className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-xl px-3 py-2.5 outline-none resize-none placeholder-gray-300 transition-colors"
+            />
+            <div className="flex justify-end">
+              <button
+                disabled={noteSaving}
+                onClick={async () => {
+                  setNoteSaving(true)
+                  await onSauvegarderNote(relance.id, noteTexte)
+                  setNoteSaving(false)
+                  toast.success('Note enregistrée')
+                }}
+                className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                {noteSaving ? '…' : '✓ Enregistrer'}
+              </button>
             </div>
           </div>
 
