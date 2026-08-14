@@ -60,7 +60,7 @@ function renderStatutBadge(
   return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
 }
 
-export function ModalDetailRelance({ relance, onFermer, onMajStatut, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
+export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
   const { facturesActives, clients, mettreAJourStatutLocal } = useAppData()
   const { utilisateur } = useAuth()
 
