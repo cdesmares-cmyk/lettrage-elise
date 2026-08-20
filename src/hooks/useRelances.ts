@@ -50,10 +50,14 @@ export function etatVue(
   seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
 ): EtatVueRelance {
   if (!r.envoyee_le) return 'en_cours'
-  const soldeCourant = (r.factures_ids ?? []).reduce(
+  const ids = r.factures_ids ?? []
+  const soldeCourant = ids.reduce(
     (sum, id) => sum + (facturesMap.get(id)?.reste_du ?? 0), 0
   )
   if (r.solde_snapshot > 0 && soldeCourant < r.solde_snapshot) return 'payee'
+  // Fallback pour relances avec solde_snapshot non renseigné (= 0) :
+  // si une facture du snapshot a disparu de facturesActives (reste_du → 0, filtrée), paiement détecté.
+  if (!(r.solde_snapshot > 0) && ids.some(id => !facturesMap.has(id))) return 'payee'
   if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
   return 'en_cours'
 }

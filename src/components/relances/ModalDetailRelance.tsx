@@ -31,6 +31,7 @@ function joursDepuis(iso: string) {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 type EtatCom = { texte: string; saving: boolean }
+type FactureRelance = { numero_piece: string; montant_ttc: number; reste_du: number; statut_facture: StatutFacture | null }
 
 interface SauvegarderComData {
   numero_piece: string; contact: string; date_contact: string
@@ -74,6 +75,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   const [popupStatut, setPopupStatut]       = useState<{ id: string; top: number; left: number } | null>(null)
   const [statutSaving, setStatutSaving]     = useState(false)
   const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string; role_contact?: string | null }[]>([])
+  const [facturesRelance, setFacturesRelance] = useState<FactureRelance[]>([])
   const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
@@ -100,6 +102,26 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
       .select('id,nom,prenom,email,role_contact')
       .in('id', ids)
       .then(({ data }) => setContacts((data ?? []) as typeof contacts))
+  }, [relance?.id])
+
+  // Charge toutes les factures du snapshot depuis la DB (inclut les factures lettrées avec reste_du = 0)
+  useEffect(() => {
+    setFacturesRelance([])
+    if (!relance?.factures_ids?.length) return
+    supabase
+      .from('v_factures_avec_reste_du')
+      .select('numero_piece, montant_ttc, reste_du, statut_facture')
+      .in('numero_piece', relance.factures_ids)
+      .then(({ data }) => {
+        if (!data) return
+        const fetched = data as FactureRelance[]
+        setFacturesRelance(fetched)
+        setStatutsFac(prev => {
+          const n = new Map(prev)
+          for (const f of fetched) n.set(f.numero_piece, f.statut_facture ?? null)
+          return n
+        })
+      })
   }, [relance?.id])
 
   useEffect(() => {
@@ -140,9 +162,19 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   // ── Return conditionnel après tous les hooks ──
   if (!relance) return null
 
-  const factures  = (relance.factures_ids ?? []).map(id => facturesMap.get(id)).filter(Boolean)
+  // Affiche TOUTES les factures du snapshot (y compris lettrées) — fusion fetch DB + cache live
+  const factures = (relance.factures_ids ?? []).map(id => {
+    const fetched = facturesRelance.find(f => f.numero_piece === id)
+    if (fetched) return fetched
+    const live = facturesMap.get(id)
+    if (live) return { numero_piece: id, montant_ttc: live.montant_ttc ?? 0, reste_du: live.reste_du, statut_facture: live.statut_facture ?? null } as FactureRelance
+    return null
+  }).filter(Boolean) as FactureRelance[]
   const nomClient = clientsMap.get(relance.code_client) ?? relance.code_client
-  const montant   = factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
+  // Montant de référence = engagement initial de la relance
+  const montant   = relance.solde_snapshot > 0
+    ? relance.solde_snapshot
+    : factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
   const jours     = relance.envoyee_le ? joursDepuis(relance.envoyee_le) : null
   const enRetard  = jours !== null && jours >= 10
 
@@ -317,16 +349,17 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
               <thead>
                 <tr className="border-b border-gray-100">
                   <th className="text-left px-5 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">N° Facture</th>
-                  <th className="text-right px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Montant</th>
+                  <th className="text-right px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Montant TTC</th>
+                  <th className="text-right px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Reste dû</th>
                   <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Statut</th>
-                  <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Exclure de la prochaine relance</th>
+                  <th className="text-left px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Exclure</th>
                   <th className="text-center px-3 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider">Commentaire</th>
                 </tr>
               </thead>
               <tbody>
                 {factures.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-4 text-xs text-gray-400 italic">Aucune facture trouvée</td>
+                    <td colSpan={6} className="px-5 py-4 text-xs text-gray-400 italic">Chargement…</td>
                   </tr>
                 )}
                 {factures.map(f => {
@@ -344,6 +377,14 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
                         </td>
                         <td className="px-3 py-2.5 text-right">
                           <span className="font-bold text-ockham-navy tabular-nums">{fmtEuros(f.montant_ttc ?? 0)}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right">
+                          {f.reste_du <= 0.005
+                            ? <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-300 bg-emerald-50 text-emerald-700">Payée</span>
+                            : f.reste_du < (f.montant_ttc ?? 0) - 0.005
+                              ? <span className="font-bold text-amber-600 tabular-nums">{fmtEuros(f.reste_du)}</span>
+                              : <span className="font-bold text-red-600 tabular-nums">{fmtEuros(f.reste_du)}</span>
+                          }
                         </td>
                         <td className="px-3 py-2.5">
                           {renderStatutBadge(f.numero_piece, statut, openPopup)}
@@ -374,7 +415,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
                       </tr>
                       {comOpen && (
                         <tr className="bg-gray-50/80">
-                          <td colSpan={5} className="px-5 py-3 border-b border-gray-100">
+                          <td colSpan={6} className="px-5 py-3 border-b border-gray-100">
                             <div className="flex gap-3 items-end pl-4">
                               <textarea
                                 value={etat.texte}
