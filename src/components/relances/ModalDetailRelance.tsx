@@ -79,12 +79,18 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
+  const facturesRelanceMap = useMemo(
+    () => new Map(facturesRelance.map(f => [f.numero_piece, { reste_du: f.reste_du }])),
+    [facturesRelance]
+  )
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
   const operateur   = utilisateur?.email?.split('@')[0] ?? ''
-  const etatActuel  = useMemo(
-    () => relance ? etatVue(relance, facturesMap, SEUIL_SANS_SUITE_DEFAUT) : null,
-    [relance, facturesMap]
-  )
+  const etatActuel  = useMemo(() => {
+    if (!relance) return null
+    // Attend le fetch DB avant de calculer (évite les flashs de faux état)
+    if (relance.factures_ids?.length && facturesRelance.length === 0) return null
+    return etatVue(relance, facturesRelanceMap, SEUIL_SANS_SUITE_DEFAUT)
+  }, [relance, facturesRelanceMap, facturesRelance.length])
 
   // Afficher les contacts — priorité au snapshot sauvegardé (résistant aux suppressions)
   // Fallback live pour les relances antérieures à la migration 118

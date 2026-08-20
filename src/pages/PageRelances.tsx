@@ -3,7 +3,6 @@ import { useRelances, etatVue } from '../hooks/useRelances'
 import type { EtatVueRelance } from '../hooks/useRelances'
 import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
-import { useAppData } from '../contexts/AppDataContext'
 import { BarreKpisRelances } from '../components/relances/BarreKpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
@@ -36,7 +35,7 @@ function infoStrip(seuil: number): Record<EtatVueRelance, string> {
 }
 
 export function PageRelances() {
-  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite } = useRelances()
+  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances } = useRelances()
   const { isCommercial, peutModifier } = useRole()
   const [ongletActif, setOngletActif] = useState<EtatVueRelance>('en_cours')
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
@@ -44,14 +43,8 @@ export function PageRelances() {
   const [filtreOp, setFiltreOp] = useState('tous')
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
-  const { facturesActives } = useAppData()
 
   useEffect(() => { chargerTous() }, [])
-
-  const facturesMap = useMemo(
-    () => new Map(facturesActives.map(f => [f.numero_piece, f])),
-    [facturesActives]
-  )
 
   // Déduplication globale : 1 relance par client (la plus récente)
   const grouped = useMemo(() => {
@@ -63,11 +56,11 @@ export function PageRelances() {
     }
     const dedup = [...parClient.values()]
     return {
-      en_cours:   dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'en_cours'),
-      payee:      dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'payee'),
-      sans_suite: dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'sans_suite'),
+      en_cours:   dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'en_cours'),
+      payee:      dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee'),
+      sans_suite: dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'sans_suite'),
     }
-  }, [relances, facturesMap, seuilSansSuite])
+  }, [relances, facturesMapRelances, seuilSansSuite])
 
   const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode; activeCls: string; badgeCls: string }[] = [
     {

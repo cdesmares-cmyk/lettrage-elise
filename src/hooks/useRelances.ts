@@ -110,6 +110,7 @@ export function useRelances() {
   const [relances, setRelances] = useState<Relance[]>([])
   const [chargement, setChargement] = useState(false)
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
+  const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number }>>(new Map())
 
   useEffect(() => {
     supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
@@ -120,15 +121,28 @@ export function useRelances() {
   }, [])
 
   useEffect(() => {
-    if (!utilisateur) { setRelances([]); return }
+    if (!utilisateur) { setRelances([]); setFacturesMapRelances(new Map()); return }
     setChargement(true)
     supabase
       .from('relances')
       .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot')
       .order('cree_le', { ascending: false })
-      .then(({ data }) => {
-        setRelances((data ?? []) as Relance[])
+      .then(async ({ data }) => {
+        const relancesData = (data ?? []) as Relance[]
+        setRelances(relancesData)
         setChargement(false)
+
+        const ids = [...new Set(relancesData.flatMap(r => r.factures_ids ?? []))]
+        if (!ids.length) return
+        const { data: fData } = await supabase
+          .from('v_factures_avec_reste_du')
+          .select('numero_piece, reste_du')
+          .in('numero_piece', ids)
+        if (fData) {
+          setFacturesMapRelances(
+            new Map((fData as { numero_piece: string; reste_du: number }[]).map(f => [f.numero_piece, { reste_du: f.reste_du }]))
+          )
+        }
       })
   }, [utilisateur])
 
@@ -185,5 +199,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances }
 }
