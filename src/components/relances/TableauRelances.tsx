@@ -52,10 +52,10 @@ interface Props {
   filtreOp: string
   onFiltreOpChange: (op: string) => void
   seuilSansSuite?: number
-  facturesMapRelancesRelances: Map<string, { reste_du: number; montant_ttc: number }>
+  facturesMapRelances: Map<string, { reste_du: number; montant_ttc: number }>
 }
 
-export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelancesRelances }: Props) {
+export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelances }: Props) {
   const navigate = useNavigate()
   const { peutModifier } = useRole()
   const { clients } = useAppData()

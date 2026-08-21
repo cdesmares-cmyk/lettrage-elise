@@ -17,10 +17,10 @@ interface Props {
   filtreOp: string
   chargement?: boolean
   seuilSansSuite?: number
-  facturesMapRelancesRelances: Map<string, { reste_du: number; montant_ttc: number }>
+  facturesMapRelances: Map<string, { reste_du: number; montant_ttc: number }>
 }
 
-export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelancesRelances }: Props) {
+export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelances }: Props) {
 
   const kpis = useMemo(() => {
     const base = relances.filter(r =>
