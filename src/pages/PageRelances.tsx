@@ -116,7 +116,7 @@ export function PageRelances() {
       </div>
 
       {/* KPIs 3 cartes */}
-      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} seuilSansSuite={seuilSansSuite} />
+      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} seuilSansSuite={seuilSansSuite} facturesMapRelances={facturesMapRelances} />
 
       {/* Navigation 3 onglets */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -165,6 +165,7 @@ export function PageRelances() {
             filtreOp={filtreOp}
             onFiltreOpChange={setFiltreOp}
             seuilSansSuite={seuilSansSuite}
+            facturesMapRelances={facturesMapRelances}
           />
         </div>
       </div>

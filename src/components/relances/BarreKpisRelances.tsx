@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { useAppData } from '../../contexts/AppDataContext'
 import { etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import type { Relance } from '../../hooks/useRelances'
 
@@ -18,11 +17,10 @@ interface Props {
   filtreOp: string
   chargement?: boolean
   seuilSansSuite?: number
+  facturesMapRelancesRelances: Map<string, { reste_du: number; montant_ttc: number }>
 }
 
-export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT }: Props) {
-  const { facturesActives } = useAppData()
-  const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
+export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelancesRelances }: Props) {
 
   const kpis = useMemo(() => {
     const base = relances.filter(r =>
@@ -41,11 +39,11 @@ export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSui
     const dedup = [...parClient.values()]
 
     const soldeCourant = (r: Relance) =>
-      (r.factures_ids ?? []).reduce((s, id) => s + (facturesMap.get(id)?.reste_du ?? 0), 0)
+      (r.factures_ids ?? []).reduce((s, id) => s + (facturesMapRelances.get(id)?.reste_du ?? 0), 0)
 
-    const enCours    = dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'en_cours')
-    const payees     = dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'payee')
-    const sansSuite  = dedup.filter(r => etatVue(r, facturesMap, seuilSansSuite) === 'sans_suite')
+    const enCours    = dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'en_cours')
+    const payees     = dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee')
+    const sansSuite  = dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'sans_suite')
 
     const montantEnCours   = enCours.reduce((s, r) => s + soldeCourant(r), 0)
     const montantSansSuite = sansSuite.reduce((s, r) => s + soldeCourant(r), 0)
@@ -58,7 +56,7 @@ export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSui
     const tauxRecouvrement = totalMasse > 0 ? (montantEncaisse / totalMasse) * 100 : 0
 
     return { enCours, payees, sansSuite, montantEnCours, montantSansSuite, montantEncaisse, tauxRecouvrement }
-  }, [relances, filtreOp, facturesMap, seuilSansSuite])
+  }, [relances, filtreOp, facturesMapRelances, seuilSansSuite])
 
   const cls = chargement ? 'opacity-40 pointer-events-none' : ''
 

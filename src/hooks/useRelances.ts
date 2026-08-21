@@ -110,7 +110,7 @@ export function useRelances() {
   const [relances, setRelances] = useState<Relance[]>([])
   const [chargement, setChargement] = useState(false)
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
-  const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number }>>(new Map())
+  const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
 
   useEffect(() => {
     supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
@@ -136,11 +136,11 @@ export function useRelances() {
         if (!ids.length) return
         const { data: fData } = await supabase
           .from('v_factures_avec_reste_du')
-          .select('numero_piece, reste_du')
+          .select('numero_piece, reste_du, montant_ttc')
           .in('numero_piece', ids)
         if (fData) {
           setFacturesMapRelances(
-            new Map((fData as { numero_piece: string; reste_du: number }[]).map(f => [f.numero_piece, { reste_du: f.reste_du }]))
+            new Map((fData as { numero_piece: string; reste_du: number; montant_ttc: number }[]).map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
           )
         }
       })

@@ -52,12 +52,13 @@ interface Props {
   filtreOp: string
   onFiltreOpChange: (op: string) => void
   seuilSansSuite?: number
+  facturesMapRelancesRelances: Map<string, { reste_du: number; montant_ttc: number }>
 }
 
-export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT }: Props) {
+export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelancesRelances }: Props) {
   const navigate = useNavigate()
   const { peutModifier } = useRole()
-  const { clients, facturesActives } = useAppData()
+  const { clients } = useAppData()
   const [recherche, setRecherche] = useState('')
   const [relanceOuverteId, setRelanceOuverteId] = useState<string | null>(null)
   const relanceOuverte = relances.find(r => r.id === relanceOuverteId) ?? null
@@ -67,7 +68,6 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
   const [alertesSeulement, setAlertesSeulement] = useState(false)
 
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
-  const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
   const opMap = useMemo(() => new Map(classement.map(s => [s.operateur.id, s.operateur.initiales || s.operateur.email.slice(0, 3).toUpperCase()])), [classement])
 
   const operateursDispo = useMemo(() => {
@@ -76,10 +76,10 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
   }, [relances, opMap])
 
   function getMontant(r: Relance) {
-    return (r.factures_ids ?? []).reduce((s, id) => s + (facturesMap.get(id)?.montant_ttc ?? 0), 0)
+    return (r.factures_ids ?? []).reduce((s, id) => s + (facturesMapRelances.get(id)?.montant_ttc ?? 0), 0)
   }
   function getSolde(r: Relance) {
-    return (r.factures_ids ?? []).reduce((s, id) => s + (facturesMap.get(id)?.reste_du ?? 0), 0)
+    return (r.factures_ids ?? []).reduce((s, id) => s + (facturesMapRelances.get(id)?.reste_du ?? 0), 0)
   }
   function getEncaisse(r: Relance) { return Math.max(0, r.solde_snapshot - getSolde(r)) }
   function getPct(r: Relance) { return r.solde_snapshot > 0 ? (getEncaisse(r) / r.solde_snapshot) * 100 : 0 }
