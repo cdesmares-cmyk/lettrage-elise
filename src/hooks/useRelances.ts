@@ -130,19 +130,20 @@ export function useRelances() {
       .then(async ({ data }) => {
         const relancesData = (data ?? []) as Relance[]
         setRelances(relancesData)
-        setChargement(false)
 
         const ids = [...new Set(relancesData.flatMap(r => r.factures_ids ?? []))]
-        if (!ids.length) return
-        const { data: fData } = await supabase
+        if (!ids.length) { setChargement(false); return }
+        const { data: fData, error: fError } = await supabase
           .from('v_factures_avec_reste_du')
           .select('numero_piece, reste_du, montant_ttc')
           .in('numero_piece', ids)
+        if (fError) console.error('[useRelances] facturesMap:', fError)
         if (fData) {
           setFacturesMapRelances(
             new Map((fData as { numero_piece: string; reste_du: number; montant_ttc: number }[]).map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
           )
         }
+        setChargement(false)
       })
   }, [utilisateur])
 
