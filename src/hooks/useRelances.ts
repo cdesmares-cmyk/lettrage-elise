@@ -133,16 +133,28 @@ export function useRelances() {
 
         const ids = [...new Set(relancesData.flatMap(r => r.factures_ids ?? []))]
         if (!ids.length) { setChargement(false); return }
-        const { data: fData, error: fError } = await supabase
-          .from('v_factures_avec_reste_du')
-          .select('numero_piece, reste_du, montant_ttc')
-          .in('numero_piece', ids)
-        if (fError) console.error('[useRelances] facturesMap:', fError)
-        if (fData) {
-          setFacturesMapRelances(
-            new Map((fData as { numero_piece: string; reste_du: number; montant_ttc: number }[]).map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
+
+        const CHUNK = 200
+        const chunks: string[][] = []
+        for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
+
+        const results = await Promise.all(
+          chunks.map(chunk =>
+            supabase
+              .from('v_factures_avec_reste_du')
+              .select('numero_piece, reste_du, montant_ttc')
+              .in('numero_piece', chunk)
           )
-        }
+        )
+
+        const allRows = results.flatMap(({ data, error }) => {
+          if (error) console.error('[useRelances] facturesMap chunk:', error)
+          return (data ?? []) as { numero_piece: string; reste_du: number; montant_ttc: number }[]
+        })
+
+        setFacturesMapRelances(
+          new Map(allRows.map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
+        )
         setChargement(false)
       })
   }, [utilisateur])
