@@ -70,7 +70,7 @@ export function etatVue(
     const tousPresents = ids.length > 0 && ids.every(id => facturesMap.has(id))
     if (tousPresents) {
       const soldeCourant = ids.reduce((s, id) => s + facturesMap.get(id)!.reste_du, 0)
-      if (r.solde_snapshot > 0 && soldeCourant < r.solde_snapshot) return 'payee'
+      if (r.solde_snapshot - soldeCourant > 0.01) return 'payee'
     }
   }
 
