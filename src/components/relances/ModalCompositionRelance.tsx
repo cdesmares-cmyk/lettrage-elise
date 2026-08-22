@@ -157,6 +157,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       envoyee_le:         new Date().toISOString(),
       points_attribues:   10,
       solde_snapshot:     montantDu,
+      factures_snapshot:  facturesSélectionnées.map(f => ({ numero_piece: f.numero_piece, reste_du: f.reste_du })),
     }
     if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 

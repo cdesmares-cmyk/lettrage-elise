@@ -16,6 +16,11 @@ export interface ContactSnapshot {
   role_contact?: string | null
 }
 
+export interface FactureSnapshot {
+  numero_piece: string
+  reste_du: number
+}
+
 export interface Relance {
   id: string
   code_client: string
@@ -23,6 +28,7 @@ export interface Relance {
   contacts_ids: string[]
   contacts_snapshot: ContactSnapshot[] | null
   factures_ids: string[]
+  factures_snapshot: FactureSnapshot[] | null
   objet: string
   statut: StatutRelance
   points_attribues: number
@@ -50,11 +56,24 @@ export function etatVue(
   seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
 ): EtatVueRelance {
   if (!r.envoyee_le) return 'en_cours'
-  const ids = r.factures_ids ?? []
-  const soldeCourant = ids.reduce(
-    (sum, id) => sum + (facturesMap.get(id)?.reste_du ?? 0), 0
-  )
-  if (r.solde_snapshot > 0 && soldeCourant < r.solde_snapshot) return 'payee'
+
+  if (r.factures_snapshot?.length) {
+    // Comparaison par facture : si absent de la Map, on prend la valeur snapshot (delta = 0)
+    const aPayement = r.factures_snapshot.some(snap => {
+      const current = facturesMap.get(snap.numero_piece)?.reste_du ?? snap.reste_du
+      return snap.reste_du > 0 && current < snap.reste_du
+    })
+    if (aPayement) return 'payee'
+  } else {
+    // Fallback relances sans snapshot : total, uniquement si toutes les factures sont dans la Map
+    const ids = r.factures_ids ?? []
+    const tousPresents = ids.length > 0 && ids.every(id => facturesMap.has(id))
+    if (tousPresents) {
+      const soldeCourant = ids.reduce((s, id) => s + facturesMap.get(id)!.reste_du, 0)
+      if (r.solde_snapshot > 0 && soldeCourant < r.solde_snapshot) return 'payee'
+    }
+  }
+
   if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
   return 'en_cours'
 }
@@ -125,7 +144,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot')
+      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, factures_snapshot, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot')
       .order('cree_le', { ascending: false })
       .then(async ({ data }) => {
         const relancesData = (data ?? []) as Relance[]
