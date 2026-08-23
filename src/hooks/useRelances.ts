@@ -53,28 +53,16 @@ export function joursDepuis(iso: string): number {
 // Sans suite : aucun paiement et seuil de jours dépassé.
 export function etatVue(
   r: Relance,
-  facturesMap: Map<string, { reste_du: number }>,
+  lettragesMap: Map<string, string[]>,
   seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
 ): EtatVueRelance {
   if (!r.envoyee_le) return 'en_cours'
-
-  if (r.factures_snapshot?.length) {
-    // Comparaison par facture : si absent de la Map, on prend la valeur snapshot (delta = 0)
-    const aPayement = r.factures_snapshot.some(snap => {
-      const current = facturesMap.get(snap.numero_piece)?.reste_du ?? snap.reste_du
-      return snap.reste_du > 0 && current < snap.reste_du
-    })
-    if (aPayement) return 'payee'
-  } else {
-    // Fallback relances sans snapshot : total, uniquement si toutes les factures sont dans la Map
-    const ids = r.factures_ids ?? []
-    const tousPresents = ids.length > 0 && ids.every(id => facturesMap.has(id))
-    if (tousPresents) {
-      const soldeCourant = ids.reduce((s, id) => s + facturesMap.get(id)!.reste_du, 0)
-      if (r.solde_snapshot - soldeCourant > 0.01) return 'payee'
-    }
-  }
-
+  const dateEnvoi = r.envoyee_le.slice(0, 10)
+  const ids = r.factures_ids ?? []
+  const aLettrage = ids.some(id =>
+    (lettragesMap.get(id) ?? []).some(d => d >= dateEnvoi)
+  )
+  if (aLettrage) return 'payee'
   if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
   return 'en_cours'
 }
@@ -131,6 +119,7 @@ export function useRelances() {
   const [chargement, setChargement] = useState(false)
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
   const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
+  const [lettragesMap, setLettragesMap] = useState<Map<string, string[]>>(new Map())
 
   useEffect(() => {
     supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
@@ -158,47 +147,68 @@ export function useRelances() {
         const chunks: string[][] = []
         for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
 
-        const results = await Promise.all(
-          chunks.map(chunk =>
-            supabase
-              .from('v_factures_avec_reste_du')
-              .select('numero_piece, reste_du, montant_ttc')
-              .in('numero_piece', chunk)
-          )
-        )
+        const [facturesResults, lettragesResults] = await Promise.all([
+          Promise.all(chunks.map(chunk =>
+            supabase.from('v_factures_avec_reste_du').select('numero_piece, reste_du, montant_ttc').in('numero_piece', chunk)
+          )),
+          Promise.all(chunks.map(chunk =>
+            supabase.from('lettrages').select('numero_facture, date_lettrage').in('numero_facture', chunk).or('annule.is.null,annule.eq.false')
+          )),
+        ])
 
-        const allRows = results.flatMap(({ data, error }) => {
+        const allFactures = facturesResults.flatMap(({ data, error }) => {
           if (error) console.error('[useRelances] facturesMap chunk:', error)
           return (data ?? []) as { numero_piece: string; reste_du: number; montant_ttc: number }[]
         })
-
         setFacturesMapRelances(
-          new Map(allRows.map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
+          new Map(allFactures.map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
         )
+
+        const allLettrages = lettragesResults.flatMap(({ data, error }) => {
+          if (error) console.error('[useRelances] lettragesMap chunk:', error)
+          return (data ?? []) as { numero_facture: string; date_lettrage: string }[]
+        })
+        const ltMap = new Map<string, string[]>()
+        for (const row of allLettrages) {
+          const arr = ltMap.get(row.numero_facture) ?? []
+          arr.push(row.date_lettrage)
+          ltMap.set(row.numero_facture, arr)
+        }
+        for (const [k, v] of ltMap) ltMap.set(k, v.sort())
+        setLettragesMap(ltMap)
         setChargement(false)
       })
   }, [utilisateur])
 
   // Écrit payee_detectee_le la première fois qu'une relance est détectée comme payée
   useEffect(() => {
-    if (chargement || !facturesMapRelances.size) return
-    const maintenant = new Date().toISOString()
+    if (chargement || !lettragesMap.size) return
     const aPatcher = relances.filter(r =>
       !r.payee_detectee_le &&
       r.envoyee_le &&
-      etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee'
+      etatVue(r, lettragesMap, seuilSansSuite) === 'payee'
     )
     if (!aPatcher.length) return
     Promise.all(
-      aPatcher.map(r =>
-        supabase.from('relances').update({ payee_detectee_le: maintenant } as never).eq('id', r.id)
-      )
-    ).then(() => {
-      setRelances(prev => prev.map(r =>
-        aPatcher.some(p => p.id === r.id) ? { ...r, payee_detectee_le: maintenant } : r
-      ))
+      aPatcher.map(r => {
+        const dateEnvoi = r.envoyee_le!.slice(0, 10)
+        let minDate: string | null = null
+        for (const id of r.factures_ids ?? []) {
+          for (const d of lettragesMap.get(id) ?? []) {
+            if (d >= dateEnvoi && (!minDate || d < minDate)) minDate = d
+          }
+        }
+        const dateAEcrire = minDate ? new Date(minDate).toISOString() : r.envoyee_le!
+        return supabase.from('relances').update({ payee_detectee_le: dateAEcrire } as never).eq('id', r.id)
+          .then(() => ({ id: r.id, date: dateAEcrire }))
+      })
+    ).then(patches => {
+      setRelances(prev => prev.map(r => {
+        const patch = patches.find(p => p.id === r.id)
+        return patch ? { ...r, payee_detectee_le: patch.date } : r
+      }))
     })
-  }, [chargement, facturesMapRelances, seuilSansSuite])
+  }, [chargement, lettragesMap, seuilSansSuite])
 
   const kpis = useMemo<KpisRelance>(() => {
     const debut = debutMois()
@@ -253,5 +263,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap }
 }

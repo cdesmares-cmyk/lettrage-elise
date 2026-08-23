@@ -76,21 +76,18 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   const [statutSaving, setStatutSaving]     = useState(false)
   const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string; role_contact?: string | null }[]>([])
   const [facturesRelance, setFacturesRelance] = useState<FactureRelance[]>([])
+  const [lettragesRelanceMap, setLettragesRelanceMap] = useState<Map<string, string[]>>(new Map())
   const popupRef                            = useRef<HTMLDivElement>(null)
 
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
-  const facturesRelanceMap = useMemo(
-    () => new Map(facturesRelance.map(f => [f.numero_piece, { reste_du: f.reste_du }])),
-    [facturesRelance]
-  )
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
   const operateur   = utilisateur?.email?.split('@')[0] ?? ''
   const etatActuel  = useMemo(() => {
     if (!relance) return null
-    // Attend le fetch DB avant de calculer (évite les flashs de faux état)
-    if (relance.factures_ids?.length && facturesRelance.length === 0) return null
-    return etatVue(relance, facturesRelanceMap, SEUIL_SANS_SUITE_DEFAUT)
-  }, [relance, facturesRelanceMap, facturesRelance.length])
+    // Attend le fetch lettrages avant de calculer (évite les flashs de faux état)
+    if (relance.factures_ids?.length && lettragesRelanceMap.size === 0) return null
+    return etatVue(relance, lettragesRelanceMap, SEUIL_SANS_SUITE_DEFAUT)
+  }, [relance, lettragesRelanceMap])
 
   // Afficher les contacts — priorité au snapshot sauvegardé (résistant aux suppressions)
   // Fallback live pour les relances antérieures à la migration 118
@@ -127,6 +124,28 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
           for (const f of fetched) n.set(f.numero_piece, f.statut_facture ?? null)
           return n
         })
+      })
+  }, [relance?.id])
+
+  // Charge les lettrages post-envoi pour la détection d'état
+  useEffect(() => {
+    setLettragesRelanceMap(new Map())
+    const ids = relance?.factures_ids ?? []
+    if (!ids.length) return
+    supabase
+      .from('lettrages')
+      .select('numero_facture, date_lettrage')
+      .in('numero_facture', ids)
+      .or('annule.is.null,annule.eq.false')
+      .then(({ data }) => {
+        const map = new Map<string, string[]>()
+        for (const row of (data ?? []) as { numero_facture: string; date_lettrage: string }[]) {
+          const arr = map.get(row.numero_facture) ?? []
+          arr.push(row.date_lettrage)
+          map.set(row.numero_facture, arr)
+        }
+        for (const [k, v] of map) map.set(k, v.sort())
+        setLettragesRelanceMap(map)
       })
   }, [relance?.id])
 
