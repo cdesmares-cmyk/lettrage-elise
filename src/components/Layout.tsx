@@ -92,7 +92,7 @@ const NAV_OUTILS = [
 export function Layout() {
   const { isCommercial, isExterne } = useRole()
   const { profil } = useAuth()
-  const { relances, facturesMapRelances, seuilSansSuite } = useRelances()
+  const { relances, lettragesMap, seuilSansSuite } = useRelances()
 
   const nbAlertes = useMemo(() => {
     const base = relances.filter(r => !r.archivee && r.statut !== 'brouillon' && r.envoyee_le)
@@ -102,10 +102,10 @@ export function Layout() {
       if (!ex || r.envoyee_le! > ex.envoyee_le!) parClient.set(r.code_client, r)
     }
     return [...parClient.values()].filter(r =>
-      etatVue(r, facturesMapRelances, seuilSansSuite) === 'en_cours' &&
+      etatVue(r, lettragesMap, seuilSansSuite) === 'en_cours' &&
       joursDepuis(r.envoyee_le!) >= seuilSansSuite - 10
     ).length
-  }, [relances, facturesMapRelances, seuilSansSuite])
+  }, [relances, lettragesMap, seuilSansSuite])
 
   const navPrincipale = NAV_PRINCIPALE.filter(o =>
     (!isCommercial || o.commercial) && (!isExterne || o.externe)
