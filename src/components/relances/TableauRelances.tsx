@@ -11,7 +11,7 @@ import { ModalDetailRelance } from './ModalDetailRelance'
 
 // Calculé dynamiquement dans le composant via le prop seuilSansSuite
 
-type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant' | 'operateur'
+type ColSort = 'code_client' | 'nom_client' | 'envoyee_le' | 'jours' | 'montant' | 'operateur' | 'payee_detectee_le'
 
 const TH = 'text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider px-3 py-3 cursor-pointer hover:text-ockham-teal select-none whitespace-nowrap'
 
@@ -118,6 +118,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
       }
       case 'montant':   cmp = getMontant(a) - getMontant(b); break
       case 'operateur': cmp = (opMap.get(a.operateur_id) ?? '').localeCompare(opMap.get(b.operateur_id) ?? ''); break
+      case 'payee_detectee_le': cmp = (a.payee_detectee_le ?? '').localeCompare(b.payee_detectee_le ?? ''); break
     }
     return triAsc ? cmp : -cmp
   }), [filtrees, tri, triAsc, clientsMap, onglet])
@@ -195,6 +196,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
                 <th onClick={() => toggleTri('montant')} className={`${TH} text-right`}>Relancé{fleche('montant')}</th>
                 <th className={`${TH} text-right`}>Encaissé</th>
                 <th className={TH}>Recouvrement</th>
+                <th onClick={() => toggleTri('payee_detectee_le')} className={TH}>Lettré le{fleche('payee_detectee_le')}</th>
               </>}
               {onglet === 'sans_suite' && <>
                 <th onClick={() => toggleTri('montant')} className={`${TH} text-right`}>Montant{fleche('montant')}</th>
@@ -260,6 +262,9 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
                         </div>
                         <span className="text-[11px] font-bold tabular-nums" style={{ color: '#059669' }}>{fmtPct(getPct(r))}</span>
                       </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-xs text-gray-400 whitespace-nowrap">
+                      {r.payee_detectee_le ? fmtDate(r.payee_detectee_le) : '—'}
                     </td>
                   </>}
 

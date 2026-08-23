@@ -41,6 +41,7 @@ export interface Relance {
   note_archivee_le: string | null
   date_rappel: string | null
   solde_snapshot: number
+  payee_detectee_le: string | null
 }
 
 export function joursDepuis(iso: string): number {
@@ -144,7 +145,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, factures_snapshot, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot')
+      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, factures_snapshot, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot, payee_detectee_le')
       .order('cree_le', { ascending: false })
       .then(async ({ data }) => {
         const relancesData = (data ?? []) as Relance[]
@@ -177,6 +178,27 @@ export function useRelances() {
         setChargement(false)
       })
   }, [utilisateur])
+
+  // Écrit payee_detectee_le la première fois qu'une relance est détectée comme payée
+  useEffect(() => {
+    if (chargement || !facturesMapRelances.size) return
+    const maintenant = new Date().toISOString()
+    const aPatcher = relances.filter(r =>
+      !r.payee_detectee_le &&
+      r.envoyee_le &&
+      etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee'
+    )
+    if (!aPatcher.length) return
+    Promise.all(
+      aPatcher.map(r =>
+        supabase.from('relances').update({ payee_detectee_le: maintenant } as never).eq('id', r.id)
+      )
+    ).then(() => {
+      setRelances(prev => prev.map(r =>
+        aPatcher.some(p => p.id === r.id) ? { ...r, payee_detectee_le: maintenant } : r
+      ))
+    })
+  }, [chargement, facturesMapRelances, seuilSansSuite])
 
   const kpis = useMemo<KpisRelance>(() => {
     const debut = debutMois()
