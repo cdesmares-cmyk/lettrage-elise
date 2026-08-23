@@ -48,24 +48,33 @@ export function joursDepuis(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-// Détecte si une relance est payée : au moins un lettrage non annulé
-// postérieur à la date d'envoi de la relance existe pour ses factures.
+// Dérive l'état d'affichage d'une relance à partir des données actuelles.
+// Payée : le reste dû a diminué depuis l'envoi (lettrage détecté).
+// Sans suite : aucun paiement et seuil de jours dépassé.
 export function etatVue(
   r: Relance,
-  lettragesMap: Map<string, string[]>,
+  facturesMap: Map<string, { reste_du: number }>,
   seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
 ): EtatVueRelance {
   if (!r.envoyee_le) return 'en_cours'
 
-  const dateEnvoi = r.envoyee_le.slice(0, 10)
-  const ids = r.factures_ids ?? []
+  if (r.factures_snapshot?.length) {
+    // Comparaison par facture : si absent de la Map, on prend la valeur snapshot (delta = 0)
+    const aPayement = r.factures_snapshot.some(snap => {
+      const current = facturesMap.get(snap.numero_piece)?.reste_du ?? snap.reste_du
+      return snap.reste_du > 0 && current < snap.reste_du
+    })
+    if (aPayement) return 'payee'
+  } else {
+    // Fallback relances sans snapshot : total, uniquement si toutes les factures sont dans la Map
+    const ids = r.factures_ids ?? []
+    const tousPresents = ids.length > 0 && ids.every(id => facturesMap.has(id))
+    if (tousPresents) {
+      const soldeCourant = ids.reduce((s, id) => s + facturesMap.get(id)!.reste_du, 0)
+      if (r.solde_snapshot - soldeCourant > 0.01) return 'payee'
+    }
+  }
 
-  const aLettrage = ids.some(id => {
-    const dates = lettragesMap.get(id) ?? []
-    return dates.some(d => d >= dateEnvoi)
-  })
-
-  if (aLettrage) return 'payee'
   if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
   return 'en_cours'
 }
@@ -107,6 +116,7 @@ function calcStreak(relances: Relance[]): number {
     if (envoyeesParJour.has(key)) {
       streak++
     } else if (i === 0) {
+      // Aujourd'hui sans relance : on commence à vérifier hier
       continue
     } else {
       break
@@ -121,7 +131,6 @@ export function useRelances() {
   const [chargement, setChargement] = useState(false)
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
   const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
-  const [lettragesMap, setLettragesMap] = useState<Map<string, string[]>>(new Map())
 
   useEffect(() => {
     supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
@@ -132,7 +141,7 @@ export function useRelances() {
   }, [])
 
   useEffect(() => {
-    if (!utilisateur) { setRelances([]); setFacturesMapRelances(new Map()); setLettragesMap(new Map()); return }
+    if (!utilisateur) { setRelances([]); setFacturesMapRelances(new Map()); return }
     setChargement(true)
     supabase
       .from('relances')
@@ -149,98 +158,47 @@ export function useRelances() {
         const chunks: string[][] = []
         for (let i = 0; i < ids.length; i += CHUNK) chunks.push(ids.slice(i, i + CHUNK))
 
-        // Chargement en parallèle : factures (affichage) + lettrages (détection)
-        const [facturesResults, lettragesResults] = await Promise.all([
-          Promise.all(
-            chunks.map(chunk =>
-              supabase
-                .from('v_factures_avec_reste_du')
-                .select('numero_piece, reste_du, montant_ttc')
-                .in('numero_piece', chunk)
-            )
-          ),
-          Promise.all(
-            chunks.map(chunk =>
-              supabase
-                .from('lettrages')
-                .select('numero_facture, date_lettrage, annule')
-                .in('numero_facture', chunk)
-            )
-          ),
-        ])
+        const results = await Promise.all(
+          chunks.map(chunk =>
+            supabase
+              .from('v_factures_avec_reste_du')
+              .select('numero_piece, reste_du, montant_ttc')
+              .in('numero_piece', chunk)
+          )
+        )
 
-        // Map factures → pour l'affichage (montant, solde, barre recouvrement)
-        const facturesRows = facturesResults.flatMap(({ data, error }) => {
+        const allRows = results.flatMap(({ data, error }) => {
           if (error) console.error('[useRelances] facturesMap chunk:', error)
           return (data ?? []) as { numero_piece: string; reste_du: number; montant_ttc: number }[]
         })
+
         setFacturesMapRelances(
-          new Map(facturesRows.map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
+          new Map(allRows.map(f => [f.numero_piece, { reste_du: f.reste_du, montant_ttc: f.montant_ttc }]))
         )
-
-        // Map lettrages → pour la détection "Payée" (date_lettrage >= envoyee_le)
-        const lettragesRows = lettragesResults.flatMap(({ data, error }) => {
-          if (error) console.error('[useRelances] lettragesMap chunk:', error)
-          return (data ?? []) as { numero_facture: string; date_lettrage: string; annule: boolean | null }[]
-        }).filter(row => row.annule !== true)
-
-        const lMap = new Map<string, string[]>()
-        for (const row of lettragesRows) {
-          const arr = lMap.get(row.numero_facture) ?? []
-          arr.push(row.date_lettrage)
-          lMap.set(row.numero_facture, arr)
-        }
-        for (const [k, v] of lMap) lMap.set(k, v.sort())
-        setLettragesMap(lMap)
-
         setChargement(false)
       })
   }, [utilisateur])
 
-  // Écrit payee_detectee_le la première fois qu'une relance est détectée comme payée.
-  // Utilise la date réelle du premier lettrage post-envoi (pas now()).
+  // Écrit payee_detectee_le la première fois qu'une relance est détectée comme payée
   useEffect(() => {
-    if (chargement) return
+    if (chargement || !facturesMapRelances.size) return
+    const maintenant = new Date().toISOString()
     const aPatcher = relances.filter(r =>
       !r.payee_detectee_le &&
       r.envoyee_le &&
-      etatVue(r, lettragesMap, seuilSansSuite) === 'payee'
+      etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee'
     )
     if (!aPatcher.length) return
-
-    const patches = aPatcher.map(r => {
-      const dateEnvoi = r.envoyee_le!.slice(0, 10)
-      const ids = r.factures_ids ?? []
-
-      let premierDate: string | null = null
-      for (const id of ids) {
-        const dates = lettragesMap.get(id) ?? []
-        const postEnvoi = dates.filter(d => d >= dateEnvoi)
-        if (postEnvoi.length) {
-          const min = postEnvoi[0]
-          if (!premierDate || min < premierDate) premierDate = min
-        }
-      }
-
-      // Fallback sur envoyee_le si aucun lettrage trouvé (évite la boucle infinie)
-      const payee_detectee_le = premierDate
-        ? new Date(premierDate + 'T00:00:00.000Z').toISOString()
-        : r.envoyee_le!
-
-      return { id: r.id, payee_detectee_le }
-    })
-
     Promise.all(
-      patches.map(p =>
-        supabase.from('relances').update({ payee_detectee_le: p.payee_detectee_le } as never).eq('id', p.id)
+      aPatcher.map(r =>
+        supabase.from('relances').update({ payee_detectee_le: maintenant } as never).eq('id', r.id)
       )
     ).then(() => {
-      setRelances(prev => prev.map(r => {
-        const patch = patches.find(p => p.id === r.id)
-        return patch ? { ...r, payee_detectee_le: patch.payee_detectee_le } : r
-      }))
+      setRelances(prev => prev.map(r =>
+        aPatcher.some(p => p.id === r.id) ? { ...r, payee_detectee_le: maintenant } : r
+      ))
     })
-  }, [chargement, lettragesMap, seuilSansSuite])
+  }, [chargement, facturesMapRelances, seuilSansSuite])
 
   const kpis = useMemo<KpisRelance>(() => {
     const debut = debutMois()
@@ -295,5 +253,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances }
 }

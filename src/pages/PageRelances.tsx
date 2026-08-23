@@ -35,7 +35,7 @@ function infoStrip(seuil: number): Record<EtatVueRelance, string> {
 }
 
 export function PageRelances() {
-  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap } = useRelances()
+  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances } = useRelances()
   const { isCommercial, peutModifier } = useRole()
   const [ongletActif, setOngletActif] = useState<EtatVueRelance>('en_cours')
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
@@ -56,11 +56,11 @@ export function PageRelances() {
     }
     const dedup = [...parClient.values()]
     return {
-      en_cours:   dedup.filter(r => etatVue(r, lettragesMap, seuilSansSuite) === 'en_cours'),
-      payee:      dedup.filter(r => etatVue(r, lettragesMap, seuilSansSuite) === 'payee'),
-      sans_suite: dedup.filter(r => etatVue(r, lettragesMap, seuilSansSuite) === 'sans_suite'),
+      en_cours:   dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'en_cours'),
+      payee:      dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'payee'),
+      sans_suite: dedup.filter(r => etatVue(r, facturesMapRelances, seuilSansSuite) === 'sans_suite'),
     }
-  }, [relances, lettragesMap, seuilSansSuite])
+  }, [relances, facturesMapRelances, seuilSansSuite])
 
   const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode; activeCls: string; badgeCls: string }[] = [
     {
@@ -116,7 +116,7 @@ export function PageRelances() {
       </div>
 
       {/* KPIs 3 cartes */}
-      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} seuilSansSuite={seuilSansSuite} facturesMapRelances={facturesMapRelances} lettragesMap={lettragesMap} />
+      <BarreKpisRelances relances={relances} filtreOp={filtreOp} chargement={chargement} seuilSansSuite={seuilSansSuite} facturesMapRelances={facturesMapRelances} />
 
       {/* Navigation 3 onglets */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
