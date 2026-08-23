@@ -1,8 +1,9 @@
+import { useMemo } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useRole } from '../contexts/RoleContext'
 import { useAuth } from '../contexts/AuthContext'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
-import { useCompteurRelances } from '../hooks/useCompteurRelances'
+import { useRelances, etatVue, joursDepuis } from '../hooks/useRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
 
 function ChipCorrection() {
@@ -91,7 +92,20 @@ const NAV_OUTILS = [
 export function Layout() {
   const { isCommercial, isExterne } = useRole()
   const { profil } = useAuth()
-  const nbRelancesEnAttente = useCompteurRelances()
+  const { relances, facturesMapRelances, seuilSansSuite } = useRelances()
+
+  const nbAlertes = useMemo(() => {
+    const base = relances.filter(r => !r.archivee && r.statut !== 'brouillon' && r.envoyee_le)
+    const parClient = new Map<string, typeof base[0]>()
+    for (const r of base) {
+      const ex = parClient.get(r.code_client)
+      if (!ex || r.envoyee_le! > ex.envoyee_le!) parClient.set(r.code_client, r)
+    }
+    return [...parClient.values()].filter(r =>
+      etatVue(r, facturesMapRelances, seuilSansSuite) === 'en_cours' &&
+      joursDepuis(r.envoyee_le!) >= seuilSansSuite - 10
+    ).length
+  }, [relances, facturesMapRelances, seuilSansSuite])
 
   const navPrincipale = NAV_PRINCIPALE.filter(o =>
     (!isCommercial || o.commercial) && (!isExterne || o.externe)
@@ -141,9 +155,9 @@ export function Layout() {
                     {icone}
                   </span>
                   {label}
-                  {chemin === '/relances' && nbRelancesEnAttente > 0 && (
+                  {chemin === '/relances' && nbAlertes > 0 && (
                     <span className="ml-auto min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
-                      {nbRelancesEnAttente}
+                      {nbAlertes}
                     </span>
                   )}
                 </>
