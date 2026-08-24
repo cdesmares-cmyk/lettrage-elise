@@ -2,6 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { joursDepuis, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
+import { buildHtmlFromScenario, fmtEurosEmail } from '../../lib/relanceEmail'
+import type { FactureLigne } from '../../lib/relanceEmail'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
@@ -102,90 +104,38 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-function fmtEurosEncours(n: number): string {
-  return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
-}
-
-function joursAnciennete(f: FactureDetail): number {
-  const ref = f.date_echeance || f.date_emission
-  if (!ref) return 0
-  return Math.max(0, Math.floor((Date.now() - new Date(ref).getTime()) / 86_400_000))
-}
-
 async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   const date = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
   const lignes = factures.filter(f => Math.abs(f.reste_du) > 0.005)
   const total = lignes.reduce((s, f) => s + f.reste_du, 0)
 
-  function couleurRestant(f: FactureDetail): string {
-    if (f.est_avoir) return '#059669'
-    const j = joursAnciennete(f)
-    if (j > 60) return '#DC2626'
-    if (j > 30) return '#D97706'
-    return '#111827'
-  }
+  const factureLignes: FactureLigne[] = lignes.map(f => ({
+    numero: f.numero_piece,
+    montantTtc: f.montant_ttc,
+    restedu: f.reste_du,
+    echeance: f.date_echeance ?? null,
+    pdfUrl: (f as FactureDetail & { axonaut_pdf_url?: string | null }).axonaut_pdf_url ?? null,
+  }))
 
-  const lignesHTML = lignes.map(f => {
-    const jours = joursAnciennete(f)
-    const clr = couleurRestant(f)
-    const type = f.est_avoir ? 'A' : 'F'
-    const bgType = f.est_avoir ? '#D1FAE5' : '#E6F7F5'
-    const txtType = f.est_avoir ? '#059669' : '#0D9488'
-    return `<tr>
-      <td style="padding:7px 12px;border-bottom:1px solid #F3F4F6;font-family:monospace;font-size:12px;font-weight:700;color:#0D9488;">${f.numero_piece}</td>
-      <td style="padding:7px 8px;border-bottom:1px solid #F3F4F6;text-align:center;">
-        <span style="display:inline-block;background:${bgType};color:${txtType};border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;">${type}</span>
-      </td>
-      <td style="padding:7px 14px 7px 12px;border-bottom:1px solid #F3F4F6;text-align:right;font-size:12px;color:#374151;font-weight:600;">${fmtEurosEncours(f.montant_ttc)}</td>
-      <td style="padding:7px 14px 7px 12px;border-bottom:1px solid #F3F4F6;text-align:right;font-size:12px;font-weight:700;color:${clr};">${fmtEurosEncours(f.reste_du)}</td>
-      <td style="padding:7px 12px;border-bottom:1px solid #F3F4F6;text-align:center;font-size:11px;color:${clr};font-weight:600;">${jours}j</td>
-    </tr>`
-  }).join('')
-
-  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:660px;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin-bottom:0;">
-    <tr><td style="padding:14px 18px;background:#0E1A2B;">
-      <p style="margin:0;font-size:15px;font-weight:700;color:#FFFFFF;">${c.nom}</p>
-      <p style="margin:4px 0 0;font-size:11px;color:#9CA3AF;">Code client : ${c.code_dso} · Encours au ${date}</p>
-    </td></tr>
-  </table>
-  <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border:1px solid #E5E7EB;border-top:none;">
-    <thead>
-      <tr style="background:#F9FAFB;">
-        <th style="padding:8px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:1px solid #E5E7EB;">N° Facture</th>
-        <th style="padding:8px 8px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:1px solid #E5E7EB;">Type</th>
-        <th style="padding:8px 14px 8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:1px solid #E5E7EB;">Montant TTC</th>
-        <th style="padding:8px 14px 8px 12px;text-align:right;font-size:10px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:1px solid #E5E7EB;">Restant dû</th>
-        <th style="padding:8px 12px;text-align:center;font-size:10px;font-weight:700;text-transform:uppercase;color:#6B7280;border-bottom:1px solid #E5E7EB;">Ancienneté</th>
-      </tr>
-    </thead>
-    <tbody>${lignesHTML}</tbody>
-    <tfoot>
-      <tr style="background:#F9FAFB;">
-        <td colspan="3" style="padding:10px 14px 10px 12px;text-align:right;font-size:11px;font-weight:700;color:#6B7280;border-top:2px solid #D1D5DB;">Total restant dû</td>
-        <td style="padding:10px 14px 10px 12px;text-align:right;font-size:14px;font-weight:800;color:#0E1A2B;border-top:2px solid #D1D5DB;">${fmtEurosEncours(total)}</td>
-        <td style="border-top:2px solid #D1D5DB;"></td>
-      </tr>
-    </tfoot>
-  </table>
-  <p style="margin:6px 0 0;font-size:10px;color:#9CA3AF;text-align:right;">Généré via Ockham · ${date}</p>
-</div>`
+  const html = buildHtmlFromScenario('[Tableau Factures]', factureLignes, null)
 
   const sep = '─'.repeat(68)
   const plainText = [
     `ENCOURS CLIENT — ${c.nom} (${c.code_dso})`,
     `État au ${date}`,
     sep,
-    `  ${'N° Facture'.padEnd(16)} T   ${'Montant TTC'.padStart(13)}   ${'Restant dû'.padStart(13)}   Ancien.`,
+    `  ${'Facture'.padEnd(16)}   ${'Restant dû'.padStart(14)}   Échéance`,
     sep,
     ...lignes.map(f => {
-      const type = f.est_avoir ? 'A' : 'F'
-      return `  ${f.numero_piece.padEnd(16)} ${type}   ${fmtEurosEncours(f.montant_ttc).padStart(13)}   ${fmtEurosEncours(f.reste_du).padStart(13)}   ${joursAnciennete(f)}j`
+      const ech = f.date_echeance
+        ? new Date(f.date_echeance).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+        : '—'
+      return `  ${f.numero_piece.padEnd(16)}   ${fmtEurosEmail(f.reste_du).padStart(14)}   ${ech}`
     }),
     sep,
-    `  ${'Total restant dû'.padEnd(22)}${''.padStart(13)}   ${fmtEurosEncours(total).padStart(13)}`,
+    `  ${'Solde net'.padEnd(16)}   ${fmtEurosEmail(total).padStart(14)}`,
     '',
-    `Généré via Ockham · ${date}`,
+    `Propulsé par Ockham Finance · ${date}`,
   ].join('\n')
 
   try {
