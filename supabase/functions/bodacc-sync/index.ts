@@ -55,6 +55,12 @@ interface Jugement {
   complementJugement?: string
   date?: string
   famille?: string
+  mandataires?: Array<{
+    qualite?: string
+    nom?: string
+    adresse?: string
+    reference_dossier?: string
+  }>
 }
 
 interface BodaccRecord {
@@ -160,6 +166,9 @@ function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Recor
     for (const r of recordsBySiren[siren] ?? []) {
       const type = classifierType(r)
       if (!TYPES_SURVEILLÉS.includes(type)) continue
+      const jugement = parseJugement(r.jugement)
+      const mandatairesBruts = jugement?.mandataires ?? []
+      const premierMandataire = mandatairesBruts[0] ?? null
       alertes.push({
         organisation_id: client.organisation_id,
         code_client:     client.code_dso,
@@ -168,9 +177,11 @@ function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Recor
         famille:         'BODACC-A/B',
         type_procedure:  type,
         tribunal:        r.tribunal ?? null,
-        date_jugement:   parseJugement(r.jugement)?.date ?? null,
+        date_jugement:   jugement?.date ?? null,
         date_parution:   r.dateparution ?? null,
         description:     buildDescription(r),
+        source_url:      r.publicationavis ?? null,
+        mandataire:      premierMandataire,
       })
     }
   }

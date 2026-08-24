@@ -26,6 +26,13 @@ function écrireCooldown(codeDso: string, siret: string) {
   localStorage.setItem(`bodacc_sync_${codeDso}`, JSON.stringify({ ts: Date.now(), siret }))
 }
 
+interface MandataireBodacc {
+  qualite?: string
+  nom?: string
+  adresse?: string
+  reference_dossier?: string
+}
+
 interface AlerteBodacc {
   id: string
   type_procedure: string
@@ -33,6 +40,8 @@ interface AlerteBodacc {
   date_jugement: string | null
   tribunal: string | null
   description: string | null
+  source_url: string | null
+  mandataire: MandataireBodacc | null
 }
 
 interface Props {
@@ -163,7 +172,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
     setAlertesBodaccChargement(true)
     const { data } = await supabase
       .from('alertes_risque')
-      .select('id, type_procedure, date_parution, date_jugement, tribunal, description')
+      .select('id, type_procedure, date_parution, date_jugement, tribunal, description, source_url, mandataire')
       .eq('code_client', client.code_dso)
       .eq('masquee', false)
       .order('date_parution', { ascending: false })
@@ -541,32 +550,72 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
                 ) : (
                   <div className="space-y-2">
                     {alertesBodacc.map(a => (
-                      <div key={a.id} className="flex items-start gap-3 px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50">
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
+                      <div key={a.id} className="px-3 py-2.5 rounded-lg border border-gray-200 bg-gray-50 space-y-1.5">
+                        {/* Ligne 1 : badge type + dates + bouton masquer */}
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
                             <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full border ${badgeProcedure(a.type_procedure)}`}>
                               {(() => { const Icon = STATUT_ICONES[a.type_procedure as StatutJuridique]; return Icon ? <Icon /> : null })()}
                               {STATUT_BODACC[a.type_procedure as StatutJuridique]?.label ?? a.type_procedure}
                             </span>
+                            {a.date_jugement && (
+                              <span className="text-[10px] text-gray-500 font-medium">
+                                Jugement : {new Date(a.date_jugement).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
                             {a.date_parution && (
                               <span className="text-[10px] text-gray-400">
-                                {new Date(a.date_parution).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                Pub. : {new Date(a.date_parution).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </span>
                             )}
                           </div>
-                          {a.tribunal && (
-                            <p className="text-[11px] text-gray-500 truncate">{a.tribunal}</p>
+                          {peutModifier && (
+                            <button
+                              onClick={() => masquerAlerte(a.id)}
+                              disabled={masquageEnCours.has(a.id)}
+                              title="Masquer ce faux positif — l'alerte ne sera plus prise en compte"
+                              className="flex-shrink-0 text-[10px] text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 py-0.5 px-1.5 rounded border border-transparent hover:border-red-200 hover:bg-red-50"
+                            >
+                              {masquageEnCours.has(a.id) ? '…' : 'Masquer'}
+                            </button>
                           )}
                         </div>
-                        {peutModifier && (
-                          <button
-                            onClick={() => masquerAlerte(a.id)}
-                            disabled={masquageEnCours.has(a.id)}
-                            title="Masquer ce faux positif — l'alerte ne sera plus prise en compte"
-                            className="flex-shrink-0 text-[10px] text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40 py-0.5 px-1.5 rounded border border-transparent hover:border-red-200 hover:bg-red-50"
+
+                        {/* Ligne 2 : tribunal */}
+                        {a.tribunal && (
+                          <p className="text-[11px] text-gray-500">{a.tribunal}</p>
+                        )}
+
+                        {/* Ligne 3 : mandataire */}
+                        {a.mandataire?.nom && (
+                          <div className="text-[10px] text-gray-500 space-y-0.5">
+                            <p className="font-medium text-gray-600">
+                              {a.mandataire.qualite ? `${a.mandataire.qualite} : ` : ''}{a.mandataire.nom}
+                            </p>
+                            {a.mandataire.adresse && (
+                              <p className="text-gray-400">{a.mandataire.adresse}</p>
+                            )}
+                            {a.mandataire.reference_dossier && (
+                              <p className="text-gray-400 font-mono">Réf. {a.mandataire.reference_dossier}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Ligne 4 : lien annonce officielle */}
+                        {a.source_url && (
+                          <a
+                            href={a.source_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[10px] font-medium text-ockham-teal hover:text-ockham-teal-dark transition-colors"
                           >
-                            {masquageEnCours.has(a.id) ? '…' : 'Masquer'}
-                          </button>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                              <polyline points="15 3 21 3 21 9"/>
+                              <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Voir l'annonce BODACC officielle
+                          </a>
                         )}
                       </div>
                     ))}
