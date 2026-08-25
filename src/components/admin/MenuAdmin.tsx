@@ -9,9 +9,10 @@ import { ModalCorrectionLettrage } from './ModalCorrectionLettrage'
 import { ModalReinitialisation } from './ModalReinitialisation'
 import { ModalAlertesParametres } from './ModalAlertesParametres'
 import { ModalIntegrations } from './ModalIntegrations'
-import { IcUsers, IcSliders, IcClock, IcEdit, IcBell, IcTrash, IcLogOut, IcLink } from '../Icones'
+import { ModalMonEntreprise } from './ModalMonEntreprise'
+import { IcUsers, IcSliders, IcClock, IcEdit, IcBell, IcTrash, IcLogOut, IcLink, IcBuilding } from '../Icones'
 
-type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'alertes' | 'integrations' | 'reset'
+type ModalId = 'ressources' | 'champs' | 'imports' | 'lettrages' | 'alertes' | 'integrations' | 'reset' | 'entreprise'
 
 function getInitiales(email?: string | null): string {
   if (!email) return '?'
@@ -106,6 +107,9 @@ export function MenuAdmin() {
             {!isExterne && peutModifier && (
               <Item label="Alertes & Scoring" icon={<IcBell size={14} />} onClick={() => ouvrir('alertes')} />
             )}
+            {!isExterne && (
+              <Item label="Mon entreprise" icon={<IcBuilding size={14} />} onClick={() => ouvrir('entreprise')} />
+            )}
             {!isExterne && peutModifier && (
               <Item label="Intégrations" icon={<IcLink size={14} />} onClick={() => ouvrir('integrations')} separator />
             )}
@@ -156,6 +160,7 @@ export function MenuAdmin() {
       {modal === 'alertes'      && <ModalAlertesParametres   onClose={() => setModal(null)} />}
       {modal === 'integrations' && <ModalIntegrations        onClose={() => setModal(null)} />}
       {modal === 'reset'        && <ModalReinitialisation    onClose={() => setModal(null)} />}
+      {modal === 'entreprise'   && <ModalMonEntreprise       onClose={() => setModal(null)} />}
     </>
   )
 }
