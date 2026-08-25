@@ -156,6 +156,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
                 .select(COLS)
                 .or([...tousNumeros].slice(0, 50).map(n => `numero_piece.ilike.%${n}%`).join(','))
                 .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
+                .order('date_echeance', { ascending: true })
                 .limit(200)
             : Promise.resolve({ data: [] }),
         ])
@@ -205,7 +206,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             }
           }
 
-          if (!resolue) {
+          if (!resolue && !nums?.length) {
             // Priorité 2 : client reconnu via SEPA exact
             const sepaCode = sepaMap.get(ligne.libelle)
             if (sepaCode) {
@@ -223,7 +224,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             }
           }
 
-          if (!resolue) {
+          if (!resolue && !nums?.length) {
             // Priorité 3 : nom client détecté (qualification progressive + Jaccard + poids)
             const nomCode = winnerNomParLigne.get(ligne.id_operation)
             if (nomCode) {
