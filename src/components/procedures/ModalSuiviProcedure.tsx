@@ -57,7 +57,8 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
   const [contactNom, setContactNom]     = useState('')
   const [contactCoord, setContactCoord] = useState('')
   const [notesInterne, setNotesInterne] = useState('')
-  const [sauvegarde, setSauvegarde]     = useState(false)
+  const [sauvegarde, setSauvegarde]         = useState(false)
+  const [complementExpanded, setComplementExpanded] = useState(false)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-expand textarea à chaque modification des notes (y compris chargement initial)
@@ -188,12 +189,17 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Date de parution BODACC</p>
               <p className="text-sm text-gray-800">{fmtDate(ligne.dateParution)}</p>
             </div>
-            {ligne.sourceUrl && (
-              <div>
-                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Source</p>
-                <a href={ligne.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-ockham-teal hover:underline">Voir sur BODACC ↗</a>
-              </div>
-            )}
+            <div>
+              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Source</p>
+              <a
+                href={`https://www.bodacc.fr/pages/annonces-commerciales-detail/?q.id=id:${ligne.bodaccId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm text-ockham-teal hover:underline"
+              >
+                Voir sur BODACC ↗
+              </a>
+            </div>
             {(() => {
               // Mandataire structuré (JSONB) en priorité, sinon extrait de la description
               if (ligne.mandataire && (ligne.mandataire.nom || ligne.mandataire.qualite)) {
@@ -213,8 +219,18 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
               if (!complement) return null
               return (
                 <div className="col-span-2">
-                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Mandataires désignés</p>
-                  <p className="text-sm text-gray-700 leading-relaxed">{complement}</p>
+                  <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Complément jugement</p>
+                  <p className={`text-sm text-gray-700 leading-relaxed ${complementExpanded ? '' : 'line-clamp-3'}`}>
+                    {complement}
+                  </p>
+                  <div className="flex justify-end mt-1.5">
+                    <button
+                      onClick={() => setComplementExpanded(e => !e)}
+                      className="text-[10px] text-gray-400 border border-gray-200 rounded-full px-2.5 py-0.5 hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      {complementExpanded ? 'Réduire' : 'Afficher plus'}
+                    </button>
+                  </div>
                 </div>
               )
             })()}
