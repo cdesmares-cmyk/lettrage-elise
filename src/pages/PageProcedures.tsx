@@ -1,18 +1,15 @@
 import { useState } from 'react'
 import { useProcedures } from '../hooks/useProcedures'
 import { ListeProcedures } from '../components/procedures/ListeProcedures'
+import { ModalSuiviProcedure } from '../components/procedures/ModalSuiviProcedure'
 import type { ProcedureLigne } from '../hooks/useProcedures'
 
 type OngletProcedure = 'encours' | 'archive'
 
 export function PageProcedures() {
   const [onglet, setOnglet] = useState<OngletProcedure>('encours')
-  const { encours, archive, chargement } = useProcedures()
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function ouvrirDetail(_l: ProcedureLigne) {
-    // Bloc 3 — modal à venir
-  }
+  const { encours, archive, chargement, rafraichir } = useProcedures()
+  const [ligneSelectionnee, setLigneSelectionnee] = useState<ProcedureLigne | null>(null)
 
   const lignes = onglet === 'encours' ? encours : archive
 
@@ -68,8 +65,17 @@ export function PageProcedures() {
         lignes={lignes}
         chargement={chargement}
         showKpis={onglet === 'encours'}
-        onOuvrirDetail={ouvrirDetail}
+        onOuvrirDetail={setLigneSelectionnee}
       />
+
+      {/* Modal suivi */}
+      {ligneSelectionnee && (
+        <ModalSuiviProcedure
+          ligne={ligneSelectionnee}
+          onClose={() => setLigneSelectionnee(null)}
+          onDeclarationSaved={rafraichir}
+        />
+      )}
 
     </div>
   )

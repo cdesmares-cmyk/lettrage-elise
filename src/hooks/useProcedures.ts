@@ -51,6 +51,7 @@ export function useProcedures() {
   const [encours, setEncours] = useState<ProcedureLigne[]>([])
   const [archive, setArchive] = useState<ProcedureLigne[]>([])
   const [chargement, setChargement] = useState(true)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let annule = false
@@ -129,7 +130,7 @@ export function useProcedures() {
 
     charger()
     return () => { annule = true }
-  }, [clients])
+  }, [clients, refreshKey])
 
-  return { encours, archive, chargement }
+  return { encours, archive, chargement, rafraichir: () => setRefreshKey(k => k + 1) }
 }
