@@ -1,9 +1,20 @@
 import { useState } from 'react'
+import { useProcedures } from '../hooks/useProcedures'
+import { ListeProcedures } from '../components/procedures/ListeProcedures'
+import type { ProcedureLigne } from '../hooks/useProcedures'
 
 type OngletProcedure = 'encours' | 'archive'
 
 export function PageProcedures() {
   const [onglet, setOnglet] = useState<OngletProcedure>('encours')
+  const { encours, archive, chargement } = useProcedures()
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  function ouvrirDetail(_l: ProcedureLigne) {
+    // Bloc 3 — modal à venir
+  }
+
+  const lignes = onglet === 'encours' ? encours : archive
 
   return (
     <div className="space-y-6">
@@ -16,34 +27,49 @@ export function PageProcedures() {
         </div>
       </div>
 
-      {/* Onglets En cours / Archive */}
+      {/* Onglets */}
       <div className="border-b border-gray-200 dark:border-slate-700">
         <div className="flex gap-6">
-          {([
-            { id: 'encours', label: 'En cours' },
-            { id: 'archive', label: 'Archive' },
-          ] as { id: OngletProcedure; label: string }[]).map(({ id, label }) => (
-            <button
-              key={id}
-              onClick={() => setOnglet(id)}
-              className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                onglet === id
-                  ? 'text-ockham-teal border-ockham-teal'
-                  : 'text-gray-400 border-transparent hover:text-gray-600'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            onClick={() => setOnglet('encours')}
+            className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              onglet === 'encours'
+                ? 'text-ockham-teal border-ockham-teal'
+                : 'text-gray-400 border-transparent hover:text-gray-600'
+            }`}
+          >
+            En cours
+            {!chargement && encours.length > 0 && (
+              <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-ockham-teal/10 text-ockham-teal-dark">
+                {encours.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setOnglet('archive')}
+            className={`pb-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              onglet === 'archive'
+                ? 'text-ockham-teal border-ockham-teal'
+                : 'text-gray-400 border-transparent hover:text-gray-600'
+            }`}
+          >
+            Archive
+            {!chargement && archive.length > 0 && (
+              <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+                {archive.length}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      {/* Contenu — à compléter bloc par bloc */}
-      <div className="flex items-center justify-center h-48 bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700">
-        <p className="text-sm text-gray-300">
-          {onglet === 'encours' ? 'Procédures en cours — chargement à venir' : 'Archive — chargement à venir'}
-        </p>
-      </div>
+      {/* Liste */}
+      <ListeProcedures
+        lignes={lignes}
+        chargement={chargement}
+        showKpis={onglet === 'encours'}
+        onOuvrirDetail={ouvrirDetail}
+      />
 
     </div>
   )
