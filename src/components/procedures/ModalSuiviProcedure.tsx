@@ -36,6 +36,7 @@ interface FactureLigne {
   montant_ttc: number
   reste_du: number
   date_echeance: string | null
+  axonaut_pdf_url: string | null
 }
 
 interface Props {
@@ -83,7 +84,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
           .maybeSingle(),
         supabase
           .from('v_factures_avec_reste_du')
-          .select('numero_piece, montant_ttc, reste_du, date_echeance')
+          .select('numero_piece, montant_ttc, reste_du, date_echeance, axonaut_pdf_url')
           .eq('code_client', ligne.codeClient)
           .gt('reste_du', 0.005)
           .order('date_echeance', { ascending: true }),
@@ -364,7 +365,12 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
                 <tbody className="divide-y divide-gray-50">
                   {factures.map(f => (
                     <tr key={f.numero_piece} className="hover:bg-gray-50">
-                      <td className="px-3 py-2.5"><span className="font-mono text-[11px] text-gray-500">{f.numero_piece}</span></td>
+                      <td className="px-3 py-2.5">
+                        {f.axonaut_pdf_url
+                          ? <a href={f.axonaut_pdf_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="font-mono text-[11px] text-ockham-teal hover:underline">{f.numero_piece} ↗</a>
+                          : <span className="font-mono text-[11px] text-gray-500">{f.numero_piece}</span>
+                        }
+                      </td>
                       <td className="px-3 py-2.5 text-right text-gray-600">{fmtEuros(f.montant_ttc)}</td>
                       <td className="px-3 py-2.5 text-right font-bold text-ockham-copper">{fmtEuros(f.reste_du)}</td>
                       <td className="px-3 py-2.5 text-center text-gray-500 text-xs">{fmtDate(f.date_echeance)}</td>
