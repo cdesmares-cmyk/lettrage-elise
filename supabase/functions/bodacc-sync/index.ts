@@ -305,7 +305,7 @@ async function scanQuotidien(supabase: ReturnType<typeof createClient>) {
   for (let i = 0; i < alertes.length; i += 500) {
     const { error } = await supabase
       .from('alertes_risque')
-      .upsert(alertes.slice(i, i + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+      .upsert(alertes.slice(i, i + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: false })
     if (!error) nbInsérées += alertes.slice(i, i + 500).length
   }
 
@@ -415,7 +415,7 @@ async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: stri
     for (let j = 0; j < alertes.length; j += 500) {
       const { error } = await supabase
         .from('alertes_risque')
-        .upsert(alertes.slice(j, j + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+        .upsert(alertes.slice(j, j + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: false })
       if (!error) nbInsérées += alertes.slice(j, j + 500).length
     }
   }
@@ -512,7 +512,7 @@ Deno.serve(async (req: Request) => {
         if (alertes.length > 0) {
           const { error } = await supabase
             .from('alertes_risque')
-            .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: true })
+            .upsert(alertes as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: false })
           if (!error) nbInsérées += alertes.length
         }
 
