@@ -170,6 +170,12 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
         <div>
           <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Publication BODACC</p>
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            {ligne.typeJugement && (
+              <div className="col-span-2">
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Type de jugement</p>
+                <p className="text-sm text-gray-800">{ligne.typeJugement}</p>
+              </div>
+            )}
             <div>
               <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Tribunal</p>
               <p className="text-sm text-gray-800">{ligne.tribunal ?? '—'}</p>

@@ -182,6 +182,7 @@ function construireAlertes(records: BodaccRecord[], clients: ClientRow[]): Recor
         description:     buildDescription(r),
         source_url:      r.publicationavis ?? null,
         mandataire:      premierMandataire,
+        type_jugement:   jugement?.nature ?? null,
       })
     }
   }

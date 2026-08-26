@@ -24,6 +24,7 @@ export interface ProcedureLigne {
   joursDepuis: number
   declarationStatut: string | null
   declarationMontant: number | null
+  typeJugement: string | null
 }
 
 const TYPES_ENCOURS = new Set(['liquidation', 'redressement', 'sauvegarde'])
@@ -38,6 +39,7 @@ interface AlerteRow {
   tribunal: string | null
   source_url: string | null
   mandataire: MandataireBodacc | null
+  type_jugement: string | null
 }
 
 interface DeclarationRow {
@@ -62,7 +64,7 @@ export function useProcedures() {
         const [alertesRes, declarationsRes] = await Promise.all([
           supabase
             .from('alertes_risque')
-            .select('id, code_client, type_procedure, date_parution, date_jugement, tribunal, source_url, mandataire')
+            .select('id, code_client, type_procedure, date_parution, date_jugement, tribunal, source_url, mandataire, type_jugement')
             .eq('masquee', false)
             .order('date_parution', { ascending: false }),
           supabase
@@ -113,6 +115,7 @@ export function useProcedures() {
             joursDepuis: jours,
             declarationStatut: decl?.statut ?? null,
             declarationMontant: decl?.montant_creancier ?? null,
+            typeJugement: a.type_jugement,
           }
 
           if (TYPES_ENCOURS.has(a.type_procedure)) lignesEncours.push(ligne)
