@@ -45,6 +45,7 @@ interface AlerteRow {
   type_jugement: string | null
   description: string | null
   bodacc_id: string
+  archivee_manuellement: boolean
 }
 
 interface DeclarationRow {
@@ -69,7 +70,7 @@ export function useProcedures() {
         const [alertesRes, declarationsRes] = await Promise.all([
           supabase
             .from('alertes_risque')
-            .select('id, bodacc_id, code_client, type_procedure, date_parution, date_jugement, tribunal, source_url, mandataire, type_jugement, description')
+            .select('id, bodacc_id, code_client, type_procedure, date_parution, date_jugement, tribunal, source_url, mandataire, type_jugement, description, archivee_manuellement')
             .eq('masquee', false)
             .order('date_parution', { ascending: false }),
           supabase
@@ -126,8 +127,8 @@ export function useProcedures() {
             siretClient: client.siret,
           }
 
-          if (TYPES_ENCOURS.has(a.type_procedure)) lignesEncours.push(ligne)
-          else if (TYPES_ARCHIVE.has(a.type_procedure)) lignesArchive.push(ligne)
+          if (a.archivee_manuellement || TYPES_ARCHIVE.has(a.type_procedure)) lignesArchive.push(ligne)
+          else if (TYPES_ENCOURS.has(a.type_procedure)) lignesEncours.push(ligne)
         }
 
         setEncours(lignesEncours)

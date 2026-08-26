@@ -59,9 +59,11 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
   const [contactNom, setContactNom]     = useState('')
   const [contactCoord, setContactCoord] = useState('')
   const [notesInterne, setNotesInterne] = useState('')
-  const [sauvegarde, setSauvegarde]         = useState(false)
+  const [sauvegarde, setSauvegarde]             = useState(false)
+  const [archivageConfirm, setArchivageConfirm] = useState(false)
+  const [archivage, setArchivage]               = useState(false)
   const [complementExpanded, setComplementExpanded] = useState(false)
-  const [step, setStep]                     = useState<1 | 2>(1)
+  const [step, setStep]                         = useState<1 | 2>(1)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-expand textarea à chaque modification des notes (y compris chargement initial)
@@ -142,6 +144,22 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
       toast.error('Erreur lors de la sauvegarde')
     } finally {
       setSauvegarde(false)
+    }
+  }
+
+  async function archiver() {
+    setArchivage(true)
+    try {
+      const { error } = await db.from('alertes_risque').update({ archivee_manuellement: true }).eq('id', ligne.alerteId)
+      if (error) throw error
+      toast.success('Procédure archivée')
+      onDeclarationSaved()
+      onClose()
+    } catch {
+      toast.error('Erreur lors de l\'archivage')
+    } finally {
+      setArchivage(false)
+      setArchivageConfirm(false)
     }
   }
 
@@ -392,9 +410,17 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
 
         {/* Actions */}
         <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
-            Annuler
-          </button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
+              Annuler
+            </button>
+            <button
+              onClick={() => setArchivageConfirm(true)}
+              className="px-4 py-2 text-sm font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200 transition-colors cursor-pointer"
+            >
+              Archiver
+            </button>
+          </div>
           <div className="flex gap-2">
             <button
               onClick={() => setStep(2)}
@@ -417,6 +443,46 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
       </>}
 
       </div>
+
+      {/* Dialog confirmation archivage */}
+      {archivageConfirm && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setArchivageConfirm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-80 flex flex-col items-center gap-4">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2">
+                <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="font-bold text-gray-900 text-sm">Ne plus suivre cette procédure ?</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Retirer <span className="font-semibold text-gray-800">{ligne.nom}</span> de la liste «&nbsp;En cours&nbsp;» ?
+              </p>
+              <p className="text-[10px] text-gray-400 mt-1">La procédure restera visible dans l'onglet Archive.</p>
+            </div>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={archiver}
+                disabled={archivage}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-white rounded-lg disabled:opacity-50 cursor-pointer transition-colors"
+                style={{ background: '#EF4444' }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                {archivage ? 'Archivage…' : 'Oui, archiver'}
+              </button>
+              <button
+                onClick={() => setArchivageConfirm(false)}
+                disabled={archivage}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold text-gray-600 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 cursor-pointer transition-colors"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ModalBase>
   )
 }
