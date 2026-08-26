@@ -202,7 +202,7 @@ export function CerfaDeclaration({ ligne, declarationId, montantEchu, montantAEc
           </div>
           <div className="border border-gray-300 rounded-lg p-3">
             <p className="text-[10px] font-bold text-gray-900 uppercase mb-2 pb-1 border-b border-gray-200">Mandataire du créancier</p>
-            <textarea className={ta} rows={4} value={eMandataire} onChange={e => setEMandataire(e.target.value)} placeholder="Nom, coordonnées du mandataire du créancier…" />
+            <textarea className={ta} rows={4} value={eMandataire} onChange={e => setEMandataire(e.target.value)} placeholder="Si vous déclarez en direct votre créance, laissez vide." />
           </div>
         </div>
 
@@ -302,7 +302,7 @@ export function CerfaDeclaration({ ligne, declarationId, montantEchu, montantAEc
           </div>
           <div className="border border-gray-300 rounded-lg p-3">
             <p className="text-[10px] font-bold text-gray-900 uppercase mb-2 pb-1 border-b border-gray-200">Représentant des créanciers</p>
-            <textarea className={ta} rows={6} value={eRepresentant} onChange={e => setERepresentant(e.target.value)} placeholder="Coordonnées du mandataire judiciaire…" />
+            <textarea className={ta} rows={6} value={eRepresentant} onChange={e => setERepresentant(e.target.value)} placeholder="Coordonnées du mandataire judiciaire indiquées sur la publication BODACC." />
           </div>
         </div>
 
