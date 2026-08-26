@@ -16,9 +16,12 @@ interface OrgLegal {
   siren: string | null
   siret: string | null
   tva_number: string | null
+  adresse: string | null
+  ville: string | null
+  code_postal: string | null
 }
 
-const VIDE: OrgLegal = { raison_sociale: null, forme_juridique: null, siren: null, siret: null, tva_number: null }
+const VIDE: OrgLegal = { raison_sociale: null, forme_juridique: null, siren: null, siret: null, tva_number: null, adresse: null, ville: null, code_postal: null }
 
 export function ModalMonEntreprise({ onClose }: Props) {
   const { profil } = useAuth()
@@ -32,7 +35,7 @@ export function ModalMonEntreprise({ onClose }: Props) {
     if (!profil?.organisation_id) return
     supabase
       .from('organisations')
-      .select('raison_sociale, forme_juridique, siren, siret, tva_number')
+      .select('raison_sociale, forme_juridique, siren, siret, tva_number, adresse, ville, code_postal')
       .eq('id', profil.organisation_id)
       .single()
       .then(({ data: row }) => {
@@ -66,6 +69,9 @@ export function ModalMonEntreprise({ onClose }: Props) {
           siren: form.siren || null,
           siret: form.siret || null,
           tva_number: form.tva_number || null,
+          adresse: form.adresse || null,
+          ville: form.ville || null,
+          code_postal: form.code_postal || null,
         } as never)
         .eq('id', profil.organisation_id)
       if (error) throw error
@@ -85,6 +91,9 @@ export function ModalMonEntreprise({ onClose }: Props) {
     { label: 'SIREN', key: 'siren' },
     { label: 'SIRET', key: 'siret' },
     { label: 'N° TVA intracommunautaire', key: 'tva_number' },
+    { label: 'Adresse', key: 'adresse' },
+    { label: 'Ville', key: 'ville' },
+    { label: 'Code postal', key: 'code_postal' },
   ]
 
   return (

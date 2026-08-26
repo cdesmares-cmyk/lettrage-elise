@@ -27,6 +27,7 @@ export interface ProcedureLigne {
   typeJugement: string | null
   description: string | null
   bodaccId: string
+  siretClient: string | null
 }
 
 const TYPES_ENCOURS = new Set(['liquidation', 'redressement', 'sauvegarde'])
@@ -122,6 +123,7 @@ export function useProcedures() {
             typeJugement: a.type_jugement,
             description: a.description,
             bodaccId: a.bodacc_id,
+            siretClient: client.siret,
           }
 
           if (TYPES_ENCOURS.has(a.type_procedure)) lignesEncours.push(ligne)

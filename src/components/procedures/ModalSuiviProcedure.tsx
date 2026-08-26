@@ -4,6 +4,7 @@ import { ModalBase } from '../admin/ModalBase'
 import { IcFileText } from '../Icones'
 import toast from 'react-hot-toast'
 import type { ProcedureLigne } from '../../hooks/useProcedures'
+import { CerfaDeclaration } from './CerfaDeclaration'
 
 const STATUT: Record<string, { label: string; badge: string }> = {
   liquidation:  { label: 'Liquidation judiciaire',  badge: 'bg-red-50 text-red-700 border-red-200' },
@@ -59,6 +60,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
   const [notesInterne, setNotesInterne] = useState('')
   const [sauvegarde, setSauvegarde]         = useState(false)
   const [complementExpanded, setComplementExpanded] = useState(false)
+  const [step, setStep]                     = useState<1 | 2>(1)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   // Auto-expand textarea à chaque modification des notes (y compris chargement initial)
@@ -155,8 +157,36 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
 
   return (
     <ModalBase titre="Suivi de la procédure" onClose={onClose} largeur="max-w-3xl" icon={<IcFileText size={15} />}>
+
+      {/* Stepper */}
+      <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+        <button onClick={() => setStep(1)} className="flex items-center gap-2 cursor-pointer">
+          <span className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center transition-colors ${step === 1 ? 'bg-ockham-teal text-white' : 'bg-ockham-teal/15 text-ockham-teal'}`}>
+            {step === 2 ? '✓' : '1'}
+          </span>
+          <span className={`text-[12px] font-medium ${step === 1 ? 'text-gray-900' : 'text-gray-400'}`}>Suivi procédure</span>
+        </button>
+        <span className="text-gray-300 text-xs">→</span>
+        <button onClick={() => setStep(2)} className="flex items-center gap-2 cursor-pointer">
+          <span className={`w-6 h-6 rounded-full text-[11px] font-bold flex items-center justify-center transition-colors ${step === 2 ? 'bg-ockham-teal text-white' : 'bg-gray-100 text-gray-400'}`}>2</span>
+          <span className={`text-[12px] font-medium ${step === 2 ? 'text-gray-900' : 'text-gray-400'}`}>Déclaration de créances</span>
+        </button>
+      </div>
+
       <div className="p-6 space-y-6">
 
+      {step === 2 && (
+        <CerfaDeclaration
+          ligne={ligne}
+          declarationId={declaration?.id ?? null}
+          montantEchu={montantEchu}
+          montantAEchoir={montantAEchoir}
+          montantTotal={montant ? parseFloat(montant.replace(',', '.')) : montantEchu + montantAEchoir}
+          onBack={() => setStep(1)}
+        />
+      )}
+
+      {step === 1 && <>
         {/* Résumé client */}
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-gray-50 border border-gray-100">
           <span className="font-mono text-[11px] text-gray-400 shrink-0">{ligne.codeClient}</span>
@@ -355,19 +385,30 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+        <div className="flex justify-between items-center pt-2 border-t border-gray-100">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
             Annuler
           </button>
-          <button
-            onClick={sauvegarder}
-            disabled={sauvegarde || chargement}
-            className="px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-            style={{ background: '#3BA89F' }}
-          >
-            {sauvegarde ? 'Sauvegarde…' : 'Sauvegarder'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStep(2)}
+              className="flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg border transition-colors cursor-pointer"
+              style={{ color: '#3BA89F', borderColor: '#3BA89F', background: 'transparent' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Déclaration
+            </button>
+            <button
+              onClick={sauvegarder}
+              disabled={sauvegarde || chargement}
+              className="px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+              style={{ background: '#3BA89F' }}
+            >
+              {sauvegarde ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+          </div>
         </div>
+      </>}
 
       </div>
     </ModalBase>
