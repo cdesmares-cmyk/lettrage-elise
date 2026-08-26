@@ -76,12 +76,21 @@ function IcImportExport() {
     </svg>
   )
 }
+function IcProcedures() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      <path d="M9 12l2 2 4-4"/>
+    </svg>
+  )
+}
 
 const NAV_PRINCIPALE = [
-  { chemin: '/tableau-de-bord', label: 'Tableau de bord', icone: <IcDashboard />, commercial: true,  externe: false },
-  { chemin: '/lettrage',        label: 'Lettrage',        icone: <IcLettrage />,  commercial: true,  externe: false },
-  { chemin: '/compte-client',   label: 'Compte client',   icone: <IcCompteClient />, commercial: true, externe: true },
-  { chemin: '/relances',        label: 'Relances',        icone: <IcRelances />,  commercial: true,  externe: false },
+  { chemin: '/tableau-de-bord', label: 'Tableau de bord', icone: <IcDashboard />,    commercial: true,  externe: false },
+  { chemin: '/lettrage',        label: 'Lettrage',        icone: <IcLettrage />,     commercial: true,  externe: false },
+  { chemin: '/compte-client',   label: 'Compte client',   icone: <IcCompteClient />, commercial: true,  externe: true  },
+  { chemin: '/relances',        label: 'Relances',        icone: <IcRelances />,     commercial: true,  externe: false },
+  { chemin: '/procedures',      label: 'Procédures',      icone: <IcProcedures />,   commercial: false, externe: false },
 ]
 
 const NAV_OUTILS = [

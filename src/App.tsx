@@ -16,6 +16,7 @@ import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageImportExport } from './pages/PageImportExport'
 import { PageRelances } from './pages/PageRelances'
+import { PageProcedures } from './pages/PageProcedures'
 import { PageSuperAdmin } from './pages/PageSuperAdmin'
 
 function SplashChargement({ nom }: { nom?: string }) {
@@ -103,6 +104,7 @@ function AppRoutes() {
         <Route path="/compte-client" element={<ErrorBoundary><PageCompteClient /></ErrorBoundary>} />
         <Route path="/tableau-de-bord" element={<ErrorBoundary><PageTableauDeBord /></ErrorBoundary>} />
         <Route path="/relances" element={<ErrorBoundary><PageRelances /></ErrorBoundary>} />
+        <Route path="/procedures" element={<ErrorBoundary><PageProcedures /></ErrorBoundary>} />
         <Route path="/import-export" element={<ErrorBoundary><PageImportExport /></ErrorBoundary>} />
         {/* Redirections pour les anciens liens */}
         <Route path="/depot" element={<Navigate to="/import-export" replace />} />
