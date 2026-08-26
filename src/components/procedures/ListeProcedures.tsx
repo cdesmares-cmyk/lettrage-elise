@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import type { ProcedureLigne } from '../../hooks/useProcedures'
+import { Pagination } from '../Pagination'
 
 // ─── Couleurs et labels — identiques à PanneauOptions.tsx ────────────────────
 const STATUT: Record<string, { label: string; badge: string }> = {
@@ -9,6 +10,8 @@ const STATUT: Record<string, { label: string; badge: string }> = {
   cloture:      { label: 'Clôture',                 badge: 'bg-gray-50 text-gray-500 border-gray-200' },
   radiation:    { label: 'Radiation',               badge: 'bg-gray-50 text-gray-500 border-gray-200' },
 }
+
+const PAGE_SIZE = 25
 
 function IcBadge({ type }: { type: string }) {
   const cls = 'flex-shrink-0'
@@ -79,9 +82,13 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
   const [dirSort, setDirSort]           = useState<'asc' | 'desc'>('asc')
   const [typesExclus, setTypesExclus]   = useState<Set<string>>(new Set())
   const [filtreOuvert, setFiltreOuvert] = useState(false)
+  const [page, setPage]                 = useState(0)
   const refFiltre = useRef<HTMLDivElement>(null)
 
   const typesDisponibles = useMemo(() => [...new Set(lignes.map(l => l.typeProcedure))], [lignes])
+
+  // Reset page quand tri, filtre ou données changent
+  useEffect(() => { setPage(0) }, [colSort, dirSort, typesExclus, lignes])
 
   useEffect(() => {
     if (!filtreOuvert) return
@@ -104,11 +111,8 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
   function toggleType(type: string) {
     setTypesExclus(prev => {
       const s = new Set(prev)
-      if (s.has(type)) {
-        s.delete(type)
-      } else {
-        if (typesDisponibles.length - s.size > 1) s.add(type)
-      }
+      if (s.has(type)) s.delete(type)
+      else s.add(type)
       return s
     })
   }
@@ -116,8 +120,9 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
   const filtreActif   = typesExclus.size > 0
   const lignesFiltres = filtreActif ? lignes.filter(l => !typesExclus.has(l.typeProcedure)) : lignes
   const lignesTri     = trier(lignesFiltres, colSort, dirSort)
+  const nbPages       = Math.ceil(lignesTri.length / PAGE_SIZE)
+  const lignesPage    = lignesTri.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-  // Fonction utilitaire pour les en-têtes triables (retourne du JSX, pas un composant React)
   const thSort = (col: ColSort, label: string, align: 'left' | 'right' | 'center' = 'left') => {
     const actif = colSort === col
     const fleche = actif ? (dirSort === 'asc' ? ' ↑' : ' ↓') : ' ↕'
@@ -176,17 +181,11 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
           {filtreOuvert && (
             <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-20 min-w-[240px] py-1.5">
               <div className="flex items-center gap-2 px-3 pb-1.5 mb-0.5 border-b border-gray-50">
-                <button
-                  onClick={() => setTypesExclus(new Set())}
-                  className="text-[11px] font-semibold text-ockham-teal hover:underline cursor-pointer"
-                >
+                <button onClick={() => setTypesExclus(new Set())} className="text-[11px] font-semibold text-ockham-teal hover:underline cursor-pointer">
                   Tout cocher
                 </button>
                 <span className="text-gray-200 text-xs">·</span>
-                <button
-                  onClick={() => setTypesExclus(new Set(typesDisponibles.slice(1)))}
-                  className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 hover:underline cursor-pointer"
-                >
+                <button onClick={() => setTypesExclus(new Set(typesDisponibles))} className="text-[11px] font-semibold text-gray-400 hover:text-gray-600 hover:underline cursor-pointer">
                   Tout décocher
                 </button>
               </div>
@@ -194,12 +193,7 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
                 const st = STATUT[type]
                 return (
                   <label key={type} className="flex items-center gap-3 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={!typesExclus.has(type)}
-                      onChange={() => toggleType(type)}
-                      className="accent-ockham-teal flex-shrink-0"
-                    />
+                    <input type="checkbox" checked={!typesExclus.has(type)} onChange={() => toggleType(type)} className="accent-ockham-teal flex-shrink-0" />
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${st?.badge ?? 'bg-slate-50 text-slate-500 border-slate-200'}`}>
                       <IcBadge type={type} />
                       {st?.label ?? type}
@@ -214,56 +208,68 @@ export function ListeProcedures({ lignes, chargement, onOuvrirDetail }: Props) {
 
       {/* Tableau */}
       {lignesTri.length === 0 ? (
-        <div className="flex items-center justify-center h-32">
-          <p className="text-sm text-gray-300">Aucune procédure enregistrée</p>
+        <div className="flex flex-col items-center justify-center h-32 gap-2">
+          <p className="text-sm text-gray-300">
+            {filtreActif && typesExclus.size === typesDisponibles.length
+              ? 'Aucun type sélectionné'
+              : 'Aucune procédure enregistrée'}
+          </p>
+          {filtreActif && typesExclus.size === typesDisponibles.length && (
+            <button onClick={() => setTypesExclus(new Set())} className="text-xs text-ockham-teal hover:underline cursor-pointer">
+              Tout afficher
+            </button>
+          )}
         </div>
       ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ background: '#0E1A2B' }}>
-              {thSort('codeClient',        'Code client',         'left')}
-              {thSort('nom',               'Nom',                 'left')}
-              {thSort('encours',           'Encours',             'right')}
-              {thSort('typeProcedure',     'Type de procédure',   'left')}
-              {thSort('joursDepuis',       'Jours depuis BODACC', 'center')}
-              {thSort('declarationStatut', 'Déclaration',         'center')}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {lignesTri.map(l => {
-              const st = STATUT[l.typeProcedure]
-              return (
-                <tr key={l.alerteId} onClick={() => onOuvrirDetail(l)} className="hover:bg-gray-50 cursor-pointer transition-colors">
-                  <td className="px-4 py-3.5">
-                    <span className="font-mono text-[11px] text-gray-400">{l.codeClient}</span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className="font-semibold text-gray-800">{l.nom}</span>
-                  </td>
-                  <td className="px-4 py-3.5 text-right">
-                    {l.encours >= 0.01
-                      ? <span className="font-bold text-ockham-copper">{fmtEuros(l.encours)}</span>
-                      : <span className="text-gray-300">—</span>
-                    }
-                  </td>
-                  <td className="px-4 py-3.5">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${st?.badge ?? 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                      <IcBadge type={l.typeProcedure} />
-                      {st?.label ?? l.typeProcedure}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <span className="text-sm font-semibold text-gray-700">{l.joursDepuis} j</span>
-                    <div className="text-[10px] text-gray-400 mt-0.5">{fmtDate(l.dateParution)}</div>
-                  </td>
-                  <td className="px-4 py-3.5 text-center">
-                    <BadgeDeclaration statut={l.declarationStatut} encours={l.encours} />
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+        <>
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ background: '#0E1A2B' }}>
+                {thSort('codeClient',        'Code client',         'left')}
+                {thSort('nom',               'Nom',                 'left')}
+                {thSort('encours',           'Encours',             'right')}
+                {thSort('typeProcedure',     'Type de procédure',   'left')}
+                {thSort('joursDepuis',       'Jours depuis BODACC', 'center')}
+                {thSort('declarationStatut', 'Déclaration',         'center')}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {lignesPage.map(l => {
+                const st = STATUT[l.typeProcedure]
+                return (
+                  <tr key={l.alerteId} onClick={() => onOuvrirDetail(l)} className="hover:bg-gray-50 cursor-pointer transition-colors">
+                    <td className="px-4 py-3.5">
+                      <span className="font-mono text-[11px] text-gray-400">{l.codeClient}</span>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className="font-semibold text-gray-800">{l.nom}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right">
+                      {l.encours >= 0.01
+                        ? <span className="font-bold text-ockham-copper">{fmtEuros(l.encours)}</span>
+                        : <span className="text-gray-300">—</span>
+                      }
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${st?.badge ?? 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                        <IcBadge type={l.typeProcedure} />
+                        {st?.label ?? l.typeProcedure}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <span className="text-sm font-semibold text-gray-700">{l.joursDepuis} j</span>
+                      <div className="text-[10px] text-gray-400 mt-0.5">{fmtDate(l.dateParution)}</div>
+                    </td>
+                    <td className="px-4 py-3.5 text-center">
+                      <BadgeDeclaration statut={l.declarationStatut} encours={l.encours} />
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          <Pagination page={page} total={nbPages} onChange={setPage} />
+        </>
       )}
 
     </div>

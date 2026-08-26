@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { ModalBase } from '../admin/ModalBase'
 import { IcFileText } from '../Icones'
@@ -26,6 +26,7 @@ interface DeclarationRow {
   date_declaration: string | null
   reference_dossier: string | null
   contact_mandataire: string | null
+  contact_mandataire_nom: string | null
   notes_interne: string | null
 }
 
@@ -46,17 +47,26 @@ interface Props {
 const db = supabase as any
 
 export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Props) {
-  const [declaration, setDeclaration] = useState<DeclarationRow | null>(null)
-  const [factures, setFactures] = useState<FactureLigne[]>([])
-  const [chargement, setChargement] = useState(true)
-
-  const [statut, setStatut] = useState('brouillon')
+  const [declaration, setDeclaration]   = useState<DeclarationRow | null>(null)
+  const [factures, setFactures]         = useState<FactureLigne[]>([])
+  const [chargement, setChargement]     = useState(true)
+  const [statut, setStatut]             = useState('brouillon')
   const [dateDeclaration, setDateDeclaration] = useState('')
-  const [montant, setMontant] = useState('')
-  const [refDossier, setRefDossier] = useState('')
-  const [contactMandataire, setContactMandataire] = useState('')
+  const [montant, setMontant]           = useState('')
+  const [refDossier, setRefDossier]     = useState('')
+  const [contactNom, setContactNom]     = useState('')
+  const [contactCoord, setContactCoord] = useState('')
   const [notesInterne, setNotesInterne] = useState('')
-  const [sauvegarde, setSauvegarde] = useState(false)
+  const [sauvegarde, setSauvegarde]     = useState(false)
+  const notesRef = useRef<HTMLTextAreaElement>(null)
+
+  // Auto-expand textarea à chaque modification des notes (y compris chargement initial)
+  useEffect(() => {
+    const el = notesRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [notesInterne])
 
   useEffect(() => {
     let annule = false
@@ -65,7 +75,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
       const [declRes, factRes] = await Promise.all([
         db
           .from('declarations_creances')
-          .select('id, statut, montant_creancier, date_declaration, reference_dossier, contact_mandataire, notes_interne')
+          .select('id, statut, montant_creancier, date_declaration, reference_dossier, contact_mandataire, contact_mandataire_nom, notes_interne')
           .eq('alerte_id', ligne.alerteId)
           .maybeSingle(),
         supabase
@@ -84,12 +94,12 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
         setDateDeclaration(decl.date_declaration ?? '')
         setMontant(decl.montant_creancier != null ? String(decl.montant_creancier) : '')
         setRefDossier(decl.reference_dossier ?? '')
-        setContactMandataire(decl.contact_mandataire ?? '')
+        setContactNom(decl.contact_mandataire_nom ?? '')
+        setContactCoord(decl.contact_mandataire ?? '')
         setNotesInterne(decl.notes_interne ?? '')
       } else if (ligne.encours >= 0.01) {
         setMontant(String(ligne.encours))
       }
-
       setFactures((factRes.data ?? []) as FactureLigne[])
       setChargement(false)
     }
@@ -107,11 +117,11 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
         date_declaration: dateDeclaration || null,
         montant_creancier: montant ? parseFloat(montant.replace(',', '.')) : null,
         reference_dossier: refDossier || null,
-        contact_mandataire: contactMandataire || null,
+        contact_mandataire_nom: contactNom || null,
+        contact_mandataire: contactCoord || null,
         notes_interne: notesInterne || null,
         mise_a_jour_le: new Date().toISOString(),
       }
-
       let erreur
       if (declaration) {
         const res = await db.from('declarations_creances').update(payload).eq('id', declaration.id)
@@ -121,7 +131,6 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
         erreur = res.error
       }
       if (erreur) throw erreur
-
       toast.success('Déclaration sauvegardée')
       onDeclarationSaved()
       onClose()
@@ -132,22 +141,19 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
     }
   }
 
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const montantEchu    = factures.filter(f => f.date_echeance && new Date(f.date_echeance) < today).reduce((s, f) => s + f.reste_du, 0)
+  const montantAEchoir = factures.filter(f => !f.date_echeance || new Date(f.date_echeance) >= today).reduce((s, f) => s + f.reste_du, 0)
+
   const joursDepuisParution = ligne.joursDepuis
   const delaiDepasse = joursDepuisParution > 60
-  const joursRestants = 60 - joursDepuisParution
   const st = STATUT[ligne.typeProcedure]
   const totalReste = factures.reduce((s, f) => s + f.reste_du, 0)
-  const totalTtc = factures.reduce((s, f) => s + f.montant_ttc, 0)
-
+  const totalTtc   = factures.reduce((s, f) => s + f.montant_ttc, 0)
   const inputCls = 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-ockham-teal/30 focus:border-ockham-teal'
 
   return (
-    <ModalBase
-      titre="Suivi de la procédure"
-      onClose={onClose}
-      largeur="max-w-3xl"
-      icon={<IcFileText size={15} />}
-    >
+    <ModalBase titre="Suivi de la procédure" onClose={onClose} largeur="max-w-3xl" icon={<IcFileText size={15} />}>
       <div className="p-6 space-y-6">
 
         {/* Résumé client */}
@@ -179,9 +185,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
             {ligne.sourceUrl && (
               <div>
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Source</p>
-                <a href={ligne.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-ockham-teal hover:underline">
-                  Voir sur BODACC ↗
-                </a>
+                <a href={ligne.sourceUrl} target="_blank" rel="noreferrer" className="text-sm text-ockham-teal hover:underline">Voir sur BODACC ↗</a>
               </div>
             )}
             {ligne.mandataire && (ligne.mandataire.nom || ligne.mandataire.qualite) && (
@@ -189,9 +193,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-0.5">Mandataire</p>
                 <p className="text-sm text-gray-800">
                   {[ligne.mandataire.qualite, ligne.mandataire.nom].filter(Boolean).join(' — ')}
-                  {ligne.mandataire.adresse && (
-                    <span className="text-gray-400"> · {ligne.mandataire.adresse}</span>
-                  )}
+                  {ligne.mandataire.adresse && <span className="text-gray-400"> · {ligne.mandataire.adresse}</span>}
                 </p>
               </div>
             )}
@@ -205,21 +207,17 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
           <div className="flex items-center justify-between mb-3">
             <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Déclaration de créances</p>
             {ligne.dateParution && (
-              delaiDepasse ? (
-                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                  Délai 60 j dépassé
-                </span>
-              ) : (
-                <span className="text-[10px] text-gray-400">{joursRestants} j restants sur 60</span>
-              )
+              delaiDepasse
+                ? <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-600 bg-red-50 border border-red-100 px-2 py-0.5 rounded-full">
+                    <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Délai 60 j dépassé
+                  </span>
+                : <span className="text-[10px] text-gray-400">{60 - joursDepuisParution} j restants sur 60</span>
             )}
           </div>
 
           {chargement ? (
-            <div className="space-y-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-9 bg-gray-50 rounded-lg animate-pulse" />)}
-            </div>
+            <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-9 bg-gray-50 rounded-lg animate-pulse" />)}</div>
           ) : (
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
@@ -239,25 +237,38 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Montant créancier (€)</label>
-                  <input
-                    type="number" step="0.01" value={montant}
-                    onChange={e => setMontant(e.target.value)}
-                    placeholder={ligne.encours >= 0.01 ? String(ligne.encours) : '0'}
-                    className={inputCls}
-                  />
+                  <input type="number" step="0.01" value={montant} onChange={e => setMontant(e.target.value)} placeholder="0" className={inputCls} />
+                  {factures.length > 0 && (
+                    <div className="mt-1.5 flex gap-3 text-[10px] text-gray-400">
+                      <span>Échu : <span className="font-semibold text-gray-600">{fmtEuros(montantEchu)}</span></span>
+                      <span>·</span>
+                      <span>À échoir : <span className="font-semibold text-gray-600">{fmtEuros(montantAEchoir)}</span></span>
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Référence dossier</label>
                   <input type="text" value={refDossier} onChange={e => setRefDossier(e.target.value)} placeholder="N° dossier mandataire" className={inputCls} />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact mandataire</label>
-                <input type="text" value={contactMandataire} onChange={e => setContactMandataire(e.target.value)} placeholder="Email ou téléphone" className={inputCls} />
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact mandataire — Nom Prénom</label>
+                  <input type="text" value={contactNom} onChange={e => setContactNom(e.target.value)} placeholder="Nom et prénom" className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Contact mandataire — Email / Tél</label>
+                  <input type="text" value={contactCoord} onChange={e => setContactCoord(e.target.value)} placeholder="Email ou téléphone" className={inputCls} />
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes internes</label>
-                <textarea value={notesInterne} onChange={e => setNotesInterne(e.target.value)} rows={2} placeholder="Observations, suivi…" className={`${inputCls} resize-none`} />
+                <textarea
+                  ref={notesRef}
+                  value={notesInterne}
+                  onChange={e => setNotesInterne(e.target.value)}
+                  rows={4}
+                  placeholder="Observations, suivi…"
+                  className={`${inputCls} resize-none overflow-hidden`}
+                />
               </div>
             </div>
           )}
@@ -308,10 +319,7 @@ export function ModalSuiviProcedure({ ligne, onClose, onDeclarationSaved }: Prop
 
         {/* Actions */}
         <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer">
             Annuler
           </button>
           <button
