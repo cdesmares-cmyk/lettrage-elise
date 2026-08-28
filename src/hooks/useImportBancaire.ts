@@ -93,10 +93,10 @@ export function useImportBancaire() {
       const lb = (ligne[colLibelle ?? ''] ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
       const rf = (ligne[colRef     ?? ''] ?? '').trim()
       if (!pivotTronque) return `SYNTH|${d}|${lb}|${rf}`
-      // Pivot tronqué : on ajoute le montant pour distinguer les opérations d'un même batch
-      const mapped = appliquerMapping(ligne, mapping)
-      const montant = ((mapped['credit'] as number) || 0) - ((mapped['debit'] as number) || 0)
-      return `SYNTH|${d}|${lb}|${rf}|${montant}`
+      // Pivot tronqué par Excel (notation scientifique) : empreinte de toute la ligne.
+      // Le montant seul ne suffit pas si deux opérations du même batch ont le même montant.
+      // \x1F = ASCII Unit Separator, valide en PostgreSQL text, absent des données bancaires.
+      return `HASH|${Object.values(ligne).join('\x1F')}`
     }
 
     const toutesLesCles = [...new Set(lignes.map(l => cleEffective(l)))]
