@@ -95,7 +95,7 @@ async function paginateFactures(initial: FactureDetail[]): Promise<FactureDetail
 }
 
 export function FournisseurDonnees({ children }: { children: ReactNode }) {
-  const { session } = useAuth()
+  const { session, profil } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
@@ -125,8 +125,8 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     if (!initialLoadDoneRef.current) setChargement(true)
     setEnRafraichissement(true)
     try {
-      // Page 0 — clients, factures et organisation en parallèle
-      const [clientsPage0, page0, orgRow] = await Promise.all([
+      // Page 0 — clients et factures en parallèle
+      const [clientsPage0, page0] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
         supabase.from('v_factures_avec_reste_du').select(COLS)
           .or('reste_du.gt.0.005,reste_du.lt.-0.005')
@@ -134,7 +134,6 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(0, PAGE - 1),
-        supabase.from('organisations').select('mois_ref, ca12_mois, ca12_mois_prec').single(),
       ])
 
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
@@ -145,14 +144,6 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         paginateClients((clientsPage0.data as unknown as RowCompteClient[]) ?? []),
         paginateFactures((page0.data as unknown as FactureDetail[]) ?? []),
       ])
-
-      // CA12 lu depuis organisations
-      const org = orgRow.data as { mois_ref: string; ca12_mois: number; ca12_mois_prec: number } | null
-      if (org?.mois_ref) {
-        setMoisMaxBrut(org.mois_ref)
-        setCa12Mois(Number(org.ca12_mois) || 0)
-        setCa12MoisPrec(Number(org.ca12_mois_prec) || 0)
-      }
 
       // Mise à jour état — un seul render garanti (batching explicite)
       unstable_batchedUpdates(() => {
@@ -202,6 +193,26 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       window.removeEventListener('focus', onFocus)
     }
   }, [session, rafraichir])
+
+  // Fetch séparé des données org — déclenché quand profil est disponible (après login).
+  // Filtre explicite par organisation_id : fonctionne pour tous les rôles y compris superadmin
+  // dont la RLS renverrait plusieurs lignes avec un simple .single() sans filtre.
+  useEffect(() => {
+    if (!session || !profil?.organisation_id) return
+    supabase
+      .from('organisations')
+      .select('mois_ref, ca12_mois, ca12_mois_prec')
+      .eq('id', profil.organisation_id)
+      .single()
+      .then(({ data }) => {
+        const org = data as { mois_ref: string; ca12_mois: number; ca12_mois_prec: number } | null
+        if (org?.mois_ref) {
+          setMoisMaxBrut(org.mois_ref)
+          setCa12Mois(Number(org.ca12_mois) || 0)
+          setCa12MoisPrec(Number(org.ca12_mois_prec) || 0)
+        }
+      })
+  }, [session, profil?.organisation_id])
 
   function mettreAJourStatutLocal(numeroPiece: string, statut: StatutFacture | null) {
     setFacturesActives(prev => prev.map(f =>
