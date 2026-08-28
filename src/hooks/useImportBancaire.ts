@@ -113,7 +113,8 @@ export function useImportBancaire() {
     }
 
     // Doublons vs base de données
-    const candidats = lignes.filter(l => !existantes.has(cleEffective(l)))
+    const lignesEnBase = lignes.filter(l => existantes.has(cleEffective(l)))
+    const candidats    = lignes.filter(l => !existantes.has(cleEffective(l)))
 
     // Doublons intra-fichier : même clé en double dans le fichier
     const vuesDansFichier = new Set<string>()
@@ -142,6 +143,7 @@ export function useImportBancaire() {
     ) / 100
 
     return {
+      lignes_doublons: [...lignesEnBase, ...doublonsIntraFichier],
       // Injecte la clé synthétique dans id_operation si le pivot est vide
       lignes_a_inserer: nouvelles.map(l => {
         const mapped = appliquerMapping(l, mapping)

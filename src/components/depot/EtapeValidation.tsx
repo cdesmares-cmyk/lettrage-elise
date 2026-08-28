@@ -1,4 +1,5 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
+import { useState } from 'react'
 import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS } from '../../lib/champsImport'
 import { parseDate } from '../../lib/parseursImport'
 import { IcUpload } from '../Icones'
@@ -47,6 +48,22 @@ function StatCardMontant({ valeur, label }: { valeur: number; label: string }) {
   )
 }
 
+function telechargerDoublons(lignes: Record<string, string>[], nomFichier: string) {
+  if (!lignes.length) return
+  const colonnes = Object.keys(lignes[0])
+  const echapper = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`
+  const header = colonnes.map(echapper).join(';')
+  const rows = lignes.map(l => colonnes.map(c => echapper(l[c] ?? '')).join(';'))
+  const csv = '﻿' + [header, ...rows].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `doublons_${nomFichier.replace(/\.[^.]+$/, '')}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function telechargerRapportIncidents(resultat: ResultatValidation) {
   const invalides = resultat.lignes_invalides ?? []
   if (!invalides.length) return
@@ -77,6 +94,7 @@ export function EtapeValidation({
   const estLettrage = typeFichier === 'import_lettrage'
   const estClients = typeFichier === 'import_clients'
   const estContacts = typeFichier === 'import_contacts'
+  const [doublonsOuverts, setDoublonsOuverts] = useState(false)
 
   // Colonnes mappées à afficher dans l'aperçu (max 6 pour éviter le débordement)
   const colonnesMappees = mapping
@@ -253,6 +271,57 @@ export function EtapeValidation({
           </tbody>
         </table>
       </div>
+
+      {/* Doublons ignorés — csv_bancaire uniquement */}
+      {typeFichier === 'csv_bancaire' && (resultat.lignes_doublons?.length ?? 0) > 0 && (
+        <div className="mb-5 border border-amber-200 rounded-xl overflow-hidden">
+          <div
+            className="flex items-center justify-between px-4 py-3 bg-amber-50 cursor-pointer select-none"
+            onClick={() => setDoublonsOuverts(o => !o)}
+          >
+            <span className="text-sm font-semibold text-amber-800">
+              {doublonsOuverts ? '▾' : '▸'} {resultat.lignes_doublons!.length} doublon{resultat.lignes_doublons!.length > 1 ? 's' : ''} ignoré{resultat.lignes_doublons!.length > 1 ? 's' : ''} — cliquer pour {doublonsOuverts ? 'masquer' : 'afficher'}
+            </span>
+            <button
+              onClick={e => { e.stopPropagation(); telechargerDoublons(resultat.lignes_doublons!, resultat.nom_fichier) }}
+              className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 bg-amber-100 hover:bg-amber-200 border border-amber-300 px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              ⬇ Télécharger (.csv)
+            </button>
+          </div>
+          {doublonsOuverts && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    {colonnesMappees.map(m => (
+                      <th key={m.colonne_source} className="text-left px-4 py-2.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                        {labelColonne(m.champ_cible!)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {resultat.lignes_doublons!.slice(0, 20).map((ligne, i) => (
+                    <tr key={i} className="bg-amber-50/50">
+                      {colonnesMappees.map(m => (
+                        <td key={m.colonne_source} className="px-4 py-2 text-gray-600 font-mono max-w-[180px] truncate">
+                          {fmtValeurApercu(m.champ_cible, ligne[m.colonne_source])}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {resultat.lignes_doublons!.length > 20 && (
+                <p className="text-[11px] text-amber-700 px-4 py-2 border-t border-amber-100">
+                  … et {resultat.lignes_doublons!.length - 20} autre{resultat.lignes_doublons!.length - 20 > 1 ? 's' : ''} — télécharger le CSV pour voir toutes les lignes.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-between items-center">
         <button
