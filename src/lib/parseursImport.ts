@@ -144,6 +144,11 @@ export function parserCSV(fichier: File): Promise<{ colonnes: string[], lignes: 
 export async function parserXLSX(fichier: File): Promise<{ colonnes: string[], lignes: Record<string, unknown>[] }> {
   const buffer = await fichier.arrayBuffer()
   const classeur = XLSX.read(buffer, { type: 'array', cellDates: true })
+  if (classeur.SheetNames.length > 1) {
+    throw new Error(
+      `Ce fichier contient ${classeur.SheetNames.length} onglets (${classeur.SheetNames.join(', ')}). L'import ne supporte qu'un seul onglet — supprimez les onglets supplémentaires avant d'importer.`
+    )
+  }
   const feuille = classeur.Sheets[classeur.SheetNames[0]]
   const brut = XLSX.utils.sheet_to_json<Record<string, unknown>>(feuille, { defval: null })
   // Nettoyer les espaces dans les noms de colonnes

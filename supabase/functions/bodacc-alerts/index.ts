@@ -139,9 +139,9 @@ function buildDigestEmail(lignes: LigneDigest[], dateStr: string, nomOrg?: strin
         <tr>
           <td style="padding:28px 32px 20px;">
             <h1 style="margin:0 0 4px;font-size:17px;font-weight:700;color:#0E1A2B;">
-              ${nbClients} client${nbClients > 1 ? 's' : ''} en procédure collective
+              ${nbClients} nouvelle${nbClients > 1 ? 's' : ''} alerte${nbClients > 1 ? 's' : ''} BODACC
             </h1>
-            <p style="margin:0;font-size:12px;color:#6b7280;">Publications BODACC détectées - ${dateStr}${nomOrg ? ` &middot; ${nomOrg}` : ''}</p>
+            <p style="margin:0;font-size:12px;color:#6b7280;">Nouvelles publications détectées - ${dateStr}${nomOrg ? ` &middot; ${nomOrg}` : ''}</p>
           </td>
         </tr>
 
@@ -202,7 +202,7 @@ function buildEmailRAS(dateStr: string): string {
             <div style="width:56px;height:56px;border-radius:50%;background:#f0fdf4;border:2px solid #bbf7d0;margin:0 auto 20px;font-size:26px;line-height:56px;text-align:center;">&#10003;</div>
             <h1 style="margin:0 0 10px;font-size:18px;font-weight:700;color:#111827;">Aucune alerte ce jour</h1>
             <p style="margin:0;font-size:14px;color:#6b7280;line-height:1.6;">
-              Le scan BODACC du ${dateStr} n'a détecté aucune procédure collective<br>sur les clients de votre portefeuille.
+              Le scan BODACC du ${dateStr} n'a détecté aucune nouvelle procédure collective<br>sur les clients de votre portefeuille.
             </p>
           </td>
         </tr>
@@ -351,7 +351,7 @@ Deno.serve(async (req: Request) => {
         lignes.sort((a, b) => (PRIORITE_TYPE[a.type_prioritaire] ?? 99) - (PRIORITE_TYPE[b.type_prioritaire] ?? 99))
 
         // — Envoi digest
-        const sujet = `[Ockham] ${nomOrg ? nomOrg + ' - ' : ''}${lignes.length} client${lignes.length > 1 ? 's' : ''} en procédure identifiés- ${dateStr}`
+        const sujet = `[Ockham] ${nomOrg ? nomOrg + ' - ' : ''}${lignes.length} nouvelle${lignes.length > 1 ? 's' : ''} alerte${lignes.length > 1 ? 's' : ''} BODACC - ${dateStr}`
         const html  = buildDigestEmail(lignes, dateStr, nomOrg)
         for (const email of emails) {
           const ok = await envoyerEmail(email, sujet, html)
