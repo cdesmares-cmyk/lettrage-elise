@@ -406,7 +406,7 @@ async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: stri
 
   for (let i = 0; i < sirensUniques.length; i += BATCH) {
     const batch = sirensUniques.slice(i, i + BATCH)
-    const sirensPart = batch.map(s => `registre="${s}"`).join(' OR ')
+    const sirensPart = batch.flatMap(s => [`registre="${s}"`, `registre="${sirenAvecEspaces(s)}"`]).join(' OR ')
     const filtre = `familleavis="collective" AND dateparution>="2020-01-01" AND (${sirensPart})`
     const records = await fetchAllBodacc(filtre)
     if (!records.length) continue
