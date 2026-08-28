@@ -82,15 +82,21 @@ export function useImportBancaire() {
     const colRef     = mapping.find(m => m.champ_cible === 'detail')?.colonne_source
     if (!colPivot) throw new Error('La colonne N° Opération (pivot) doit être mappée.')
 
-    // Clé d'unicité : pivot réel si présent, sinon clé synthétique SYNTH|date|libelle|ref
-    // Couvre les remises CHQ/LCR qui n'ont pas de numéro d'opération
+    // Clé d'unicité : pivot réel si présent et non tronqué par Excel, sinon clé synthétique
+    // Couvre les remises CHQ/LCR sans numéro d'opération, et les exports Excel qui convertissent
+    // les longues références en notation scientifique (ex. 2,6225E+14).
     function cleEffective(ligne: Record<string, string>): string {
       const pivot = (ligne[colPivot as string] ?? '').trim()
-      if (pivot) return pivot
+      const pivotTronque = /^-?\d+[,.]?\d*[Ee][+\-]?\d+$/.test(pivot)
+      if (pivot && !pivotTronque) return pivot
       const d  = (ligne[colDate    ?? ''] ?? '').trim()
       const lb = (ligne[colLibelle ?? ''] ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
       const rf = (ligne[colRef     ?? ''] ?? '').trim()
-      return `SYNTH|${d}|${lb}|${rf}`
+      if (!pivotTronque) return `SYNTH|${d}|${lb}|${rf}`
+      // Pivot tronqué : on ajoute le montant pour distinguer les opérations d'un même batch
+      const mapped = appliquerMapping(ligne, mapping)
+      const montant = ((mapped['credit'] as number) || 0) - ((mapped['debit'] as number) || 0)
+      return `SYNTH|${d}|${lb}|${rf}|${montant}`
     }
 
     const toutesLesCles = [...new Set(lignes.map(l => cleEffective(l)))]
