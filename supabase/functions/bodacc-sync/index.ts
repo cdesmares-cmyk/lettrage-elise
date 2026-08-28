@@ -410,13 +410,19 @@ async function scanGlobal(supabase: ReturnType<typeof createClient>, orgId: stri
     const filtre = `familleavis="collective" AND dateparution>="2020-01-01" AND (${sirensPart})`
     const records = await fetchAllBodacc(filtre)
     if (!records.length) continue
+    console.log(`[bodacc-sync] batch i=${i} → ${records.length} records BODACC`)
     const alertes = construireAlertes(records, clients)
+    console.log(`[bodacc-sync] batch i=${i} → ${alertes.length} alertes construites`)
     if (!alertes.length) continue
     for (let j = 0; j < alertes.length; j += 500) {
       const { error } = await supabase
         .from('alertes_risque')
         .upsert(alertes.slice(j, j + 500) as never, { onConflict: 'organisation_id,bodacc_id', ignoreDuplicates: false })
-      if (!error) nbInsérées += alertes.slice(j, j + 500).length
+      if (error) {
+        console.error(`[bodacc-sync] upsert error batch i=${i} j=${j}:`, error.message, error.details ?? '')
+      } else {
+        nbInsérées += alertes.slice(j, j + 500).length
+      }
     }
   }
 
