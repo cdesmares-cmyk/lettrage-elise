@@ -51,14 +51,14 @@ function Item({ label, icon, onClick, danger, separator }: ItemProps) {
 
 export function MenuAdmin() {
   const { utilisateur, profil } = useAuth()
-  const { isAdmin, isSuperAdmin, peutModifier, isCommercial, isExterne } = useRole()
+  const { isAdmin, peutModifier, isCommercial, isExterne } = useRole()
   const [ouvert, setOuvert] = useState(false)
   const [modal, setModal] = useState<ModalId | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   const initiales = getInitiales(utilisateur?.email)
   const nomAffiche = profil?.nom_organisation ?? utilisateur?.email?.split('@')[0] ?? '—'
-  const roleAffiche = isSuperAdmin ? 'Super Admin' : isExterne ? 'Externe' : isCommercial ? 'Commercial' : 'Administrateur'
+  const roleAffiche = profil?.role === 'superadmin' ? 'Super Admin' : isExterne ? 'Externe' : isCommercial ? 'Commercial' : 'Administrateur'
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {

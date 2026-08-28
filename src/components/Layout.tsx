@@ -99,8 +99,8 @@ const NAV_OUTILS = [
 
 
 export function Layout() {
-  const { isCommercial, isExterne, isSuperAdmin } = useRole()
-  const { } = useAuth()
+  const { isCommercial, isExterne } = useRole()
+  const { profil } = useAuth()
   const { relances, lettragesMap, seuilSansSuite } = useRelances()
 
   const nbAlertes = useMemo(() => {
@@ -217,7 +217,7 @@ export function Layout() {
           )}
 
           {/* Super Admin */}
-          {isSuperAdmin && (
+          {profil?.role === 'superadmin' && (
             <a
               href="/superadmin"
               className="flex items-center gap-2 px-2.5 py-2 mb-1 rounded-lg text-[12px] font-semibold text-ockham-teal border border-ockham-teal/20 hover:bg-ockham-teal/10 transition-colors"

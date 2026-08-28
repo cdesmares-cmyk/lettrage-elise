@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 
 interface ProfilUtilisateur {
   role: string
-  is_superadmin: boolean
   organisation_id: string
   nom_organisation: string
   code_org: string
@@ -46,13 +45,12 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
   async function chargerProfil(userId: string) {
     const { data } = await supabase
       .from('utilisateurs')
-      .select('role, is_superadmin, organisation_id, prenom, nom, initiales, organisations(nom, code_org)')
+      .select('role, organisation_id, prenom, nom, initiales, organisations(nom, code_org)')
       .eq('id', userId)
       .single()
-    const d = data as { role: string; is_superadmin: boolean; organisation_id: string; prenom: string; nom: string; initiales: string; organisations: { nom: string; code_org: string | null } | null } | null
+    const d = data as { role: string; organisation_id: string; prenom: string; nom: string; initiales: string; organisations: { nom: string; code_org: string | null } | null } | null
     if (d) setProfil({
       role: d.role,
-      is_superadmin: d.is_superadmin ?? false,
       organisation_id: d.organisation_id,
       prenom: d.prenom ?? '',
       nom: d.nom ?? '',

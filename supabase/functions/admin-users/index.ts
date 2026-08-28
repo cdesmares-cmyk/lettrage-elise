@@ -45,7 +45,7 @@ Deno.serve(async (req: Request) => {
       .select('role, organisation_id, prenom, nom')
       .eq('id', user.id)
       .single()
-    if (!caller || caller.role !== 'admin') return json({ error: 'Accès réservé à l\'administrateur' }, 403)
+    if (!caller || !['admin', 'superadmin'].includes(caller.role)) return json({ error: 'Accès réservé à l\'administrateur' }, 403)
 
     const body = await req.json()
     const { action } = body

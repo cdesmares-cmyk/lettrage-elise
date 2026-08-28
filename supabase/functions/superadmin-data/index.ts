@@ -40,8 +40,8 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
 
     const { data: caller } = await supabase
-      .from('utilisateurs').select('role, is_superadmin').eq('id', user.id).single()
-    if (!caller || !caller.is_superadmin)
+      .from('utilisateurs').select('role').eq('id', user.id).single()
+    if (!caller || caller.role !== 'superadmin')
       return json({ error: 'Accès réservé au superadmin' }, 403)
 
     const body = await req.json()
