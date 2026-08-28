@@ -249,8 +249,11 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
         setDistributionsAuto(distribMap)
         setDetectionsApprox(detectedApprox)
 
+        // Suivi local des lignes résolues à travers toutes les passes
+        const resolusLocal = new Set(detected)
+
         // ── Passe 2 : lots séquentiels — couverture maximale sans surcharge Supabase ──
-        const nonResolus = candidats.filter(l => !detected.has(l.id_operation) && l.restant >= 0.01)
+        const nonResolus = candidats.filter(l => !resolusLocal.has(l.id_operation) && l.restant >= 0.01)
         const BATCH = 20
         const MAX_BATCHES = 10
         const PAUSE_MS = 150
@@ -265,7 +268,7 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           const detected2 = new Set<string>()
           const distribMap2 = new Map<string, DistribAuto>()
           for (const { id, ligne, r } of resultats) {
-            if (r) { detected2.add(id); distribMap2.set(id, { factures: r.factures, ligne }) }
+            if (r) { detected2.add(id); distribMap2.set(id, { factures: r.factures, ligne }); resolusLocal.add(id) }
           }
           if (detected2.size > 0) {
             setDetections(prev => new Set([...prev, ...detected2]))
@@ -274,10 +277,36 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           if (b < nbBatches - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
         }
 
-        // ── Passe 3 : double paiement — uniquement sur les encore non résolus ──
+        // ── Passe 3 : même critères stricts, lignes non couvertes par Passe 2 ──
+        if (!annule) {
+          const nonResolus3 = candidats.filter(l => !resolusLocal.has(l.id_operation) && l.restant >= 0.01)
+          const BATCH_P3 = 10
+          const MAX_BATCHES_P3 = 5
+          const nbBatchesP3 = Math.min(Math.ceil(nonResolus3.length / BATCH_P3), MAX_BATCHES_P3)
+          for (let b = 0; b < nbBatchesP3; b++) {
+            if (annule) break
+            const lot = nonResolus3.slice(b * BATCH_P3, (b + 1) * BATCH_P3)
+            const resultats = await Promise.all(
+              lot.map(l => detecterAutoSilencieux(l, formats).then(r => ({ id: l.id_operation, ligne: l, r })))
+            )
+            if (annule) break
+            const detected3 = new Set<string>()
+            const distribMap3 = new Map<string, DistribAuto>()
+            for (const { id, ligne, r } of resultats) {
+              if (r) { detected3.add(id); distribMap3.set(id, { factures: r.factures, ligne }); resolusLocal.add(id) }
+            }
+            if (detected3.size > 0) {
+              setDetections(prev => new Set([...prev, ...detected3]))
+              setDistributionsAuto(prev => new Map([...prev, ...distribMap3]))
+            }
+            if (b < nbBatchesP3 - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
+          }
+        }
+
+        // ── Passe 4 : double paiement — uniquement sur les encore non résolus ──
         if (!annule) {
           const encoreNonResolus = candidats.filter(
-            l => !detected.has(l.id_operation) && l.restant >= 0.01
+            l => !resolusLocal.has(l.id_operation) && l.restant >= 0.01
           )
           const BATCH_DP = 10
           const MAX_BATCHES_DP = 5

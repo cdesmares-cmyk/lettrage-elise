@@ -227,6 +227,42 @@ export function trouverDistribution(
     }
   }
 
+  // 5 factures exactes (même garde ≤ 25)
+  if (factures.length <= 25) {
+    for (let i = 0; i < factures.length - 4; i++) {
+      for (let j = i + 1; j < factures.length - 3; j++) {
+        for (let k = j + 1; k < factures.length - 2; k++) {
+          for (let l = k + 1; l < factures.length - 1; l++) {
+            for (let m = l + 1; m < factures.length; m++) {
+              const s = arr(factures[i].reste_du + factures[j].reste_du + factures[k].reste_du + factures[l].reste_du + factures[m].reste_du)
+              if (Math.abs(s - c) <= TOLERANCE_CENT)
+                return { factures: [factures[i], factures[j], factures[k], factures[l], factures[m]], montantTotal: s, exact: true, confiance: 3 }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 6 factures exactes (même garde ≤ 25)
+  if (factures.length <= 25) {
+    for (let i = 0; i < factures.length - 5; i++) {
+      for (let j = i + 1; j < factures.length - 4; j++) {
+        for (let k = j + 1; k < factures.length - 3; k++) {
+          for (let l = k + 1; l < factures.length - 2; l++) {
+            for (let m = l + 1; m < factures.length - 1; m++) {
+              for (let n = m + 1; n < factures.length; n++) {
+                const s = arr(factures[i].reste_du + factures[j].reste_du + factures[k].reste_du + factures[l].reste_du + factures[m].reste_du + factures[n].reste_du)
+                if (Math.abs(s - c) <= TOLERANCE_CENT)
+                  return { factures: [factures[i], factures[j], factures[k], factures[l], factures[m], factures[n]], montantTotal: s, exact: true, confiance: 3 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 1 facture approx (±1%)
   const proche = factures
     .map(f => ({ f, ecart: Math.abs(arr(f.reste_du) - c) }))
