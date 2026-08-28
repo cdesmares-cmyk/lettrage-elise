@@ -84,7 +84,7 @@ function computeInitiales(prenom: string, nom: string): string {
 }
 
 export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
   const [users, setUsers] = useState<Utilisateur[]>([])
   const [filtre, setFiltre] = useState<Role | 'all'>('all')
   const [filtreOuvert, setFiltreOuvert] = useState(false)
@@ -104,12 +104,14 @@ export function ModalGestionRessources({ onClose }: { onClose: () => void }) {
   const filtreRef = useRef<HTMLDivElement>(null)
 
   const charger = useCallback(async () => {
+    if (!profil?.organisation_id) return
     const { data } = await supabase
       .from('utilisateurs')
       .select('id, email, prenom, nom, initiales, role')
+      .eq('organisation_id', profil.organisation_id)
       .order('nom')
     setUsers((data as unknown as Utilisateur[]) ?? [])
-  }, [])
+  }, [profil?.organisation_id])
 
   useEffect(() => { charger() }, [charger])
 
