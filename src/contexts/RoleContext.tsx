@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
-export type Role = 'admin' | 'responsable_poste_client' | 'commercial' | 'externe' | 'superadmin'
+export type Role = 'admin' | 'responsable_poste_client' | 'commercial' | 'externe'
 
 interface RoleContextValue {
   role: Role | null
@@ -29,11 +29,13 @@ const RoleContext = createContext<RoleContextValue>({
 export function RoleProvider({ children }: { children: ReactNode }) {
   const { utilisateur } = useAuth()
   const [role, setRole] = useState<Role | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [chargement, setChargement] = useState(true)
 
   useEffect(() => {
     if (!utilisateur) {
       setRole(null)
+      setIsSuperAdmin(false)
       setChargement(false)
       return
     }
@@ -41,7 +43,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     setChargement(true)
     supabase
       .from('utilisateurs')
-      .select('role')
+      .select('role, is_superadmin')
       .eq('id', utilisateur.id)
       .single()
       .then(({ data, error }) => {
@@ -53,10 +55,12 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             .insert({ id: utilisateur.id, email: utilisateur.email ?? '', nom: utilisateur.email?.split('@')[0] ?? '', prenom: '', initiales: (utilisateur.email?.split('@')[0] ?? '').slice(0, 3).toUpperCase() } as never)
             .then(() => {
               setRole('responsable_poste_client')
+              setIsSuperAdmin(false)
               setChargement(false)
             })
         } else {
           setRole((data as { role: Role }).role)
+          setIsSuperAdmin((data as { is_superadmin: boolean }).is_superadmin ?? false)
           setChargement(false)
         }
       })
@@ -66,9 +70,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     <RoleContext.Provider value={{
       role,
       chargement,
-      isAdmin: role === 'admin' || role === 'superadmin',
-      isSuperAdmin: role === 'superadmin',
-      peutModifier: role === 'admin' || role === 'responsable_poste_client' || role === 'superadmin',
+      isAdmin: role === 'admin',
+      isSuperAdmin,
+      peutModifier: role === 'admin' || role === 'responsable_poste_client',
       isCommercial: role === 'commercial',
       isExterne: role === 'externe',
       isLectureSeule: role === 'commercial' || role === 'externe',

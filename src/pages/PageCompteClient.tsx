@@ -61,7 +61,7 @@ export function PageCompteClient() {
     supabase
       .from('utilisateurs')
       .select('id, prenom, nom, role')
-      .not('role', 'in', '(externe,superadmin)')
+      .not('role', 'in', '(externe)')
       .order('nom')
       .then(({ data }) => {
         setUtilisateurs((data as { id: string; prenom: string; nom: string; role: string }[] | null) ?? [])
