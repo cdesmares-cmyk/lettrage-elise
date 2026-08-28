@@ -95,7 +95,7 @@ async function paginateFactures(initial: FactureDetail[]): Promise<FactureDetail
 }
 
 export function FournisseurDonnees({ children }: { children: ReactNode }) {
-  const { session } = useAuth()
+  const { session, profil } = useAuth()
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
@@ -134,7 +134,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           .order('code_client', { ascending: true })
           .order('date_emission', { ascending: false })
           .range(0, PAGE - 1),
-        supabase.from('organisations').select('mois_ref, ca12_mois, ca12_mois_prec').single(),
+        supabase.from('organisations').select('mois_ref, ca12_mois, ca12_mois_prec').eq('id', profil?.organisation_id ?? '').single(),
       ])
 
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
