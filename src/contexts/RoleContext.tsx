@@ -2,13 +2,14 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 
-export type Role = 'admin' | 'responsable_poste_client' | 'commercial' | 'externe'
+export type Role = 'admin' | 'responsable_poste_client' | 'commercial' | 'externe' | 'superadmin'
 
 interface RoleContextValue {
   role: Role | null
   chargement: boolean
   isAdmin: boolean
-  peutModifier: boolean  // admin + responsable_poste_client
+  isSuperAdmin: boolean
+  peutModifier: boolean  // admin + responsable_poste_client + superadmin
   isCommercial: boolean
   isExterne: boolean
   isLectureSeule: boolean  // commercial + externe
@@ -18,6 +19,7 @@ const RoleContext = createContext<RoleContextValue>({
   role: null,
   chargement: true,
   isAdmin: false,
+  isSuperAdmin: false,
   peutModifier: false,
   isCommercial: false,
   isExterne: false,
@@ -64,8 +66,9 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     <RoleContext.Provider value={{
       role,
       chargement,
-      isAdmin: role === 'admin',
-      peutModifier: role === 'admin' || role === 'responsable_poste_client',
+      isAdmin: role === 'admin' || role === 'superadmin',
+      isSuperAdmin: role === 'superadmin',
+      peutModifier: role === 'admin' || role === 'responsable_poste_client' || role === 'superadmin',
       isCommercial: role === 'commercial',
       isExterne: role === 'externe',
       isLectureSeule: role === 'commercial' || role === 'externe',
