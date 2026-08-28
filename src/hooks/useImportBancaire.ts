@@ -144,10 +144,10 @@ export function useImportBancaire() {
 
     return {
       lignes_doublons: [...lignesEnBase, ...doublonsIntraFichier],
-      // Injecte la clé synthétique dans id_operation si le pivot est vide
+      // id_operation = toujours cleEffective : gère les 3 cas (pivot normal, vide, scientifique)
       lignes_a_inserer: nouvelles.map(l => {
         const mapped = appliquerMapping(l, mapping)
-        if (!mapped['id_operation']) mapped['id_operation'] = cleEffective(l)
+        mapped['id_operation'] = cleEffective(l)
         return mapped
       }),
       apercu,
