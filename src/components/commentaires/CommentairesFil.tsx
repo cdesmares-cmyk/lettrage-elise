@@ -152,6 +152,8 @@ function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, e
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Tab' && mentionInfo && membresFiltres.length > 0) { e.preventDefault(); insererMembre(membresFiltres[0]); return }
+    if (e.key === 'Tab' && commandeInfo && facturesFiltrees.length > 0) { e.preventDefault(); insererFacture(facturesFiltrees[0]); return }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleEnvoyer() }
     if (e.key === 'Escape') { setMentionInfo(null); setCommandeInfo(null); onAnnuler?.() }
   }

@@ -72,7 +72,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
       <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
 
         {/* En-tête */}
-        <div className="px-5 pt-4 pb-0 bg-ockham-navy flex-shrink-0">
+        <div className="px-5 pt-4 pb-3 bg-ockham-navy flex-shrink-0">
           <div className="flex items-start justify-between mb-3">
             <div>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Commentaire facture</p>
@@ -88,23 +88,35 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
           </div>
 
           {/* Onglets */}
-          <div className="flex gap-1">
-            {([
-              { id: 'infos',  label: 'Information' },
-              { id: 'equipe', label: 'Commentaires équipe' },
-            ] as { id: Onglet; label: string }[]).map(o => (
-              <button
-                key={o.id}
-                onClick={() => setOnglet(o.id)}
-                className={`px-3 py-2 text-[11px] font-semibold rounded-t-lg transition-colors cursor-pointer border-b-2 ${
-                  onglet === o.id
-                    ? 'bg-white/10 text-white border-ockham-teal'
-                    : 'text-white/50 border-transparent hover:text-white/75 hover:bg-white/[0.05]'
-                }`}
-              >
-                {o.label}
-              </button>
-            ))}
+          <div className="space-y-1.5">
+            <button
+              onClick={() => setOnglet('infos')}
+              className={`w-full py-2 text-[11px] font-semibold rounded-md border transition-colors cursor-pointer ${
+                onglet === 'infos'
+                  ? 'bg-white/15 border-white/50 text-white'
+                  : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              Information
+            </button>
+            <button
+              onClick={() => setOnglet('equipe')}
+              className={`relative overflow-visible w-full py-2 text-[11px] font-semibold rounded-md border transition-colors cursor-pointer ${
+                onglet === 'equipe'
+                  ? 'bg-white/15 border-white/50 text-white'
+                  : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+              }`}
+            >
+              <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-ockham-teal flex items-center justify-center pointer-events-none">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </span>
+              Commentaires équipe
+            </button>
           </div>
         </div>
 

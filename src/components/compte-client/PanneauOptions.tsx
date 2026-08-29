@@ -367,15 +367,23 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
               </button>
             ))}
           </div>
-          {/* Ligne 2 — Commentaires équipe (pleine largeur) */}
+          {/* Ligne 2 — Commentaires équipe (pleine largeur + icône communauté) */}
           <button
             onClick={() => setOnglet('commentaires')}
-            className={`w-full py-2 text-[11px] font-semibold rounded-md border transition-colors ${
+            className={`relative overflow-visible w-full py-2 text-[11px] font-semibold rounded-md border transition-colors ${
               onglet === 'commentaires'
                 ? 'bg-white/15 border-white/50 text-white'
                 : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
             }`}
           >
+            <span className="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-ockham-teal flex items-center justify-center pointer-events-none">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </span>
             {LABELS_ONGLETS.commentaires}
           </button>
         </div>
