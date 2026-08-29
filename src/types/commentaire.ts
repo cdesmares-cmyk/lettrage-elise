@@ -36,6 +36,7 @@ export interface Notification {
   contexte:        ContexteCommentaire
   contexte_id:     string
   lu_le:           string | null
+  archivee_le:     string | null
   cree_le:         string
   // Champs joints depuis commentaires + utilisateurs
   auteur_nom:      string   // auteur du commentaire source

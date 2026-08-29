@@ -1,17 +1,15 @@
-// Notifications utilisateur : non-lues, marquer lu, Realtime
+// Notifications utilisateur : non-lues, marquer lu, archiver, Realtime
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { Notification } from '../types/commentaire'
 
-const COLS = 'id, type, contexte, contexte_id, lu_le, cree_le, commentaire_id'
-
-// Nombres de lignes dénormalisées enrichies depuis la vue (auteur + extrait)
+const COLS = 'id, type, contexte, contexte_id, lu_le, archivee_le, cree_le, commentaire_id'
 const COLS_FULL = `${COLS}, commentaires(auteur_id, corps_texte, utilisateurs(nom, prenom))`
 
 type RawNotif = {
   id: string; type: string; contexte: string; contexte_id: string
-  lu_le: string | null; cree_le: string; commentaire_id: string
+  lu_le: string | null; archivee_le: string | null; cree_le: string; commentaire_id: string
   commentaires: {
     auteur_id: string; corps_texte: string
     utilisateurs: { nom: string; prenom: string | null } | null
@@ -21,16 +19,16 @@ type RawNotif = {
 function mapNotif(r: RawNotif): Notification {
   const u = r.commentaires?.utilisateurs
   const auteur_nom = u ? (u.prenom ? `${u.prenom} ${u.nom}` : u.nom) : 'Inconnu'
-  const corps_extrait = (r.commentaires?.corps_texte ?? '').slice(0, 120)
   return {
     id:             r.id,
     type:           r.type as Notification['type'],
     contexte:       r.contexte as Notification['contexte'],
     contexte_id:    r.contexte_id,
     lu_le:          r.lu_le,
+    archivee_le:    r.archivee_le,
     cree_le:        r.cree_le,
     auteur_nom,
-    corps_extrait,
+    corps_extrait:  (r.commentaires?.corps_texte ?? '').slice(0, 120),
     commentaire_id: r.commentaire_id,
   }
 }
@@ -47,6 +45,7 @@ export function useNotifications() {
     const { data } = await supabase
       .from('notifications')
       .select(COLS_FULL)
+      .is('archivee_le', null)        // le panneau cloche n'affiche pas les archivées
       .order('cree_le', { ascending: false })
       .limit(50)
     const notifs = (data ?? []).map(r => mapNotif(r as unknown as RawNotif))
@@ -60,7 +59,7 @@ export function useNotifications() {
 
   useEffect(() => { charger() }, [charger])
 
-  // Realtime : badge mis à jour en temps réel à chaque nouvelle notification
+  // Realtime : badge mis à jour à chaque nouvelle notification
   useEffect(() => {
     if (!utilisateur) return
     const channel = supabase
@@ -93,6 +92,7 @@ export function useNotifications() {
       .from('notifications')
       .update({ lu_le: new Date().toISOString() } as never)
       .is('lu_le', null)
+      .is('archivee_le', null)
     if (!error) {
       const ts = new Date().toISOString()
       setNotifications(prev => prev.map(n => n.lu_le ? n : { ...n, lu_le: ts }))
@@ -100,5 +100,32 @@ export function useNotifications() {
     }
   }, [utilisateur])
 
-  return { notifications, nonLues, chargement, charger, marquerLu, marquerToutLu }
+  const archiver = useCallback(async (id: string) => {
+    const { error } = await supabase
+      .from('notifications')
+      .update({ archivee_le: new Date().toISOString() } as never)
+      .eq('id', id)
+      .is('archivee_le', null)
+    if (!error) {
+      setNotifications(prev => {
+        const n = prev.find(x => x.id === id)
+        if (n && !n.lu_le) setNonLues(c => Math.max(0, c - 1))
+        return prev.filter(x => x.id !== id)
+      })
+    }
+  }, [])
+
+  const archiverToutes = useCallback(async () => {
+    if (!utilisateur) return
+    const { error } = await supabase
+      .from('notifications')
+      .update({ archivee_le: new Date().toISOString() } as never)
+      .is('archivee_le', null)
+    if (!error) {
+      setNotifications([])
+      setNonLues(0)
+    }
+  }, [utilisateur])
+
+  return { notifications, nonLues, chargement, charger, marquerLu, marquerToutLu, archiver, archiverToutes }
 }
