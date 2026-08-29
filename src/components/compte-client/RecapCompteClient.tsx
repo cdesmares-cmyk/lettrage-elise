@@ -22,6 +22,7 @@ interface Props { client: CompteClient }
 
 export function RecapCompteClient({ client }: Props) {
   const { facturesActives } = useAppData()
+  const [impayeesDeveloppees, setImpayeesDeveloppees] = useState(true)
   const [regleesDeveloppees, setRegleesDeveloppees] = useState(false)
 
   const facturesClient = useMemo(() =>
@@ -94,36 +95,55 @@ export function RecapCompteClient({ client }: Props) {
         {/* Liste */}
         <div className="flex-1 overflow-y-auto">
 
-          {impayees.length === 0 ? (
-            <p className="text-center text-xs text-gray-400 py-6">Aucune facture impayée.</p>
-          ) : (
-            impayees.map(f => (
-              <div
-                key={f.numero_piece}
-                className="grid px-5 py-2.5 border-b border-red-50 items-center hover:bg-red-50/60 transition-colors"
-                style={{ gridTemplateColumns: '1fr 100px 100px 52px', background: 'rgba(254,242,242,0.28)' }}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0" />
-                  <NumeroPiece numero={f.numero_piece} className="text-[11px] text-ockham-teal-dark" />
+          {/* Header section impayées — collapsible */}
+          <button
+            onClick={() => setImpayeesDeveloppees(v => !v)}
+            className="w-full flex items-center gap-2 px-5 py-2 bg-red-50/50 hover:bg-red-50 border-b border-red-100/60 transition-colors cursor-pointer"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0" />
+            <span className="text-[9px] font-bold text-red-500 uppercase tracking-wider flex-1 text-left">
+              Impayées ({impayees.length})
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-300">
+              {impayeesDeveloppees
+                ? <polyline points="18 15 12 9 6 15" />
+                : <polyline points="6 9 12 15 18 9" />
+              }
+            </svg>
+          </button>
+
+          {impayeesDeveloppees && (
+            impayees.length === 0 ? (
+              <p className="text-center text-xs text-gray-400 py-4">Aucune facture impayée.</p>
+            ) : (
+              impayees.map(f => (
+                <div
+                  key={f.numero_piece}
+                  className="grid px-5 py-2.5 border-b border-red-50 items-center hover:bg-red-50/60 transition-colors"
+                  style={{ gridTemplateColumns: '1fr 100px 100px 52px', background: 'rgba(254,242,242,0.28)' }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-300 flex-shrink-0" />
+                    <NumeroPiece numero={f.numero_piece} className="text-[11px] text-ockham-teal-dark" />
+                  </div>
+                  <span className="text-[11px] text-gray-400 text-right tabular-nums">
+                    {_fmt.format(f.montant_ttc)} €
+                  </span>
+                  <span className="text-[11px] font-bold text-red-600 text-right tabular-nums">
+                    {_fmt.format(f.reste_du)} €
+                  </span>
+                  <div className="text-center">
+                    {f.date_emission ? (
+                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${badgeAnc(anciennete(f.date_emission))}`}>
+                        {anciennete(f.date_emission)}j
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[11px] text-gray-400 text-right tabular-nums">
-                  {_fmt.format(f.montant_ttc)} €
-                </span>
-                <span className="text-[11px] font-bold text-red-600 text-right tabular-nums">
-                  {_fmt.format(f.reste_du)} €
-                </span>
-                <div className="text-center">
-                  {f.date_emission ? (
-                    <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${badgeAnc(anciennete(f.date_emission))}`}>
-                      {anciennete(f.date_emission)}j
-                    </span>
-                  ) : (
-                    <span className="text-gray-300">—</span>
-                  )}
-                </div>
-              </div>
-            ))
+              ))
+            )
           )}
 
           {/* Bouton charger réglées */}
