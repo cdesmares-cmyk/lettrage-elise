@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
 import { useRelances, etatVue, joursDepuis } from '../hooks/useRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
+import { ClocheNotifications } from './ClocheNotifications'
 
 function ChipCorrection() {
   const { minimise, lignesCorrection, restaurer, fermer } = useCorrectionContext()
@@ -229,6 +230,7 @@ export function Layout() {
             </a>
           )}
 
+          <ClocheNotifications />
           <MenuAdmin />
         </div>
       </aside>

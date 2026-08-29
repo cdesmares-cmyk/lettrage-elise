@@ -4,12 +4,13 @@ import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { SectionTimelineRelances } from './SectionTimelineRelances'
+import { CommentairesFil } from '../commentaires/CommentairesFil'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 
 type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
-type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc'
+type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000
 
@@ -324,10 +325,11 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
     noteClient   !== (client.note_client   ?? '')
 
   const LABELS_ONGLETS: Record<Onglet, string> = {
-    infos:    'Informations',
-    contacts: 'Contacts',
-    relances: 'Relances',
-    bodacc:   'BODACC',
+    infos:         'Infos',
+    contacts:      'Contacts',
+    relances:      'Relances',
+    bodacc:        'BODACC',
+    commentaires:  'Équipe',
   }
 
   return (
@@ -346,7 +348,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
 
         {/* Onglets */}
         <div className="flex gap-1.5 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
-          {(['infos', 'contacts', 'relances', 'bodacc'] as Onglet[]).map(o => (
+          {(['infos', 'contacts', 'relances', 'bodacc', 'commentaires'] as Onglet[]).map(o => (
             <button
               key={o}
               onClick={() => setOnglet(o)}
@@ -625,6 +627,11 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
             </div>
           )}
 
+          {/* ── COMMENTAIRES ÉQUIPE ── */}
+          {onglet === 'commentaires' && (
+            <CommentairesFil contexte="client" contexteId={client.code_dso} />
+          )}
+
           {/* ── INFORMATIONS ── */}
           {onglet === 'infos' && <>
             {/* Statut juridique — lecture seule, alimenté par BODACC */}
@@ -752,7 +759,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
             </button>
           </div>
         )}
-        {(onglet === 'contacts' || onglet === 'relances' || onglet === 'bodacc') && (
+        {(onglet === 'contacts' || onglet === 'relances' || onglet === 'bodacc' || onglet === 'commentaires') && (
           <div className="px-5 py-4 border-t border-gray-100">
             <button onClick={fermerEtReset} className="w-full text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">
               Fermer
