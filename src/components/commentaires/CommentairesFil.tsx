@@ -24,7 +24,7 @@ function normaliser(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
-function renderCorps(texte: string, membres: MembreOrg[]) {
+function renderCorps(texte: string, membres: MembreOrg[], facturesActives: FactureDetail[]) {
   const parts = texte.split(/(@[^\s@,.:;!?]+|#[^\s#,.:;!?]+)/g)
   return parts.map((part, i) => {
     if (part.startsWith('@')) {
@@ -33,6 +33,16 @@ function renderCorps(texte: string, membres: MembreOrg[]) {
       if (m) return <span key={i} style={{ color: m.couleur }} className="font-semibold">{part}</span>
     }
     if (part.startsWith('#')) {
+      const piece = part.slice(1)
+      const f = facturesActives.find(x => x.numero_piece === piece)
+      if (f) {
+        return (
+          <a key={i} href={`/compte-client?client=${f.code_client}`} target="_blank" rel="noopener noreferrer"
+            className="text-[#3BA89F] font-mono font-medium text-[11px] bg-[#3BA89F]/10 px-1 rounded hover:underline cursor-pointer">
+            {part}
+          </a>
+        )
+      }
       return <span key={i} className="text-[#3BA89F] font-mono font-medium text-[11px] bg-[#3BA89F]/10 px-1 rounded">{part}</span>
     }
     return <span key={i}>{part}</span>
@@ -155,32 +165,38 @@ function ZoneSaisie({ membres, facturesActives, onEnvoyer, reponseA, onAnnuler, 
           onChange={handleChange}
           onKeyDown={handleKeyDown}
         />
-        {mentionInfo && membresFiltres.length > 0 && (
-          <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-            {membresFiltres.map(m => (
-              <button key={m.id} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
-                onMouseDown={e => { e.preventDefault(); insererMembre(m) }}>
-                <Avatar initiales={m.initiales} couleur={m.couleur} size={20} />
-                <span className="text-xs text-gray-700">{m.prenom ? `${m.prenom} ${m.nom}` : m.nom}</span>
-              </button>
-            ))}
-          </div>
-        )}
-        {commandeInfo && facturesFiltrees.length > 0 && (
-          <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-            <p className="px-3 py-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">Factures impayées</p>
-            {facturesFiltrees.map(f => (
-              <button key={f.numero_piece} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
-                onMouseDown={e => { e.preventDefault(); insererFacture(f) }}>
-                <span className="font-mono text-[11px] text-[#3BA89F] font-semibold flex-shrink-0">{f.numero_piece}</span>
-                <span className="text-[11px] text-gray-500 truncate flex-1">{f.nom_client}</span>
-                <span className="text-[10px] text-gray-400 flex-shrink-0">
-                  {f.montant_ttc?.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+        {mentionInfo && membresFiltres.length > 0 && (() => {
+          const haut = !!ref.current && ref.current.getBoundingClientRect().bottom > window.innerHeight - 220
+          return (
+            <div className={`absolute ${haut ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden`}>
+              {membresFiltres.map(m => (
+                <button key={m.id} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
+                  onMouseDown={e => { e.preventDefault(); insererMembre(m) }}>
+                  <Avatar initiales={m.initiales} couleur={m.couleur} size={20} />
+                  <span className="text-xs text-gray-700">{m.prenom ? `${m.prenom} ${m.nom}` : m.nom}</span>
+                </button>
+              ))}
+            </div>
+          )
+        })()}
+        {commandeInfo && facturesFiltrees.length > 0 && (() => {
+          const haut = !!ref.current && ref.current.getBoundingClientRect().bottom > window.innerHeight - 260
+          return (
+            <div className={`absolute ${haut ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden`}>
+              <p className="px-3 py-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">Factures impayées</p>
+              {facturesFiltrees.map(f => (
+                <button key={f.numero_piece} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
+                  onMouseDown={e => { e.preventDefault(); insererFacture(f) }}>
+                  <span className="font-mono text-[11px] text-[#3BA89F] font-semibold flex-shrink-0">{f.numero_piece}</span>
+                  <span className="text-[11px] text-gray-500 truncate flex-1">{f.nom_client}</span>
+                  <span className="text-[10px] text-gray-400 flex-shrink-0">
+                    {f.montant_ttc?.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        })()}
       </div>
       <div className="flex items-center justify-end gap-3 mt-1.5">
         {onAnnuler && (
@@ -251,7 +267,7 @@ function Bulle({ c, membres, facturesActives, moiId, repondantAId, envoyer, envo
           </div>
         ) : (
           <p className="mt-0.5 text-xs text-gray-700 leading-relaxed whitespace-pre-wrap break-words">
-            {renderCorps(c.corps_texte, membres)}
+            {renderCorps(c.corps_texte, membres, facturesActives)}
           </p>
         )}
 
