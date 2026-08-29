@@ -126,11 +126,10 @@ export function useCommentaires(contexte: ContexteCommentaire, contexteId: strin
   const modifier = useCallback(async (
     id: string,
     corpsTexte: string,
-    mentions: string[],
   ): Promise<boolean> => {
     const { error } = await supabase
       .from('commentaires')
-      .update({ corps_texte: corpsTexte, mentions } as never)
+      .update({ corps_texte: corpsTexte } as never)
       .eq('id', id)
     if (error) { toast.error('Erreur lors de la modification.'); return false }
     toast.success('Commentaire modifié.')
