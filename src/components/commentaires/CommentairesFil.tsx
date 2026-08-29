@@ -18,17 +18,19 @@ function tempsRelatif(iso: string): string {
   return j === 1 ? 'hier' : `il y a ${j}j`
 }
 
-function tokenMembre(m: MembreOrg): string {
-  return m.prenom ?? m.nom
+function tokenMembre(m: MembreOrg): string { return m.prenom ?? m.nom }
+
+function normaliserRecherche(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
 function renderCorps(texte: string, membres: MembreOrg[]) {
-  const parts = texte.split(/(@\w+)/g)
+  const parts = texte.split(/(@[^\s@,.:;!?]+)/g)
   return parts.map((part, i) => {
     if (part.startsWith('@')) {
-      const slug = part.slice(1).toLowerCase()
+      const slug = normaliserRecherche(part.slice(1))
       const m = membres.find(x =>
-        (x.prenom?.toLowerCase() === slug) || x.nom.toLowerCase() === slug
+        normaliserRecherche(x.prenom ?? '') === slug || normaliserRecherche(x.nom) === slug
       )
       if (m) return <span key={i} style={{ color: m.couleur }} className="font-semibold">{part}</span>
     }
@@ -38,10 +40,10 @@ function renderCorps(texte: string, membres: MembreOrg[]) {
 
 function detecterMention(texte: string, cursor: number): { debut: number; query: string } | null {
   const avant = texte.slice(0, cursor)
-  const match = avant.match(/(?:^|[\s\n])(@\w*)$/)
+  const match = avant.match(/(?:^|[\s\n])(@[^\s@]*)$/)
   if (!match) return null
   const debut = avant.lastIndexOf('@')
-  return { debut, query: match[1].slice(1).toLowerCase() }
+  return { debut, query: match[1].slice(1) }
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────
@@ -63,16 +65,19 @@ interface BulleProps {
   c: Commentaire
   membres: MembreOrg[]
   moiId: string
+  reponseActive: string | null
   onRepondre: (id: string, nomAuteur: string) => void
   onModifier: (id: string, texte: string, mentions: string[]) => Promise<boolean>
   onSupprimer: (id: string) => Promise<boolean>
 }
 
-function Bulle({ c, membres, moiId, onRepondre, onModifier, onSupprimer }: BulleProps) {
-  const [editing, setEditing] = useState(false)
+function Bulle({ c, membres, moiId, reponseActive, onRepondre, onModifier, onSupprimer }: BulleProps) {
+  const [editing, setEditing]     = useState(false)
   const [texteEdit, setTexteEdit] = useState(c.corps_texte)
-  const estMoi = c.auteur_id === moiId
-  const m = membres.find(x => x.id === c.auteur_id)
+  const [expanded, setExpanded]   = useState(true)
+  const estMoi  = c.auteur_id === moiId
+  const estActif = reponseActive === c.id
+  const m       = membres.find(x => x.id === c.auteur_id)
   const initiales = m?.initiales ?? c.auteur_nom.slice(0, 2).toUpperCase()
   const couleur   = m?.couleur   ?? '#888'
 
@@ -80,6 +85,8 @@ function Bulle({ c, membres, moiId, onRepondre, onModifier, onSupprimer }: Bulle
     const ok = await onModifier(c.id, texteEdit.trim(), c.mentions)
     if (ok) setEditing(false)
   }
+
+  const nbReponses = c.reponses?.length ?? 0
 
   return (
     <div className="flex gap-2">
@@ -117,12 +124,28 @@ function Bulle({ c, membres, moiId, onRepondre, onModifier, onSupprimer }: Bulle
               <button onClick={() => onSupprimer(c.id)} className="text-[10px] text-gray-400 hover:text-red-500 cursor-pointer transition-colors">Supprimer</button>
             </>
           )}
+          {nbReponses > 0 && (
+            <button onClick={() => setExpanded(e => !e)} className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer transition-colors ml-1">
+              {expanded ? `▲ Masquer` : `▶ ${nbReponses} réponse${nbReponses > 1 ? 's' : ''}`}
+            </button>
+          )}
         </div>
 
-        {c.reponses && c.reponses.length > 0 && (
-          <div className="mt-2 pl-3 border-l-2 border-gray-100 flex flex-col gap-2.5">
-            {c.reponses.map(r => (
-              <Bulle key={r.id} c={r} membres={membres} moiId={moiId} onRepondre={onRepondre} onModifier={onModifier} onSupprimer={onSupprimer} />
+        {nbReponses > 0 && expanded && (
+          <div className={`mt-2 pl-3 transition-colors flex flex-col gap-2.5 ${
+            estActif ? 'border-l-[3px] border-[#4CC5BB]' : 'border-l-2 border-gray-100'
+          }`}>
+            {c.reponses!.map(r => (
+              <Bulle
+                key={r.id}
+                c={r}
+                membres={membres}
+                moiId={moiId}
+                reponseActive={reponseActive}
+                onRepondre={(_id, nom) => onRepondre(c.id, nom)}
+                onModifier={onModifier}
+                onSupprimer={onSupprimer}
+              />
             ))}
           </div>
         )}
@@ -150,8 +173,10 @@ function ZoneSaisie({ membres, onEnvoyer, reponseA, nomReponseA, onAnnulerRepons
 
   const membresFiltres = mentionInfo
     ? membres.filter(m => {
-        const s = `${m.prenom ?? ''} ${m.nom}`.toLowerCase()
-        return s.includes(mentionInfo.query) || tokenMembre(m).toLowerCase().startsWith(mentionInfo.query)
+        const q  = normaliserRecherche(mentionInfo.query)
+        const p  = normaliserRecherche(m.prenom ?? '')
+        const n  = normaliserRecherche(m.nom)
+        return p.startsWith(q) || n.startsWith(q) || `${p} ${n}`.includes(q) || `${n} ${p}`.includes(q)
       }).slice(0, 5)
     : []
 
@@ -186,7 +211,7 @@ function ZoneSaisie({ membres, onEnvoyer, reponseA, nomReponseA, onAnnulerRepons
   }
 
   return (
-    <div className="border-t border-gray-100 pt-3 mt-1">
+    <div>
       {reponseA && (
         <div className="flex items-center gap-2 mb-2 text-[11px] text-gray-500 bg-gray-50 rounded-md px-2.5 py-1.5">
           <span>Répondre à <strong className="text-gray-700">{nomReponseA}</strong></span>
@@ -194,8 +219,18 @@ function ZoneSaisie({ membres, onEnvoyer, reponseA, nomReponseA, onAnnulerRepons
         </div>
       )}
       <div className="relative">
+        <textarea
+          ref={ref}
+          className="w-full text-xs border border-gray-200 rounded-lg p-2.5 resize-none focus:outline-none focus:border-[#4CC5BB] transition-colors placeholder-gray-300"
+          rows={2}
+          placeholder="Ajouter un commentaire… (@membre · Ctrl+Entrée pour envoyer)"
+          value={texte}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+        />
+        {/* Dropdown @mention — s'ouvre vers le bas */}
         {mentionInfo && membresFiltres.length > 0 && (
-          <div className="absolute bottom-full left-0 mb-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+          <div className="absolute top-full left-0 mt-1 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
             {membresFiltres.map(m => (
               <button
                 key={m.id}
@@ -208,15 +243,6 @@ function ZoneSaisie({ membres, onEnvoyer, reponseA, nomReponseA, onAnnulerRepons
             ))}
           </div>
         )}
-        <textarea
-          ref={ref}
-          className="w-full text-xs border border-gray-200 rounded-lg p-2.5 resize-none focus:outline-none focus:border-[#4CC5BB] transition-colors placeholder-gray-300"
-          rows={2}
-          placeholder="Ajouter un commentaire… (@membre · Ctrl+Entrée pour envoyer)"
-          value={texte}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-        />
       </div>
       <div className="flex justify-end mt-1.5">
         <button
@@ -242,8 +268,8 @@ export function CommentairesFil({ contexte, contexteId }: CommentairesFilProps) 
   const { commentaires, chargement, envoi, envoyer, modifier, supprimer } = useCommentaires(contexte, contexteId)
   const { membresOrg } = useAppData()
   const { utilisateur } = useAuth()
-  const [reponseA, setReponseA]         = useState<string | null>(null)
-  const [nomReponseA, setNomReponseA]   = useState('')
+  const [reponseA, setReponseA]       = useState<string | null>(null)
+  const [nomReponseA, setNomReponseA] = useState('')
 
   const handleEnvoyer = useCallback(
     (texte: string, mentions: string[], reponseAId?: string | null) =>
@@ -257,34 +283,41 @@ export function CommentairesFil({ contexte, contexteId }: CommentairesFilProps) 
   }
 
   if (chargement && commentaires.length === 0) {
-    return <div className="py-6 text-center text-xs text-gray-400">Chargement…</div>
+    return <div className="flex-1 flex items-center justify-center text-xs text-gray-400">Chargement…</div>
   }
 
   return (
-    <div className="flex flex-col gap-3 py-1">
-      {commentaires.length === 0 ? (
-        <p className="text-center text-xs text-gray-400 py-3">Aucun commentaire pour l'instant.</p>
-      ) : (
-        commentaires.map(c => (
-          <Bulle
-            key={c.id}
-            c={c}
-            membres={membresOrg}
-            moiId={utilisateur?.id ?? ''}
-            onRepondre={handleRepondre}
-            onModifier={modifier}
-            onSupprimer={supprimer}
-          />
-        ))
-      )}
-      <ZoneSaisie
-        membres={membresOrg}
-        onEnvoyer={handleEnvoyer}
-        reponseA={reponseA}
-        nomReponseA={nomReponseA}
-        onAnnulerReponse={() => { setReponseA(null); setNomReponseA('') }}
-        envoi={envoi}
-      />
-    </div>
+    <>
+      {/* Fil scrollable */}
+      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+        {commentaires.length === 0 ? (
+          <p className="text-center text-xs text-gray-400 py-3">Aucun commentaire pour l'instant.</p>
+        ) : (
+          commentaires.map(c => (
+            <Bulle
+              key={c.id}
+              c={c}
+              membres={membresOrg}
+              moiId={utilisateur?.id ?? ''}
+              reponseActive={reponseA}
+              onRepondre={handleRepondre}
+              onModifier={modifier}
+              onSupprimer={supprimer}
+            />
+          ))
+        )}
+      </div>
+      {/* Zone saisie — fixe en bas, hors du scroll */}
+      <div className="flex-shrink-0 border-t border-gray-100 px-5 py-4">
+        <ZoneSaisie
+          membres={membresOrg}
+          onEnvoyer={handleEnvoyer}
+          reponseA={reponseA}
+          nomReponseA={nomReponseA}
+          onAnnulerReponse={() => { setReponseA(null); setNomReponseA('') }}
+          envoi={envoi}
+        />
+      </div>
+    </>
   )
 }

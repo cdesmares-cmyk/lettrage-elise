@@ -329,7 +329,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
     contacts:      'Contacts',
     relances:      'Relances',
     bodacc:        'BODACC',
-    commentaires:  'Équipe',
+    commentaires:  'Commentaires équipe',
   }
 
   return (
@@ -347,26 +347,45 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
         </div>
 
         {/* Onglets */}
-        <div className="flex gap-1.5 px-4 py-3 bg-ockham-navy border-b border-white/10 flex-shrink-0">
-          {(['infos', 'contacts', 'relances', 'bodacc', 'commentaires'] as Onglet[]).map(o => (
-            <button
-              key={o}
-              onClick={() => setOnglet(o)}
-              className={`relative flex-1 py-2 text-[11px] font-semibold rounded-md border transition-colors ${
-                onglet === o
-                  ? 'bg-white/15 border-white/50 text-white'
-                  : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-              }`}
-            >
-              {LABELS_ONGLETS[o]}
-              {o === 'relances' && client.relance_auto_alerte && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-ockham-navy" />
-              )}
-            </button>
-          ))}
+        <div className="px-4 pt-3 pb-2.5 bg-ockham-navy border-b border-white/10 flex-shrink-0 space-y-1.5">
+          {/* Ligne 1 — 4 onglets principaux */}
+          <div className="flex gap-1.5">
+            {(['infos', 'contacts', 'relances', 'bodacc'] as Onglet[]).map(o => (
+              <button
+                key={o}
+                onClick={() => setOnglet(o)}
+                className={`relative flex-1 py-2 text-[11px] font-semibold rounded-md border transition-colors ${
+                  onglet === o
+                    ? 'bg-white/15 border-white/50 text-white'
+                    : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                }`}
+              >
+                {LABELS_ONGLETS[o]}
+                {o === 'relances' && client.relance_auto_alerte && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-ockham-navy" />
+                )}
+              </button>
+            ))}
+          </div>
+          {/* Ligne 2 — Commentaires équipe (pleine largeur) */}
+          <button
+            onClick={() => setOnglet('commentaires')}
+            className={`w-full py-2 text-[11px] font-semibold rounded-md border transition-colors ${
+              onglet === 'commentaires'
+                ? 'bg-white/15 border-white/50 text-white'
+                : 'border-white/20 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+            }`}
+          >
+            {LABELS_ONGLETS.commentaires}
+          </button>
         </div>
 
-        {/* Contenu */}
+        {/* Contenu — commentaires : flex-col full-height ; autres : scroll classique */}
+        {onglet === 'commentaires' ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <CommentairesFil contexte="client" contexteId={client.code_dso} />
+          </div>
+        ) : (
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
           {/* ── CONTACTS ── */}
@@ -627,11 +646,6 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
             </div>
           )}
 
-          {/* ── COMMENTAIRES ÉQUIPE ── */}
-          {onglet === 'commentaires' && (
-            <CommentairesFil contexte="client" contexteId={client.code_dso} />
-          )}
-
           {/* ── INFORMATIONS ── */}
           {onglet === 'infos' && <>
             {/* Statut juridique — lecture seule, alimenté par BODACC */}
@@ -739,6 +753,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
             </div>
           </>}
         </div>
+        )}
 
         {/* Pied de page */}
         {onglet === 'infos' && (

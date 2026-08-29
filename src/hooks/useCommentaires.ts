@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useAppData } from '../contexts/AppDataContext'
+import toast from 'react-hot-toast'
 import type { Commentaire, ContexteCommentaire } from '../types/commentaire'
 
 const COLS = 'id, auteur_id, corps_texte, mentions, contexte, contexte_id, reponse_a, cree_le, modifie_le'
@@ -45,15 +46,22 @@ export function useCommentaires(contexte: ContexteCommentaire, contexteId: strin
     }
   }
 
-  // Aplatit → arbre (réponses imbriquées sous leur parent)
+  // Aplatit → arbre max 2 niveaux (racine + réponses, jamais de 3ème niveau)
   function grouper(plat: Commentaire[]): Commentaire[] {
     const byId = new Map(plat.map(c => [c.id, { ...c, reponses: [] as Commentaire[] }]))
     const racines: Commentaire[] = []
     for (const c of byId.values()) {
-      if (c.reponse_a && byId.has(c.reponse_a)) {
-        byId.get(c.reponse_a)!.reponses!.push(c)
-      } else {
+      if (!c.reponse_a || !byId.has(c.reponse_a)) {
         racines.push(c)
+      } else {
+        // Remonte la chaîne jusqu'à trouver la racine (max 2 niveaux en display)
+        let parentId = c.reponse_a
+        let parent = byId.get(parentId)!
+        while (parent.reponse_a && byId.has(parent.reponse_a)) {
+          parentId = parent.reponse_a
+          parent = byId.get(parentId)!
+        }
+        byId.get(parentId)!.reponses!.push(c)
       }
     }
     return racines
@@ -110,7 +118,9 @@ export function useCommentaires(contexte: ContexteCommentaire, contexteId: strin
       reponse_a:   reponseA ?? null,
     } as never)
     setEnvoi(false)
-    return !error
+    if (error) { toast.error('Erreur lors de l\'envoi.'); return false }
+    toast.success('Commentaire envoyé.')
+    return true
   }, [utilisateur, envoi, contexte, contexteId])
 
   const modifier = useCallback(async (
@@ -122,12 +132,23 @@ export function useCommentaires(contexte: ContexteCommentaire, contexteId: strin
       .from('commentaires')
       .update({ corps_texte: corpsTexte, mentions } as never)
       .eq('id', id)
-    return !error
+    if (error) { toast.error('Erreur lors de la modification.'); return false }
+    toast.success('Commentaire modifié.')
+    chargerRef.current()
+    return true
   }, [])
 
   const supprimer = useCallback(async (id: string): Promise<boolean> => {
     const { error } = await supabase.from('commentaires').delete().eq('id', id)
-    return !error
+    if (error) { toast.error('Erreur lors de la suppression.'); return false }
+    toast.success('Commentaire supprimé.')
+    // Mise à jour locale immédiate (Realtime DELETE ne garantit pas le filtre)
+    setCommentaires(prev =>
+      prev
+        .filter(c => c.id !== id)
+        .map(c => ({ ...c, reponses: (c.reponses ?? []).filter(r => r.id !== id) }))
+    )
+    return true
   }, [])
 
   return { commentaires, chargement, envoi, charger, envoyer, modifier, supprimer }
