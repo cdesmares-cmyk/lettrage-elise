@@ -1,5 +1,6 @@
 // Modal "vue aérienne" des factures d'un client depuis le tableau de bord
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export function ModalClientTdb({ code, nom, onClose }: Props) {
+  const navigate = useNavigate()
   const { facturesActives, mettreAJourStatutLocal } = useAppData()
   const factures = facturesActives.filter(f => f.code_client === code && !f.numero_piece.startsWith('411_'))
 
@@ -46,21 +48,26 @@ export function ModalClientTdb({ code, nom, onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         {/* En-tête */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0 bg-ockham-navy">
           <div>
-            <h2 className="text-base font-bold text-ockham-teal-dark dark:text-ockham-teal-light">{nom}</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              <span className="font-mono text-ockham-teal dark:text-ockham-teal-light mr-2">{code}</span>
+            <h2 className="text-base font-bold text-white">{nom}</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              <button
+                onClick={() => { onClose(); navigate(`/compte-client?client=${code}`) }}
+                className="font-mono text-ockham-teal hover:underline cursor-pointer mr-2"
+              >
+                {code}
+              </button>
               {nbImpayees} facture{nbImpayees > 1 ? 's' : ''} impayée{nbImpayees > 1 ? 's' : ''}
               {' · '}
-              <span className="font-semibold text-red-600 dark:text-red-400">
+              <span className="font-semibold text-red-400">
                 {_fmtEuro.format(totalDu)} €
               </span>
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+            className="w-7 h-7 rounded-full border border-white/20 bg-white/10 hover:bg-white/20 text-slate-300 text-sm flex items-center justify-center transition-colors cursor-pointer"
           >
             ✕
           </button>
