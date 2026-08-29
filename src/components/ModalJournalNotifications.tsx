@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useAppData } from '../contexts/AppDataContext'
 import type { Notification, ContexteCommentaire } from '../types/commentaire'
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -57,17 +58,56 @@ const FILTRES_CONTEXTE: { val: ContexteCommentaire | 'tous'; label: string }[] =
   { val: 'procedure', label: 'Procédure' },
 ]
 
+type ClientInfo = { code: string; nom: string }
+
 // ── Composant principal ───────────────────────────────────────────────────
 
 interface Props { onFermer: () => void }
 
 export function ModalJournalNotifications({ onFermer }: Props) {
   const { utilisateur } = useAuth()
+  const { clients } = useAppData()
   const navigate = useNavigate()
   const [notifications, setNotifications] = useState<Notification[]>([])
+  const [clientInfoMap, setClientInfoMap] = useState<Map<string, ClientInfo>>(new Map())
   const [chargement, setChargement] = useState(false)
   const [recherche, setRecherche] = useState('')
   const [filtreContexte, setFiltreContexte] = useState<ContexteCommentaire | 'tous'>('tous')
+
+  // Enrichit chaque notification avec code_client + nom_client
+  const enrichirClients = useCallback(async (notifs: Notification[]) => {
+    const map = new Map<string, ClientInfo>()
+
+    // contexte 'client' : contexte_id = code_dso — nom dans la liste déjà chargée
+    for (const n of notifs) {
+      if (n.contexte === 'client') {
+        const c = clients.find(cl => cl.code_dso === n.contexte_id)
+        if (c) map.set(n.id, { code: c.code_dso, nom: c.nom })
+        else    map.set(n.id, { code: n.contexte_id, nom: '' })
+      }
+    }
+
+    // contexte 'facture' : contexte_id = numero_piece — requête Supabase
+    const numeros = notifs.filter(n => n.contexte === 'facture').map(n => n.contexte_id)
+    if (numeros.length > 0) {
+      const { data } = await supabase
+        .from('v_factures_avec_reste_du')
+        .select('numero_piece, code_client, nom_client')
+        .in('numero_piece', numeros)
+      if (data) {
+        type FacRow = { numero_piece: string; code_client: string; nom_client: string | null }
+        const facMap = new Map((data as FacRow[]).map(f => [f.numero_piece, f]))
+        for (const n of notifs) {
+          if (n.contexte === 'facture') {
+            const f = facMap.get(n.contexte_id)
+            if (f) map.set(n.id, { code: f.code_client, nom: f.nom_client ?? '' })
+          }
+        }
+      }
+    }
+
+    setClientInfoMap(map)
+  }, [clients])
 
   const charger = useCallback(async () => {
     if (!utilisateur) return
@@ -77,9 +117,11 @@ export function ModalJournalNotifications({ onFermer }: Props) {
       .select(COLS_FULL)
       .order('cree_le', { ascending: false })
       .limit(200)
-    setNotifications((data ?? []).map(r => mapNotif(r as unknown as RawNotif)))
+    const rows = (data ?? []).map(r => mapNotif(r as unknown as RawNotif))
+    setNotifications(rows)
     setChargement(false)
-  }, [utilisateur])
+    enrichirClients(rows)
+  }, [utilisateur, enrichirClients])
 
   useEffect(() => { charger() }, [charger])
 
@@ -94,7 +136,12 @@ export function ModalJournalNotifications({ onFermer }: Props) {
     if (filtreContexte !== 'tous' && n.contexte !== filtreContexte) return false
     if (!recherche.trim()) return true
     const q = normaliser(recherche)
-    return normaliser(n.corps_extrait).includes(q) || normaliser(n.auteur_nom).includes(q)
+    const info = clientInfoMap.get(n.id)
+    return (
+      normaliser(n.corps_extrait).includes(q) ||
+      normaliser(n.auteur_nom).includes(q) ||
+      (info ? normaliser(info.code).includes(q) || normaliser(info.nom).includes(q) : false)
+    )
   })
 
   const nonArchiveesLues = notifications.filter(n => n.lu_le && !n.archivee_le).length
@@ -166,7 +213,7 @@ export function ModalJournalNotifications({ onFermer }: Props) {
               </svg>
               <input
                 type="text"
-                placeholder="Rechercher dans les notifications…"
+                placeholder="Code client, nom client, opérateur, message…"
                 value={recherche}
                 onChange={e => setRecherche(e.target.value)}
                 className="w-full pl-8 pr-3 py-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-[#4CC5BB] transition-colors"
@@ -213,6 +260,7 @@ export function ModalJournalNotifications({ onFermer }: Props) {
               notifsFiltrees.map(n => {
                 const estArchivee = !!n.archivee_le
                 const estLue = !!n.lu_le
+                const info = clientInfoMap.get(n.id)
 
                 return (
                   <div
@@ -227,6 +275,18 @@ export function ModalJournalNotifications({ onFermer }: Props) {
                         ? <span className="block w-1.5 h-1.5 rounded-full bg-ockham-teal" />
                         : <span className="block w-1.5 h-1.5" />
                       }
+                    </div>
+
+                    {/* Colonne client */}
+                    <div className="flex-shrink-0 w-[108px] pt-0.5">
+                      {info ? (
+                        <>
+                          <span className="block text-[9px] font-mono font-semibold text-ockham-teal truncate">{info.code}</span>
+                          <span className="block text-[9px] text-gray-400 truncate leading-tight mt-0.5">{info.nom || '—'}</span>
+                        </>
+                      ) : (
+                        <span className="text-[9px] text-gray-300">—</span>
+                      )}
                     </div>
 
                     {/* Contenu cliquable */}
