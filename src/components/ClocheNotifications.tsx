@@ -1,6 +1,7 @@
 // Cloche de notifications — badge + panneau déroulant
 // Positionnée dans le bas de la sidebar, panel à droite de la sidebar
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../hooks/useNotifications'
 import type { Notification } from '../types/commentaire'
 
@@ -21,11 +22,19 @@ function tempsRelatif(iso: string): string {
   return j === 1 ? 'hier' : `il y a ${j}j`
 }
 
-function LigneNotif({ n, onLu }: { n: Notification; onLu: (id: string) => void }) {
+function LigneNotif({
+  n,
+  onLu,
+  onNaviguer,
+}: {
+  n: Notification
+  onLu: (id: string) => void
+  onNaviguer: (n: Notification) => void
+}) {
   const nonLue = !n.lu_le
   return (
     <button
-      onClick={() => !n.lu_le && onLu(n.id)}
+      onClick={() => { if (!n.lu_le) onLu(n.id); onNaviguer(n) }}
       className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
         nonLue ? 'bg-ockham-teal/[0.04] hover:bg-ockham-teal/[0.08]' : 'hover:bg-gray-50'
       } cursor-pointer`}
@@ -57,6 +66,7 @@ export function ClocheNotifications() {
   const { notifications, nonLues, marquerLu, marquerToutLu } = useNotifications()
   const [ouvert, setOuvert] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!ouvert) return
@@ -67,13 +77,25 @@ export function ClocheNotifications() {
     return () => document.removeEventListener('mousedown', close)
   }, [ouvert])
 
+  function handleNaviguer(n: Notification) {
+    setOuvert(false)
+    if (n.contexte === 'client') {
+      navigate(`/compte-client?client=${n.contexte_id}&onglet=commentaires`)
+    } else if (n.contexte === 'facture') {
+      navigate(`/compte-client?facture=${n.contexte_id}`)
+    } else if (n.contexte === 'relance') {
+      navigate('/relances')
+    } else if (n.contexte === 'procedure') {
+      navigate('/procedures')
+    }
+  }
+
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOuvert(o => !o)}
         className="flex items-center gap-2 w-full px-2.5 py-2 rounded-lg text-[13px] font-medium text-white/65 hover:bg-white/[0.05] hover:text-white/90 transition-colors border border-transparent cursor-pointer"
       >
-        {/* Cloche SVG inline */}
         <span className="relative text-white/55 flex-shrink-0">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -95,20 +117,22 @@ export function ClocheNotifications() {
 
       {ouvert && (
         <div className="fixed left-[220px] bottom-0 mb-2 ml-2 z-50 w-[300px] max-h-[480px] bg-white rounded-xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
-            <p className="text-xs font-bold text-gray-800">Notifications</p>
+          {/* Header navy */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0 bg-ockham-navy">
+            <p className="text-xs font-bold text-white">Notifications</p>
             {nonLues > 0 && (
-              <button onClick={marquerToutLu} className="text-[10px] text-ockham-teal hover:underline cursor-pointer">
+              <button onClick={marquerToutLu} className="text-[10px] text-ockham-teal hover:text-[#4CC5BB] hover:underline cursor-pointer transition-colors">
                 Tout marquer lu
               </button>
             )}
           </div>
+
           <div className="overflow-y-auto flex-1">
             {notifications.length === 0 ? (
               <p className="px-4 py-6 text-xs text-gray-400 text-center">Aucune notification.</p>
             ) : (
               notifications.map((n: Notification) => (
-                <LigneNotif key={n.id} n={n} onLu={marquerLu} />
+                <LigneNotif key={n.id} n={n} onLu={marquerLu} onNaviguer={handleNaviguer} />
               ))
             )}
           </div>

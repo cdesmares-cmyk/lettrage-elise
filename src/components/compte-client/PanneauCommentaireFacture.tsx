@@ -19,12 +19,13 @@ interface Props {
   onFermer: () => void
   onSauvegarder: (data: { numero_piece: string; contact: string; date_contact: string; commentaire: string; operateur: string; ne_pas_relancer?: boolean }) => Promise<boolean>
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
+  ongletInitial?: Onglet
 }
 
-export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSauvegarder, onStatutChange }: Props) {
+export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSauvegarder, onStatutChange, ongletInitial }: Props) {
   const { utilisateur } = useAuth()
   const operateurCourant = utilisateur?.email?.split('@')[0] ?? ''
-  const [onglet, setOnglet] = useState<Onglet>('infos')
+  const [onglet, setOnglet] = useState<Onglet>(ongletInitial ?? 'infos')
   const [statut, setStatut] = useState<StatutFacture | null>(null)
   const [contact, setContact] = useState('')
   const [dateContact, setDateContact] = useState('')
@@ -35,7 +36,7 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
 
   useEffect(() => {
     if (facture) {
-      setOnglet('infos')
+      setOnglet(ongletInitial ?? 'infos')
       setStatut(facture.statut_facture)
       setContact(commentaire?.contact ?? '')
       setDateContact(commentaire?.date_contact ?? '')

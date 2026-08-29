@@ -35,7 +35,8 @@ export function PageCompteClient() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptionsDso, setClientOptionsDso] = useState<string | null>(null)
-  const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc'>('infos')
+  const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'>('infos')
+  const [facCommentaireOngletInitial, setFacCommentaireOngletInitial] = useState<'infos' | 'equipe'>('infos')
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
@@ -194,7 +195,7 @@ export function PageCompteClient() {
     return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
   }
 
-  // Ouverture automatique de la fiche client depuis un lien email (?client=CODE)
+  // Ouverture automatique de la fiche client depuis un lien email ou notification (?client=CODE&onglet=commentaires)
   useEffect(() => {
     const codeCible = searchParams.get('client')
     if (!codeCible || comptes.chargement || comptes.clients.length === 0) return
@@ -203,9 +204,24 @@ export function PageCompteClient() {
       setVue('clients')
       setInputRecherche(codeCible)
       comptes.setRecherche(codeCible)
+      setClientOptionsDso(cible.code_dso)
+      const ongletParam = searchParams.get('onglet')
+      if (ongletParam === 'commentaires') setPanneauOngletInitial('commentaires')
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, comptes.clients, comptes.chargement])
+
+  // Ouverture automatique du panneau facture depuis une notification (?facture=PIECE_NUMBER)
+  useEffect(() => {
+    const facParam = searchParams.get('facture')
+    if (!facParam || facturesActives.length === 0) return
+    const fac = facturesActives.find(f => f.numero_piece === facParam)
+    if (fac) {
+      setFacCommentaire(fac)
+      setFacCommentaireOngletInitial('equipe')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, facturesActives])
 
   return (
     <div>
@@ -414,9 +430,10 @@ export function PageCompteClient() {
       <PanneauCommentaireFacture
         facture={facCommentaire}
         commentaire={facCommentaire ? (commentaires.get(facCommentaire.numero_piece) ?? null) : null}
-        onFermer={() => setFacCommentaire(null)}
+        onFermer={() => { setFacCommentaire(null); setFacCommentaireOngletInitial('infos') }}
         onSauvegarder={sauvegarder}
         onStatutChange={factures.mettreAJourStatut}
+        ongletInitial={facCommentaireOngletInitial}
       />
 
       {/* Panneau Options */}
