@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './AuthContext'
 import toast from 'react-hot-toast'
 import type { CompteClient, FactureDetail, StatutFacture, StatutJuridique } from '../types/client'
+import type { MembreOrg } from '../types/commentaire'
 
 interface RowCompteClient {
   code_dso: string; nom: string; statut_juridique: string | null
@@ -29,6 +30,16 @@ interface OptsClientLocal {
   siret?: string | null
   note_client?: string | null
   a_suivre?: boolean
+}
+
+const COULEURS_MEMBRES = ['#6366F1','#0891B2','#7C3AED','#3BA89F','#C07840','#DC2626','#0D9488']
+function couleurMembre(id: string): string {
+  const hash = id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  return COULEURS_MEMBRES[hash % COULEURS_MEMBRES.length]
+}
+function initialesMembre(nom: string, prenom: string | null): string {
+  if (prenom) return `${prenom[0]}${nom[0]}`.toUpperCase()
+  return nom.slice(0, 2).toUpperCase()
 }
 
 export interface ScenarioRelance {
@@ -55,6 +66,8 @@ interface AppDataContextType {
   ca12MoisPrec: number   // Σ montant_ttc sur les 12 mois se terminant à moisMaxBrut-1 (toggle)
   scenarios: ScenarioRelance[]
   rechargerScenarios: () => Promise<void>
+  membresOrg: MembreOrg[]
+  rechargerMembresOrg: () => Promise<void>
 }
 
 
@@ -99,6 +112,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const [clients, setClients] = useState<CompteClient[]>([])
   const [facturesActives, setFacturesActives] = useState<FactureDetail[]>([])
   const [scenarios, setScenarios] = useState<ScenarioRelance[]>([])
+  const [membresOrg, setMembresOrg] = useState<MembreOrg[]>([])
   const [chargement, setChargement] = useState(true)
   const [enRafraichissement, setEnRafraichissement] = useState(false)
   const [moisMaxBrut, setMoisMaxBrut] = useState('')
@@ -117,6 +131,23 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
       .order('niveau', { ascending: true })
       .order('nom', { ascending: true })
     setScenarios((data as ScenarioRelance[]) ?? [])
+  }, [])
+
+  const rechargerMembresOrg = useCallback(async () => {
+    const { data } = await supabase
+      .from('utilisateurs')
+      .select('id, nom, prenom, role')
+      .order('nom', { ascending: true })
+    const membres: MembreOrg[] = ((data ?? []) as { id: string; nom: string; prenom: string | null; role: string }[])
+      .filter(u => u.role !== 'externe')
+      .map(u => ({
+        id:        u.id,
+        nom:       u.nom,
+        prenom:    u.prenom,
+        initiales: initialesMembre(u.nom, u.prenom),
+        couleur:   couleurMembre(u.id),
+      }))
+    setMembresOrg(membres)
   }, [])
 
   const rafraichir = useCallback(async () => {
@@ -167,16 +198,16 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
 
   // Charge dès que l'utilisateur est authentifié, stoppe le chargement si déconnecté
   useEffect(() => {
-    if (session) { rafraichir(); rechargerScenarios() }
+    if (session) { rafraichir(); rechargerScenarios(); rechargerMembresOrg() }
     else {
-      setClients([]); setFacturesActives([]); setScenarios([])
+      setClients([]); setFacturesActives([]); setScenarios([]); setMembresOrg([])
       setMoisMaxBrut(''); setCa12Mois(0); setCa12MoisPrec(0)
       setChargement(false); setEnRafraichissement(false)
       initialLoadDoneRef.current = false
       isFetchingRef.current = false
       lastFetchAtRef.current = 0
     }
-  }, [session, rafraichir, rechargerScenarios])
+  }, [session, rafraichir, rechargerScenarios, rechargerMembresOrg])
 
   // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
   // Focus limité à 1 appel par tranche de 30s pour éviter les doubles rechargements
@@ -263,7 +294,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios, membresOrg, rechargerMembresOrg }}>
       {children}
     </AppDataContext.Provider>
   )
