@@ -146,60 +146,52 @@ export function RecapCompteClient({ client }: Props) {
             )
           )}
 
-          {/* Bouton charger réglées */}
+          {/* Header section payées — collapsible, fermé par défaut */}
           {reglees.length > 0 && (
             <button
               onClick={() => setRegleesDeveloppees(v => !v)}
-              className="w-full py-2.5 text-[11px] font-semibold text-gray-400 hover:text-ockham-teal bg-gray-50 hover:bg-ockham-teal/[0.04] border-t border-gray-100 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full flex items-center gap-2 px-5 py-2 bg-gray-50 hover:bg-gray-100/70 border-t border-gray-100 transition-colors cursor-pointer"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider flex-1 text-left">
+                Payées ({reglees.length})
+              </span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
                 {regleesDeveloppees
                   ? <polyline points="18 15 12 9 6 15" />
                   : <polyline points="6 9 12 15 18 9" />
                 }
               </svg>
-              {regleesDeveloppees
-                ? 'Masquer les factures réglées'
-                : `Charger ${reglees.length} facture${reglees.length > 1 ? 's' : ''} réglée${reglees.length > 1 ? 's' : ''}`
-              }
             </button>
           )}
 
-          {/* Réglées */}
-          {regleesDeveloppees && (
-            <>
-              <div className="px-5 py-1.5 bg-gray-50 border-y border-gray-100">
-                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-wider">✓ Réglées</span>
+          {regleesDeveloppees && reglees.map(f => (
+            <div
+              key={f.numero_piece}
+              className="grid px-5 py-2 border-b border-gray-50 items-center hover:bg-gray-50 transition-colors"
+              style={{ gridTemplateColumns: '1fr 100px 100px 52px', opacity: 0.55 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.55' }}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-200 flex-shrink-0" />
+                <NumeroPiece numero={f.numero_piece} className="text-[11px] text-gray-400" />
               </div>
-              {reglees.map(f => (
-                <div
-                  key={f.numero_piece}
-                  className="grid px-5 py-2 border-b border-gray-50 items-center hover:bg-gray-50 transition-colors"
-                  style={{ gridTemplateColumns: '1fr 100px 100px 52px', opacity: 0.55 }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.8' }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.opacity = '0.55' }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-200 flex-shrink-0" />
-                    <NumeroPiece numero={f.numero_piece} className="text-[11px] text-gray-400" />
-                  </div>
-                  <span className="text-[11px] text-gray-400 text-right tabular-nums">
-                    {_fmt.format(f.montant_ttc)} €
+              <span className="text-[11px] text-gray-400 text-right tabular-nums">
+                {_fmt.format(f.montant_ttc)} €
+              </span>
+              <span className="text-[11px] text-gray-400 text-right tabular-nums">0,00 €</span>
+              <div className="text-center">
+                {f.date_emission ? (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
+                    {anciennete(f.date_emission)}j
                   </span>
-                  <span className="text-[11px] text-gray-400 text-right tabular-nums">0,00 €</span>
-                  <div className="text-center">
-                    {f.date_emission ? (
-                      <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-400">
-                        {anciennete(f.date_emission)}j
-                      </span>
-                    ) : (
-                      <span className="text-gray-300">—</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
+                ) : (
+                  <span className="text-gray-300">—</span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
