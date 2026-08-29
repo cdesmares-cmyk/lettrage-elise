@@ -5,6 +5,7 @@ import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { SectionTimelineRelances } from './SectionTimelineRelances'
 import { CommentairesFil } from '../commentaires/CommentairesFil'
+import { RecapCompteClient } from './RecapCompteClient'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
@@ -335,6 +336,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={fermerEtReset} />
+      <RecapCompteClient client={client} />
       <div className="fixed top-0 right-0 bottom-0 w-[380px] bg-white shadow-2xl z-50 flex flex-col">
 
         {/* En-tête client */}
