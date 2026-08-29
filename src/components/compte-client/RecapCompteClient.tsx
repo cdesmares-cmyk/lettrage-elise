@@ -1,6 +1,7 @@
 // Récap flottant compte client — s'affiche dans l'espace libre à gauche du panneau Options
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
+import { supabase } from '../../lib/supabase'
 import { NumeroPiece } from '../NumeroPiece'
 import type { CompteClient, FactureDetail } from '../../types/client'
 
@@ -24,7 +25,7 @@ function estPayee(f: FactureDetail)  { return !estCompte(f) && !estAvoir(f) && M
 
 function BadgeLigne({ f }: { f: FactureDetail }) {
   if (estCompte(f)) return (
-    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-dark text-white flex-shrink-0">COMPTE</span>
+    <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-ockham-teal-dark text-white flex-shrink-0">C</span>
   )
   if (estAvoir(f)) return (
     <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-orange-100 text-orange-700 flex-shrink-0">A</span>
@@ -48,13 +49,15 @@ function LigneFac({ f, opaque = false }: { f: FactureDetail; opaque?: boolean })
     <div
       className="grid px-4 py-2 border-b border-gray-50 items-center transition-colors hover:bg-gray-50/80"
       style={{
-        gridTemplateColumns: '24px 1fr 90px 90px 46px',
+        gridTemplateColumns: '28px 1fr 90px 90px 46px',
         opacity: opaque ? 0.55 : 1,
       }}
       onMouseEnter={e => { if (opaque) (e.currentTarget as HTMLDivElement).style.opacity = '0.82' }}
       onMouseLeave={e => { if (opaque) (e.currentTarget as HTMLDivElement).style.opacity = '0.55' }}
     >
-      <BadgeLigne f={f} />
+      <div className="flex items-center justify-center">
+        <BadgeLigne f={f} />
+      </div>
       <div className="min-w-0 pl-1.5">
         <NumeroPiece numero={f.numero_piece} className="text-[11px] text-ockham-teal-dark" />
       </div>
@@ -75,6 +78,9 @@ interface Props { client: CompteClient }
 export function RecapCompteClient({ client }: Props) {
   const { facturesActives } = useAppData()
   const [payeesDeveloppees, setPayeesDeveloppees] = useState(false)
+  const [payeesData, setPayeesData] = useState<FactureDetail[]>([])
+  const [payeesChargees, setPayeesChargees] = useState(false)
+  const [payeesChargement, setPayeesChargement] = useState(false)
 
   const facturesClient = useMemo(() =>
     facturesActives.filter(f => f.code_client === client.code_dso),
@@ -87,12 +93,6 @@ export function RecapCompteClient({ client }: Props) {
     [facturesClient]
   )
 
-  // Factures réglées : hors 411 et avoirs, reste_du ≈ 0
-  const payees = useMemo(() =>
-    facturesClient.filter(f => estPayee(f)),
-    [facturesClient]
-  )
-
   const encoursTTC = useMemo(() =>
     facturesClient.reduce((sum, f) => sum + (f.reste_du > 0 ? f.reste_du : 0), 0),
     [facturesClient]
@@ -102,6 +102,31 @@ export function RecapCompteClient({ client }: Props) {
     facturesClient.filter(f => !estCompte(f) && !estAvoir(f) && f.reste_du > 0.005).length,
     [facturesClient]
   )
+
+  const chargerPayees = useCallback(async () => {
+    if (payeesChargees) return
+    setPayeesChargement(true)
+    const { data, error } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
+      .eq('code_client', client.code_dso)
+      .gte('reste_du', -0.005)
+      .lte('reste_du', 0.005)
+      .eq('est_avoir', false)
+      .order('date_emission', { ascending: false })
+
+    if (!error) {
+      const rows = (data as unknown as FactureDetail[]) ?? []
+      setPayeesData(rows.filter(f => !estCompte(f)))
+      setPayeesChargees(true)
+    }
+    setPayeesChargement(false)
+  }, [client.code_dso, payeesChargees])
+
+  async function togglePayees() {
+    if (!payeesChargees) await chargerPayees()
+    setPayeesDeveloppees(v => !v)
+  }
 
   return (
     <div
@@ -135,7 +160,7 @@ export function RecapCompteClient({ client }: Props) {
         {/* Colonnes */}
         <div
           className="grid px-4 py-2 bg-gray-50 border-b border-gray-100 flex-shrink-0"
-          style={{ gridTemplateColumns: '24px 1fr 90px 90px 46px' }}
+          style={{ gridTemplateColumns: '28px 1fr 90px 90px 46px' }}
         >
           <span />
           <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider pl-1.5">N° Facture</span>
@@ -154,26 +179,25 @@ export function RecapCompteClient({ client }: Props) {
             visibles.map(f => <LigneFac key={f.numero_piece} f={f} />)
           )}
 
-          {/* Header payées — collapsible, fermé par défaut */}
-          {payees.length > 0 && (
-            <button
-              onClick={() => setPayeesDeveloppees(v => !v)}
-              className="w-full flex items-center gap-2 px-5 py-2 bg-gray-50 hover:bg-gray-100/70 border-t border-gray-100 transition-colors cursor-pointer"
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider flex-1 text-left">
-                Payées ({payees.length})
-              </span>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
-                {payeesDeveloppees
-                  ? <polyline points="18 15 12 9 6 15" />
-                  : <polyline points="6 9 12 15 18 9" />
-                }
-              </svg>
-            </button>
-          )}
+          {/* Header payées — collapsible, chargement à la demande */}
+          <button
+            onClick={togglePayees}
+            className="w-full flex items-center gap-2 px-5 py-2 bg-gray-50 hover:bg-gray-100/70 border-t border-gray-100 transition-colors cursor-pointer"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0" />
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider flex-1 text-left">
+              {payeesChargees ? `Payées (${payeesData.length})` : 'Payées'}
+              {payeesChargement && ' …'}
+            </span>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-300">
+              {payeesDeveloppees
+                ? <polyline points="18 15 12 9 6 15" />
+                : <polyline points="6 9 12 15 18 9" />
+              }
+            </svg>
+          </button>
 
-          {payeesDeveloppees && payees.map(f => <LigneFac key={f.numero_piece} f={f} opaque />)}
+          {payeesDeveloppees && payeesData.map(f => <LigneFac key={f.numero_piece} f={f} opaque />)}
         </div>
       </div>
     </div>
