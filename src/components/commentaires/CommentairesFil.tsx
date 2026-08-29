@@ -1,5 +1,5 @@
 // Fil de commentaires internes — client, facture, relance…
-import { useState, useRef, useCallback, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, type ChangeEvent, type KeyboardEvent } from 'react'
 import { useCommentaires } from '../../hooks/useCommentaires'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -24,6 +24,7 @@ function normaliser(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 }
 
+// facturesActives = toutes les factures (pour résoudre les tokens déjà insérés)
 function renderCorps(texte: string, membres: MembreOrg[], facturesActives: FactureDetail[]) {
   const parts = texte.split(/(@[^\s@,.:;!?]+|#[^\s#,.:;!?]+)/g)
   return parts.map((part, i) => {
@@ -35,9 +36,10 @@ function renderCorps(texte: string, membres: MembreOrg[], facturesActives: Factu
     if (part.startsWith('#')) {
       const piece = part.slice(1)
       const f = facturesActives.find(x => x.numero_piece === piece)
-      if (f) {
+      // Lien vers le PDF public Axonaut si disponible, sinon affichage statique
+      if (f?.axonaut_pdf_url) {
         return (
-          <a key={i} href={`/compte-client?client=${f.code_client}`} target="_blank" rel="noopener noreferrer"
+          <a key={i} href={f.axonaut_pdf_url} target="_blank" rel="noopener noreferrer"
             className="text-[#3BA89F] font-mono font-medium text-[11px] bg-[#3BA89F]/10 px-1 rounded hover:underline cursor-pointer">
             {part}
           </a>
@@ -80,7 +82,8 @@ function Avatar({ initiales, couleur, size = 28 }: { initiales: string; couleur:
 
 interface ZoneSaisieProps {
   membres: MembreOrg[]
-  facturesActives: FactureDetail[]
+  // factures pré-filtrées au client courant — pour le dropdown /facture
+  facturesSaisie: FactureDetail[]
   onEnvoyer: (texte: string, mentions: string[], reponseA?: string | null) => Promise<boolean>
   reponseA?: string | null
   onAnnuler?: () => void
@@ -88,7 +91,7 @@ interface ZoneSaisieProps {
   placeholder?: string
 }
 
-function ZoneSaisie({ membres, facturesActives, onEnvoyer, reponseA, onAnnuler, envoi, placeholder }: ZoneSaisieProps) {
+function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, envoi, placeholder }: ZoneSaisieProps) {
   const [texte, setTexte]               = useState('')
   const [mentions, setMentions]         = useState<string[]>([])
   const [mentionInfo, setMentionInfo]   = useState<{ debut: number; query: string } | null>(null)
@@ -104,7 +107,7 @@ function ZoneSaisie({ membres, facturesActives, onEnvoyer, reponseA, onAnnuler, 
     : []
 
   const facturesFiltrees = commandeInfo
-    ? facturesActives.filter(f => {
+    ? facturesSaisie.filter(f => {
         const q = normaliser(commandeInfo.query)
         return normaliser(f.numero_piece).includes(q) ||
                normaliser(f.nom_client ?? '').includes(q) ||
@@ -219,7 +222,8 @@ function ZoneSaisie({ membres, facturesActives, onEnvoyer, reponseA, onAnnuler, 
 interface BulleProps {
   c: Commentaire
   membres: MembreOrg[]
-  facturesActives: FactureDetail[]
+  facturesActives: FactureDetail[]  // toutes les factures — pour renderCorps
+  facturesSaisie: FactureDetail[]   // factures du client courant — pour le dropdown
   moiId: string
   repondantAId: string | null
   envoyer: (texte: string, mentions: string[], reponseA?: string | null) => Promise<boolean>
@@ -230,7 +234,7 @@ interface BulleProps {
   onSupprimer: (id: string) => Promise<boolean>
 }
 
-function Bulle({ c, membres, facturesActives, moiId, repondantAId, envoyer, envoi,
+function Bulle({ c, membres, facturesActives, facturesSaisie, moiId, repondantAId, envoyer, envoi,
                  onOuvrirReponse, onFermerReponse, onModifier, onSupprimer }: BulleProps) {
   const [editing, setEditing]     = useState(false)
   const [texteEdit, setTexteEdit] = useState(c.corps_texte)
@@ -298,7 +302,7 @@ function Bulle({ c, membres, facturesActives, moiId, repondantAId, envoyer, envo
           <div className="mt-2 pt-2 border-t border-gray-100">
             <ZoneSaisie
               membres={membres}
-              facturesActives={facturesActives}
+              facturesSaisie={facturesSaisie}
               onEnvoyer={async (texte, ments) => {
                 const ok = await envoyer(texte, ments, c.id)
                 if (ok) onFermerReponse()
@@ -318,7 +322,8 @@ function Bulle({ c, membres, facturesActives, moiId, repondantAId, envoyer, envo
             estEnReponse ? 'border-l-[3px] border-[#4CC5BB]' : 'border-l-2 border-gray-100'
           }`}>
             {c.reponses!.map(r => (
-              <Bulle key={r.id} c={r} membres={membres} facturesActives={facturesActives}
+              <Bulle key={r.id} c={r} membres={membres}
+                facturesActives={facturesActives} facturesSaisie={facturesSaisie}
                 moiId={moiId} repondantAId={repondantAId} envoyer={envoyer} envoi={envoi}
                 onOuvrirReponse={() => onOuvrirReponse(c.id)}
                 onFermerReponse={onFermerReponse}
@@ -345,6 +350,18 @@ export function CommentairesFil({ contexte, contexteId }: CommentairesFilProps) 
   const { utilisateur } = useAuth()
   const [repondantAId, setRepondantAId] = useState<string | null>(null)
 
+  // Factures du client courant uniquement — pour le dropdown /facture en saisie
+  const facturesSaisie = useMemo(() => {
+    if (contexte === 'client') {
+      return facturesActives.filter(f => f.code_client === contexteId)
+    }
+    if (contexte === 'facture') {
+      const codeClient = facturesActives.find(f => f.numero_piece === contexteId)?.code_client
+      return codeClient ? facturesActives.filter(f => f.code_client === codeClient) : []
+    }
+    return facturesActives
+  }, [contexte, contexteId, facturesActives])
+
   const handleEnvoyer = useCallback(
     (texte: string, mentions: string[], reponseA?: string | null) => envoyer(texte, mentions, reponseA),
     [envoyer]
@@ -367,6 +384,7 @@ export function CommentairesFil({ contexte, contexteId }: CommentairesFilProps) 
               c={c}
               membres={membresOrg}
               facturesActives={facturesActives}
+              facturesSaisie={facturesSaisie}
               moiId={utilisateur?.id ?? ''}
               repondantAId={repondantAId}
               envoyer={handleEnvoyer}
@@ -383,7 +401,7 @@ export function CommentairesFil({ contexte, contexteId }: CommentairesFilProps) 
       <div className="flex-shrink-0 border-t border-gray-100 px-5 py-4">
         <ZoneSaisie
           membres={membresOrg}
-          facturesActives={facturesActives}
+          facturesSaisie={facturesSaisie}
           onEnvoyer={handleEnvoyer}
           envoi={envoi}
         />
