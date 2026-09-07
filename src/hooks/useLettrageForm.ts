@@ -76,11 +76,16 @@ export function useLettrageForm(
         setLignesForme(prev => {
           const intact = prev.length === 1 && !prev[0].numero_facture && !prev[0].montant
           if (!intact) return prev
+          // Double paiement : facture soldée, on injecte montant_ttc comme montant de référence
+          const montantParFacture = (f: typeof résultat.factures[0]) =>
+            résultat.distrib.alerte === 'double_paiement' && Math.abs(f.reste_du) <= TOLERANCE_CENT
+              ? f.montant_ttc
+              : f.reste_du
           return résultat.factures.map(f => ({
             _key: cle(),
             classe: 'facture' as const,
             numero_facture: f.numero_piece,
-            montant: String(Math.round(f.reste_du * 100) / 100),
+            montant: String(Math.round(montantParFacture(f) * 100) / 100),
             info_facture: { reste_du: f.reste_du, montant_ttc: f.montant_ttc, code_client: f.code_client, nom_client: f.nom_client, statut_paiement: 'partiel' },
             chargement: false,
           }))

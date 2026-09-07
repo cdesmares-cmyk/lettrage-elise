@@ -179,7 +179,7 @@ export function TableLignesBancaires({
                         </div>
                       ) : detectionsDoublePaiement?.has(ligne.id_operation) ? (
                         <div
-                          title="Double paiement probable — cette facture est déjà soldée"
+                          title="Vérification requise — lettrage à valider manuellement"
                           className="inline-flex items-center justify-center w-[22px] h-[22px] rounded-md bg-orange-50 border border-orange-300 text-orange-500"
                         >
                           <IcWarning size={11} />

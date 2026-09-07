@@ -267,13 +267,24 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
           if (annule) break
           const detected2 = new Set<string>()
           const distribMap2 = new Map<string, DistribAuto>()
+          const alertes2 = new Set<string>()
           for (const { id, ligne, r } of resultats) {
-            if (r) { detected2.add(id); distribMap2.set(id, { factures: r.factures, ligne }); resolusLocal.add(id) }
+            if (r) {
+              resolusLocal.add(id)
+              if (r.distrib.alerte) {
+                // Distribution avec alerte → badge /!\ uniquement, validation manuelle
+                alertes2.add(id)
+              } else {
+                detected2.add(id)
+                distribMap2.set(id, { factures: r.factures, ligne })
+              }
+            }
           }
           if (detected2.size > 0) {
             setDetections(prev => new Set([...prev, ...detected2]))
             setDistributionsAuto(prev => new Map([...prev, ...distribMap2]))
           }
+          if (alertes2.size > 0) setDetectionDoublePaiement(prev => new Set([...prev, ...alertes2]))
           if (b < nbBatches - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
         }
 
@@ -292,13 +303,23 @@ export function useDetectionListe(lignes: LigneBancaireAvecStatut[]) {
             if (annule) break
             const detected3 = new Set<string>()
             const distribMap3 = new Map<string, DistribAuto>()
+            const alertes3 = new Set<string>()
             for (const { id, ligne, r } of resultats) {
-              if (r) { detected3.add(id); distribMap3.set(id, { factures: r.factures, ligne }); resolusLocal.add(id) }
+              if (r) {
+                resolusLocal.add(id)
+                if (r.distrib.alerte) {
+                  alertes3.add(id)
+                } else {
+                  detected3.add(id)
+                  distribMap3.set(id, { factures: r.factures, ligne })
+                }
+              }
             }
             if (detected3.size > 0) {
               setDetections(prev => new Set([...prev, ...detected3]))
               setDistributionsAuto(prev => new Map([...prev, ...distribMap3]))
             }
+            if (alertes3.size > 0) setDetectionDoublePaiement(prev => new Set([...prev, ...alertes3]))
             if (b < nbBatchesP3 - 1) await new Promise(res => setTimeout(res, PAUSE_MS))
           }
         }

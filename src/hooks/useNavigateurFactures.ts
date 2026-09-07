@@ -27,6 +27,7 @@ export interface DistributionSuggérée {
   montantTotal: number
   exact: boolean    // true = match au centime, false = approx ±1%
   confiance: 2 | 3
+  alerte?: 'double_paiement' | 'complement_client' | 'montant_non_reconcilie'
 }
 
 const COLS = 'numero_piece, code_client, nom_client, montant_ttc, reste_du, date_echeance, est_avoir'
@@ -274,8 +275,9 @@ export function trouverDistribution(
   return null
 }
 
-// Détection silencieuse utilisable hors navigateur (ex: PanneauLettrage).
-// Retourne une distribution confiance 3/3 uniquement — les cas approx restent dans la modale.
+// Détection silencieuse utilisable hors navigateur (ex: PanneauLettrage, useDetectionListe).
+// Canal 1 (numéro détecté) est prioritaire et absolu : jamais de fallback SEPA si un numéro est trouvé.
+// Les distributions avec alerte sont retournées pour pre-fill du formulaire, mais exclues du bulk auto.
 export async function detecterAutoSilencieux(
   ligne: LigneBancaireAvecStatut,
   formats: string[],
@@ -288,22 +290,31 @@ export async function detecterAutoSilencieux(
       ligne.libelle, ligne.detail, ligne.infos_complementaires, allPatterns
     )
     const cible = ligne.restant
-    const [facturesNum, sepaMatch, facturesNom] = await Promise.all([
-      fetchParNums(numerosDetectes),
-      fetchSepaMatch(ligne.libelle),
-      fetchParNomClient(ligne.libelle),
-    ])
-    // Priorité 1 : N° détecté dans le libellé
-    if (facturesNum.length) {
-      const d = trouverDistribution(facturesNum, cible)
-      if (d?.confiance === 3) return { distrib: d, factures: d.factures }
+
+    // Canal 1 : numéro détecté → priorité absolue, pas de fallback SEPA/nom
+    if (numerosDetectes.length) {
+      const facturesNum = await fetchParNums(numerosDetectes)
+      if (facturesNum.length) {
+        // Niveau 1 : distribution exacte sur factures ouvertes (reste_du)
+        const ouvertes = facturesNum.filter(f => f.reste_du > TOLERANCE_CENT || f.reste_du < -TOLERANCE_CENT)
+        if (ouvertes.length) {
+          const d1 = trouverDistribution(ouvertes, cible)
+          if (d1?.confiance === 3) return { distrib: d1, factures: d1.factures }
+        }
+        // Niveaux 2 et 3 : double paiement ou pièces complémentaires
+        const distrib = await evaluerFactureDetectee(facturesNum[0], ouvertes, cible)
+        return { distrib, factures: distrib.factures }
+      }
     }
-    // Priorité 2 : client reconnu via SEPA (exact uniquement — fuzzy → confiance ≤ 2)
+
+    // Canal 2 : client reconnu via SEPA exact (seulement si aucun numéro dans le libellé)
+    const sepaMatch = await fetchSepaMatch(ligne.libelle)
     if (sepaMatch?.factures.length && !sepaMatch.fuzzy) {
       const d = trouverDistribution(sepaMatch.factures, cible)
       if (d?.confiance === 3) return { distrib: d, factures: d.factures }
     }
-    // Priorité 3 : nom client détecté dans le libellé
+    // Canal 3 : nom client détecté dans le libellé
+    const facturesNom = await fetchParNomClient(ligne.libelle)
     if (facturesNom?.length) {
       const d = trouverDistribution(facturesNom, cible)
       if (d?.confiance === 3) return { distrib: d, factures: d.factures }
@@ -345,10 +356,60 @@ async function fetchParNums(nums: string[]): Promise<FactureNavigateur[]> {
       .from('v_factures_avec_reste_du')
       .select(COLS)
       .or(nums.map(n => `numero_piece.ilike.%${n}%`).join(','))
-      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
+      // Pas de filtre reste_du : on cherche la facture même si déjà soldée (double paiement)
+      .order('date_echeance', { ascending: true })
       .limit(10)
     return (data as FactureNavigateur[]) ?? []
   } catch { return [] }
+}
+
+// Pièces ouvertes du même client, hors numéros déjà identifiés, pour compléter une distribution (Niveau 3)
+async function fetchPiecesComplementaires(codeClient: string, excludeNumeros: Set<string>): Promise<FactureNavigateur[]> {
+  try {
+    const { data } = await supabase
+      .from('v_factures_avec_reste_du')
+      .select(COLS)
+      .eq('code_client', codeClient)
+      .or(`reste_du.gt.${TOLERANCE_CENT},reste_du.lt.${-TOLERANCE_CENT}`)
+      .order('date_echeance', { ascending: true })
+      .limit(20)
+    return ((data as FactureNavigateur[]) ?? []).filter(f => !excludeNumeros.has(f.numero_piece))
+  } catch { return [] }
+}
+
+// Évalue une facture identifiée par numéro — Niveaux 2 et 3 uniquement.
+// Niveau 1 (reste_du exact) est vérifié en amont via trouverDistribution.
+async function evaluerFactureDetectee(
+  facturePrincipale: FactureNavigateur,
+  ouvertes: FactureNavigateur[],
+  cible: number,
+): Promise<DistributionSuggérée> {
+  // Niveau 2 : facture soldée → double paiement, on arrête là
+  if (Math.abs(facturePrincipale.reste_du) <= TOLERANCE_CENT) {
+    return {
+      factures: [facturePrincipale],
+      montantTotal: facturePrincipale.montant_ttc,
+      exact: Math.abs(facturePrincipale.montant_ttc - cible) <= TOLERANCE_CENT,
+      confiance: 3,
+      alerte: 'double_paiement',
+    }
+  }
+  // Niveau 3 : facture ouverte mais montant ne colle pas → pièces complémentaires FIFO
+  const numsPrincipaux = new Set(ouvertes.map(f => f.numero_piece))
+  const complementaires = await fetchPiecesComplementaires(facturePrincipale.code_client, numsPrincipaux)
+  const candidats = [...ouvertes, ...complementaires]
+  if (candidats.length) {
+    const d = trouverDistribution(candidats, cible)
+    if (d?.confiance === 3) return { ...d, alerte: 'complement_client' }
+  }
+  // Aucune distribution possible — montant non réconcilié, facture identifiée quand même
+  return {
+    factures: [facturePrincipale],
+    montantTotal: Math.round(facturePrincipale.reste_du * 100) / 100,
+    exact: false,
+    confiance: 2,
+    alerte: 'montant_non_reconcilie',
+  }
 }
 
 async function fetchSepaMatch(libelle: string): Promise<{ factures: FactureNavigateur[]; nbUtil: number; fuzzy: boolean } | null> {
@@ -570,10 +631,16 @@ export function useNavigateurFactures(
 
       // ── Distribution automatique ─────────────────────────────────────────
       const cible = ligne.restant
-      // Priorité 1 : factures identifiées par numéro dans le libellé
-      let distrib = facturesNum.length ? trouverDistribution(facturesNum, cible) : null
-      // Priorité 2 : factures du client reconnu via SEPA
-      if (!distrib && sepaMatch?.factures.length) distrib = trouverDistribution(sepaMatch.factures, cible)
+      let distrib: DistributionSuggérée | null = null
+      if (facturesNum.length) {
+        // Canal 1 : numéro détecté → priorité absolue
+        const ouvertes = facturesNum.filter(f => f.reste_du > TOLERANCE_CENT || f.reste_du < -TOLERANCE_CENT)
+        const d1 = ouvertes.length ? trouverDistribution(ouvertes, cible) : null
+        distrib = d1?.confiance === 3 ? d1 : await evaluerFactureDetectee(facturesNum[0], ouvertes, cible)
+      } else if (sepaMatch?.factures.length) {
+        // Canal 2 : SEPA uniquement si aucun numéro détecté dans le libellé
+        distrib = trouverDistribution(sepaMatch.factures, cible) ?? null
+      }
 
       setDistributionSuggérée(distrib)
       if (distrib) setSelection(new Map(distrib.factures.map(f => [f.numero_piece, f])))
