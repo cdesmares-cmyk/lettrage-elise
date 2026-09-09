@@ -1,5 +1,5 @@
 // Edge Function — Calcul quotidien des scores de risque client
-// Appelée par cron à 6h00 — calcule le top 20 par organisation via RPC calculer_scores_org
+// Appelée par cron à 6h00 — traitement en parallèle par organisation
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -33,25 +33,24 @@ Deno.serve(async (req: Request) => {
       .select('id')
     if (orgsErr) throw orgsErr
 
-    let totalAlertes = 0
-    const erreurs: string[] = []
-
-    // 2. Calcul pour chaque organisation
-    for (const org of (orgs ?? [])) {
-      try {
-        const { data, error } = await supabase
-          .rpc('calculer_scores_org', { p_organisation_id: org.id })
-          .single()
-        if (error) {
-          erreurs.push(`org ${org.id}: ${error.message}`)
-        } else {
+    // 2. Calcul en parallèle — évite l'accumulation des temps séquentiels
+    const resultats = await Promise.all(
+      (orgs ?? []).map(async (org) => {
+        try {
+          const { data, error } = await supabase
+            .rpc('calculer_scores_org', { p_organisation_id: org.id })
+            .single()
+          if (error) return { orgId: org.id, alertes: 0, erreur: error.message }
           const row = data as { alertes_inserees: number } | null
-          totalAlertes += row?.alertes_inserees ?? 0
+          return { orgId: org.id, alertes: row?.alertes_inserees ?? 0, erreur: null }
+        } catch (err) {
+          return { orgId: org.id, alertes: 0, erreur: String(err) }
         }
-      } catch (err) {
-        erreurs.push(`org ${org.id}: ${String(err)}`)
-      }
-    }
+      })
+    )
+
+    const totalAlertes = resultats.reduce((s, r) => s + r.alertes, 0)
+    const erreurs = resultats.filter(r => r.erreur).map(r => `org ${r.orgId}: ${r.erreur}`)
 
     console.log(`[score-calc] terminé — ${(orgs ?? []).length} org(s), ${totalAlertes} alerte(s) insérée(s)`)
     if (erreurs.length) console.warn('[score-calc] erreurs:', erreurs)
