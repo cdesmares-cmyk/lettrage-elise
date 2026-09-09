@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import toast from 'react-hot-toast'
-import { IcBell } from '../Icones'
+import { IcBell, IcLoader } from '../Icones'
 
 interface Props {
   onClose: () => void
@@ -23,6 +23,7 @@ export function ModalAlertesParametres({ onClose }: Props) {
   const [snooze, setSnooze] = useState(20)
   const [users, setUsers]   = useState<UserRow[]>([])
   const [sauvegarde, setSauvegarde] = useState(false)
+  const [calcul, setCalcul]       = useState(false)
 
   useEffect(() => {
     if (!profil?.organisation_id) return
@@ -186,6 +187,41 @@ export function ModalAlertesParametres({ onClose }: Props) {
             Durée pendant laquelle un client "pris en charge" disparaît des alertes.
           </p>
         </div>
+
+        {/* Recalcul des scores */}
+        {(profil?.role === 'admin' || profil?.role === 'responsable_poste_client') && (
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Calcul des scores
+            </label>
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
+              <div>
+                <p className="text-sm text-gray-700">Mettre à jour le score client</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Recalcule les scores de risque pour tous vos clients.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setCalcul(true)
+                  try {
+                    const { data, error } = await supabase.rpc('rafraichir_scores_org')
+                    if (error) throw error
+                    const row = (data as { clients_traites: number; alertes_inserees: number }[] | null)?.[0]
+                    toast.success(`Scores mis à jour — ${row?.alertes_inserees ?? 0} alerte(s) insérée(s)`)
+                  } catch {
+                    toast.error('Erreur lors du recalcul des scores.')
+                  } finally {
+                    setCalcul(false)
+                  }
+                }}
+                disabled={calcul}
+                className="ml-3 flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ockham-teal text-ockham-teal hover:bg-ockham-teal/5 disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                {calcul ? <IcLoader size={11} className="animate-spin" /> : null}
+                {calcul ? 'Calcul…' : 'Calculer maintenant'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 justify-end pt-1">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors">
