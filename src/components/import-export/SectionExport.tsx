@@ -125,35 +125,41 @@ interface RowContact {
   role_contact: string
 }
 
-function genererCSVClientsSansContacts(clients: { code_dso: string; nom: string }[]): string {
-  const echapper = (v: string | null | undefined) => {
-    const s = v ?? ''
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
-    return s
-  }
-  const entete = ['id_contact', 'code_client', 'nom_client', 'nom', 'prenom', 'email', 'telephone', 'role_contact', 'delete']
-  const lignes = clients.map(c => ['', echapper(c.code_dso), echapper(c.nom), '', '', '', '', '', ''].join(','))
-  return [entete.join(','), ...lignes].join('\n')
+function exporterContactsXlsx(contacts: RowContact[]) {
+  const lignes = contacts.map(c => ({
+    'id_contact':   c.id,
+    'code_client':  c.code_client,
+    'nom':          c.nom,
+    'prenom':       c.prenom ?? '',
+    'email':        c.email,
+    'telephone':    c.telephone ?? '',
+    'role_contact': c.role_contact,
+    'delete':       '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(lignes)
+  ws['!cols'] = [{ wch: 38 }, { wch: 16 }, { wch: 24 }, { wch: 18 }, { wch: 30 }, { wch: 16 }, { wch: 20 }, { wch: 8 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Contacts')
+  XLSX.writeFile(wb, `contacts_${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
-function genererCSVContacts(contacts: RowContact[]): string {
-  const entete = ['id_contact', 'code_client', 'nom', 'prenom', 'email', 'telephone', 'role_contact', 'delete']
-  const echapper = (v: string | null | undefined) => {
-    const s = v ?? ''
-    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
-    return s
-  }
-  const lignes = contacts.map(c => [
-    echapper(c.id),
-    echapper(c.code_client),
-    echapper(c.nom),
-    echapper(c.prenom),
-    echapper(c.email),
-    echapper(c.telephone),
-    echapper(c.role_contact),
-    '',
-  ].join(','))
-  return [entete.join(','), ...lignes].join('\n')
+function exporterClientsSansContactXlsx(clients: { code_dso: string; nom: string }[]) {
+  const lignes = clients.map(c => ({
+    'id_contact':   '',
+    'code_client':  c.code_dso,
+    'nom_client':   c.nom,
+    'nom':          '',
+    'prenom':       '',
+    'email':        '',
+    'telephone':    '',
+    'role_contact': '',
+    'delete':       '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(lignes)
+  ws['!cols'] = [{ wch: 38 }, { wch: 16 }, { wch: 30 }, { wch: 24 }, { wch: 18 }, { wch: 30 }, { wch: 16 }, { wch: 20 }, { wch: 8 }]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Clients sans contact')
+  XLSX.writeFile(wb, `clients_sans_contact_${new Date().toISOString().split('T')[0]}.xlsx`)
 }
 
 interface RowFacture {
@@ -367,14 +373,7 @@ export function SectionExport() {
         toast('Tous vos clients ont au moins un contact actif.', { icon: 'ℹ️' })
         return
       }
-      const csv = genererCSVClientsSansContacts(sansContacts)
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `clients_sans_contact_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      exporterClientsSansContactXlsx(sansContacts)
       toast.success(`${sansContacts.length} client${sansContacts.length > 1 ? 's' : ''} sans contact exporté${sansContacts.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export')
@@ -399,14 +398,7 @@ export function SectionExport() {
         toast('Aucun contact actif à exporter', { icon: 'ℹ️' })
         return
       }
-      const csv = genererCSVContacts(contacts)
-      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `contacts_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      URL.revokeObjectURL(url)
+      exporterContactsXlsx(contacts)
       toast.success(`${contacts.length} contact${contacts.length > 1 ? 's' : ''} exporté${contacts.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des contacts')
@@ -615,7 +607,7 @@ export function SectionExport() {
                   disabled={chargement}
                   className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
                 >
-                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
                 </button>
               </div>
             ) : (
@@ -632,7 +624,7 @@ export function SectionExport() {
                   disabled={chargement}
                   className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
                 >
-                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
                 </button>
               </div>
             )}
