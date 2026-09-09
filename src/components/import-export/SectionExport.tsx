@@ -125,6 +125,17 @@ interface RowContact {
   role_contact: string
 }
 
+function genererCSVClientsSansContacts(clients: { code_dso: string; nom: string }[]): string {
+  const echapper = (v: string | null | undefined) => {
+    const s = v ?? ''
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) return `"${s.replace(/"/g, '""')}"`
+    return s
+  }
+  const entete = ['id_contact', 'code_client', 'nom_client', 'nom', 'prenom', 'email', 'telephone', 'role_contact', 'delete']
+  const lignes = clients.map(c => ['', echapper(c.code_dso), echapper(c.nom), '', '', '', '', '', ''].join(','))
+  return [entete.join(','), ...lignes].join('\n')
+}
+
 function genererCSVContacts(contacts: RowContact[]): string {
   const entete = ['id_contact', 'code_client', 'nom', 'prenom', 'email', 'telephone', 'role_contact', 'delete']
   const echapper = (v: string | null | undefined) => {
@@ -192,6 +203,7 @@ export function SectionExport() {
   const [dateFin, setDateFin] = useState(today)
   const [chargement, setChargement] = useState(false)
   const [facturesSoldees, setFacturesSoldees] = useState(false)
+  const [sousOngletContacts, setSousOngletContacts] = useState<'existants' | 'sans_contacts'>('existants')
 
   const optionSelectionnee = OPTIONS.find(o => o.type === type)
 
@@ -333,6 +345,39 @@ export function SectionExport() {
       toast.success(`${lignes.length} relance${lignes.length > 1 ? 's' : ''} exportée${lignes.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des relances')
+    } finally {
+      setChargement(false)
+    }
+  }
+
+  async function handleExportClientsSansContacts() {
+    setChargement(true)
+    try {
+      const [clients, avecContacts] = await Promise.all([
+        fetchAll<{ code_dso: string; nom: string }>((from, to) =>
+          supabase.from('clients').select('code_dso, nom').order('nom').range(from, to)
+        ),
+        fetchAll<{ code_client: string }>((from, to) =>
+          supabase.from('contacts_client').select('code_client').eq('actif', true).range(from, to)
+        ),
+      ])
+      const codesAvecContacts = new Set(avecContacts.map(c => c.code_client))
+      const sansContacts = clients.filter(c => !codesAvecContacts.has(c.code_dso))
+      if (sansContacts.length === 0) {
+        toast('Tous vos clients ont au moins un contact actif.', { icon: 'ℹ️' })
+        return
+      }
+      const csv = genererCSVClientsSansContacts(sansContacts)
+      const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `clients_sans_contact_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`${sansContacts.length} client${sansContacts.length > 1 ? 's' : ''} sans contact exporté${sansContacts.length > 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Erreur lors de l\'export')
     } finally {
       setChargement(false)
     }
@@ -541,22 +586,56 @@ export function SectionExport() {
 
         {type === 'contacts' && (
           <div className="border border-gray-200 rounded-xl p-5">
-            <div className="flex items-center justify-between flex-wrap gap-3">
-              <div className="text-[11px] text-gray-500">
-                <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
-                <p>id_contact · code_client · nom · prénom · email · téléphone · rôle · delete</p>
-                <p className="mt-1 text-gray-400">
-                  La colonne <span className="font-mono">delete</span> est vide à l'export — indiquez <span className="font-mono">delete</span> pour désactiver un contact lors du ré-import.
-                </p>
-              </div>
+            <div className="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1 w-fit">
               <button
-                onClick={handleExportContacts}
-                disabled={chargement}
-                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+                onClick={() => setSousOngletContacts('existants')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sousOngletContacts === 'existants' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
               >
-                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                Contacts existants
+              </button>
+              <button
+                onClick={() => setSousOngletContacts('sans_contacts')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${sousOngletContacts === 'sans_contacts' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Clients sans contact
               </button>
             </div>
+
+            {sousOngletContacts === 'existants' ? (
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="text-[11px] text-gray-500">
+                  <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                  <p>id_contact · code_client · nom · prénom · email · téléphone · rôle · delete</p>
+                  <p className="mt-1 text-gray-400">
+                    La colonne <span className="font-mono">delete</span> est vide à l'export — indiquez <span className="font-mono">delete</span> pour désactiver un contact lors du ré-import.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportContacts}
+                  disabled={chargement}
+                  className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+                >
+                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="text-[11px] text-gray-500">
+                  <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+                  <p>id_contact (vide) · code_client · <strong className="text-gray-600">nom_client</strong> · nom · prénom · email · téléphone · rôle</p>
+                  <p className="mt-1 text-gray-400">
+                    La colonne <span className="font-mono">nom_client</span> est informative — elle n'est pas importée. Complétez les colonnes contact et ré-importez.
+                  </p>
+                </div>
+                <button
+                  onClick={handleExportClientsSansContacts}
+                  disabled={chargement}
+                  className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap self-end"
+                >
+                  {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .csv</>}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
