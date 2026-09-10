@@ -40,6 +40,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   const [onglet, setOnglet] = useState<'attente' | 'encaisse'>('attente')
   const [remiseEnEdition, setRemiseEnEdition] = useState<Remise | null>(null)
   const [ouvertes, setOuvertes] = useState<Set<string>>(new Set())
+  const [pendingSupprimer, setPendingSupprimer] = useState<string | null>(null)
 
   // État formulaire
   const [typeForm, setTypeForm] = useState<TypeRemise>('cheque')
@@ -144,10 +145,49 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
     retourListe()
   }
 
+  const remisePendante = pendingSupprimer ? remises.find(r => r.id === pendingSupprimer) : null
+
   if (!ouvert) return null
 
   const enAttente = remises.filter(r => r.statut === 'en_attente')
   const encaisses = remises.filter(r => r.statut === 'encaisse')
+
+  if (pendingSupprimer && remisePendante) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+          <div className="px-6 py-4 flex items-center gap-3" style={{ background: '#0E1A2B' }}>
+            <IcWarning size={15} className="text-ockham-teal flex-shrink-0" />
+            <h2 className="text-sm font-bold text-white">Annuler cette remise ?</h2>
+          </div>
+          <div className="px-5 py-5 flex flex-col items-center gap-4 text-center">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Supprimer la remise{' '}
+              <span className="font-semibold text-gray-800">
+                {remisePendante.type === 'cheque' ? 'CHQ' : 'LCR'} {remisePendante.numero}
+              </span>{' '}
+              et {remisePendante.lignes.length} facture{remisePendante.lignes.length > 1 ? 's' : ''} rattachée{remisePendante.lignes.length > 1 ? 's' : ''} ?
+            </p>
+            <div className="flex gap-2.5 justify-center">
+              <button
+                onClick={async () => { await supprimer(pendingSupprimer); setPendingSupprimer(null) }}
+                disabled={chargement}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11.5px] font-semibold border border-teal-600/30 bg-teal-600/[0.07] text-teal-700 hover:bg-teal-600/[0.14] transition-colors disabled:opacity-40"
+              >
+                <IcCheck size={12} /> Oui, annuler
+              </button>
+              <button
+                onClick={() => setPendingSupprimer(null)}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11.5px] font-semibold border border-red-500/25 bg-red-500/[0.06] text-red-600 hover:bg-red-500/[0.12] transition-colors"
+              >
+                <IcX size={12} /> Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -244,7 +284,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                                   className="text-xs font-semibold text-ockham-teal border border-ockham-teal/40 hover:bg-ockham-teal-muted px-3 py-1.5 rounded-lg transition-colors">
                                   <IcEdit size={11} className="inline-block mr-1" /> Modifier
                                 </button>
-                                <button onClick={() => supprimer(remise.id)}
+                                <button onClick={() => setPendingSupprimer(remise.id)}
                                   disabled={chargement}
                                   className="flex items-center gap-1 text-xs font-semibold text-red-500 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40">
                                   <IcX size={11} /> Annuler
