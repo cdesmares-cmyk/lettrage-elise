@@ -128,7 +128,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   const lcrValide = typeForm !== 'lcr' || ecartLcr <= 0.05
 
   // info_facture requise : garantit que code_client est toujours renseigné avant l'insert
-  const lignesValides = lignesForm.every(l => {
+  const lignesValides = lignesForm.length > 0 && lignesForm.every(l => {
     const m = parseFloat(l.montant)
     return !!l.numero_facture.trim() && !!l.info_facture && !l.chargement && !!l.montant && !isNaN(m) && m > 0
   })
