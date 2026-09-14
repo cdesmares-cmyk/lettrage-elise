@@ -64,25 +64,27 @@ export function PageProcedures() {
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
 
         {/* Barre d'onglets */}
-        <div className="flex gap-6 px-4 border-b border-gray-100">
-          <button
-            onClick={() => setOnglet('encours')}
-            className={`py-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer ${onglet === 'encours' ? 'text-ockham-teal border-ockham-teal' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-          >
-            En cours
-            {!chargement && encours.length > 0 && (
-              <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-ockham-teal/10 text-ockham-teal-dark">{encours.length}</span>
-            )}
-          </button>
-          <button
-            onClick={() => setOnglet('archive')}
-            className={`py-3 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer ${onglet === 'archive' ? 'text-ockham-teal border-ockham-teal' : 'text-gray-400 border-transparent hover:text-gray-600'}`}
-          >
-            Archive
-            {!chargement && archive.length > 0 && (
-              <span className="ml-2 text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{archive.length}</span>
-            )}
-          </button>
+        <div className="px-5 py-3 border-b border-gray-100">
+          <div className="flex bg-white border border-gray-200 rounded-lg p-1 gap-0.5 w-fit">
+            <button
+              onClick={() => setOnglet('encours')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${onglet === 'encours' ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            >
+              En cours
+              {!chargement && encours.length > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${onglet === 'encours' ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-400'}`}>{encours.length}</span>
+              )}
+            </button>
+            <button
+              onClick={() => setOnglet('archive')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors cursor-pointer ${onglet === 'archive' ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'}`}
+            >
+              Archive
+              {!chargement && archive.length > 0 && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${onglet === 'archive' ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-400'}`}>{archive.length}</span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* key={onglet} force un remount propre (réinitialise tri + filtre) à chaque changement d'onglet */}
