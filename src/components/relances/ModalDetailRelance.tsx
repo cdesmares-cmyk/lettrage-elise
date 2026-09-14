@@ -24,6 +24,14 @@ const IcComment = () => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
   </svg>
 )
+const IcEquipe = () => (
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+    <circle cx="9" cy="7" r="4"/>
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+  </svg>
+)
 
 function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -359,23 +367,21 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
             </button>
             <button
               onClick={() => setOngletRelance('commentaires')}
-              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
                 ongletRelance === 'commentaires'
                   ? 'bg-ockham-navy text-white'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
             >
-              Commentaires équipe
+              <IcEquipe /> Commentaires équipe
             </button>
           </div>
 
-          {ongletRelance === 'commentaires' && (
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <CommentairesFil contexte="relance" contexteId={relance.id} />
-            </div>
-          )}
+          <div className={`flex-1 overflow-hidden flex flex-col${ongletRelance !== 'commentaires' ? ' hidden' : ''}`}>
+            <CommentairesFil contexte="relance" contexteId={relance.id} />
+          </div>
 
-          {ongletRelance === 'factures' && <>
+          <div className={`flex-1 overflow-hidden flex flex-col${ongletRelance !== 'factures' ? ' hidden' : ''}`}>
           {/* Ligne 2 : Destinataires */}
           {contacts.length > 0 && (
             <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
@@ -501,7 +507,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
             </table>
           </div>
 
-          </>}
+          </div>
 
           {/* Pied de page */}
           <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between flex-shrink-0">

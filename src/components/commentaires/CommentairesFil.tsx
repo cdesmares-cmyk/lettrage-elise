@@ -181,9 +181,14 @@ function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, e
           onKeyDown={handleKeyDown}
         />
         {mentionInfo && membresFiltres.length > 0 && (() => {
-          const haut = !!ref.current && ref.current.getBoundingClientRect().bottom > window.innerHeight - 220
+          const rect = ref.current?.getBoundingClientRect()
+          if (!rect) return null
+          const spaceBelow = window.innerHeight - rect.bottom
+          const style = spaceBelow > 200
+            ? { position: 'fixed' as const, top: rect.bottom + 4, left: rect.left, width: 208, zIndex: 9999 }
+            : { position: 'fixed' as const, bottom: window.innerHeight - rect.top + 4, left: rect.left, width: 208, zIndex: 9999 }
           return (
-            <div className={`absolute ${haut ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-52 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden`}>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden" style={style}>
               {membresFiltres.map(m => (
                 <button key={m.id} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
                   onMouseDown={e => { e.preventDefault(); insererMembre(m) }}>
@@ -195,9 +200,14 @@ function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, e
           )
         })()}
         {commandeInfo && facturesFiltrees.length > 0 && (() => {
-          const haut = !!ref.current && ref.current.getBoundingClientRect().bottom > window.innerHeight - 260
+          const rect = ref.current?.getBoundingClientRect()
+          if (!rect) return null
+          const spaceBelow = window.innerHeight - rect.bottom
+          const style = spaceBelow > 240
+            ? { position: 'fixed' as const, top: rect.bottom + 4, left: rect.left, width: 256, zIndex: 9999 }
+            : { position: 'fixed' as const, bottom: window.innerHeight - rect.top + 4, left: rect.left, width: 256, zIndex: 9999 }
           return (
-            <div className={`absolute ${haut ? 'bottom-full mb-1' : 'top-full mt-1'} left-0 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden`}>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden" style={style}>
               <p className="px-3 py-1.5 text-[9px] font-bold text-gray-400 uppercase tracking-wider border-b border-gray-100">Factures impayées</p>
               {facturesFiltrees.map(f => (
                 <button key={f.numero_piece} className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
