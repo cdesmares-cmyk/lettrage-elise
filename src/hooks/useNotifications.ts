@@ -38,6 +38,12 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [nonLues, setNonLues] = useState(0)
   const [chargement, setChargement] = useState(false)
+  const [nouvelleNotif, setNouvelleNotif] = useState<Notification | null>(null)
+
+  const notifIdsRef = useRef<Set<string>>(new Set())
+  const initialLoadDoneRef = useRef(false)
+
+  const effacerNouvelleNotif = useCallback(() => setNouvelleNotif(null), [])
 
   const charger = useCallback(async () => {
     if (!utilisateur) return
@@ -49,6 +55,15 @@ export function useNotifications() {
       .order('cree_le', { ascending: false })
       .limit(50)
     const notifs = (data ?? []).map(r => mapNotif(r as unknown as RawNotif))
+
+    if (initialLoadDoneRef.current) {
+      const nouvelles = notifs.filter(n => !notifIdsRef.current.has(n.id))
+      if (nouvelles.length > 0) setNouvelleNotif(nouvelles[0])
+    }
+
+    notifIdsRef.current = new Set(notifs.map(n => n.id))
+    initialLoadDoneRef.current = true
+
     setNotifications(notifs)
     setNonLues(notifs.filter(n => !n.lu_le).length)
     setChargement(false)
@@ -127,5 +142,5 @@ export function useNotifications() {
     }
   }, [utilisateur])
 
-  return { notifications, nonLues, chargement, charger, marquerLu, marquerToutLu, archiver, archiverToutes }
+  return { notifications, nonLues, chargement, charger, marquerLu, marquerToutLu, archiver, archiverToutes, nouvelleNotif, effacerNouvelleNotif }
 }

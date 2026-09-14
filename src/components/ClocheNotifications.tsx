@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useNotifications } from '../hooks/useNotifications'
 import { ModalJournalNotifications } from './ModalJournalNotifications'
+import { ToastNotification } from './ToastNotification'
 import type { Notification } from '../types/commentaire'
 
 const LIBELLES_CONTEXTE: Record<string, string> = {
@@ -64,7 +65,7 @@ function LigneNotif({
 }
 
 export function ClocheNotifications() {
-  const { notifications, nonLues, marquerLu, marquerToutLu } = useNotifications()
+  const { notifications, nonLues, marquerLu, marquerToutLu, nouvelleNotif, effacerNouvelleNotif } = useNotifications()
   const [ouvert, setOuvert] = useState(false)
   const [journalOuvert, setJournalOuvert] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -97,8 +98,22 @@ export function ClocheNotifications() {
     setJournalOuvert(true)
   }
 
+  function handleToastClic() {
+    if (!nouvelleNotif) return
+    marquerLu(nouvelleNotif.id)
+    handleNaviguer(nouvelleNotif)
+    effacerNouvelleNotif()
+  }
+
   return (
     <>
+      {nouvelleNotif && (
+        <ToastNotification
+          notif={nouvelleNotif}
+          onFermer={effacerNouvelleNotif}
+          onClic={handleToastClic}
+        />
+      )}
       <div ref={ref} className="relative">
         <button
           onClick={() => setOuvert(o => !o)}
