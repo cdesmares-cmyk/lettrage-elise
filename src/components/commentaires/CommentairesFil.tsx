@@ -1,5 +1,5 @@
 // Fil de commentaires internes — client, facture, relance…
-import { useState, useRef, useCallback, useMemo, type ChangeEvent, type KeyboardEvent } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect, type ChangeEvent, type KeyboardEvent } from 'react'
 import { useCommentaires } from '../../hooks/useCommentaires'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -89,14 +89,24 @@ interface ZoneSaisieProps {
   onAnnuler?: () => void
   envoi: boolean
   placeholder?: string
+  autoMention?: MembreOrg
 }
 
-function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, envoi, placeholder }: ZoneSaisieProps) {
-  const [texte, setTexte]               = useState('')
-  const [mentions, setMentions]         = useState<string[]>([])
+function ZoneSaisie({ membres, facturesSaisie, onEnvoyer, reponseA, onAnnuler, envoi, placeholder, autoMention }: ZoneSaisieProps) {
+  const texteInit = autoMention ? `@${tokenMembre(autoMention)} ` : ''
+  const [texte, setTexte]               = useState(texteInit)
+  const [mentions, setMentions]         = useState<string[]>(() => autoMention ? [autoMention.id] : [])
   const [mentionInfo, setMentionInfo]   = useState<{ debut: number; query: string } | null>(null)
   const [commandeInfo, setCommandeInfo] = useState<{ debut: number; query: string } | null>(null)
   const ref = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    if (!autoMention || !ref.current) return
+    ref.current.focus()
+    const l = texteInit.length
+    ref.current.setSelectionRange(l, l)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const membresFiltres = mentionInfo
     ? membres.filter(m => {
@@ -314,6 +324,7 @@ function Bulle({ c, membres, facturesActives, facturesSaisie, moiId, repondantAI
               reponseA={c.id}
               envoi={envoi}
               placeholder={`Répondre à ${c.auteur_nom}…`}
+              autoMention={membres.find(x => x.id === c.auteur_id)}
             />
           </div>
         )}
