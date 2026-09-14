@@ -50,6 +50,15 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
   const [filtresBodacc, setFiltresBodacc] = useState<Set<StatutJuridique | null>>(new Set(BODACC_TOUTES))
   const [sortCol, setSortCol] = useState('date_emission')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [montantMin, setMontantMin] = useState('')
+  const [montantMax, setMontantMax] = useState('')
+  const [filtreMonantOuvert, setFiltreMonantOuvert] = useState(false)
+
+  const montantActif = montantMin !== '' || montantMax !== ''
+
+  function effacerMontant() {
+    setMontantMin(''); setMontantMax(''); setFiltreMonantOuvert(false); setPage(0)
+  }
 
   function handleSort(col: string) {
     if (sortCol === col) {
@@ -101,8 +110,12 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
     if (dateDebut) result = result.filter(f => (f.date_emission ?? '') >= dateDebut)
     if (dateFin) result = result.filter(f => (f.date_emission ?? '') <= dateFin)
     if (filtresBodacc.size < 5) result = result.filter(f => filtresBodacc.has(statutJuridiqueMap.get(f.code_client) ?? null))
+    const vMin = montantMin !== '' ? parseFloat(montantMin) : null
+    const vMax = montantMax !== '' ? parseFloat(montantMax) : null
+    if (vMin !== null && !isNaN(vMin)) result = result.filter(f => (f.montant_ttc ?? 0) >= vMin)
+    if (vMax !== null && !isNaN(vMax)) result = result.filter(f => (f.montant_ttc ?? 0) <= vMax)
     return result
-  }, [factures, dateDebut, dateFin, filtresBodacc, statutJuridiqueMap])
+  }, [factures, dateDebut, dateFin, filtresBodacc, statutJuridiqueMap, montantMin, montantMax])
 
   const facturesTries = useMemo(
     () => sortRows(facturesFiltrees, sortCol, sortDir),
@@ -176,10 +189,65 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
           </button>
         )}
 
+        <div className="w-px h-6 bg-gray-200 flex-shrink-0 self-end mb-0.5" />
+
+        {/* Filtre montant — capsule toggle */}
+        <div className="flex items-end gap-2 self-end">
+          <button
+            onClick={() => { setFiltreMonantOuvert(o => !o); if (filtreMonantOuvert && montantActif) effacerMontant() }}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              montantActif
+                ? 'bg-ockham-teal/10 border-ockham-teal/40 text-ockham-teal'
+                : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300 hover:text-gray-700'
+            }`}
+          >
+            {montantActif && <span className="w-1.5 h-1.5 rounded-full bg-ockham-teal flex-shrink-0" />}
+            Montant
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/>
+            </svg>
+          </button>
+
+          {filtreMonantOuvert && (
+            <>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">≥</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="0 €"
+                  value={montantMin}
+                  onChange={e => { setMontantMin(e.target.value); setPage(0) }}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors w-24"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">≤</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="∞"
+                  value={montantMax}
+                  onChange={e => { setMontantMax(e.target.value); setPage(0) }}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors w-24"
+                />
+              </div>
+              {montantActif && (
+                <button
+                  onClick={effacerMontant}
+                  className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </>
+          )}
+        </div>
+
         <div className="flex-1" />
         <span className="text-[11px] text-gray-400 self-end pb-0.5">
           {facturesFiltrees.length} facture{facturesFiltrees.length !== 1 ? 's' : ''}
-          {(dateDebut || dateFin) ? ' (filtrées)' : ''}
+          {(dateDebut || dateFin || montantActif) ? ' (filtrées)' : ''}
         </span>
         <button
           onClick={handleExport}
