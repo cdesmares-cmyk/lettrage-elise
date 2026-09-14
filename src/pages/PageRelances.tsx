@@ -62,28 +62,10 @@ export function PageRelances() {
     }
   }, [relances, lettragesMap, seuilSansSuite])
 
-  const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode; activeCls: string; badgeCls: string }[] = [
-    {
-      id: 'en_cours',
-      label: 'En cours',
-      icon: <IcClock />,
-      activeCls: 'border-ockham-teal text-ockham-teal',
-      badgeCls: 'bg-ockham-teal-muted text-ockham-teal-dark',
-    },
-    {
-      id: 'payee',
-      label: 'Payées',
-      icon: <IcCheckCircle />,
-      activeCls: 'border-emerald-500 text-emerald-600',
-      badgeCls: 'bg-emerald-50 text-emerald-700',
-    },
-    {
-      id: 'sans_suite',
-      label: 'Sans suite',
-      icon: <IcXCircle />,
-      activeCls: 'border-[#C07840] text-[#C07840]',
-      badgeCls: 'bg-[#F5E9D8] text-[#C07840]',
-    },
+  const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode }[] = [
+    { id: 'en_cours',   label: 'En cours',   icon: <IcClock /> },
+    { id: 'payee',      label: 'Payées',      icon: <IcCheckCircle /> },
+    { id: 'sans_suite', label: 'Sans suite',  icon: <IcXCircle /> },
   ]
 
   return (
@@ -120,26 +102,30 @@ export function PageRelances() {
 
       {/* Navigation 3 onglets */}
       <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex border-b border-gray-100">
-          {onglets.map(o => {
-            const nb = grouped[o.id].length
-            const actif = ongletActif === o.id
-            return (
-              <button
-                key={o.id}
-                onClick={() => setOngletActif(o.id)}
-                className={`flex items-center gap-2 px-5 py-3 text-xs font-semibold border-b-2 transition-colors select-none ${
-                  actif ? o.activeCls : 'border-transparent text-gray-400 hover:text-gray-600'
-                }`}
-              >
-                {o.icon}
-                {o.label}
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${actif ? o.badgeCls : 'bg-gray-100 text-gray-400'}`}>
-                  {nb}
-                </span>
-              </button>
-            )
-          })}
+        <div className="px-5 py-3 border-b border-gray-100">
+          <div className="flex bg-white border border-gray-200 rounded-lg p-1 gap-0.5 w-fit">
+            {onglets.map(o => {
+              const nb = grouped[o.id].length
+              const actif = ongletActif === o.id
+              return (
+                <button
+                  key={o.id}
+                  onClick={() => setOngletActif(o.id)}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-xs font-semibold transition-colors select-none ${
+                    actif ? 'bg-ockham-teal text-white' : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                >
+                  {o.icon}
+                  {o.label}
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    actif ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-400'
+                  }`}>
+                    {nb}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         {/* Info strip contextuel */}
