@@ -40,9 +40,6 @@ export function useNotifications() {
   const [chargement, setChargement] = useState(false)
   const [nouvelleNotif, setNouvelleNotif] = useState<Notification | null>(null)
 
-  const notifIdsRef = useRef<Set<string>>(new Set())
-  const initialLoadDoneRef = useRef(false)
-
   const effacerNouvelleNotif = useCallback(() => setNouvelleNotif(null), [])
 
   const charger = useCallback(async () => {
@@ -55,15 +52,6 @@ export function useNotifications() {
       .order('cree_le', { ascending: false })
       .limit(50)
     const notifs = (data ?? []).map(r => mapNotif(r as unknown as RawNotif))
-
-    if (initialLoadDoneRef.current) {
-      const nouvelles = notifs.filter(n => !notifIdsRef.current.has(n.id))
-      if (nouvelles.length > 0) setNouvelleNotif(nouvelles[0])
-    }
-
-    notifIdsRef.current = new Set(notifs.map(n => n.id))
-    initialLoadDoneRef.current = true
-
     setNotifications(notifs)
     setNonLues(notifs.filter(n => !n.lu_le).length)
     setChargement(false)
@@ -74,7 +62,7 @@ export function useNotifications() {
 
   useEffect(() => { charger() }, [charger])
 
-  // Realtime : badge mis à jour à chaque nouvelle notification
+  // Realtime : badge + toast à chaque nouvelle notification
   useEffect(() => {
     if (!utilisateur) return
     const channel = supabase
@@ -84,7 +72,17 @@ export function useNotifications() {
         schema: 'public',
         table: 'notifications',
         filter: `destinataire_id=eq.${utilisateur.id}`,
-      }, () => { chargerRef.current() })
+      }, async (payload) => {
+        chargerRef.current()
+        const newId = (payload.new as Record<string, unknown>)?.id as string | undefined
+        if (!newId) return
+        const { data } = await supabase
+          .from('notifications')
+          .select(COLS_FULL)
+          .eq('id', newId)
+          .single()
+        if (data) setNouvelleNotif(mapNotif(data as unknown as RawNotif))
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [utilisateur])

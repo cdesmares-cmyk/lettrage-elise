@@ -24,7 +24,7 @@ type Props = {
 
 export function ToastNotification({ notif, onFermer, onClic }: Props) {
   useEffect(() => {
-    const t = setTimeout(onFermer, 5000)
+    const t = setTimeout(onFermer, 10000)
     return () => clearTimeout(t)
   }, [onFermer])
 
