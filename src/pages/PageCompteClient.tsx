@@ -36,7 +36,7 @@ export function PageCompteClient() {
   const [vue, setVue] = useState<VueMode>('clients')
   const [clientOptionsDso, setClientOptionsDso] = useState<string | null>(null)
   const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'>('infos')
-  const [facCommentaireOngletInitial, setFacCommentaireOngletInitial] = useState<'infos' | 'equipe'>('infos')
+  const [facCommentaireOngletInitial, setFacCommentaireOngletInitial] = useState<'infos' | 'equipe' | 'commentaires'>('infos')
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const gmailAuth = useGmailAuth()
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)

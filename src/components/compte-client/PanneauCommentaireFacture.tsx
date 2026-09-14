@@ -11,7 +11,7 @@ const STATUTS: { val: StatutFacture; label: string; cls: string }[] = [
 
 const _fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-type Onglet = 'infos' | 'equipe'
+type Onglet = 'infos' | 'equipe' | 'commentaires'
 
 interface Props {
   facture: FactureDetail | null
