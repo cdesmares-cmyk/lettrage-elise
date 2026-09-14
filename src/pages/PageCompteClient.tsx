@@ -218,7 +218,7 @@ export function PageCompteClient() {
     const fac = facturesActives.find(f => f.numero_piece === facParam)
     if (fac) {
       setFacCommentaire(fac)
-      setFacCommentaireOngletInitial('equipe')
+      setFacCommentaireOngletInitial('commentaires')
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, facturesActives])
@@ -438,6 +438,7 @@ export function PageCompteClient() {
 
       {/* Panneau Options */}
       <PanneauOptions
+        key={clientOptionsDso ?? 'none'}
         client={clientOptions}
         onFermer={() => { setClientOptionsDso(null); setPanneauOngletInitial('infos') }}
         ongletInitial={panneauOngletInitial}

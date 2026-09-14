@@ -34,6 +34,10 @@ export function ToastNotification({ notif, onFermer, onClic }: Props) {
       onClick={onClic}
     >
       <div className="flex items-center gap-2 px-4 py-2.5" style={{ background: '#0E1A2B' }}>
+        <span className="relative flex-shrink-0">
+          <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-ockham-teal opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-ockham-teal" />
+        </span>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4CC5BB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
         </svg>
