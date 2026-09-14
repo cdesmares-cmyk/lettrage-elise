@@ -25,7 +25,7 @@ const IcComment = () => (
   </svg>
 )
 const IcEquipe = () => (
-  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4CC5BB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
     <circle cx="9" cy="7" r="4"/>
     <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
@@ -357,20 +357,20 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
           <div className="px-5 py-2 border-b border-gray-100 flex-shrink-0 flex items-center gap-1">
             <button
               onClick={() => setOngletRelance('factures')}
-              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
                 ongletRelance === 'factures'
-                  ? 'bg-ockham-navy text-white'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  ? 'bg-ockham-navy text-white border-ockham-navy'
+                  : 'text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
               }`}
             >
               Factures
             </button>
             <button
               onClick={() => setOngletRelance('commentaires')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
                 ongletRelance === 'commentaires'
-                  ? 'bg-ockham-navy text-white'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  ? 'bg-ockham-navy text-white border-ockham-navy'
+                  : 'text-gray-400 border-gray-200 hover:border-gray-300 hover:text-gray-600'
               }`}
             >
               <IcEquipe /> Commentaires équipe
