@@ -4,20 +4,9 @@ import { supabase } from '../../lib/supabase'
 import { etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture, StatutFacture } from '../../types/client'
-import type { MembreOrg } from '../../types/commentaire'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
-import { useCommentaires } from '../../hooks/useCommentaires'
-
-function normaliserM(s: string) {
-  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
-}
-function detecterM(texte: string, cursor: number): { debut: number; query: string } | null {
-  const avant = texte.slice(0, cursor)
-  const match = avant.match(/(?:^|[\s\n])(@[^\s@]*)$/)
-  if (!match) return null
-  return { debut: avant.lastIndexOf('@'), query: match[1].slice(1) }
-}
+import { CommentairesFil } from '../commentaires/CommentairesFil'
 
 const IcLitige = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -74,9 +63,8 @@ function renderStatutBadge(
 }
 
 export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
-  const { facturesActives, clients, mettreAJourStatutLocal, membresOrg } = useAppData()
+  const { facturesActives, clients, mettreAJourStatutLocal } = useAppData()
   const { utilisateur } = useAuth()
-  const { envoyer: envoyerMention, envoi: mentionEnvoi } = useCommentaires('relance', relance?.id ?? '')
 
   // ── Tous les hooks en tête, avant tout return conditionnel ──
   const [noteTexte, setNoteTexte]           = useState('')
@@ -91,20 +79,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   const [facturesRelance, setFacturesRelance] = useState<FactureRelance[]>([])
   const [lettragesRelanceMap, setLettragesRelanceMap] = useState<Map<string, string[]>>(new Map())
   const popupRef                            = useRef<HTMLDivElement>(null)
-  const [mentionTexte, setMentionTexte]     = useState('')
-  const [mentionsIds, setMentionsIds]       = useState<string[]>([])
-  const [mentionInfo, setMentionInfo]       = useState<{ debut: number; query: string } | null>(null)
-  const mentionRef                          = useRef<HTMLTextAreaElement>(null)
-
-  const membresFiltres = useMemo(() => {
-    if (!mentionInfo) return []
-    const q = normaliserM(mentionInfo.query)
-    return membresOrg.filter(m =>
-      normaliserM(m.prenom ?? '').startsWith(q) ||
-      normaliserM(m.nom).startsWith(q) ||
-      `${normaliserM(m.prenom ?? '')} ${normaliserM(m.nom)}`.includes(q)
-    ).slice(0, 5)
-  }, [mentionInfo, membresOrg])
+  const [ongletRelance, setOngletRelance]   = useState<'factures' | 'commentaires'>('factures')
 
   const facturesMap = useMemo(() => new Map(facturesActives.map(f => [f.numero_piece, f])), [facturesActives])
   const clientsMap  = new Map(clients.map(c => [c.code_dso, c.nom]))
@@ -180,9 +155,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
     setNoteTexte(relance?.note ?? '')
     setComOuvertes(new Set())
     setPopupStatut(null)
-    setMentionTexte('')
-    setMentionsIds([])
-    setMentionInfo(null)
+    setOngletRelance('factures')
     if (!relance) return
     const com = new Map<string, EtatCom>()
     const npr = new Map<string, boolean>()
@@ -232,31 +205,6 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
     : factures.reduce((s, f) => s + (f?.montant_ttc ?? 0), 0)
   const jours     = relance.envoyee_le ? joursDepuis(relance.envoyee_le) : null
   const enRetard  = jours !== null && jours >= 10
-
-  function handleMentionChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const val = e.target.value
-    const cursor = e.target.selectionStart ?? val.length
-    setMentionTexte(val)
-    setMentionInfo(detecterM(val, cursor))
-  }
-
-  function insererMembreMention(m: MembreOrg) {
-    if (!mentionInfo || !mentionRef.current) return
-    const token = `@${m.prenom ?? m.nom} `
-    const avant = mentionTexte.slice(0, mentionInfo.debut) + token
-    const apres = mentionTexte.slice(mentionRef.current.selectionStart ?? mentionTexte.length)
-    setMentionTexte(avant + apres)
-    setMentionsIds(prev => prev.includes(m.id) ? prev : [...prev, m.id])
-    setMentionInfo(null)
-    setTimeout(() => { mentionRef.current?.focus(); mentionRef.current?.setSelectionRange(avant.length, avant.length) }, 0)
-  }
-
-  async function handleEnvoyerMention() {
-    const t = mentionTexte.trim()
-    if (!t || mentionEnvoi) return
-    const ok = await envoyerMention(t, mentionsIds)
-    if (ok) { setMentionTexte(''); setMentionsIds([]); setMentionInfo(null) }
-  }
 
   function setCom(id: string, patch: Partial<EtatCom>) {
     setEtatsCom(prev => { const n = new Map(prev); n.set(id, { ...prev.get(id)!, ...patch }); return n })
@@ -397,54 +345,37 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
             </div>
           </div>
 
-          {/* Mentionner un collègue */}
-          <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
-            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Mentionner un collègue</p>
-            <div className="flex gap-2 items-end">
-              <div className="relative flex-1">
-                <textarea
-                  ref={mentionRef}
-                  value={mentionTexte}
-                  onChange={handleMentionChange}
-                  onKeyDown={e => {
-                    if (e.key === 'Tab' && membresFiltres.length > 0) { e.preventDefault(); insererMembreMention(membresFiltres[0]); return }
-                    if (e.key === 'Escape') setMentionInfo(null)
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleEnvoyerMention() }
-                  }}
-                  placeholder="@Prénom pour info… (Tab pour compléter · Ctrl+Entrée pour envoyer)"
-                  rows={1}
-                  className="w-full text-xs text-gray-700 bg-white border border-gray-200 focus:border-ockham-teal/50 rounded-xl px-3 py-2 outline-none resize-none placeholder-gray-300 transition-colors"
-                />
-                {mentionInfo && membresFiltres.length > 0 && (
-                  <div className="absolute bottom-full mb-1 left-0 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
-                    {membresFiltres.map(m => (
-                      <button
-                        key={m.id}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer text-left transition-colors"
-                        onMouseDown={e => { e.preventDefault(); insererMembreMention(m) }}
-                      >
-                        <span
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
-                          style={{ background: m.couleur }}
-                        >
-                          {m.initiales}
-                        </span>
-                        <span className="text-xs text-gray-700">{m.prenom ? `${m.prenom} ${m.nom}` : m.nom}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                onClick={handleEnvoyerMention}
-                disabled={!mentionTexte.trim() || mentionEnvoi}
-                className="text-[10px] font-semibold px-3 py-2 rounded-xl bg-ockham-teal text-white hover:bg-ockham-teal-dark disabled:opacity-50 transition-colors cursor-pointer whitespace-nowrap"
-              >
-                {mentionEnvoi ? '…' : 'Envoyer'}
-              </button>
-            </div>
+          {/* Toggle Factures / Commentaires équipe */}
+          <div className="px-5 py-2 border-b border-gray-100 flex-shrink-0 flex items-center gap-1">
+            <button
+              onClick={() => setOngletRelance('factures')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                ongletRelance === 'factures'
+                  ? 'bg-ockham-navy text-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Factures
+            </button>
+            <button
+              onClick={() => setOngletRelance('commentaires')}
+              className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                ongletRelance === 'commentaires'
+                  ? 'bg-ockham-navy text-white'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Commentaires équipe
+            </button>
           </div>
 
+          {ongletRelance === 'commentaires' && (
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <CommentairesFil contexte="relance" contexteId={relance.id} />
+            </div>
+          )}
+
+          {ongletRelance === 'factures' && <>
           {/* Ligne 2 : Destinataires */}
           {contacts.length > 0 && (
             <div className="px-5 py-3 border-b border-gray-100 flex-shrink-0">
@@ -569,6 +500,8 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
               </tbody>
             </table>
           </div>
+
+          </>}
 
           {/* Pied de page */}
           <div className="px-6 py-3 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between flex-shrink-0">
