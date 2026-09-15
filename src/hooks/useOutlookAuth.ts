@@ -119,9 +119,14 @@ export function useOutlookAuth() {
     return { threadId: `outlook-${Date.now()}` }
   }
 
-  // Microsoft Graph n'expose pas la signature via API — retourne null
   async function recupererSignature(): Promise<string | null> {
-    return null
+    if (!utilisateur?.id) return null
+    const { data } = await supabase
+      .from('utilisateurs')
+      .select('signature_email')
+      .eq('id', utilisateur.id)
+      .maybeSingle()
+    return (data as { signature_email: string | null } | null)?.signature_email ?? null
   }
 
   async function deconnecterOutlook() {
@@ -135,9 +140,10 @@ export function useOutlookAuth() {
     token,
     chargement,
     estConnecte:      !!token,
+    provider:         'outlook' as const,
     connecterOutlook,
     deconnecterOutlook,
-    connecterGmail:   connecterOutlook,   // alias GmailAuthProps
+    connecterGmail:   connecterOutlook,
     envoyerEmail,
     recupererSignature,
   }

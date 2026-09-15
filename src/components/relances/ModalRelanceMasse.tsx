@@ -20,6 +20,7 @@ function fmtEncours(n: number) {
 
 interface GmailAuthProps {
   estConnecte: boolean
+  provider?: 'gmail' | 'outlook'
   token: GmailToken | null
   connecterGmail: () => void
   envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string }) => Promise<{ threadId: string } | null>
@@ -51,7 +52,8 @@ interface Resultat {
 export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, onFini }: Props) {
   const { utilisateur } = useAuth()
   const { facturesActives, scenarios } = useAppData()
-  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const { estConnecte, provider = 'gmail', token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
   const [etats, setEtats] = useState<EtatClient[]>(clients.map(c => ({ client: c, contacts: [], nomForm: '', emailForm: '', ajoutEnCours: false })))
   const [chargementContacts, setChargementContacts] = useState(true)
@@ -157,7 +159,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
         const destinataires = contactsEmail.map(c => c.email!)
         const res = await envoyerEmail({ destinataires, objet: objetClient, corpsHtml })
         if (!res) {
-          const r: Resultat = { nom: e.client.nom, succes: false, raison: 'Échec envoi Gmail' }
+          const r: Resultat = { nom: e.client.nom, succes: false, raison: `Échec envoi ${nomProvider}` }
           resultats.push(r)
           setProgression(prev => ({ ...prev, current: prev.current + 1, resultats: [...prev.resultats, r] }))
           continue
@@ -240,16 +242,21 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
             {/* Colonne gauche */}
             <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
 
-              {/* Statut Gmail */}
+              {/* Statut messagerie */}
               {estConnecte ? (
                 <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                   <span className="text-emerald-600 text-sm">✓</span>
-                  <p className="text-xs text-emerald-700">Envoi depuis <span className="font-semibold">{gmailToken?.gmail_email}</span></p>
+                  <p className="text-xs text-emerald-700 truncate">Envoi depuis <span className="font-semibold">{nomProvider}</span> <span className="font-mono">({gmailToken?.gmail_email})</span></p>
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  <p className="text-xs text-amber-700">Gmail non connecté — les relances seront enregistrées sans envoi</p>
-                  <button onClick={connecterGmail} className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0">Connecter →</button>
+                  <p className="text-xs text-amber-700">Aucune boite mail connectée — les relances seront enregistrées sans envoi</p>
+                  <button
+                    onClick={() => { onFermer(); window.dispatchEvent(new CustomEvent('ockham:ouvrir-integrations')) }}
+                    className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0"
+                  >
+                    → Intégrations
+                  </button>
                 </div>
               )}
 
@@ -453,7 +460,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                   {progression.enCours
                     ? `Envoi en cours… ${progression.current}/${progression.total}`
                     : estConnecte
-                      ? `✉ Envoyer ${avecContact.length} email${avecContact.length > 1 ? 's' : ''} via Gmail`
+                      ? `✉ Envoyer ${avecContact.length} email${avecContact.length > 1 ? 's' : ''} via ${nomProvider}`
                       : `✉ Enregistrer ${avecContact.length} relance${avecContact.length > 1 ? 's' : ''}`}
                 </button>
               </>

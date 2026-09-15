@@ -13,6 +13,7 @@ import { buildHtml, buildHtmlFromScenario, resolveBalises, fmtEuros, joursDepuis
 
 interface GmailAuthProps {
   estConnecte: boolean
+  provider?: 'gmail' | 'outlook'
   token: GmailToken | null
   connecterGmail: () => void
   envoyerEmail: (p: { destinataires: string[]; objet: string; corpsHtml: string; cc?: string[] }) => Promise<{ threadId: string } | null>
@@ -34,7 +35,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives, scenarios } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
-  const { estConnecte, token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const { estConnecte, provider = 'gmail', token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
   const impayees = facturesActives.filter(f =>
     f.code_client === client?.code_dso &&
@@ -51,11 +53,15 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [envoi, setEnvoi] = useState(false)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
+  const [signaturePanelOuvert, setSignaturePanelOuvert] = useState(false)
+  const [signatureEdition, setSignatureEdition] = useState('')
+  const [signatureApercu, setSignatureApercu] = useState(false)
+  const [sauvegarde, setSauvegarde] = useState(false)
   const [emailCommercial, setEmailCommercial] = useState<string | null>(null)
   const [ccCommercial, setCcCommercial] = useState(false)
 
   useEffect(() => {
-    if (estConnecte) recupererSignature().then(setSignature)
+    if (estConnecte) recupererSignature().then(sig => { setSignature(sig); setSignatureEdition(sig ?? '') })
   }, [estConnecte])
 
   useEffect(() => {
@@ -136,7 +142,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
         corpsHtml: previewHtml,
         ...(ccCommercial && emailCommercial ? { cc: [emailCommercial] } : {}),
       })
-      if (!res) { toast.error('Échec de l\'envoi Gmail'); setEnvoi(false); return }
+      if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); setEnvoi(false); return }
       gmailThreadId = res.threadId
     }
 
@@ -194,14 +200,68 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
             <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-5">
 
               {estConnecte ? (
-                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  <span className="text-emerald-600 text-sm">✓</span>
-                  <p className="text-xs text-emerald-700">Envoi depuis <span className="font-semibold">{gmailToken?.gmail_email}</span></p>
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-emerald-600 text-sm flex-shrink-0">✓</span>
+                      <p className="text-xs text-emerald-700 truncate">Envoi depuis <span className="font-semibold">{nomProvider}</span> <span className="text-emerald-600 font-mono">({gmailToken?.gmail_email})</span></p>
+                    </div>
+                    {provider === 'outlook' && (
+                      <button
+                        onClick={() => setSignaturePanelOuvert(v => !v)}
+                        className={`text-[10px] font-semibold px-2 py-1 rounded-md border flex-shrink-0 transition-colors ${
+                          signature ? 'text-emerald-700 border-emerald-300 bg-emerald-100' : 'text-gray-500 border-gray-300 hover:border-gray-400 bg-white'
+                        }`}
+                      >
+                        {signature ? '✓ Signature' : '+ Signature'}
+                      </button>
+                    )}
+                  </div>
+
+                  {provider === 'outlook' && signaturePanelOuvert && (
+                    <div className="mt-2 pt-2 border-t border-emerald-200 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Signature HTML</p>
+                        <button onClick={() => setSignatureApercu(v => !v)} className="text-[10px] text-ockham-teal hover:underline">
+                          {signatureApercu ? 'Éditer' : 'Aperçu'}
+                        </button>
+                      </div>
+                      {signatureApercu ? (
+                        <div className="text-xs border border-gray-200 rounded-lg px-3 py-2 bg-white min-h-[60px]" dangerouslySetInnerHTML={{ __html: signatureEdition }} />
+                      ) : (
+                        <textarea
+                          value={signatureEdition}
+                          onChange={e => setSignatureEdition(e.target.value)}
+                          placeholder="Collez votre signature HTML ici…"
+                          className="w-full text-[11px] font-mono border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-ockham-teal resize-none h-20"
+                        />
+                      )}
+                      <button
+                        onClick={async () => {
+                          if (!utilisateur?.id) return
+                          setSauvegarde(true)
+                          await supabase.from('utilisateurs').update({ signature_email: signatureEdition || null }).eq('id', utilisateur.id)
+                          setSignature(signatureEdition || null)
+                          setSauvegarde(false)
+                          toast.success('Signature enregistrée')
+                          setSignaturePanelOuvert(false)
+                        }}
+                        className="w-full text-[11px] font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {sauvegarde ? '…' : 'Enregistrer'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  <p className="text-xs text-amber-700">Gmail non connecté — la relance sera enregistrée sans envoi</p>
-                  <button onClick={connecterGmail} className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0">Connecter Gmail →</button>
+                  <p className="text-xs text-amber-700">Aucune boite mail connectée — la relance sera enregistrée sans envoi</p>
+                  <button
+                    onClick={() => { onFermer(); window.dispatchEvent(new CustomEvent('ockham:ouvrir-integrations')) }}
+                    className="text-xs font-semibold text-ockham-teal hover:underline ml-3 flex-shrink-0"
+                  >
+                    → Intégrations
+                  </button>
                 </div>
               )}
 
@@ -332,7 +392,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                   {/* En-tête simulé */}
                   <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
                     {estConnecte && (
-                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span></p>
+                      <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span> <span className="text-gray-400">({nomProvider})</span></p>
                     )}
                     <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
                     {ccCommercial && emailCommercial && (
@@ -344,7 +404,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                   <div className="px-4 py-4" dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 </div>
                 <p className="text-[10px] text-gray-300 mt-3 text-center">
-                  {estConnecte ? `Envoyé depuis ${gmailToken?.gmail_email}` : 'Connectez Gmail pour envoyer automatiquement'}
+                  {estConnecte ? `Envoi depuis ${nomProvider} (${gmailToken?.gmail_email})` : 'Connectez votre boite mail pour envoyer automatiquement'}
                 </p>
               </div>
             </div>
@@ -370,7 +430,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={onFermer} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">Annuler</button>
             <button onClick={handleEnvoyer} disabled={!peutEnvoyer} className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-              {envoi ? '…' : estConnecte ? '✉ Envoyer via Gmail (+10 pts)' : '✉ Enregistrer la relance (+10 pts)'}
+              {envoi ? '…' : estConnecte ? `✉ Envoyer via ${nomProvider} (+10 pts)` : '✉ Enregistrer la relance (+10 pts)'}
             </button>
           </div>
         </div>

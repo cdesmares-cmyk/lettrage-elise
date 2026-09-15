@@ -68,6 +68,12 @@ export function MenuAdmin() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [ouvert])
 
+  useEffect(() => {
+    function handleOuvrirIntegrations() { setModal('integrations') }
+    window.addEventListener('ockham:ouvrir-integrations', handleOuvrirIntegrations)
+    return () => window.removeEventListener('ockham:ouvrir-integrations', handleOuvrirIntegrations)
+  }, [])
+
   function ouvrir(id: ModalId) {
     setModal(id)
     setOuvert(false)

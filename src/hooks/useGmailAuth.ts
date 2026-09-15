@@ -153,6 +153,7 @@ export function useGmailAuth() {
     token,
     chargement,
     estConnecte:   !!token,
+    provider:      'gmail' as const,
     connecterGmail,
     deconnecterGmail,
     envoyerEmail,
