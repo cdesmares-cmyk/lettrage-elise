@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
+import { useOutlookAuth } from '../../hooks/useOutlookAuth'
 import { useAxonautIntegration } from '../../hooks/useAxonautIntegration'
 import { ModalBase } from './ModalBase'
 import { IcLink } from '../Icones'
@@ -91,16 +92,24 @@ function LogoPennylane() {
 
 export function ModalIntegrations({ onClose }: Props) {
   const { token: gmailToken, chargement: gmailChargement, connecterGmail, deconnecterGmail } = useGmailAuth()
+  const { token: outlookToken, chargement: outlookChargement, connecterOutlook, deconnecterOutlook } = useOutlookAuth()
   const { integration: axonaut } = useAxonautIntegration()
   const [panneau, setPanneau] = useState<Panneau>(null)
   const [confirmDecoGmail, setConfirmDecoGmail] = useState(false)
+  const [confirmDecoOutlook, setConfirmDecoOutlook] = useState(false)
 
-  const gmailConnecte = !!gmailToken
+  const gmailConnecte   = !!gmailToken
+  const outlookConnecte = !!outlookToken
   const axonautConnecte = !!(axonaut?.actif && axonaut.verifie_le)
 
   async function handleDeconnecterGmail() {
     await deconnecterGmail()
     setConfirmDecoGmail(false)
+  }
+
+  async function handleDeconnecterOutlook() {
+    await deconnecterOutlook()
+    setConfirmDecoOutlook(false)
   }
 
   if (panneau === 'bodacc') return <ModalVeilleBodacc onClose={() => setPanneau(null)} />
@@ -175,8 +184,43 @@ export function ModalIntegrations({ onClose }: Props) {
                   logo={<LogoOutlook />}
                   nom="Outlook / Microsoft 365"
                   description="Envoi de relances depuis votre boîte Outlook"
-                  statut={<BadgeBientot />}
-                  grise
+                  statut={outlookChargement ? null : <BadgeStatut connecte={outlookConnecte} />}
+                  actions={
+                    outlookConnecte ? (
+                      confirmDecoOutlook ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-red-600 font-semibold">Confirmer ?</span>
+                          <button
+                            onClick={handleDeconnecterOutlook}
+                            className="text-[10px] font-bold text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded-lg transition-colors"
+                          >Oui</button>
+                          <button
+                            onClick={() => setConfirmDecoOutlook(false)}
+                            className="text-[10px] text-gray-400 hover:text-gray-600"
+                          >Non</button>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-end gap-0.5">
+                          {outlookToken?.outlook_email && (
+                            <p className="text-[10px] text-gray-400 font-mono">{outlookToken.outlook_email}</p>
+                          )}
+                          <button
+                            onClick={() => setConfirmDecoOutlook(true)}
+                            className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors"
+                          >
+                            Déconnecter
+                          </button>
+                        </div>
+                      )
+                    ) : (
+                      <button
+                        onClick={connecterOutlook}
+                        className="text-[11px] font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        Connecter
+                      </button>
+                    )
+                  }
                 />
 
               </div>

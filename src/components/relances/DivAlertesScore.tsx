@@ -2,6 +2,7 @@ import { useAlertesScore } from '../../hooks/useAlertesScore'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
+import { useOutlookAuth } from '../../hooks/useOutlookAuth'
 import { useCommentairesFactures } from '../../hooks/useCommentairesFactures'
 import { ModalCompositionRelance } from './ModalCompositionRelance'
 import { useState, useRef, useCallback } from 'react'
@@ -43,7 +44,9 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
   const { alertes, chargement, prendreEnCharge, snoozeJours } = useAlertesScore()
   const { peutModifier } = useRole()
   const { clients } = useAppData()
-  const gmailAuth = useGmailAuth()
+  const gmailAuth   = useGmailAuth()
+  const outlookAuth = useOutlookAuth()
+  const messagerie  = gmailAuth.estConnecte ? gmailAuth : outlookAuth
   const { commentaires } = useCommentairesFactures()
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
   const [alerteCodeApresRelance, setAlerteCodeApresRelance] = useState<string | null>(null)
@@ -196,7 +199,7 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
         client={clientRelance}
         onFermer={() => { setClientRelance(null); setAlerteCodeApresRelance(null) }}
         onSent={handleRelanceSent}
-        gmailAuth={gmailAuth}
+        gmailAuth={messagerie}
         commentaires={commentaires}
       />
     </>

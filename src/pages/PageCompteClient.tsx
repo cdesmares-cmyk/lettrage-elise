@@ -21,6 +21,7 @@ import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNeb
 import { ModalCompositionRelance } from '../components/relances/ModalCompositionRelance'
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
+import { useOutlookAuth } from '../hooks/useOutlookAuth'
 import { exporterXls } from '../lib/exportXls'
 import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
@@ -38,7 +39,9 @@ export function PageCompteClient() {
   const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'>('infos')
   const [facCommentaireOngletInitial, setFacCommentaireOngletInitial] = useState<'infos' | 'equipe' | 'commentaires'>('infos')
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
-  const gmailAuth = useGmailAuth()
+  const gmailAuth    = useGmailAuth()
+  const outlookAuth  = useOutlookAuth()
+  const messagerie   = gmailAuth.estConnecte ? gmailAuth : outlookAuth
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [clientCompensationDso, setClientCompensationDso] = useState<string | null>(null)
@@ -478,7 +481,7 @@ export function PageCompteClient() {
         client={clientRelance}
         onFermer={() => setClientRelance(null)}
         onSent={() => setClientRelance(null)}
-        gmailAuth={gmailAuth}
+        gmailAuth={messagerie}
         commentaires={commentaires}
         onOuvrirContacts={clientRelance ? () => {
           setPanneauOngletInitial('contacts')
@@ -491,7 +494,7 @@ export function PageCompteClient() {
       {relanceMasseOuverte && (
         <ModalRelanceMasse
           clients={clientsSelectionnes.slice(0, 25)}
-          gmailAuth={gmailAuth}
+          gmailAuth={messagerie}
           commentaires={commentaires}
           onFermer={() => setRelanceMasseOuverte(false)}
           onFini={() => { setRelanceMasseOuverte(false); setModeSelection(false); setSelection(new Set()) }}
