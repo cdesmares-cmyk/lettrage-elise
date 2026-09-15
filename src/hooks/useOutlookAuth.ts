@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import type { GmailToken } from './useGmailAuth'
 
 const OUTLOOK_CLIENT_ID = '408a3edc-f8ab-4286-8e72-5720d42872d0'
 const REDIRECT_URI      = 'https://aqxsqmgtmenjpfrblqoe.supabase.co/functions/v1/outlook-oauth-callback'
