@@ -35,7 +35,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives, scenarios } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
-  const { estConnecte, provider = 'gmail', token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
   const impayees = facturesActives.filter(f =>
@@ -240,7 +240,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         onClick={async () => {
                           if (!utilisateur?.id) return
                           setSauvegarde(true)
-                          await supabase.from('utilisateurs').update({ signature_email: signatureEdition || null }).eq('id', utilisateur.id)
+                          await supabase.from('utilisateurs' as never).update({ signature_email: signatureEdition || null } as never).eq('id', utilisateur.id)
                           setSignature(signatureEdition || null)
                           setSauvegarde(false)
                           toast.success('Signature enregistrée')

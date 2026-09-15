@@ -52,7 +52,7 @@ interface Resultat {
 export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, onFini }: Props) {
   const { utilisateur } = useAuth()
   const { facturesActives, scenarios } = useAppData()
-  const { estConnecte, provider = 'gmail', token: gmailToken, connecterGmail, envoyerEmail, recupererSignature } = gmailAuth
+  const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
   const [etats, setEtats] = useState<EtatClient[]>(clients.map(c => ({ client: c, contacts: [], nomForm: '', emailForm: '', ajoutEnCours: false })))
