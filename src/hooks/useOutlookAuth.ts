@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const OUTLOOK_CLIENT_ID = '408a3edc-f8ab-4286-8e72-5720d42872d0'
 const REDIRECT_URI      = 'https://aqxsqmgtmenjpfrblqoe.supabase.co/functions/v1/outlook-oauth-callback'
-const SCOPE             = 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/MailboxSettings.Read openid email offline_access'
+const SCOPE             = 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/MailboxSettings.Read https://graph.microsoft.com/User.Read openid email offline_access'
 
 export interface OutlookToken {
   access_token:  string
