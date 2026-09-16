@@ -35,6 +35,7 @@ interface RowImportLettrage {
 
 interface RowCorrection {
   date_lettrage: string
+  id_ligne_bancaire: string | null
   code_client: string
   numero_facture: string | null
   montant: number
@@ -166,15 +167,12 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   )
 
   // ── 2d. Corrections de lettrage ──────────────────────────────────
-  // Corrections "standalone" uniquement (module Correction, sans ligne bancaire associée).
-  // Les corrections liées à une ligne bancaire (dispatches 411) sont déjà dans le pipeline
-  // lettrages ci-dessus et affichent leur date_lettrage réelle via dateRef.
+  // Toutes les corrections : standalone (id_ligne_bancaire IS NULL) et liées à une ligne (-C).
   const corrections = await fetchAll<RowCorrection>((from, to) =>
     supabase
       .from('lettrages')
-      .select('date_lettrage, code_client, numero_facture, montant, commentaire, operateur, correction_id')
+      .select('date_lettrage, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur, correction_id')
       .eq('mode', 'correction')
-      .is('id_ligne_bancaire', null)
       .eq('annule', false)
       .gte('date_lettrage', dateDebut)
       .lte('date_lettrage', dateFin)

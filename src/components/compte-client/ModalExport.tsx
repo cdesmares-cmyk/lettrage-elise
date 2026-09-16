@@ -157,7 +157,7 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
 
     for (const l of lettrages) {
       const isImport     = l.mode === 'import'
-      const isCorrection = l.mode === 'manuel' || l.mode === 'remboursement'
+      const isCorrection = l.mode === 'manuel' || l.mode === 'remboursement' || l.mode === 'correction'
       const type = isImport ? 'Import' : isCorrection ? 'Correction' : 'Règlement'
 
       const idBase  = l.id_ligne_bancaire?.replace(/-C$/, '') ?? null
