@@ -23,7 +23,7 @@ interface Props {
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
   onCompenser?: (client: CompteClient) => void
-  onCompenserCredit?: (fac: FactureDetail) => void
+  onCompenserCredit?: (client: CompteClient) => void
   dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -436,6 +436,19 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                           </button>
                         )
                       })()}
+                      {estOuvert && onCompenserCredit && peutModifier && (() => {
+                        const aSurpayees = factures.some(f => !f.est_avoir && f.reste_du < -0.005 && !f.numero_piece.startsWith('411_'))
+                        if (!aSurpayees) return null
+                        return (
+                          <button
+                            onClick={e => { e.stopPropagation(); onCompenserCredit(c) }}
+                            className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 hover:bg-violet-100 hover:border-violet-400 px-2.5 py-1 rounded-md transition-all"
+                            title="Transférer le crédit d'une facture surpayée vers une facture impayée"
+                          >
+                            ⇄ Crédit
+                          </button>
+                        )
+                      })()}
                       {estOuvert && (
                         <button
                           onClick={e => { e.stopPropagation(); copierEncours(c, factures) }}
@@ -485,7 +498,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               chargement={estChargement(c.code_dso)}
                               onStatutChange={onStatutChange}
                               onHistorique={onHistorique}
-                              onCompenserCredit={onCompenserCredit}
                               commentaires={commentaires}
                               onOuvrirCommentaire={onOuvrirCommentaire}
                               recherche={recherche}

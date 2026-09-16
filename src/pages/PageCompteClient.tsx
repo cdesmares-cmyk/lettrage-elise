@@ -46,7 +46,7 @@ export function PageCompteClient() {
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [clientCompensationDso, setClientCompensationDso] = useState<string | null>(null)
-  const [facCompensationCredit, setFacCompensationCredit] = useState<FactureDetail | null>(null)
+  const [clientCompensationCreditDso, setClientCompensationCreditDso] = useState<string | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
   const [modeSelection, setModeSelection] = useState(false)
@@ -381,7 +381,7 @@ export function PageCompteClient() {
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
           onCompenser={c => { setClientCompensationDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
-          onCompenserCredit={fac => { setFacCompensationCredit(fac); factures.chargerToutesFactures(fac.code_client) }}
+          onCompenserCredit={c => { setClientCompensationCreditDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -464,12 +464,13 @@ export function PageCompteClient() {
       )}
 
       {/* Modale Compensation Crédit */}
-      {facCompensationCredit && (
+      {clientCompensationCreditDso && (
         <ModalCompensationCredit
-          fac={facCompensationCredit}
-          factures={factures.getFactures(facCompensationCredit.code_client)}
-          onFermer={() => setFacCompensationCredit(null)}
-          onSuccess={() => factures.rafraichirFacturesClient(facCompensationCredit.code_client)}
+          codeDso={clientCompensationCreditDso}
+          nomClient={comptes.clients.find(c => c.code_dso === clientCompensationCreditDso)?.nom ?? clientCompensationCreditDso}
+          factures={factures.getFactures(clientCompensationCreditDso)}
+          onFermer={() => setClientCompensationCreditDso(null)}
+          onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationCreditDso)}
         />
       )}
 
