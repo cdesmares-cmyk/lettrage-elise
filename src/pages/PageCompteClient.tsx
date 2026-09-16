@@ -14,6 +14,7 @@ import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalCompensationAvoir } from '../components/compte-client/ModalCompensationAvoir'
+import { ModalCompensationCredit } from '../components/compte-client/ModalCompensationCredit'
 import { useCompensationAvoir } from '../hooks/useCompensationAvoir'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
@@ -45,6 +46,7 @@ export function PageCompteClient() {
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [clientCompensationDso, setClientCompensationDso] = useState<string | null>(null)
+  const [facCompensationCredit, setFacCompensationCredit] = useState<FactureDetail | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
   const [modeSelection, setModeSelection] = useState(false)
@@ -379,6 +381,7 @@ export function PageCompteClient() {
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
           onCompenser={c => { setClientCompensationDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
+          onCompenserCredit={fac => { setFacCompensationCredit(fac); factures.chargerToutesFactures(fac.code_client) }}
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -457,6 +460,16 @@ export function PageCompteClient() {
           compensation={compensation}
           onFermer={() => { compensation.annuler(); setClientCompensationDso(null) }}
           onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationDso)}
+        />
+      )}
+
+      {/* Modale Compensation Crédit */}
+      {facCompensationCredit && (
+        <ModalCompensationCredit
+          fac={facCompensationCredit}
+          factures={factures.getFactures(facCompensationCredit.code_client)}
+          onFermer={() => setFacCompensationCredit(null)}
+          onSuccess={() => factures.rafraichirFacturesClient(facCompensationCredit.code_client)}
         />
       )}
 

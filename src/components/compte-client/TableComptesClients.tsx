@@ -23,6 +23,7 @@ interface Props {
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
   onCompenser?: (client: CompteClient) => void
+  onCompenserCredit?: (fac: FactureDetail) => void
   dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -151,7 +152,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, onCompenserCredit, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -484,6 +485,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               chargement={estChargement(c.code_dso)}
                               onStatutChange={onStatutChange}
                               onHistorique={onHistorique}
+                              onCompenserCredit={onCompenserCredit}
                               commentaires={commentaires}
                               onOuvrirCommentaire={onOuvrirCommentaire}
                               recherche={recherche}

@@ -15,6 +15,7 @@ interface Props {
   compact?: boolean
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
+  onCompenserCredit?: (fac: FactureDetail) => void
   recherche?: string
   // Quand fourni (vue plate uniquement) : active la colonne BODACC et masque Montant TTC
   statutJuridiqueMap?: Map<string, StatutJuridique | null>
@@ -107,7 +108,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, onCompenserCredit, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -283,32 +284,42 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   </td>
                 )}
                 <td className="px-3 py-2 text-center">
-                  {onRelancer && peutModifier ? (() => {
-                    const derniere = derniereRelanceParClient?.get(f.code_client)
-                    const recente = derniere
-                      ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
-                      : false
-                    return (
+                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                    {onRelancer && peutModifier ? (() => {
+                      const derniere = derniereRelanceParClient?.get(f.code_client)
+                      const recente = derniere
+                        ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
+                        : false
+                      return (
+                        <button
+                          onClick={e => { e.stopPropagation(); onRelancer(f.code_client) }}
+                          title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                          className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-colors whitespace-nowrap ${
+                            recente
+                              ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                              : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                          }`}
+                        >
+                          ✉ Relancer
+                        </button>
+                      )
+                    })() : onHistorique ? (
                       <button
-                        onClick={e => { e.stopPropagation(); onRelancer(f.code_client) }}
-                        title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
-                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-colors whitespace-nowrap ${
-                          recente
-                            ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                            : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                        }`}
+                        onClick={e => { e.stopPropagation(); onHistorique(f) }}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
                       >
-                        ✉ Relancer
+                        <IcInfo size={10} /> Historique
                       </button>
-                    )
-                  })() : onHistorique ? (
-                    <button
-                      onClick={e => { e.stopPropagation(); onHistorique(f) }}
-                      className="flex items-center gap-1 text-[10px] font-semibold text-ockham-teal bg-ockham-teal-muted border border-ockham-teal/40 px-2 py-0.5 rounded hover:bg-ockham-teal/10 transition-colors whitespace-nowrap"
-                    >
-                      <IcInfo size={10} /> Historique
-                    </button>
-                  ) : null}
+                    ) : null}
+                    {onCompenserCredit && estNegatif && !isAvoir && !estCompte && peutModifier && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onCompenserCredit(f) }}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 px-2 py-0.5 rounded hover:bg-violet-100 transition-colors whitespace-nowrap"
+                      >
+                        ⇄ Compenser
+                      </button>
+                    )}
+                  </div>
                 </td>
                 {onOuvrirCommentaire && (
                   <td className="px-3 py-2 text-center">
