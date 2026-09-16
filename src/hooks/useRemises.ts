@@ -169,25 +169,25 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   async function encaisser(remiseId: string, idLigneBancaire: string) {
     setChargement(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const { error: le } = await supabase
-        .from('lettrages')
-        .update({ id_ligne_bancaire: idLigneBancaire } as never)
-        .eq('remise_id', remiseId)
-      if (le) throw le
-
-      const { error: re } = await supabase
-        .from('remises')
-        .update({ statut: 'encaisse', id_ligne_bancaire: idLigneBancaire, date_encaissement: today } as never)
-        .eq('id', remiseId)
-      if (re) throw re
-
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase.rpc as any)('encaisser_remise_atomique', {
+        p_remise_id:         remiseId,
+        p_id_ligne_bancaire: idLigneBancaire,
+      })
+      if (error) throw error
       toast.success('Remise encaissée — lettrages finalisés.')
       await charger()
       onSuccessCallback?.()
     } catch (err) {
       console.error('[useRemises]', err)
-      toast.error(errMsg(err, 'Erreur lors de l\'encaissement.'))
+      const msg = (err as { message?: string })?.message ?? ''
+      if (msg.includes('doublon_lettrage')) {
+        toast.error('Ces factures sont déjà lettrées sur cette ligne bancaire.')
+      } else if (msg.includes('déjà été encaissée')) {
+        toast.error('Cette remise a déjà été encaissée.')
+      } else {
+        toast.error(errMsg(err, 'Erreur lors de l\'encaissement.'))
+      }
     } finally {
       setChargement(false)
     }
