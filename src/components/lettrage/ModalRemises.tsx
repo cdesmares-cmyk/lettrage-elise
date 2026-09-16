@@ -129,6 +129,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   const lcrValide = typeForm !== 'lcr' || ecartLcr <= 0.05
 
   // info_facture requise : garantit que code_client est toujours renseigné avant l'insert
+  const facturesDoublon = new Set(
+    lignesForm.map(l => l.numero_facture.trim()).filter((f, i, arr) => f.length >= 4 && arr.indexOf(f) !== i)
+  )
+
   const lignesValides = lignesForm.length > 0 && lignesForm.every(l => {
     const m = parseFloat(l.montant)
     return !!l.numero_facture.trim() && !!l.info_facture && !l.chargement && !!l.montant && !isNaN(m) && m > 0
@@ -430,6 +434,11 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                     {ligne.info_facture && (
                       <div className="px-4 pb-2 text-[10px] text-emerald-600 font-medium -mt-1">
                         ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client} · reste dû : {fmt(ligne.info_facture.reste_du)}
+                      </div>
+                    )}
+                    {facturesDoublon.has(ligne.numero_facture.trim()) && (
+                      <div className="px-4 pb-2 text-[10px] text-amber-600 font-medium -mt-1">
+                        ⚠ Déjà dans la remise, paiement partiel ?
                       </div>
                     )}
                     {!ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (

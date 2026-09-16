@@ -256,11 +256,19 @@ export function PanneauLettrage(props: Props) {
                             Écart de {fmt(ecart)} avec la ligne bancaire — le montant doit correspondre à ±2 cts.
                           </p>
                         )}
-                        {enConfirm ? (
+                        {enConfirm ? (() => {
+                          const nums = r.lignes.map(l => l.numero_facture)
+                          const aDoublons = new Set(nums).size < nums.length
+                          return (
                           <div className="bg-white border border-amber-200 rounded-md px-3 py-2.5 space-y-2">
                             <p className="text-xs font-semibold text-gray-800">
                               Confirmer l'encaissement de la remise {r.type === 'cheque' ? 'CHQ' : 'LCR'} N°{r.numero} ({fmt(total)}) ?
                             </p>
+                            {aDoublons && (
+                              <p className="text-[10px] text-amber-600 font-medium">
+                                ⚠ Cette remise contient des factures en double, paiement partiel attendu.
+                              </p>
+                            )}
                             <div className="flex gap-2">
                               <button
                                 onClick={() => { setConfirmEncaissement(null); onEncaisser(r.id) }}
@@ -277,7 +285,8 @@ export function PanneauLettrage(props: Props) {
                               </button>
                             </div>
                           </div>
-                        ) : (
+                          )
+                        })() : (
                           <button
                             onClick={() => exact && setConfirmEncaissement(r.id)}
                             disabled={chargement || !exact}

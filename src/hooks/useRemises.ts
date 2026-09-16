@@ -180,8 +180,9 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
       onSuccessCallback?.()
     } catch (err) {
       console.error('[useRemises]', err)
-      const msg = (err as { message?: string })?.message ?? ''
-      if (msg.includes('doublon_lettrage')) {
+      const msg  = (err as { message?: string })?.message ?? ''
+      const code = (err as { code?: string })?.code ?? ''
+      if (msg.includes('doublon_lettrage') || code === '23505') {
         toast.error('Ces factures sont déjà lettrées sur cette ligne bancaire.')
       } else if (msg.includes('déjà été encaissée')) {
         toast.error('Cette remise a déjà été encaissée.')
