@@ -87,7 +87,7 @@ interface RowClient {
   code_groupement: string | null
   siret: string | null
   relance_auto_active: boolean
-  encours_total?: number
+  encours_net?: number
   nb_factures_total?: number
 }
 
@@ -101,7 +101,7 @@ function exporterClientsXlsx(clients: RowClient[]) {
     'Code groupement':     c.code_groupement ?? '',
     'SIRET':               c.siret ?? '',
     'Relance automatique': c.relance_auto_active ? 'oui' : 'non',
-    'Encours TTC (€)':     c.encours_total ?? 0,
+    'Encours TTC (€)':     c.encours_net ?? 0,
     'Nb pièces':           c.nb_factures_total ?? 0,
   }))
   const ws = XLSX.utils.json_to_sheet(lignes)
@@ -261,10 +261,10 @@ export function SectionExport() {
             .order('nom')
             .range(from, to)
         ),
-        fetchAll<{ code_dso: string; encours_total: number; nb_factures_total: number }>((from, to) =>
+        fetchAll<{ code_dso: string; encours_net: number; nb_factures_total: number }>((from, to) =>
           supabase
             .from('v_comptes_clients')
-            .select('code_dso, encours_total, nb_factures_total')
+            .select('code_dso, encours_net, nb_factures_total')
             .range(from, to)
         ),
       ])
@@ -277,7 +277,7 @@ export function SectionExport() {
       const encoursMap = new Map(encours.map(e => [e.code_dso, e]))
       const clientsAvecEncours = clients.map(c => ({
         ...c,
-        encours_total:     encoursMap.get(c.code_dso)?.encours_total ?? 0,
+        encours_net:       encoursMap.get(c.code_dso)?.encours_net ?? 0,
         nb_factures_total: encoursMap.get(c.code_dso)?.nb_factures_total ?? 0,
       }))
 
