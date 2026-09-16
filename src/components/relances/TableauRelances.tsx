@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { IcSearch, IcSliders } from '../Icones'
 import { joursDepuis, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
@@ -53,19 +53,33 @@ interface Props {
   onFiltreOpChange: (op: string) => void
   seuilSansSuite?: number
   facturesMapRelances: Map<string, { reste_du: number; montant_ttc: number }>
+  relanceInitialeId?: string | null
+  ongletInitialModal?: 'factures' | 'commentaires'
 }
 
-export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelances }: Props) {
+export function TableauRelances({ relances, chargement, onglet, onMajStatut, onArchiver, onSauvegarderNote, onSauvegarderCommentaire, classement, commentaires, filtreOp, onFiltreOpChange, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelances, relanceInitialeId, ongletInitialModal }: Props) {
   const navigate = useNavigate()
   const { peutModifier } = useRole()
   const { clients } = useAppData()
   const [recherche, setRecherche] = useState('')
   const [relanceOuverteId, setRelanceOuverteId] = useState<string | null>(null)
   const relanceOuverte = relances.find(r => r.id === relanceOuverteId) ?? null
+  const [ongletModalCourant, setOngletModalCourant] = useState<'factures' | 'commentaires'>('factures')
+  const relanceInitialeTraiteeRef = useRef<string | null>(null)
   const [filtreOpOuvert, setFiltreOpOuvert] = useState(false)
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
   const [alertesSeulement, setAlertesSeulement] = useState(false)
+
+  useEffect(() => {
+    if (!relanceInitialeId || relanceInitialeId === relanceInitialeTraiteeRef.current) return
+    const r = relances.find(r => r.id === relanceInitialeId)
+    if (r) {
+      setOngletModalCourant(ongletInitialModal ?? 'factures')
+      setRelanceOuverteId(relanceInitialeId)
+      relanceInitialeTraiteeRef.current = relanceInitialeId
+    }
+  }, [relanceInitialeId, relances])
 
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const opMap = useMemo(() => new Map(classement.map(s => [s.operateur.id, s.operateur.initiales || s.operateur.email.slice(0, 3).toUpperCase()])), [classement])
@@ -214,7 +228,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
               const alerte = estEnAlerte(r, seuilSansSuite)
               const restant = jours !== null ? seuilSansSuite - jours : null
               return (
-                <tr key={r.id} onClick={() => setRelanceOuverteId(r.id)} className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40">
+                <tr key={r.id} onClick={() => { setOngletModalCourant('factures'); setRelanceOuverteId(r.id) }} className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40">
                   {/* Code */}
                   <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                     <button onClick={() => navigate(`/compte-client?client=${r.code_client}`)} className="group/code flex items-center gap-1 font-mono text-xs text-ockham-teal">
@@ -313,6 +327,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
         onSauvegarderNote={onSauvegarderNote}
         commentaires={commentaires}
         onSauvegarderCommentaire={onSauvegarderCommentaire}
+        ongletInitial={ongletModalCourant}
       />
     </div>
   )

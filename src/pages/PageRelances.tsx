@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { useRelances, etatVue } from '../hooks/useRelances'
 import type { EtatVueRelance } from '../hooks/useRelances'
 import { useLeaderboard } from '../hooks/useLeaderboard'
@@ -43,8 +45,27 @@ export function PageRelances() {
   const [filtreOp, setFiltreOp] = useState('tous')
   const classement = useLeaderboard(relances)
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [relanceInitialeId, setRelanceInitialeId] = useState<string | null>(null)
+  const [ongletInitialModal, setOngletInitialModal] = useState<'factures' | 'commentaires'>('factures')
 
   useEffect(() => { chargerTous() }, [])
+
+  // Ouverture automatique d'une relance depuis une notification (?relance=UUID&onglet=commentaires)
+  useEffect(() => {
+    const relanceParam = searchParams.get('relance')
+    if (!relanceParam || chargement || relances.length === 0) return
+    setSearchParams({}, { replace: true })
+    const r = relances.find(r => r.id === relanceParam)
+    if (!r) {
+      toast('Cette relance n\'est plus accessible (archivée ou introuvable).', { icon: 'ℹ️' })
+      return
+    }
+    const etat = etatVue(r, lettragesMap, seuilSansSuite) as EtatVueRelance
+    setOngletActif(etat)
+    setOngletInitialModal(searchParams.get('onglet') === 'commentaires' ? 'commentaires' : 'factures')
+    setRelanceInitialeId(relanceParam)
+  }, [searchParams, relances, chargement])
 
   // Déduplication globale : 1 relance par client (la plus récente)
   const grouped = useMemo(() => {
@@ -152,6 +173,8 @@ export function PageRelances() {
             onFiltreOpChange={setFiltreOp}
             seuilSansSuite={seuilSansSuite}
             facturesMapRelances={facturesMapRelances}
+            relanceInitialeId={relanceInitialeId}
+            ongletInitialModal={ongletInitialModal}
           />
         </div>
       </div>

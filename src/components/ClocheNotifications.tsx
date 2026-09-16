@@ -87,7 +87,7 @@ export function ClocheNotifications() {
     } else if (n.contexte === 'facture') {
       navigate(`/compte-client?facture=${n.contexte_id}`)
     } else if (n.contexte === 'relance') {
-      navigate('/relances')
+      navigate(`/relances?relance=${n.contexte_id}&onglet=commentaires`)
     } else if (n.contexte === 'procedure') {
       navigate('/procedures')
     }

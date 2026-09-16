@@ -55,6 +55,7 @@ interface Props {
   onSauvegarderNote: (id: string, note: string) => Promise<boolean>
   commentaires: Map<string, CommentaireFacture>
   onSauvegarderCommentaire: (data: SauvegarderComData) => Promise<boolean>
+  ongletInitial?: 'factures' | 'commentaires'
 }
 
 // Rendu du badge statut — fonction simple (pas un composant) pour éviter les remounts
@@ -70,7 +71,7 @@ function renderStatutBadge(
   return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
 }
 
-export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire }: Props) {
+export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire, ongletInitial }: Props) {
   const { facturesActives, clients, mettreAJourStatutLocal } = useAppData()
   const { utilisateur } = useAuth()
 
@@ -163,7 +164,8 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
     setNoteTexte(relance?.note ?? '')
     setComOuvertes(new Set())
     setPopupStatut(null)
-    setOngletRelance('factures')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setOngletRelance(ongletInitial ?? 'factures')
     if (!relance) return
     const com = new Map<string, EtatCom>()
     const npr = new Map<string, boolean>()
