@@ -545,13 +545,78 @@ function OngletRemboursement({ onFermer, onSuccess }: { onFermer: () => void; on
                   </div>
                   <button
                     onClick={() => handleAnnuler(r.id)}
-                    className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors flex-shrink-0"
+                    disabled={!!r.export_id}
+                    title={r.export_id ? 'Exporté — annulation impossible' : undefined}
+                    className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Annuler
                   </button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Remboursements affectés */}
+      {remb.effectues.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+            Affectés ({remb.effectues.length})
+          </p>
+          <div className="space-y-2">
+            {remb.effectues.map(r => {
+              const exporte = !!r.export_id
+              const total = r.lignes.reduce((s, l) => s + l.montant, 0)
+              return (
+                <div key={r.id} className="border border-gray-200 bg-white rounded-lg px-3 py-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1 flex-1">
+                      {r.lignes.map(l => (
+                        <div key={l.id} className="flex items-center gap-2 text-xs">
+                          <span className="font-mono text-gray-600">{l.numero_facture}</span>
+                          <span className="text-gray-400">·</span>
+                          <span className="font-semibold text-gray-700">−{fmt(l.montant)}</span>
+                          <span className="text-[10px] text-gray-400">{l.code_client}</span>
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-2 mt-1">
+                        {exporte
+                          ? <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">Exporté — verrouillé</span>
+                          : <span className="text-[10px] text-gray-400">Total : <strong className="text-gray-600">{fmt(total)}</strong></span>
+                        }
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-1 flex-shrink-0">
+                      <button
+                        onClick={async () => {
+                          try {
+                            await remb.desaffecter(r.id)
+                            toast.success('Remboursement désaffecté — en attente d\'une nouvelle ligne Débit')
+                            onSuccess()
+                          } catch (err) {
+                            toast.error(err instanceof Error ? err.message : 'Erreur lors de la désaffectation')
+                          }
+                        }}
+                        disabled={exporte}
+                        title={exporte ? 'Exporté — désaffectation impossible' : 'Remettre en attente d\'affectation'}
+                        className="text-[10px] font-semibold text-gray-500 hover:text-gray-700 border border-gray-200 hover:border-gray-400 px-2 py-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Désaffecter
+                      </button>
+                      <button
+                        onClick={() => handleAnnuler(r.id)}
+                        disabled={exporte}
+                        title={exporte ? 'Exporté — annulation impossible' : 'Annuler et restaurer le restant dû'}
+                        className="text-[10px] font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
