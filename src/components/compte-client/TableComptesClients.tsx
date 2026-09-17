@@ -23,7 +23,6 @@ interface Props {
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
   onCompenser?: (client: CompteClient) => void
-  onCompenserCredit?: (client: CompteClient) => void
   dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -152,7 +151,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, onCompenserCredit, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -424,28 +423,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                         )
                       })()}
                       {estOuvert && onCompenser && peutModifier && (() => {
-                        const aAvoirs = factures.some(f => f.est_avoir && f.reste_du < 0)
-                        if (!aAvoirs) return null
+                        const aSources = factures.some(f => f.reste_du < -0.005 && !f.numero_piece.startsWith('411_'))
+                        if (!aSources) return null
                         return (
                           <button
                             onClick={e => { e.stopPropagation(); onCompenser(c) }}
                             className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 hover:bg-violet-100 hover:border-violet-400 px-2.5 py-1 rounded-md transition-all"
-                            title="Compenser un avoir avec une ou plusieurs factures"
+                            title="Compenser un avoir ou un crédit avec une ou plusieurs factures"
                           >
                             ⇄ Compenser
-                          </button>
-                        )
-                      })()}
-                      {estOuvert && onCompenserCredit && peutModifier && (() => {
-                        const aSurpayees = factures.some(f => !f.est_avoir && f.reste_du < -0.005 && !f.numero_piece.startsWith('411_'))
-                        if (!aSurpayees) return null
-                        return (
-                          <button
-                            onClick={e => { e.stopPropagation(); onCompenserCredit(c) }}
-                            className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 hover:bg-violet-100 hover:border-violet-400 px-2.5 py-1 rounded-md transition-all"
-                            title="Transférer le crédit d'une facture surpayée vers une facture impayée"
-                          >
-                            ⇄ Crédit
                           </button>
                         )
                       })()}

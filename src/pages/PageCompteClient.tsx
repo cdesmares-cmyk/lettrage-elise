@@ -13,9 +13,7 @@ import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
-import { ModalCompensationAvoir } from '../components/compte-client/ModalCompensationAvoir'
-import { ModalCompensationCredit } from '../components/compte-client/ModalCompensationCredit'
-import { useCompensationAvoir } from '../hooks/useCompensationAvoir'
+import { ModalCompensation } from '../components/compte-client/ModalCompensation'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
@@ -46,7 +44,6 @@ export function PageCompteClient() {
   const [facHistorique, setFacHistorique] = useState<FactureDetail | null>(null)
   const [facCommentaire, setFacCommentaire] = useState<FactureDetail | null>(null)
   const [clientCompensationDso, setClientCompensationDso] = useState<string | null>(null)
-  const [clientCompensationCreditDso, setClientCompensationCreditDso] = useState<string | null>(null)
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
   const [modeSelection, setModeSelection] = useState(false)
@@ -121,10 +118,6 @@ export function PageCompteClient() {
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
   const { relances } = useRelances()
-  const compensation = useCompensationAvoir(() => {
-    if (clientCompensationDso) factures.rafraichirFacturesClient(clientCompensationDso)
-  })
-
   const dernieresRelances = useMemo(() => {
     const map = new Map<string, string>()
     for (const r of relances) {
@@ -381,7 +374,6 @@ export function PageCompteClient() {
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
           onCompenser={c => { setClientCompensationDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
-          onCompenserCredit={c => { setClientCompensationCreditDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
           dernieresRelances={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -451,26 +443,14 @@ export function PageCompteClient() {
         onSauvegarder={comptes.sauvegarderOptions}
       />
 
-      {/* Modale Compensation Avoir */}
+      {/* Modale Compensation unifiée */}
       {clientCompensationDso && (
-        <ModalCompensationAvoir
+        <ModalCompensation
           codeDso={clientCompensationDso}
           nomClient={comptes.clients.find(c => c.code_dso === clientCompensationDso)?.nom ?? clientCompensationDso}
           factures={factures.getFactures(clientCompensationDso)}
-          compensation={compensation}
-          onFermer={() => { compensation.annuler(); setClientCompensationDso(null) }}
+          onFermer={() => setClientCompensationDso(null)}
           onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationDso)}
-        />
-      )}
-
-      {/* Modale Compensation Crédit */}
-      {clientCompensationCreditDso && (
-        <ModalCompensationCredit
-          codeDso={clientCompensationCreditDso}
-          nomClient={comptes.clients.find(c => c.code_dso === clientCompensationCreditDso)?.nom ?? clientCompensationCreditDso}
-          factures={factures.getFactures(clientCompensationCreditDso)}
-          onFermer={() => setClientCompensationCreditDso(null)}
-          onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationCreditDso)}
         />
       )}
 
