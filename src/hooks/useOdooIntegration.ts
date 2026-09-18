@@ -55,7 +55,8 @@ export function useOdooIntegration() {
       toast.success('Configuration Odoo enregistrée.')
       return true
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erreur.')
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? JSON.stringify(err)
+      toast.error(msg || 'Erreur inconnue')
       return false
     } finally {
       setEnCours(false)
@@ -73,7 +74,8 @@ export function useOdooIntegration() {
       await charger()
       return true
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Connexion échouée.')
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? JSON.stringify(err)
+      toast.error(msg || 'Connexion échouée')
       return false
     } finally {
       setEnCours(false)
