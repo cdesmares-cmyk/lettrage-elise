@@ -45,10 +45,11 @@ export function useOdooIntegration() {
     setEnCours(true)
     try {
       // Récupère l'organisation_id explicitement pour satisfaire le WITH CHECK RLS
-      const { data: me, error: meErr } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: me, error: meErr } = await (supabase as any)
         .from('utilisateurs')
         .select('organisation_id')
-        .single()
+        .single() as { data: { organisation_id: string } | null; error: unknown }
       if (meErr || !me?.organisation_id) throw new Error('Organisation introuvable')
 
       const { error } = await supabase
