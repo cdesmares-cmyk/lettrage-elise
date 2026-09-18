@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
 import { useOutlookAuth } from '../../hooks/useOutlookAuth'
 import { CalendrierSemaine } from './CalendrierSemaine'
+import { InputMention, type Membre } from './InputMention'
 import type { Rappel } from '../../hooks/useRappelClient'
 import toast from 'react-hot-toast'
 
@@ -14,7 +15,14 @@ interface Props {
   onClose:         () => void
 }
 
-async function creerEvenementGoogle(token: string, titre: string, prevu_le: string, heure: string | null, note: string | null): Promise<string | null> {
+async function creerEvenementGoogle(
+  token:    string,
+  titre:    string,
+  prevu_le: string,
+  heure:    string | null,
+  note:     string | null,
+  invites:  Membre[],
+): Promise<string | null> {
   let start, end
   if (heure) {
     const [h, m]   = heure.split(':').map(Number)
@@ -27,16 +35,33 @@ async function creerEvenementGoogle(token: string, titre: string, prevu_le: stri
     start = { date: prevu_le }; end = { date: prevu_le }
   }
   try {
-    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ summary: titre, description: note ?? '', start, end }),
-    })
+    const res = await fetch(
+      'https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all',
+      {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary:   titre,
+          description: note ?? '',
+          colorId:   '7',  // Peacock — teal/cyan, identifiable OCKHAM
+          start, end,
+          attendees: invites.map(i => ({ email: i.email })),
+        }),
+      }
+    )
     if (!res.ok) return null
     return ((await res.json()).id as string) ?? null
   } catch { return null }
 }
 
-async function creerEvenementOutlook(token: string, titre: string, prevu_le: string, heure: string | null, note: string | null): Promise<string | null> {
+async function creerEvenementOutlook(
+  token:    string,
+  titre:    string,
+  prevu_le: string,
+  heure:    string | null,
+  note:     string | null,
+  invites:  Membre[],
+): Promise<string | null> {
   const startH   = heure ?? '09:00'
   const [h, m]   = startH.split(':').map(Number)
   const totalMin = h * 60 + m + 15
@@ -44,12 +69,18 @@ async function creerEvenementOutlook(token: string, titre: string, prevu_le: str
   const endM2    = String(totalMin % 60).padStart(2, '0')
   try {
     const res = await fetch('https://graph.microsoft.com/v1.0/me/events', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      method:  'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subject: titre, body: { contentType: 'text', content: note ?? '' },
-        start: { dateTime: `${prevu_le}T${startH}:00`, timeZone: 'Europe/Paris' },
-        end:   { dateTime: `${prevu_le}T${endH}:${endM2}:00`, timeZone: 'Europe/Paris' },
+        subject:  `🟢 ${titre}`,
+        body:     { contentType: 'text', content: note ?? '' },
+        start:    { dateTime: `${prevu_le}T${startH}:00`, timeZone: 'Europe/Paris' },
+        end:      { dateTime: `${prevu_le}T${endH}:${endM2}:00`, timeZone: 'Europe/Paris' },
         isAllDay: !heure,
+        attendees: invites.map(i => ({
+          emailAddress: { address: i.email, name: `${i.prenom} ${i.nom}`.trim() },
+          type: 'required',
+        })),
       }),
     })
     if (!res.ok) return null
@@ -58,7 +89,7 @@ async function creerEvenementOutlook(token: string, titre: string, prevu_le: str
 }
 
 function labelDate(prevu_le: string, heure: string): string {
-  const d = new Date(prevu_le + 'T12:00:00')
+  const d    = new Date(prevu_le + 'T12:00:00')
   const date = d.toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long' })
   return `${date.charAt(0).toUpperCase() + date.slice(1)} · ${heure}`
 }
@@ -67,11 +98,12 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
   const gmail   = useGmailAuth()
   const outlook = useOutlookAuth()
 
-  const [prevu_le,     setPrevu_le]     = useState('')
-  const [heure,        setHeure]        = useState('')
-  const [note,         setNote]         = useState('')
-  const [enCours,      setEnCours]      = useState(false)
-  const [accessToken,  setAccessToken]  = useState<string | null>(null)
+  const [prevu_le,    setPrevu_le]    = useState('')
+  const [heure,       setHeure]       = useState('')
+  const [note,        setNote]        = useState('')
+  const [invites,     setInvites]     = useState<Membre[]>([])
+  const [enCours,     setEnCours]     = useState(false)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
 
   const provider = gmail.token ? 'gmail' : outlook.token ? 'outlook' : null
 
@@ -90,17 +122,25 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
     try {
       let calendarEventId: string | null = null
       const titre = `Rappel — ${nomClient}`
+
       if (provider === 'gmail' && accessToken) {
-        calendarEventId = await creerEvenementGoogle(accessToken, titre, prevu_le, heure || null, note || null)
+        calendarEventId = await creerEvenementGoogle(accessToken, titre, prevu_le, heure || null, note || null, invites)
         if (!calendarEventId) toast('Rappel créé sans calendrier — reconnectez Gmail pour activer Google Calendar', { icon: '⚠️' })
       } else if (provider === 'outlook' && accessToken) {
-        calendarEventId = await creerEvenementOutlook(accessToken, titre, prevu_le, heure || null, note || null)
+        calendarEventId = await creerEvenementOutlook(accessToken, titre, prevu_le, heure || null, note || null, invites)
         if (!calendarEventId) toast('Rappel créé sans calendrier — reconnectez Outlook pour activer Outlook Calendar', { icon: '⚠️' })
       }
+
       const ok = await creerRappel({ prevu_le, heure: heure || null, note: note || null, calendar_event_id: calendarEventId })
       if (!ok) { toast.error('Erreur lors de l\'enregistrement'); return }
-      if (calendarEventId) toast.success('Rappel créé · Événement ajouté au calendrier')
-      else if (!provider)  toast.success('Rappel créé')
+      if (calendarEventId) {
+        const msg = invites.length > 0
+          ? `Rappel créé · Invitation envoyée à ${invites.map(i => i.prenom || i.nom).join(', ')}`
+          : 'Rappel créé · Événement ajouté au calendrier'
+        toast.success(msg)
+      } else if (!provider) {
+        toast.success('Rappel créé')
+      }
       onClose()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -173,29 +213,32 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
             </div>
           )}
 
-          {/* Créneau sélectionné + note */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              {prevu_le ? (
-                <div className="flex items-center gap-2 bg-ockham-teal/5 border border-ockham-teal/20 rounded-lg px-3 py-2">
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ockham-teal flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                  <span className="text-xs font-semibold text-ockham-teal">{labelDate(prevu_le, heure || '—')}</span>
-                  {provider && <span className="text-[10px] text-gray-300 ml-auto">→ {provider === 'gmail' ? 'Google Calendar' : 'Outlook Calendar'}</span>}
-                </div>
-              ) : (
-                <p className="text-[11px] text-gray-300 italic px-1">
-                  {provider ? 'Cliquez sur un créneau libre pour sélectionner une date et une heure' : 'Sélectionnez une date'}
-                </p>
-              )}
-            </div>
+          {/* Créneau sélectionné */}
+          <div>
+            {prevu_le ? (
+              <div className="flex items-center gap-2 bg-ockham-teal/5 border border-ockham-teal/20 rounded-lg px-3 py-2">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ockham-teal flex-shrink-0"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span className="text-xs font-semibold text-ockham-teal">{labelDate(prevu_le, heure || '—')}</span>
+                {provider && <span className="text-[10px] text-gray-300 ml-auto">→ {provider === 'gmail' ? 'Google Calendar' : 'Outlook Calendar'}</span>}
+              </div>
+            ) : (
+              <p className="text-[11px] text-gray-300 italic px-1">
+                {provider ? 'Cliquez sur un créneau libre pour sélectionner une date et une heure' : 'Sélectionnez une date'}
+              </p>
+            )}
           </div>
 
+          {/* Note + @mention */}
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">Note <span className="normal-case font-normal text-gray-300">(opt.)</span></label>
-            <input type="text" value={note} onChange={e => setNote(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-              placeholder="Ex : Relancer pour accord de paiement…"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1">
+              Note <span className="normal-case font-normal text-gray-300">(opt. · tapez @ pour inviter un collègue)</span>
+            </label>
+            <InputMention
+              value={note}
+              onChange={setNote}
+              invites={invites}
+              onInvitesChange={setInvites}
+              placeholder="Ex : Relancer pour accord de paiement… @Marie pour l'inclure"
             />
           </div>
 
@@ -208,7 +251,7 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
             <button onClick={onClose} className="text-xs text-gray-400 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors">Annuler</button>
             <button onClick={handleSubmit} disabled={!prevu_le || enCours}
               className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-4 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
-            >{enCours ? '…' : 'Créer le rappel'}</button>
+            >{enCours ? '…' : invites.length > 0 ? `Créer et inviter (${invites.length})` : 'Créer le rappel'}</button>
           </div>
         </div>
       </div>
