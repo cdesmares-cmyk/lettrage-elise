@@ -2,14 +2,16 @@ import { useState } from 'react'
 import { useGmailAuth } from '../../hooks/useGmailAuth'
 import { useOutlookAuth } from '../../hooks/useOutlookAuth'
 import { useAxonautIntegration } from '../../hooks/useAxonautIntegration'
+import { useOdooIntegration } from '../../hooks/useOdooIntegration'
 import { ModalBase } from './ModalBase'
 import { IcLink } from '../Icones'
 import { SectionIntegrationAxonaut } from './SectionIntegrationAxonaut'
+import { SectionIntegrationOdoo } from './SectionIntegrationOdoo'
 import { ModalVeilleBodacc } from './ModalVeilleBodacc'
 
 interface Props { onClose: () => void }
 
-type Panneau = 'axonaut' | 'bodacc' | null
+type Panneau = 'axonaut' | 'odoo' | 'bodacc' | null
 
 function BadgeStatut({ connecte }: { connecte: boolean }) {
   return connecte
@@ -86,6 +88,10 @@ function LogoOutlook() {
   )
 }
 
+function LogoOdoo() {
+  return <span className="text-[11px] font-extrabold text-purple-700 tracking-tight">OD</span>
+}
+
 function LogoPennylane() {
   return <span className="text-[11px] font-extrabold text-violet-600 tracking-tight">PL</span>
 }
@@ -94,6 +100,7 @@ export function ModalIntegrations({ onClose }: Props) {
   const { token: gmailToken, chargement: gmailChargement, connecterGmail, deconnecterGmail } = useGmailAuth()
   const { token: outlookToken, chargement: outlookChargement, connecterOutlook, deconnecterOutlook } = useOutlookAuth()
   const { integration: axonaut } = useAxonautIntegration()
+  const { integration: odoo }    = useOdooIntegration()
   const [panneau, setPanneau] = useState<Panneau>(null)
   const [confirmDecoGmail, setConfirmDecoGmail] = useState(false)
   const [confirmDecoOutlook, setConfirmDecoOutlook] = useState(false)
@@ -101,6 +108,7 @@ export function ModalIntegrations({ onClose }: Props) {
   const gmailConnecte   = !!gmailToken
   const outlookConnecte = !!outlookToken
   const axonautConnecte = !!(axonaut?.actif && axonaut.verifie_le)
+  const odooConnecte    = !!(odoo?.actif && odoo.verifie_le)
 
   async function handleDeconnecterGmail() {
     await deconnecterGmail()
@@ -127,6 +135,16 @@ export function ModalIntegrations({ onClose }: Props) {
               ← Retour
             </button>
             <SectionIntegrationAxonaut />
+          </div>
+        ) : panneau === 'odoo' ? (
+          <div>
+            <button
+              onClick={() => setPanneau(null)}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 mb-4 transition-colors"
+            >
+              ← Retour
+            </button>
+            <SectionIntegrationOdoo />
           </div>
         ) : (
           <>
@@ -237,6 +255,14 @@ export function ModalIntegrations({ onClose }: Props) {
                   description="Synchronisation des factures et liens PDF dans les relances"
                   statut={<BadgeStatut connecte={axonautConnecte} />}
                   onClick={() => setPanneau('axonaut')}
+                />
+
+                <CarteConnecteur
+                  logo={<LogoOdoo />}
+                  nom="Odoo"
+                  description="Import des factures depuis votre ERP Odoo"
+                  statut={<BadgeStatut connecte={odooConnecte} />}
+                  onClick={() => setPanneau('odoo')}
                 />
 
                 <CarteConnecteur
