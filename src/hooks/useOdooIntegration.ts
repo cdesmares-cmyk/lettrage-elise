@@ -44,10 +44,17 @@ export function useOdooIntegration() {
   ): Promise<boolean> {
     setEnCours(true)
     try {
+      // Récupère l'organisation_id explicitement pour satisfaire le WITH CHECK RLS
+      const { data: me, error: meErr } = await supabase
+        .from('utilisateurs')
+        .select('organisation_id')
+        .single()
+      if (meErr || !me?.organisation_id) throw new Error('Organisation introuvable')
+
       const { error } = await supabase
         .from('integrations')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ provider: 'odoo', api_key: apiKey, config: { url, db, username }, actif: true } as any, {
+        .upsert({ provider: 'odoo', api_key: apiKey, config: { url, db, username }, actif: true, organisation_id: me.organisation_id } as any, {
           onConflict: 'organisation_id,provider',
         })
       if (error) throw error
