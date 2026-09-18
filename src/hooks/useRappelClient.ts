@@ -36,12 +36,14 @@ export function useRappelClient(codeClient: string | null) {
     note?:              string | null
     calendar_event_id?: string | null
   }): Promise<boolean> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: me } = await (supabase as any)
-      .from('utilisateurs')
-      .select('id, organisation_id')
-      .single() as { data: { id: string; organisation_id: string } | null }
-    if (!me) return false
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+    const { data: me } = await supabase
+      .from('utilisateurs' as never)
+      .select('organisation_id')
+      .eq('id', user.id)
+      .maybeSingle() as { data: { organisation_id: string } | null }
+    if (!me?.organisation_id) return false
     const { error } = await supabase
       .from('rappels_client' as never)
       .insert({
@@ -52,7 +54,7 @@ export function useRappelClient(codeClient: string | null) {
         heure:             params.heure  ?? null,
         note:              params.note   ?? null,
         calendar_event_id: params.calendar_event_id ?? null,
-        cree_par:          me.id,
+        cree_par:          user.id,
       } as never)
     if (error) { console.error('[rappels_client] insert error:', error); return false }
     await charger()
