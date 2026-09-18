@@ -33,7 +33,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { utilisateur } = useAuth()
   const { peutModifier } = useRole()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
-  const { facturesActives, scenarios } = useAppData()
+  const { facturesActives, scenarios, membresOrg } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
@@ -45,6 +45,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   )
 
   const [contactsSel, setContactsSel] = useState<string[]>([])
+  const [operateursSel, setOperateursSel] = useState<string[]>([])
   const [facturesSel, setFacturesSel] = useState<string[]>([])
   const [scenarioId, setScenarioId] = useState<string>('')
   const [emailFallback, setEmailFallback] = useState('')
@@ -78,12 +79,19 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setContactsSel(contacts.filter(c => c.email).map(c => c.id))
   }, [client?.code_dso, contacts.length, impayees.length])
 
-  // Sélectionne le scénario niveau 1 par défaut
+  // Sélectionne le scénario niveau 1 externe par défaut
   useEffect(() => {
     if (!client || !scenarios.length || scenarioId) return
-    const defaut = scenarios.find(s => s.niveau === 1) ?? scenarios[0]
+    const defaut = scenarios.find(s => s.niveau === 1 && s.type === 'externe') ?? scenarios.find(s => s.type === 'externe') ?? scenarios[0]
     setScenarioId(defaut.id)
   }, [scenarios.length, client?.code_dso])
+
+  // Pré-sélectionne le commercial quand on bascule en mode interne
+  useEffect(() => {
+    const sc = scenarios.find(s => s.id === scenarioId)
+    if (!sc || sc.type !== 'interne') { setOperateursSel([]); return }
+    setOperateursSel(client?.commercial_id ? [client.commercial_id] : [])
+  }, [scenarioId, scenarios, client?.commercial_id])
 
   if (!client) return null
 
@@ -92,6 +100,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
 
   // Valeurs calculées en direct — se mettent à jour à chaque changement de scénario ou de sélection
   const scenarioCourant = scenarios.find(s => s.id === scenarioId) ?? null
+  const estInterne = scenarioCourant?.type === 'interne'
+  const membresAvecEmail = membresOrg.filter(m => m.email)
   const facturesSélectionnées = impayees.filter(f => facturesSel.includes(f.numero_piece))
   const montantDu = facturesSélectionnées.reduce((s, f) => s + f.reste_du, 0)
   const ctx = { nomClient: client.nom, codeClient: client.code_dso, montantDu }
@@ -118,12 +128,56 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   }
 
   const peutEnvoyer = !envoi && !!objetFinal.trim() && facturesSel.length > 0 &&
-    (sanContacts ? emailFallback.trim() && nomFallback.trim() : contactsSel.length > 0)
+    (estInterne
+      ? operateursSel.length > 0
+      : (sanContacts ? !!emailFallback.trim() && !!nomFallback.trim() : contactsSel.length > 0)
+    )
 
   async function handleEnvoyer() {
     if (!utilisateur || !peutEnvoyer) return
     setEnvoi(true)
 
+    let gmailThreadId: string | undefined
+
+    if (estInterne) {
+      // Mode interne : envoi aux opérateurs sélectionnés
+      if (estConnecte) {
+        const destinataires = membresAvecEmail.filter(m => operateursSel.includes(m.id)).map(m => m.email).filter(Boolean)
+        if (destinataires.length > 0) {
+          const res = await envoyerEmail({ destinataires, objet: objetFinal.trim(), corpsHtml: previewHtml })
+          if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); setEnvoi(false); return }
+          gmailThreadId = res.threadId
+        }
+      }
+      const operateursSnapshot = membresAvecEmail.filter(m => operateursSel.includes(m.id)).map(m => ({
+        id: m.id, nom: m.nom, prenom: m.prenom ?? null, email: m.email, role_contact: null,
+      }))
+      const payload: Record<string, unknown> = {
+        code_client:        client!.code_dso,
+        operateur_id:       utilisateur.id,
+        contacts_ids:       [],
+        contacts_snapshot:  operateursSnapshot,
+        factures_ids:       facturesSel,
+        objet:              objetFinal.trim(),
+        corps_html:         previewHtml,
+        statut:             'envoyee',
+        type:               'interne',
+        envoyee_le:         new Date().toISOString(),
+        points_attribues:   0,
+        solde_snapshot:     montantDu,
+        factures_snapshot:  facturesSélectionnées.map(f => ({ numero_piece: f.numero_piece, reste_du: f.reste_du })),
+      }
+      if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
+      const { error } = await supabase.from('relances').insert(payload as never)
+      setEnvoi(false)
+      if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
+      toast.success(estConnecte ? '✉ Notification envoyée' : 'Notification enregistrée')
+      onSent()
+      onFermer()
+      return
+    }
+
+    // Mode externe (comportement inchangé)
     let cIds = contactsSel
     if (sanContacts && emailFallback.trim()) {
       const ok = await ajouterContact({ nom: nomFallback.trim(), prenom: prenomFallback.trim() || null, email: emailFallback.trim(), telephone: null, role_contact: 'relance' })
@@ -131,7 +185,6 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       cIds = []
     }
 
-    let gmailThreadId: string | undefined
     if (estConnecte) {
       const destinataires = sanContacts
         ? [emailFallback.trim()]
@@ -146,7 +199,6 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       gmailThreadId = res.threadId
     }
 
-    // Snapshot des contacts au moment de l'envoi (préserve l'info si le contact est supprimé plus tard)
     const contactsSnapshot = sanContacts
       ? [{ id: '', nom: nomFallback.trim(), prenom: prenomFallback.trim() || null, email: emailFallback.trim(), role_contact: null }]
       : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => ({ id: c.id, nom: c.nom, prenom: c.prenom ?? null, email: c.email, role_contact: c.role_contact ?? null }))
@@ -160,6 +212,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       objet:              objetFinal.trim(),
       corps_html:         previewHtml,
       statut:             'envoyee',
+      type:               'externe',
       envoyee_le:         new Date().toISOString(),
       points_attribues:   10,
       solde_snapshot:     montantDu,
@@ -187,7 +240,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
             style={{ background: 'linear-gradient(135deg, #0E1A2B 0%, #1a2d44 100%)', borderTop: '2px solid #4CC5BB' }}
           >
             <div>
-              <p className="text-sm font-bold text-white">Nouvelle relance — <span className="text-ockham-teal">{client.nom}</span></p>
+              <p className="text-sm font-bold text-white">
+                {estInterne ? 'Notification interne — ' : 'Nouvelle relance — '}
+                <span className="text-ockham-teal">{client.nom}</span>
+                {estInterne && <span className="ml-2 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#1E3A5F', color: '#93C5FD', border: '1px solid #3B82F6' }}>INTERNE</span>}
+              </p>
               <p className="text-xs text-white/50 mt-0.5 font-mono">{client.code_dso} · {impayees.length} facture{impayees.length > 1 ? 's' : ''} impayée{impayees.length > 1 ? 's' : ''} · {fmtEuros(client.encours_total)}</p>
             </div>
             <button onClick={onFermer} className="w-7 h-7 rounded-full border border-white/20 text-white/60 hover:bg-white/10 hover:text-white text-sm flex items-center justify-center transition-colors">✕</button>
@@ -268,46 +325,73 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               {/* 1 — Destinataires */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">1 —</span>Destinataires</label>
-                  {peutModifier && onOuvrirContacts && (
+                  <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider">
+                    <span className="text-ockham-navy/40 mr-1">1 —</span>
+                    {estInterne ? 'Opérateurs à notifier' : 'Destinataires'}
+                  </label>
+                  {!estInterne && peutModifier && onOuvrirContacts && (
                     <button onClick={onOuvrirContacts} className="text-[10px] font-semibold text-gray-400 hover:text-ockham-teal transition-colors">
                       Gérer les contacts ↗
                     </button>
                   )}
                 </div>
-                {sanContacts ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
-                    <div className="flex gap-2">
-                      <input value={prenomFallback} onChange={e => setPrenomFallback(e.target.value)} placeholder="Prénom" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
-                      <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom *" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
-                    </div>
-                    <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
-                  </div>
-                ) : (
+
+                {estInterne ? (
                   <div className="space-y-1.5">
-                    {contactsAvecEmail.map(c => (
-                      <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-ockham-teal" />
+                    {membresAvecEmail.length === 0 ? (
+                      <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun opérateur disponible.</p>
+                    ) : membresAvecEmail.map(m => (
+                      <label key={m.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${operateursSel.includes(m.id) ? 'bg-blue-50 border-blue-300' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={operateursSel.includes(m.id)} onChange={() => setOperateursSel(prev => prev.includes(m.id) ? prev.filter(x => x !== m.id) : [...prev, m.id])} style={{ accentColor: '#3B82F6' }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-800">{[c.prenom, c.nom].filter(Boolean).join(' ')}</p>
-                          <p className="text-[10px] text-ockham-teal truncate">{c.email}</p>
+                          <p className="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
+                            {[m.prenom, m.nom].filter(Boolean).join(' ')}
+                            {m.id === client.commercial_id && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>Commercial</span>
+                            )}
+                          </p>
+                          <p className="text-[10px] text-blue-500 truncate">{m.email}</p>
                         </div>
                       </label>
                     ))}
                   </div>
-                )}
-                {emailCommercial && (
-                  <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors mt-1.5 ${ccCommercial ? 'border-amber-400/60 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <input type="checkbox" checked={ccCommercial} onChange={() => setCcCommercial(v => !v)} className="accent-amber-500" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800">
-                        {client.commercial}
-                        <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>Commercial · CC</span>
-                      </p>
-                      <p className="text-[10px] truncate" style={{ color: '#D97706' }}>{emailCommercial}</p>
-                    </div>
-                  </label>
+                ) : (
+                  <>
+                    {sanContacts ? (
+                      <div className="space-y-2">
+                        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun contact pour ce client. Renseignez un email pour envoyer et l'enregistrer.</p>
+                        <div className="flex gap-2">
+                          <input value={prenomFallback} onChange={e => setPrenomFallback(e.target.value)} placeholder="Prénom" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                          <input value={nomFallback} onChange={e => setNomFallback(e.target.value)} placeholder="Nom *" className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                        </div>
+                        <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {contactsAvecEmail.map(c => (
+                          <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
+                            <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-ockham-teal" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold text-gray-800">{[c.prenom, c.nom].filter(Boolean).join(' ')}</p>
+                              <p className="text-[10px] text-ockham-teal truncate">{c.email}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                    {emailCommercial && (
+                      <label className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors mt-1.5 ${ccCommercial ? 'border-amber-400/60 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <input type="checkbox" checked={ccCommercial} onChange={() => setCcCommercial(v => !v)} className="accent-amber-500" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-gray-800">
+                            {client.commercial}
+                            <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#D97706' }}>Commercial · CC</span>
+                          </p>
+                          <p className="text-[10px] truncate" style={{ color: '#D97706' }}>{emailCommercial}</p>
+                        </div>
+                      </label>
+                    )}
+                  </>
                 )}
               </div>
 
@@ -394,7 +478,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     {estConnecte && (
                       <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">De :</span> <span className="text-emerald-600">{gmailToken?.gmail_email}</span> <span className="text-gray-400">({nomProvider})</span></p>
                     )}
-                    <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—'}</span></p>
+                    <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">À :</span> <span className="text-gray-700">{estInterne ? (membresAvecEmail.filter(m => operateursSel.includes(m.id)).map(m => m.email).join(', ') || '—') : (sanContacts ? (emailFallback || '—') : contactsAvecEmail.filter(c => contactsSel.includes(c.id)).map(c => c.email).join(', ') || '—')}</span></p>
                     {ccCommercial && emailCommercial && (
                       <p className="text-xs"><span className="text-gray-400 font-medium w-8 inline-block">Cc :</span> <span style={{ color: '#D97706' }}>{emailCommercial}</span></p>
                     )}
@@ -429,8 +513,14 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           {/* Footer */}
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={onFermer} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">Annuler</button>
-            <button onClick={handleEnvoyer} disabled={!peutEnvoyer} className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-              {envoi ? '…' : estConnecte ? `✉ Envoyer via ${nomProvider} (+10 pts)` : '✉ Enregistrer la relance (+10 pts)'}
+            <button
+              onClick={handleEnvoyer}
+              disabled={!peutEnvoyer}
+              className={`flex-[2] flex items-center justify-center gap-2 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors ${estInterne ? 'bg-blue-500 hover:bg-blue-600' : 'bg-ockham-teal hover:bg-ockham-teal-dark'}`}
+            >
+              {envoi ? '…' : estInterne
+                ? (estConnecte ? `✉ Notifier en interne via ${nomProvider}` : '✉ Enregistrer la notification')
+                : (estConnecte ? `✉ Envoyer via ${nomProvider} (+10 pts)` : '✉ Enregistrer la relance (+10 pts)')}
             </button>
           </div>
         </div>

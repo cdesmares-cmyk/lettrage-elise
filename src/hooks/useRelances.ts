@@ -31,6 +31,7 @@ export interface Relance {
   factures_snapshot: FactureSnapshot[] | null
   objet: string
   statut: StatutRelance
+  type: 'externe' | 'interne'
   points_attribues: number
   cree_le: string
   envoyee_le: string | null
@@ -134,7 +135,7 @@ export function useRelances() {
     setChargement(true)
     supabase
       .from('relances')
-      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, factures_snapshot, objet, statut, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot, payee_detectee_le')
+      .select('id, code_client, operateur_id, contacts_ids, contacts_snapshot, factures_ids, factures_snapshot, objet, statut, type, points_attribues, cree_le, envoyee_le, mis_a_jour_le, archivee, note, note_operateur, note_archivee_le, date_rappel, solde_snapshot, payee_detectee_le')
       .order('cree_le', { ascending: false })
       .then(async ({ data }) => {
         const relancesData = (data ?? []) as Relance[]

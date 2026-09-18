@@ -11,7 +11,7 @@ const NIVEAUX = [
   { val: 3, label: 'Niveau 3 — Urgent' },
 ]
 
-const VIDE: Omit<ScenarioRelance, 'id'> = { nom: '', niveau: 1, objet: '', corps_texte: '' }
+const VIDE: Omit<ScenarioRelance, 'id'> = { nom: '', niveau: 1, type: 'externe', objet: '', corps_texte: '' }
 
 export function TabScenariosRelance() {
   const { scenarios, chargement, creer, modifier, supprimer } = useScenariosRelance()
@@ -24,7 +24,7 @@ export function TabScenariosRelance() {
 
   function selectionner(s: ScenarioRelance) {
     setSelId(s.id)
-    setForm({ nom: s.nom, niveau: s.niveau, objet: s.objet, corps_texte: s.corps_texte })
+    setForm({ nom: s.nom, niveau: s.niveau, type: s.type, objet: s.objet, corps_texte: s.corps_texte })
     setConfirmDel(false)
   }
 
@@ -85,7 +85,12 @@ export function TabScenariosRelance() {
               onClick={() => selectionner(s)}
               className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${selId === s.id ? 'bg-ockham-teal-muted text-ockham-teal font-semibold' : 'hover:bg-gray-50 text-gray-700'}`}
             >
-              <div className="font-medium truncate">{s.nom}</div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-medium truncate">{s.nom}</span>
+                {s.type === 'interne' && (
+                  <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#3B82F6', border: '1px solid #BFDBFE' }}>INT</span>
+                )}
+              </div>
               <div className="text-[10px] text-gray-400 mt-0.5">Niveau {s.niveau}</div>
             </button>
           ))}
@@ -123,6 +128,31 @@ export function TabScenariosRelance() {
                 {NIVEAUX.map(n => <option key={n.val} value={n.val}>{n.label}</option>)}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-1.5">Type de destinataire</label>
+            <div className="flex gap-2">
+              {(['externe', 'interne'] as const).map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, type: t }))}
+                  className={`flex-1 text-xs font-semibold py-2 rounded-lg border transition-colors ${
+                    form.type === t
+                      ? t === 'interne'
+                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                        : 'bg-ockham-teal-muted border-ockham-teal/40 text-ockham-teal'
+                      : 'border-gray-200 text-gray-400 hover:border-gray-300'
+                  }`}
+                >
+                  {t === 'externe' ? '✉ Externe — client' : '🔔 Interne — opérateur'}
+                </button>
+              ))}
+            </div>
+            {form.type === 'interne' && (
+              <p className="text-[10px] text-blue-600 mt-1.5">Les destinataires seront des opérateurs de l'organisation, pas le client.</p>
+            )}
           </div>
 
           <div>

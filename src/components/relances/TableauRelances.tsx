@@ -115,6 +115,11 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
   }), [relances, filtreOp, recherche, clientsMap, onglet, alertesSeulement])
 
   const affichees = useMemo(() => [...filtrees].sort((a, b) => {
+    // Relances internes toujours en bas
+    const ia = a.type === 'interne' ? 1 : 0
+    const ib = b.type === 'interne' ? 1 : 0
+    if (ia !== ib) return ia - ib
+
     if (onglet === 'en_cours') {
       const pa = estEnAlerte(a, seuilSansSuite) ? 0 : 1
       const pb = estEnAlerte(b, seuilSansSuite) ? 0 : 1
@@ -227,8 +232,9 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
               const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
               const alerte = estEnAlerte(r, seuilSansSuite)
               const restant = jours !== null ? seuilSansSuite - jours : null
+              const estInterne = r.type === 'interne'
               return (
-                <tr key={r.id} onClick={() => { setOngletModalCourant('factures'); setRelanceOuverteId(r.id) }} className="transition-colors cursor-pointer border-t border-gray-50 first:border-t-0 hover:bg-gray-50/40">
+                <tr key={r.id} onClick={() => { setOngletModalCourant('factures'); setRelanceOuverteId(r.id) }} className={`transition-colors cursor-pointer border-t first:border-t-0 ${estInterne ? 'border-slate-100 bg-slate-50/60 hover:bg-slate-100/60' : 'border-gray-50 hover:bg-gray-50/40'}`}>
                   {/* Code */}
                   <td className="px-3 py-2.5" onClick={e => e.stopPropagation()}>
                     <button onClick={() => navigate(`/compte-client?client=${r.code_client}`)} className="group/code flex items-center gap-1 font-mono text-xs text-ockham-teal">
@@ -237,8 +243,11 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
                     </button>
                   </td>
                   {/* Client */}
-                  <td className="px-3 py-2.5 text-xs font-medium text-gray-700 max-w-[180px] truncate">
-                    {clientsMap.get(r.code_client) ?? '—'}
+                  <td className="px-3 py-2.5 text-xs font-medium max-w-[200px]">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className={`truncate ${estInterne ? 'text-slate-500' : 'text-gray-700'}`}>{clientsMap.get(r.code_client) ?? '—'}</span>
+                      {estInterne && <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#3B82F6', border: '1px solid #BFDBFE' }}>Interne</span>}
+                    </div>
                   </td>
 
                   {/* En cours */}

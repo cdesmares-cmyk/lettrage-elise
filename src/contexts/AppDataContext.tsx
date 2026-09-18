@@ -46,6 +46,7 @@ export interface ScenarioRelance {
   id: string
   nom: string
   niveau: number
+  type: 'externe' | 'interne'
   objet: string
   corps_texte: string
 }
@@ -127,7 +128,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const rechargerScenarios = useCallback(async () => {
     const { data } = await supabase
       .from('scenarios_relance')
-      .select('id, nom, niveau, objet, corps_texte')
+      .select('id, nom, niveau, type, objet, corps_texte')
       .order('niveau', { ascending: true })
       .order('nom', { ascending: true })
     setScenarios((data as ScenarioRelance[]) ?? [])
@@ -136,14 +137,15 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   const rechargerMembresOrg = useCallback(async () => {
     const { data } = await supabase
       .from('utilisateurs')
-      .select('id, nom, prenom, role')
+      .select('id, nom, prenom, email, role')
       .order('nom', { ascending: true })
-    const membres: MembreOrg[] = ((data ?? []) as { id: string; nom: string; prenom: string | null; role: string }[])
+    const membres: MembreOrg[] = ((data ?? []) as { id: string; nom: string; prenom: string | null; email: string; role: string }[])
       .filter(u => u.role !== 'externe')
       .map(u => ({
         id:        u.id,
         nom:       u.nom,
         prenom:    u.prenom,
+        email:     u.email,
         initiales: initialesMembre(u.nom, u.prenom),
         couleur:   couleurMembre(u.id),
       }))

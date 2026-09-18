@@ -9,6 +9,7 @@ export interface MembreOrg {
   id:        string
   nom:       string
   prenom:    string | null
+  email:     string
   initiales: string   // calculé au chargement : ex. "MB" pour Morgane Bouillot
   couleur:   string   // couleur d'avatar déterministe basée sur l'id
 }
