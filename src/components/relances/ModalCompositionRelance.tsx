@@ -35,6 +35,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives, scenarios, membresOrg } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
+  const [dropdownOuvert, setDropdownOuvert] = useState(false)
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
@@ -446,18 +447,71 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     </button>
                   )}
                 </div>
-                {scenarios.length > 0 ? (
-                  <select
-                    value={scenarioId}
-                    onChange={e => setScenarioId(e.target.value)}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal cursor-pointer"
-                  >
-                    {!scenarioId && <option value="">— Choisir un scénario</option>}
-                    {scenarios.map(s => (
-                      <option key={s.id} value={s.id}>Niveau {s.niveau} — {s.nom}</option>
-                    ))}
-                  </select>
-                ) : (
+                {scenarios.length > 0 ? (() => {
+                  const externes = scenarios.filter(s => s.type === 'externe').sort((a, b) => a.niveau - b.niveau || a.nom.localeCompare(b.nom))
+                  const internes = scenarios.filter(s => s.type === 'interne').sort((a, b) => a.niveau - b.niveau || a.nom.localeCompare(b.nom))
+                  const selScenario = scenarios.find(s => s.id === scenarioId) ?? null
+                  return (
+                    <div className="relative">
+                      {/* Bouton déclencheur */}
+                      <button
+                        type="button"
+                        onClick={() => setDropdownOuvert(v => !v)}
+                        className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white hover:border-gray-300 transition-colors outline-none focus:border-ockham-teal"
+                      >
+                        {selScenario ? (
+                          <span className="flex items-center gap-2 min-w-0">
+                            <span className={`flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded ${selScenario.type === 'interne' ? 'bg-blue-50 text-blue-600 border border-blue-200' : 'bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/20'}`}>
+                              {selScenario.type === 'interne' ? 'INT' : 'EXT'}
+                            </span>
+                            <span className="truncate text-gray-700">{selScenario.type === 'externe' ? `Niveau ${selScenario.niveau} — ` : ''}{selScenario.nom}</span>
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">— Choisir un scénario</span>
+                        )}
+                        <svg className={`flex-shrink-0 w-3.5 h-3.5 text-gray-400 transition-transform ${dropdownOuvert ? 'rotate-180' : ''}`} viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M2 4l4 4 4-4"/>
+                        </svg>
+                      </button>
+
+                      {/* Liste déroulante */}
+                      {dropdownOuvert && (
+                        <>
+                          <div className="fixed inset-0 z-[60]" onClick={() => setDropdownOuvert(false)} />
+                          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-[61] overflow-hidden py-1">
+                            {externes.map(s => (
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => { setScenarioId(s.id); setDropdownOuvert(false) }}
+                                className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors hover:bg-gray-50 ${scenarioId === s.id ? 'bg-ockham-teal-muted' : ''}`}
+                              >
+                                <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/20">EXT</span>
+                                <span className={`truncate ${scenarioId === s.id ? 'font-semibold text-ockham-teal' : 'text-gray-700'}`}>Niveau {s.niveau} — {s.nom}</span>
+                              </button>
+                            ))}
+                            {internes.length > 0 && (
+                              <>
+                                <div className="mx-3 my-1 border-t border-gray-100" />
+                                {internes.map(s => (
+                                  <button
+                                    key={s.id}
+                                    type="button"
+                                    onClick={() => { setScenarioId(s.id); setDropdownOuvert(false) }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors ${scenarioId === s.id ? 'bg-blue-50' : 'bg-blue-50/30 hover:bg-blue-50/60'}`}
+                                  >
+                                    <span className="flex-shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-200">INT</span>
+                                    <span className={`truncate ${scenarioId === s.id ? 'font-semibold text-blue-700' : 'text-gray-600'}`}>{s.nom}</span>
+                                  </button>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )
+                })() : (
                   <p className="text-[11px] text-amber-600">
                     Aucun scénario configuré
                     {peutModifier && <> — <button onClick={() => setScenariosOuvert(true)} className="underline">créer un scénario</button></>}
