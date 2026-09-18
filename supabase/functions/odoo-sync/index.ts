@@ -18,30 +18,58 @@ function json(data: unknown, status = 200) {
   })
 }
 
-// ── Odoo JSON-RPC — compatible toutes versions ────────────────────────────────
+// ── Odoo JSON-RPC ─────────────────────────────────────────────────────────────
 
 interface OdooConfig {
   url:      string
   db:       string
   username: string
-  apiKey:   string   // clé API (v14+) ou mot de passe
+  apiKey:   string
+}
+
+interface OdooSession {
+  uid:    number
+  cookie: string   // session_id cookie pour les appels suivants
+}
+
+// Authentification via /web/session/authenticate — retourne uid + cookie de session
+async function odooAuthenticate(cfg: OdooConfig): Promise<OdooSession> {
+  const res = await fetch(`${cfg.url}/web/session/authenticate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      method:  'call',
+      id:      1,
+      params:  { db: cfg.db, login: cfg.username, password: cfg.apiKey },
+    }),
+  })
+  // Récupère le cookie de session pour les appels suivants
+  const cookie = res.headers.get('set-cookie') ?? ''
+  const data = await res.json() as {
+    result?: { uid?: number; session_id?: string }
+    error?:  { data?: { message?: string }; message?: string }
+  }
+  if (data.error) throw new Error(data.error.data?.message ?? data.error.message ?? 'Authentification Odoo échouée')
+  const uid = data.result?.uid
+  if (!uid) throw new Error('Identifiants Odoo invalides — vérifiez URL, base, utilisateur et clef API')
+  return { uid, cookie }
 }
 
 async function odooCall(
   cfg: OdooConfig,
-  uid: number,
+  session: OdooSession,
   model: string,
   method: string,
   args: unknown[],
   kwargs: Record<string, unknown> = {}
 ): Promise<unknown> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (session.cookie) headers['Cookie'] = session.cookie
+
   const res = await fetch(`${cfg.url}/web/dataset/call_kw`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      // Basic auth : username:apiKey en base64
-      'Authorization': `Basic ${btoa(`${cfg.username}:${cfg.apiKey}`)}`,
-    },
+    headers,
     body: JSON.stringify({
       jsonrpc: '2.0',
       method:  'call',
@@ -54,29 +82,6 @@ async function odooCall(
   return data.result
 }
 
-// Authentification — retourne l'uid Odoo
-async function odooAuthenticate(cfg: OdooConfig): Promise<number> {
-  const res = await fetch(`${cfg.url}/web/dataset/call_kw`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method:  'call',
-      id:      1,
-      params: {
-        model:  'res.users',
-        method: 'authenticate',
-        args:   [cfg.db, cfg.username, cfg.apiKey, {}],
-        kwargs: {},
-      },
-    }),
-  })
-  const data = await res.json() as { result?: number; error?: { data?: { message?: string } } }
-  if (data.error) throw new Error(data.error.data?.message ?? 'Authentification Odoo échouée')
-  if (!data.result || data.result === false) throw new Error('Identifiants Odoo invalides')
-  return data.result as number
-}
-
 // Champs factures à récupérer depuis Odoo
 const INVOICE_FIELDS = [
   'id', 'name', 'partner_id', 'invoice_date', 'invoice_date_due',
@@ -87,7 +92,7 @@ const INVOICE_FIELDS = [
 interface OdooInvoice {
   id:                 number
   name:               string
-  partner_id:         [number, string]   // [id, nom]
+  partner_id:         [number, string]
   invoice_date:       string | false
   invoice_date_due:   string | false
   amount_untaxed:     number
@@ -99,7 +104,6 @@ interface OdooInvoice {
   write_date:         string
 }
 
-// Convertit le payment_state Odoo vers le statut Ockham
 function mapStatutPaiement(ps: string): string {
   switch (ps) {
     case 'paid':        return 'payee'
@@ -110,7 +114,6 @@ function mapStatutPaiement(ps: string): string {
   }
 }
 
-// Upsert batch de factures dans Supabase
 async function upsertFactures(
   supabaseAdmin: ReturnType<typeof createClient>,
   orgId: string,
@@ -119,8 +122,6 @@ async function upsertFactures(
   const payload = invoices.map(inv => {
     const partnerId  = Array.isArray(inv.partner_id) ? inv.partner_id[0] : 0
     const partnerNom = Array.isArray(inv.partner_id) ? inv.partner_id[1] : ''
-    // code_client : on utilise ODO_{partner_id} comme identifiant stable
-    // Le matching vers un code métier se fera dans une phase ultérieure
     const codeClient = `ODO_${partnerId}`
     const estAvoir   = inv.move_type === 'out_refund'
     const resteDu    = estAvoir ? -Math.abs(inv.amount_residual) : inv.amount_residual
@@ -183,9 +184,8 @@ Deno.serve(async (req: Request) => {
         username: (row.config as Record<string, string>).username,
         apiKey:   row.api_key as string,
       }
-      const uid = await odooAuthenticate(cfg)
-      // Vérifie qu'on peut lire les factures
-      const count = await odooCall(cfg, uid, 'account.move', 'search_count',
+      const session = await odooAuthenticate(cfg)
+      const count = await odooCall(cfg, session, 'account.move', 'search_count',
         [[['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted']]])
       await supabaseAdmin
         .from('integrations')
@@ -217,15 +217,15 @@ Deno.serve(async (req: Request) => {
       }
 
       const offset:  number = body.offset  ?? 0
-      const nbBatch: number = body.nb_batch ?? 3   // batches de BATCH_SIZE par appel
-      const uid = await odooAuthenticate(cfg)
+      const nbBatch: number = body.nb_batch ?? 3
+      const session = await odooAuthenticate(cfg)
 
       let nbMaj   = 0
       let termine = false
 
       for (let i = 0; i < nbBatch; i++) {
         const currentOffset = offset + i * BATCH_SIZE
-        const invoices = await odooCall(cfg, uid, 'account.move', 'search_read',
+        const invoices = await odooCall(cfg, session, 'account.move', 'search_read',
           [[['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted']]],
           { fields: INVOICE_FIELDS, offset: currentOffset, limit: BATCH_SIZE, order: 'id asc' }
         ) as OdooInvoice[]
@@ -269,13 +269,12 @@ Deno.serve(async (req: Request) => {
         apiKey:   row.api_key as string,
       }
 
-      // Dernière sync réussie (verifie_le) comme borne inférieure
       const lastSync = row.verifie_le
         ? new Date(row.verifie_le as string).toISOString().replace('T', ' ').slice(0, 19)
         : '2000-01-01 00:00:00'
 
-      const uid = await odooAuthenticate(cfg)
-      const invoices = await odooCall(cfg, uid, 'account.move', 'search_read',
+      const session = await odooAuthenticate(cfg)
+      const invoices = await odooCall(cfg, session, 'account.move', 'search_read',
         [[
           ['move_type', 'in', ['out_invoice', 'out_refund']],
           ['state', '=', 'posted'],
