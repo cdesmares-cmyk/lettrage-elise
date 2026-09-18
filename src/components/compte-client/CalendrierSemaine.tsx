@@ -37,7 +37,9 @@ function addJours(d: Date, n: number): Date {
   const r = new Date(d); r.setDate(r.getDate() + n); return r
 }
 
-function toISO(d: Date): string { return d.toISOString().slice(0, 10) }
+function toISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 function heureStr(slot: Slot): string {
   return `${String(slot.h).padStart(2, '0')}:${String(slot.m).padStart(2, '0')}`
