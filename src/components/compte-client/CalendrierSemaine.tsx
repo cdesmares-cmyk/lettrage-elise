@@ -136,9 +136,9 @@ export function CalendrierSemaine({ accessToken, provider, selected, rappels, on
     <div className="flex flex-col gap-2">
       {/* Navigation */}
       <div className="flex items-center justify-between">
-        <button onClick={() => setOffset(o => o - 1)} className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 transition-colors">← Précédente</button>
+        <button onClick={() => setOffset(o => o - 1)} className="text-[10px] font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/80 border border-ockham-navy px-3 py-1 rounded-lg transition-colors">Précédente</button>
         <span className="text-[11px] font-semibold text-gray-600">{labelSem}</span>
-        <button onClick={() => setOffset(o => o + 1)} className="text-[10px] text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-100 transition-colors">Suivante →</button>
+        <button onClick={() => setOffset(o => o + 1)} className="text-[10px] font-semibold text-white bg-ockham-navy hover:bg-ockham-navy/80 border border-ockham-navy px-3 py-1 rounded-lg transition-colors">Suivante</button>
       </div>
 
       {/* Grille */}

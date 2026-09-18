@@ -699,27 +699,30 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
             />
 
             {/* Rappel personnel */}
-            <div className="flex items-center justify-between py-0.5">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rappel</label>
-              <div className="flex items-center gap-2">
-                {prochainRappel ? (
-                  <>
-                    <span className="text-xs text-gray-700 font-medium">
-                      {new Date(prochainRappel.prevu_le + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                      {prochainRappel.heure && <span className="ml-1 font-mono text-gray-500">{prochainRappel.heure.slice(0, 5)}</span>}
-                    </span>
-                    <button
-                      onClick={() => setShowRappel(true)}
-                      className="text-[10px] text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
-                    >voir</button>
-                  </>
-                ) : (
+            <div>
+              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Rappel</label>
+              {prochainRappel ? (
+                <div className="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-700 font-medium">
+                    {new Date(prochainRappel.prevu_le + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                    {prochainRappel.heure && <span className="ml-1 font-mono text-gray-500">{prochainRappel.heure.slice(0, 5)}</span>}
+                  </span>
                   <button
                     onClick={() => setShowRappel(true)}
-                    className="text-[10px] font-semibold text-ockham-teal hover:underline underline-offset-2 transition-colors"
-                  >+ Ajouter</button>
-                )}
-              </div>
+                    className="flex items-center gap-0.5 text-[10px] font-semibold text-ockham-teal hover:text-ockham-teal-dark transition-colors"
+                  >
+                    voir
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                      <line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowRappel(true)}
+                  className="text-[10px] font-semibold text-ockham-teal border border-dashed border-ockham-teal/40 hover:border-ockham-teal/70 hover:bg-ockham-teal/5 rounded-full px-3 py-1 transition-colors"
+                >+ Ajouter</button>
+              )}
             </div>
 
             {/* Note interne — sauvegardée avec le bouton principal */}
