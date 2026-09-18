@@ -9,6 +9,8 @@ import { RecapCompteClient } from './RecapCompteClient'
 import { supabase } from '../../lib/supabase'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
+import { useRappelClient } from '../../hooks/useRappelClient'
+import { ModalRappelClient } from './ModalRappelClient'
 
 type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
 type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'
@@ -166,8 +168,11 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
   const [alertesBodaccChargement, setAlertesBodaccChargement] = useState(false)
   const [masquageEnCours, setMasquageEnCours] = useState<Set<string>>(new Set())
   const [noteClient, setNoteClient]     = useState('')
+  const [showRappel, setShowRappel]     = useState(false)
   const clientCodeRef = useRef<string | null>(null)
   const noteRef = useRef<HTMLTextAreaElement>(null)
+
+  const { rappels, prochainRappel, creerRappel, supprimerRappel } = useRappelClient(client?.code_dso ?? null)
 
   async function chargerAlertesBodacc() {
     if (!client) return
@@ -692,6 +697,31 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
               }}
               options={commerciauxData.map(u => u.prenom ? `${u.nom} ${u.prenom}` : u.nom)}
             />
+
+            {/* Rappel personnel */}
+            <div className="flex items-center justify-between py-0.5">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Rappel</label>
+              <div className="flex items-center gap-2">
+                {prochainRappel ? (
+                  <>
+                    <span className="text-xs text-gray-700 font-medium">
+                      {new Date(prochainRappel.prevu_le + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                      {prochainRappel.heure && <span className="ml-1 font-mono text-gray-500">{prochainRappel.heure.slice(0, 5)}</span>}
+                    </span>
+                    <button
+                      onClick={() => setShowRappel(true)}
+                      className="text-[10px] text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
+                    >voir</button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowRappel(true)}
+                    className="text-[10px] font-semibold text-ockham-teal hover:underline underline-offset-2 transition-colors"
+                  >+ Ajouter</button>
+                )}
+              </div>
+            </div>
+
             {/* Note interne — sauvegardée avec le bouton principal */}
             <div>
               <div className="mb-2">
@@ -792,6 +822,17 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
           </div>
         )}
       </div>
+
+      {showRappel && client && (
+        <ModalRappelClient
+          codeClient={client.code_dso}
+          nomClient={client.nom}
+          rappels={rappels}
+          creerRappel={creerRappel}
+          supprimerRappel={supprimerRappel}
+          onClose={() => setShowRappel(false)}
+        />
+      )}
     </>
   )
 }

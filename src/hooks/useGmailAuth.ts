@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 const GMAIL_CLIENT_ID = '831307458722-dnrmeh4br9ukl6kgtq6u2p4onh39ed1j.apps.googleusercontent.com'
 const REDIRECT_URI    = 'https://aqxsqmgtmenjpfrblqoe.supabase.co/functions/v1/gmail-oauth-callback'
-const SCOPE           = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.settings.basic openid email'
+const SCOPE           = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/calendar.events openid email'
 
 export interface GmailToken {
   access_token:  string
@@ -158,5 +158,6 @@ export function useGmailAuth() {
     deconnecterGmail,
     envoyerEmail,
     recupererSignature,
+    getTokenValide,
   }
 }
