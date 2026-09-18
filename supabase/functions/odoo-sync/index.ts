@@ -3,8 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const ANON_KEY      = Deno.env.get('SUPABASE_ANON_KEY')!
-const BATCH_SIZE    = 100   // factures par appel Odoo
-const CRON_BATCH    = 200   // factures par step cron
+const BATCH_SIZE    = 100
+const CRON_BATCH    = 200
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -18,7 +18,7 @@ function json(data: unknown, status = 200) {
   })
 }
 
-// ── Odoo JSON-RPC ─────────────────────────────────────────────────────────────
+// ── Odoo XML-RPC (protocole officiel pour les clés API) ───────────────────────
 
 interface OdooConfig {
   url:      string
@@ -27,62 +27,122 @@ interface OdooConfig {
   apiKey:   string
 }
 
-interface OdooSession {
-  uid:    number
-  cookie: string   // session_id cookie pour les appels suivants
+function escapeXml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// Authentification via /web/session/authenticate — retourne uid + cookie de session
-async function odooAuthenticate(cfg: OdooConfig): Promise<OdooSession> {
-  const res = await fetch(`${cfg.url}/web/session/authenticate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method:  'call',
-      id:      1,
-      params:  { db: cfg.db, login: cfg.username, password: cfg.apiKey },
-    }),
-  })
-  // Récupère le cookie de session pour les appels suivants
-  const cookie = res.headers.get('set-cookie') ?? ''
-  const data = await res.json() as {
-    result?: { uid?: number; session_id?: string }
-    error?:  { data?: { message?: string }; message?: string }
+function valueToXml(val: unknown): string {
+  if (val === null || val === undefined) return '<value><boolean>0</boolean></value>'
+  if (typeof val === 'boolean') return `<value><boolean>${val ? 1 : 0}</boolean></value>`
+  if (typeof val === 'number') {
+    return Number.isInteger(val)
+      ? `<value><int>${val}</int></value>`
+      : `<value><double>${val}</double></value>`
   }
-  if (data.error) throw new Error(data.error.data?.message ?? data.error.message ?? 'Authentification Odoo échouée')
-  const uid = data.result?.uid
-  if (!uid) throw new Error('Identifiants Odoo invalides — vérifiez URL, base, utilisateur et clef API')
-  return { uid, cookie }
+  if (typeof val === 'string') return `<value><string>${escapeXml(val)}</string></value>`
+  if (Array.isArray(val)) {
+    return `<value><array><data>${val.map(valueToXml).join('')}</data></array></value>`
+  }
+  if (typeof val === 'object') {
+    const members = Object.entries(val as Record<string, unknown>)
+      .map(([k, v]) => `<member><name>${escapeXml(k)}</name>${valueToXml(v)}</member>`)
+      .join('')
+    return `<value><struct>${members}</struct></value>`
+  }
+  return `<value><string>${escapeXml(String(val))}</string></value>`
 }
 
+function buildXmlRpcCall(method: string, params: unknown[]): string {
+  const paramsXml = params.map(p => `<param>${valueToXml(p)}</param>`).join('')
+  return `<?xml version="1.0" encoding="UTF-8"?><methodCall><methodName>${method}</methodName><params>${paramsXml}</params></methodCall>`
+}
+
+function parseXmlValue(node: Element): unknown {
+  const child = node.firstElementChild
+  if (!child) return node.textContent ?? ''
+
+  const tag  = child.tagName.toLowerCase()
+  const text = child.textContent ?? ''
+
+  switch (tag) {
+    case 'int': case 'i4': case 'i8': return parseInt(text)
+    case 'double':  return parseFloat(text)
+    case 'boolean': return text.trim() === '1'
+    case 'string':  return text
+    case 'nil':     return null
+    case 'array': {
+      const data = child.firstElementChild  // <data>
+      if (!data) return []
+      return Array.from(data.children).map(v => parseXmlValue(v as Element))
+    }
+    case 'struct': {
+      const result: Record<string, unknown> = {}
+      Array.from(child.children).forEach(member => {
+        const nameEl  = Array.from(member.children).find(c => c.tagName === 'name')
+        const valueEl = Array.from(member.children).find(c => c.tagName === 'value')
+        const name    = nameEl?.textContent ?? ''
+        if (name && valueEl) result[name] = parseXmlValue(valueEl as Element)
+      })
+      return result
+    }
+    default: return text
+  }
+}
+
+async function xmlRpcCall(url: string, method: string, params: unknown[]): Promise<unknown> {
+  const body = buildXmlRpcCall(method, params)
+  const res  = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'text/xml', 'User-Agent': 'OCKHAM/1.0' },
+    body,
+  })
+  if (!res.ok) throw new Error(`XML-RPC HTTP ${res.status} sur ${url}`)
+
+  const xml    = await res.text()
+  const parser = new DOMParser()
+  const doc    = parser.parseFromString(xml, 'text/xml')
+
+  const fault = doc.querySelector('fault')
+  if (fault) {
+    const faultValue = fault.querySelector('value')
+    if (faultValue) {
+      const parsed = parseXmlValue(faultValue as Element) as Record<string, unknown>
+      throw new Error((parsed?.faultString as string) ?? 'XML-RPC fault')
+    }
+    throw new Error('XML-RPC fault')
+  }
+
+  const resultValue = doc.querySelector('methodResponse > params > param > value')
+  if (!resultValue) throw new Error('Réponse XML-RPC invalide')
+  return parseXmlValue(resultValue as Element)
+}
+
+// Authentification via XML-RPC /xmlrpc/2/common — retourne uid
+async function odooAuthenticate(cfg: OdooConfig): Promise<number> {
+  const base = cfg.url.replace(/\/$/, '')
+  const uid  = await xmlRpcCall(`${base}/xmlrpc/2/common`, 'authenticate',
+    [cfg.db, cfg.username, cfg.apiKey, {}])
+  if (typeof uid !== 'number' || uid === 0) {
+    throw new Error('Identifiants Odoo invalides — vérifiez URL, base de données, utilisateur et clef API')
+  }
+  return uid
+}
+
+// Appel de méthode via XML-RPC /xmlrpc/2/object
 async function odooCall(
-  cfg: OdooConfig,
-  session: OdooSession,
-  model: string,
+  cfg:    OdooConfig,
+  uid:    number,
+  model:  string,
   method: string,
-  args: unknown[],
+  args:   unknown[],
   kwargs: Record<string, unknown> = {}
 ): Promise<unknown> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (session.cookie) headers['Cookie'] = session.cookie
-
-  const res = await fetch(`${cfg.url}/web/dataset/call_kw`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method:  'call',
-      id:      1,
-      params:  { model, method, args, kwargs: { ...kwargs, context: { lang: 'fr_FR' } } },
-    }),
-  })
-  const data = await res.json() as { result?: unknown; error?: { data?: { message?: string }; message?: string } }
-  if (data.error) throw new Error(data.error.data?.message ?? data.error.message ?? 'Erreur Odoo JSON-RPC')
-  return data.result
+  const base = cfg.url.replace(/\/$/, '')
+  return xmlRpcCall(`${base}/xmlrpc/2/object`, 'execute_kw',
+    [cfg.db, uid, cfg.apiKey, model, method, args, { ...kwargs, context: { lang: 'fr_FR' } }])
 }
 
-// Champs factures à récupérer depuis Odoo
+// Champs factures
 const INVOICE_FIELDS = [
   'id', 'name', 'partner_id', 'invoice_date', 'invoice_date_due',
   'amount_untaxed', 'amount_total', 'amount_residual',
@@ -90,27 +150,26 @@ const INVOICE_FIELDS = [
 ]
 
 interface OdooInvoice {
-  id:                 number
-  name:               string
-  partner_id:         [number, string]
-  invoice_date:       string | false
-  invoice_date_due:   string | false
-  amount_untaxed:     number
-  amount_total:       number
-  amount_residual:    number
-  move_type:          'out_invoice' | 'out_refund'
-  payment_state:      string
-  state:              string
-  write_date:         string
+  id:               number
+  name:             string
+  partner_id:       [number, string] | false
+  invoice_date:     string | false
+  invoice_date_due: string | false
+  amount_untaxed:   number
+  amount_total:     number
+  amount_residual:  number
+  move_type:        string
+  payment_state:    string
+  state:            string
+  write_date:       string
 }
 
 function mapStatutPaiement(ps: string): string {
   switch (ps) {
-    case 'paid':        return 'payee'
-    case 'partial':     return 'partiel'
-    case 'in_payment':  return 'en_cours'
-    case 'not_paid':
-    default:            return 'en_attente'
+    case 'paid':       return 'payee'
+    case 'partial':    return 'partiel'
+    case 'in_payment': return 'en_cours'
+    default:           return 'en_attente'
   }
 }
 
@@ -122,25 +181,23 @@ async function upsertFactures(
   const payload = invoices.map(inv => {
     const partnerId  = Array.isArray(inv.partner_id) ? inv.partner_id[0] : 0
     const partnerNom = Array.isArray(inv.partner_id) ? inv.partner_id[1] : ''
-    const codeClient = `ODO_${partnerId}`
     const estAvoir   = inv.move_type === 'out_refund'
     const resteDu    = estAvoir ? -Math.abs(inv.amount_residual) : inv.amount_residual
-
     return {
-      organisation_id:   orgId,
-      numero_piece:      inv.name,
-      code_client:       codeClient,
-      nom_client:        partnerNom,
-      date_emission:     inv.invoice_date   || null,
-      date_echeance:     inv.invoice_date_due || null,
-      montant_ht:        inv.amount_untaxed,
-      montant_ttc:       inv.amount_total,
-      reste_du:          resteDu,
-      est_avoir:         estAvoir,
-      statut_paiement:   mapStatutPaiement(inv.payment_state),
-      statut_facture:    'actif',
-      odoo_move_id:      inv.id,
-      source:            'odoo',
+      organisation_id: orgId,
+      numero_piece:    inv.name,
+      code_client:     `ODO_${partnerId}`,
+      nom_client:      partnerNom,
+      date_emission:   inv.invoice_date   || null,
+      date_echeance:   inv.invoice_date_due || null,
+      montant_ht:      inv.amount_untaxed,
+      montant_ttc:     inv.amount_total,
+      reste_du:        resteDu,
+      est_avoir:       estAvoir,
+      statut_paiement: mapStatutPaiement(inv.payment_state),
+      statut_facture:  'actif',
+      odoo_move_id:    inv.id,
+      source:          'odoo',
     }
   })
 
@@ -161,10 +218,10 @@ Deno.serve(async (req: Request) => {
     if (!authHeader) return new Response('Non autorisé', { status: 401, headers: CORS })
 
     const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY)
-    const body   = await req.json()
+    const body          = await req.json()
     const action: string = body.action
 
-    // ── test ──────────────────────────────────────────────────────────────────
+    // ── test ─────────────────────────────────────────────────────────────────
     if (action === 'test') {
       const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
         global: { headers: { Authorization: authHeader } },
@@ -184,8 +241,8 @@ Deno.serve(async (req: Request) => {
         username: (row.config as Record<string, string>).username,
         apiKey:   row.api_key as string,
       }
-      const session = await odooAuthenticate(cfg)
-      const count = await odooCall(cfg, session, 'account.move', 'search_count',
+      const uid   = await odooAuthenticate(cfg)
+      const count = await odooCall(cfg, uid, 'account.move', 'search_count',
         [[['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted']]])
       await supabaseAdmin
         .from('integrations')
@@ -195,7 +252,7 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, message: `Connexion validée — ${count} factures disponibles` })
     }
 
-    // ── sync (manuel, piloté depuis le navigateur) ────────────────────────────
+    // ── sync (manuel) ────────────────────────────────────────────────────────
     if (action === 'sync') {
       const supabaseUser = createClient(SUPABASE_URL, ANON_KEY, {
         global: { headers: { Authorization: authHeader } },
@@ -212,20 +269,18 @@ Deno.serve(async (req: Request) => {
       const { api_key, config, organisation_id } = row as {
         api_key: string; config: Record<string, string>; organisation_id: string
       }
-      const cfg: OdooConfig = {
-        url: config.url, db: config.db, username: config.username, apiKey: api_key,
-      }
+      const cfg: OdooConfig = { url: config.url, db: config.db, username: config.username, apiKey: api_key }
 
       const offset:  number = body.offset  ?? 0
       const nbBatch: number = body.nb_batch ?? 3
-      const session = await odooAuthenticate(cfg)
+      const uid = await odooAuthenticate(cfg)
 
       let nbMaj   = 0
       let termine = false
 
       for (let i = 0; i < nbBatch; i++) {
         const currentOffset = offset + i * BATCH_SIZE
-        const invoices = await odooCall(cfg, session, 'account.move', 'search_read',
+        const invoices = await odooCall(cfg, uid, 'account.move', 'search_read',
           [[['move_type', 'in', ['out_invoice', 'out_refund']], ['state', '=', 'posted']]],
           { fields: INVOICE_FIELDS, offset: currentOffset, limit: BATCH_SIZE, order: 'id asc' }
         ) as OdooInvoice[]
@@ -236,8 +291,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if (termine) {
-        await supabaseAdmin
-          .from('integrations')
+        await supabaseAdmin.from('integrations')
           .update({ verifie_le: new Date().toISOString(), sync_actif: false })
           .eq('provider', 'odoo').eq('organisation_id', organisation_id)
         await supabaseAdmin.from('cron_runs').insert({
@@ -249,14 +303,14 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, nb_mises_a_jour: nbMaj, termine, prochain_offset: offset + nbBatch * BATCH_SIZE })
     }
 
-    // ── sync_step (pg_cron toutes les 15 min — incrémental) ──────────────────
+    // ── sync_step (pg_cron toutes les 15 min) ────────────────────────────────
     if (action === 'sync_step') {
       const orgId: string = body.org_id
       if (!orgId) return json({ error: 'org_id requis' }, 400)
 
       const { data: row } = await supabaseAdmin
         .from('integrations')
-        .select('api_key, config, verifie_le, sync_actif')
+        .select('api_key, config, verifie_le')
         .eq('provider', 'odoo')
         .eq('organisation_id', orgId)
         .single()
@@ -268,13 +322,12 @@ Deno.serve(async (req: Request) => {
         username: (row.config as Record<string, string>).username,
         apiKey:   row.api_key as string,
       }
-
       const lastSync = row.verifie_le
         ? new Date(row.verifie_le as string).toISOString().replace('T', ' ').slice(0, 19)
         : '2000-01-01 00:00:00'
 
-      const session = await odooAuthenticate(cfg)
-      const invoices = await odooCall(cfg, session, 'account.move', 'search_read',
+      const uid      = await odooAuthenticate(cfg)
+      const invoices = await odooCall(cfg, uid, 'account.move', 'search_read',
         [[
           ['move_type', 'in', ['out_invoice', 'out_refund']],
           ['state', '=', 'posted'],
@@ -288,8 +341,7 @@ Deno.serve(async (req: Request) => {
         nbMaj = await upsertFactures(supabaseAdmin, orgId, invoices)
       }
 
-      await supabaseAdmin
-        .from('integrations')
+      await supabaseAdmin.from('integrations')
         .update({ verifie_le: new Date().toISOString() })
         .eq('provider', 'odoo').eq('organisation_id', orgId)
 
