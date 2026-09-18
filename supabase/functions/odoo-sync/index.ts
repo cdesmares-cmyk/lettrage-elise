@@ -169,24 +169,13 @@ function buildXmlRpcCall(method: string, params: unknown[]): string {
 }
 
 async function xmlRpcCall(url: string, method: string, params: unknown[]): Promise<unknown> {
-  const body = buildXmlRpcCall(method, params)
-  console.log(`[xmlRpcCall] ${method} → ${url}`)
   const res = await fetch(url, {
     method:  'POST',
     headers: { 'Content-Type': 'text/xml', 'User-Agent': 'OCKHAM/1.0' },
-    body,
+    body:    buildXmlRpcCall(method, params),
   })
-  console.log(`[xmlRpcCall] HTTP ${res.status}`)
-  if (!res.ok) {
-    const txt = await res.text()
-    console.log(`[xmlRpcCall] body erreur:`, txt.slice(0, 300))
-    throw new Error(`XML-RPC HTTP ${res.status} sur ${url}`)
-  }
-  const rawXml = await res.text()
-  console.log(`[xmlRpcCall] réponse brute:`, rawXml.slice(0, 600))
-  const parsed = parseXmlRpcResponse(rawXml)
-  console.log(`[xmlRpcCall] valeur parsée:`, JSON.stringify(parsed), typeof parsed)
-  return parsed
+  if (!res.ok) throw new Error(`XML-RPC HTTP ${res.status} sur ${url}`)
+  return parseXmlRpcResponse(await res.text())
 }
 
 // ── Odoo config + helpers ─────────────────────────────────────────────────────
@@ -195,11 +184,10 @@ interface OdooConfig { url: string; db: string; username: string; apiKey: string
 
 async function odooAuthenticate(cfg: OdooConfig): Promise<number> {
   const base = cfg.url.replace(/\/$/, '')
-  console.log(`[odooAuthenticate] url=${base} db=${cfg.db} user=${cfg.username}`)
   const uid  = await xmlRpcCall(`${base}/xmlrpc/2/common`, 'authenticate',
     [cfg.db, cfg.username, cfg.apiKey, {}])
   if (typeof uid !== 'number' || uid === 0)
-    throw new Error(`Identifiants Odoo invalides — reçu: ${JSON.stringify(uid)} (${typeof uid})`)
+    throw new Error('Identifiants Odoo invalides — vérifiez URL, base de données, utilisateur et clef API')
   return uid
 }
 
