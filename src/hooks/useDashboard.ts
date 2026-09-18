@@ -143,7 +143,7 @@ export function useDashboard() {
   // Source : lettrages (annule=false, hors 471) joints à la date bancaire réelle
   useEffect(() => {
     const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
-    supabase.rpc('get_encaissements_clients', { p_date_debut: il24Mois.toISOString().slice(0, 10) })
+    supabase.rpc('get_encaissements_clients' as never, { p_date_debut: il24Mois.toISOString().slice(0, 10) } as never)
       .then(({ data }) => {
         if (data) setEncaissementsRaw(data as { date_operation: string; montant: number }[])
         setChargement(false)
