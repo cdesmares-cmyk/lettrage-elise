@@ -134,7 +134,7 @@ export function useDashboard() {
   const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec } = useAppData()
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
-  const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
+  const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number }[]>([])
   const [chargement, setChargement] = useState(true)
