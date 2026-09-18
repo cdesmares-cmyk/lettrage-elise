@@ -54,7 +54,7 @@ export function useRappelClient(codeClient: string | null) {
         calendar_event_id: params.calendar_event_id ?? null,
         cree_par:          me.id,
       } as never)
-    if (error) return false
+    if (error) { console.error('[rappels_client] insert error:', error); return false }
     await charger()
     return true
   }
