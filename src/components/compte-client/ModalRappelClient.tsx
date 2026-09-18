@@ -17,10 +17,12 @@ interface Props {
 async function creerEvenementGoogle(token: string, titre: string, prevu_le: string, heure: string | null, note: string | null): Promise<string | null> {
   let start, end
   if (heure) {
-    const [h, m] = heure.split(':').map(Number)
-    const endH   = String(Math.min(h + 1, 23)).padStart(2, '0')
+    const [h, m]   = heure.split(':').map(Number)
+    const totalMin = h * 60 + m + 15
+    const endH     = String(Math.floor(totalMin / 60)).padStart(2, '0')
+    const endM     = String(totalMin % 60).padStart(2, '0')
     start = { dateTime: `${prevu_le}T${heure}:00`, timeZone: 'Europe/Paris' }
-    end   = { dateTime: `${prevu_le}T${endH}:${String(m).padStart(2, '0')}:00`, timeZone: 'Europe/Paris' }
+    end   = { dateTime: `${prevu_le}T${endH}:${endM}:00`, timeZone: 'Europe/Paris' }
   } else {
     start = { date: prevu_le }; end = { date: prevu_le }
   }
@@ -35,16 +37,18 @@ async function creerEvenementGoogle(token: string, titre: string, prevu_le: stri
 }
 
 async function creerEvenementOutlook(token: string, titre: string, prevu_le: string, heure: string | null, note: string | null): Promise<string | null> {
-  const startH = heure ?? '09:00'
-  const [h, m] = startH.split(':').map(Number)
-  const endH   = String(Math.min(h + 1, 23)).padStart(2, '0')
+  const startH   = heure ?? '09:00'
+  const [h, m]   = startH.split(':').map(Number)
+  const totalMin = h * 60 + m + 15
+  const endH     = String(Math.floor(totalMin / 60)).padStart(2, '0')
+  const endM2    = String(totalMin % 60).padStart(2, '0')
   try {
     const res = await fetch('https://graph.microsoft.com/v1.0/me/events', {
       method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         subject: titre, body: { contentType: 'text', content: note ?? '' },
         start: { dateTime: `${prevu_le}T${startH}:00`, timeZone: 'Europe/Paris' },
-        end:   { dateTime: `${prevu_le}T${endH}:${String(m).padStart(2, '0')}:00`, timeZone: 'Europe/Paris' },
+        end:   { dateTime: `${prevu_le}T${endH}:${endM2}:00`, timeZone: 'Europe/Paris' },
         isAllDay: !heure,
       }),
     })
@@ -109,7 +113,7 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-5xl overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
@@ -148,6 +152,7 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
               accessToken={accessToken}
               provider={provider}
               selected={selected}
+              rappels={rappels}
               onSelect={(d, h) => { setPrevu_le(d); setHeure(h) }}
             />
           ) : (

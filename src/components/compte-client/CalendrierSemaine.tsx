@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import type { Rappel } from '../../hooks/useRappelClient'
 
 interface CalEvent {
   id:      string
@@ -11,7 +12,7 @@ const JOURS   = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const MOIS    = ['jan.', 'fév.', 'mar.', 'avr.', 'mai', 'jun.', 'jul.', 'aoû.', 'sep.', 'oct.', 'nov.', 'déc.']
 const START_H = 8
 const END_H   = 19
-const SLOT_H  = 22  // px par créneau de 30 min
+const SLOT_H  = 22
 
 interface Slot { h: number; m: number }
 
@@ -100,10 +101,11 @@ interface Props {
   accessToken: string | null
   provider:    'gmail' | 'outlook' | null
   selected?:   { prevu_le: string; heure: string }
+  rappels?:    Rappel[]
   onSelect:    (prevu_le: string, heure: string) => void
 }
 
-export function CalendrierSemaine({ accessToken, provider, selected, onSelect }: Props) {
+export function CalendrierSemaine({ accessToken, provider, selected, rappels, onSelect }: Props) {
   const [offset,     setOffset]     = useState(0)
   const [events,     setEvents]     = useState<CalEvent[]>([])
   const [chargement, setChargement] = useState(false)
@@ -148,7 +150,7 @@ export function CalendrierSemaine({ accessToken, provider, selected, onSelect }:
           {jours.map((jour, i) => {
             const isAuj = toISO(jour) === toISO(now)
             return (
-              <div key={i} className={`text-center py-1.5 border-l border-gray-200 ${isAuj ? 'text-ockham-teal font-bold' : 'text-gray-400'}`}>
+              <div key={i} className={`text-center py-1.5 ${i > 0 ? 'border-l border-gray-200' : ''} ${isAuj ? 'text-ockham-teal font-bold' : 'text-gray-400'}`}>
                 <div className="leading-none">{JOURS[i]}</div>
                 <div className="text-[12px] font-bold leading-none mt-0.5">{jour.getDate()}</div>
               </div>
@@ -163,37 +165,50 @@ export function CalendrierSemaine({ accessToken, provider, selected, onSelect }:
           ) : (
             SLOTS.map(slot => (
               <div key={`${slot.h}-${slot.m}`} className="grid border-b border-gray-100 last:border-0" style={{ gridTemplateColumns: '36px repeat(7, 1fr)', minHeight: `${SLOT_H}px` }}>
+
                 {/* Label heure */}
-                <div className={`flex items-start justify-end pr-1.5 pt-0.5 border-r border-gray-100 bg-gray-50 leading-none ${slot.m === 0 ? 'text-gray-400' : 'text-gray-200'}`}>
+                <div className={`flex items-start justify-end pr-1.5 pt-0.5 border-r border-gray-200 bg-gray-50 leading-none flex-shrink-0 ${slot.m === 0 ? 'text-gray-400' : 'text-gray-200'}`}>
                   {slot.m === 0 && `${slot.h}h`}
                 </div>
 
-                {/* Cellules */}
+                {/* Cellules jours */}
                 {jours.map((jour, j) => {
-                  const evt      = slotOccupe(jour, slot, events)
-                  const dateStr  = toISO(jour)
-                  const heureS   = heureStr(slot)
-                  const select   = selected?.prevu_le === dateStr && selected?.heure === heureS
-                  const slotFin  = new Date(jour); slotFin.setHours(slot.h, slot.m + 30, 0, 0)
-                  const passe    = now > slotFin
+                  const evt        = slotOccupe(jour, slot, events)
+                  const dateStr    = toISO(jour)
+                  const heureS     = heureStr(slot)
+                  const select     = selected?.prevu_le === dateStr && selected?.heure === heureS
+                  const slotFinDt  = new Date(jour)
+                  slotFinDt.setHours(slot.h, slot.m, 0, 0)
+                  slotFinDt.setMinutes(slotFinDt.getMinutes() + 30)
+                  const passe      = now > slotFinDt
+                  const rappelIci  = rappels?.find(r => r.prevu_le === dateStr && r.heure?.slice(0, 5) === heureS) ?? null
 
                   return (
                     <div
                       key={j}
                       title={evt?.titre}
-                      onClick={() => !evt && !passe && onSelect(dateStr, heureS)}
+                      onClick={() => !passe && onSelect(dateStr, heureS)}
                       className={[
-                        'border-l border-gray-100 px-0.5 overflow-hidden',
-                        select             ? 'bg-ockham-teal'                          : '',
-                        evt && !select     ? 'bg-blue-50'                              : '',
-                        passe && !evt && !select ? 'bg-gray-50/70 cursor-default'      : '',
-                        !evt && !passe && !select ? 'hover:bg-ockham-teal/10 cursor-pointer' : '',
+                        'relative overflow-hidden',
+                        j > 0 ? 'border-l border-gray-200' : '',
+                        select            ? 'bg-ockham-teal cursor-pointer'            : '',
+                        evt && !select    ? 'bg-blue-50'                               : '',
+                        passe && !select  ? 'bg-gray-50/80 cursor-default'             : '',
+                        !passe && !select ? 'hover:bg-ockham-teal/10 cursor-pointer'   : '',
                       ].join(' ')}
                     >
+                      {/* Titre événement agenda (consultatif) */}
                       {evt && isDebut(jour, slot, evt) && (
-                        <span className={`truncate block leading-tight pt-0.5 font-medium ${select ? 'text-white' : 'text-blue-500'}`} style={{ fontSize: '9px' }}>
+                        <span className={`truncate block leading-tight pt-0.5 px-0.5 font-medium ${select ? 'text-white/70' : 'text-blue-400'}`} style={{ fontSize: '9px' }}>
                           {evt.titre}
                         </span>
+                      )}
+
+                      {/* Barre rappel OCKHAM */}
+                      {rappelIci && !select && (
+                        <div className="absolute inset-x-0.5 top-0.5 bottom-0.5 bg-ockham-teal rounded-sm z-10 pointer-events-none flex items-center overflow-hidden">
+                          <span className="text-white truncate px-1 leading-none font-semibold" style={{ fontSize: '8px' }}>● rappel</span>
+                        </div>
                       )}
                     </div>
                   )
