@@ -15,6 +15,8 @@ interface Props {
   onClose:         () => void
 }
 
+const NOTE_DEFAUT = '[Relance Ockham] '
+
 async function creerEvenementGoogle(
   token:    string,
   titre:    string,
@@ -41,17 +43,26 @@ async function creerEvenementGoogle(
         method:  'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          summary:   titre,
+          summary:     titre,
           description: note ?? '',
-          colorId:   '7',  // Peacock — teal/cyan, identifiable OCKHAM
+          colorId:     '7',
           start, end,
-          attendees: invites.map(i => ({ email: i.email })),
+          attendees:   invites.map(i => ({ email: i.email })),
         }),
       }
     )
     if (!res.ok) return null
     return ((await res.json()).id as string) ?? null
   } catch { return null }
+}
+
+async function supprimerEvenementGoogle(token: string, eventId: string): Promise<void> {
+  try {
+    await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}?sendUpdates=all`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+    )
+  } catch { /* silencieux */ }
 }
 
 async function creerEvenementOutlook(
@@ -72,11 +83,11 @@ async function creerEvenementOutlook(
       method:  'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        subject:  `🟢 ${titre}`,
-        body:     { contentType: 'text', content: note ?? '' },
-        start:    { dateTime: `${prevu_le}T${startH}:00`, timeZone: 'Europe/Paris' },
-        end:      { dateTime: `${prevu_le}T${endH}:${endM2}:00`, timeZone: 'Europe/Paris' },
-        isAllDay: !heure,
+        subject:   `🟢 ${titre}`,
+        body:      { contentType: 'text', content: note ?? '' },
+        start:     { dateTime: `${prevu_le}T${startH}:00`, timeZone: 'Europe/Paris' },
+        end:       { dateTime: `${prevu_le}T${endH}:${endM2}:00`, timeZone: 'Europe/Paris' },
+        isAllDay:  !heure,
         attendees: invites.map(i => ({
           emailAddress: { address: i.email, name: `${i.prenom} ${i.nom}`.trim() },
           type: 'required',
@@ -86,6 +97,15 @@ async function creerEvenementOutlook(
     if (!res.ok) return null
     return ((await res.json()).id as string) ?? null
   } catch { return null }
+}
+
+async function supprimerEvenementOutlook(token: string, eventId: string): Promise<void> {
+  try {
+    await fetch(
+      `https://graph.microsoft.com/v1.0/me/events/${eventId}`,
+      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+    )
+  } catch { /* silencieux */ }
 }
 
 function labelDate(prevu_le: string, heure: string): string {
@@ -100,10 +120,11 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
 
   const [prevu_le,    setPrevu_le]    = useState('')
   const [heure,       setHeure]       = useState('')
-  const [note,        setNote]        = useState('')
+  const [note,        setNote]        = useState(NOTE_DEFAUT)
   const [invites,     setInvites]     = useState<Membre[]>([])
   const [enCours,     setEnCours]     = useState(false)
   const [accessToken, setAccessToken] = useState<string | null>(null)
+  const [editingId,   setEditingId]   = useState<string | null>(null)
 
   const provider = gmail.token ? 'gmail' : outlook.token ? 'outlook' : null
 
@@ -116,10 +137,40 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gmail.token, outlook.token])
 
+  function editerRappel(r: Rappel) {
+    setEditingId(r.id)
+    setPrevu_le(r.prevu_le)
+    setHeure(r.heure?.slice(0, 5) ?? '')
+    setNote(r.note ?? NOTE_DEFAUT)
+    setInvites([])
+  }
+
+  function annulerEdition() {
+    setEditingId(null)
+    setPrevu_le('')
+    setHeure('')
+    setNote(NOTE_DEFAUT)
+    setInvites([])
+  }
+
+  async function supprimerAvecCalendrier(r: Rappel) {
+    if (r.calendar_event_id && accessToken) {
+      if (provider === 'gmail')   await supprimerEvenementGoogle(accessToken, r.calendar_event_id)
+      if (provider === 'outlook') await supprimerEvenementOutlook(accessToken, r.calendar_event_id)
+    }
+    await supprimerRappel(r.id)
+  }
+
   async function handleSubmit() {
     if (!prevu_le) { toast.error('Sélectionnez un créneau'); return }
     setEnCours(true)
     try {
+      // En mode édition : supprimer l'ancien rappel (+ son event calendrier)
+      if (editingId) {
+        const ancien = rappels.find(r => r.id === editingId)
+        if (ancien) await supprimerAvecCalendrier(ancien)
+      }
+
       let calendarEventId: string | null = null
       const titre = `Rappel — ${nomClient}`
 
@@ -133,13 +184,14 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
 
       const ok = await creerRappel({ prevu_le, heure: heure || null, note: note || null, calendar_event_id: calendarEventId })
       if (!ok) { toast.error('Erreur lors de l\'enregistrement'); return }
+
       if (calendarEventId) {
         const msg = invites.length > 0
-          ? `Rappel créé · Invitation envoyée à ${invites.map(i => i.prenom || i.nom).join(', ')}`
-          : 'Rappel créé · Événement ajouté au calendrier'
+          ? `Rappel ${editingId ? 'modifié' : 'créé'} · Invitation envoyée à ${invites.map(i => i.prenom || i.nom).join(', ')}`
+          : `Rappel ${editingId ? 'modifié' : 'créé'} · Événement ajouté au calendrier`
         toast.success(msg)
       } else if (!provider) {
-        toast.success('Rappel créé')
+        toast.success(`Rappel ${editingId ? 'modifié' : 'créé'}`)
       }
       onClose()
     } catch (err) {
@@ -158,7 +210,9 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
         {/* Header */}
         <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-bold text-gray-800">Rappel personnel</h3>
+            <h3 className="text-sm font-bold text-gray-800">
+              {editingId ? 'Modifier le rappel' : 'Rappel personnel'}
+            </h3>
             <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[400px]">{nomClient}</p>
           </div>
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500 transition-colors">
@@ -172,14 +226,40 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
           {rappels.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {rappels.map(r => (
-                <div key={r.id} className="flex items-center gap-1.5 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-1 text-[10px]">
-                  <span className="font-semibold text-blue-700">
+                <div
+                  key={r.id}
+                  className={[
+                    'flex items-center gap-1.5 border rounded-full px-2.5 py-1 text-[10px] transition-colors',
+                    editingId === r.id
+                      ? 'bg-ockham-teal/10 border-ockham-teal/40'
+                      : 'bg-blue-50 border-blue-100',
+                  ].join(' ')}
+                >
+                  <span className={`font-semibold ${editingId === r.id ? 'text-ockham-teal' : 'text-blue-700'}`}>
                     {new Date(r.prevu_le + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     {r.heure && ` · ${r.heure.slice(0, 5)}`}
                   </span>
                   {r.note && <span className="text-blue-400 truncate max-w-[120px]">{r.note}</span>}
-                  <button onClick={() => supprimerRappel(r.id)} className="text-blue-200 hover:text-red-400 transition-colors ml-0.5">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+
+                  {/* Modifier */}
+                  <button
+                    onClick={() => editingId === r.id ? annulerEdition() : editerRappel(r)}
+                    title={editingId === r.id ? 'Annuler la modification' : 'Modifier ce rappel'}
+                    className="text-blue-200 hover:text-ockham-teal transition-colors ml-0.5"
+                  >
+                    {editingId === r.id
+                      ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    }
+                  </button>
+
+                  {/* Supprimer */}
+                  <button
+                    onClick={() => supprimerAvecCalendrier(r)}
+                    title="Supprimer ce rappel"
+                    className="text-blue-200 hover:text-red-400 transition-colors"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                   </button>
                 </div>
               ))}
@@ -248,10 +328,18 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button onClick={onClose} className="text-xs text-gray-400 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors">Annuler</button>
+            {editingId ? (
+              <button onClick={annulerEdition} className="text-xs text-gray-400 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors">
+                Annuler la modification
+              </button>
+            ) : (
+              <button onClick={onClose} className="text-xs text-gray-400 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-lg transition-colors">Annuler</button>
+            )}
             <button onClick={handleSubmit} disabled={!prevu_le || enCours}
               className="text-xs font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark px-4 py-1.5 rounded-lg disabled:opacity-40 transition-colors"
-            >{enCours ? '…' : invites.length > 0 ? `Créer et inviter (${invites.length})` : 'Créer le rappel'}</button>
+            >
+              {enCours ? '…' : editingId ? 'Enregistrer les modifications' : invites.length > 0 ? `Créer et inviter (${invites.length})` : 'Créer le rappel'}
+            </button>
           </div>
         </div>
       </div>
