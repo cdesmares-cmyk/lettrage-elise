@@ -78,7 +78,7 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
     }
     charger()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [gmail.token, outlook.token])
 
   async function handleSubmit() {
     if (!prevu_le) { toast.error('Sélectionnez un créneau'); return }
