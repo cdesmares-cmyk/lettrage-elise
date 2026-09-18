@@ -83,7 +83,7 @@ function isoDate(d: Date): string {
 }
 
 function computeEncaissements(
-  raw: { date_operation: string; credit: number }[],
+  raw: { date_operation: string; montant: number }[],
   periode: PeriodeEncaissement
 ): PointEncaissement[] {
   type Bucket = { label: string; start: string; end: string }
@@ -125,7 +125,7 @@ function computeEncaissements(
 
   return buckets.map(b => ({
     label: b.label,
-    client: raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end).reduce((s, l) => s + l.credit, 0),
+    client: raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end).reduce((s, l) => s + l.montant, 0),
     autres: 0,
   }))
 }
@@ -136,20 +136,16 @@ export function useDashboard() {
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('mois')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
-  const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; credit: number }[]>([])
+  const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number }[]>([])
   const [chargement, setChargement] = useState(true)
 
-  // Crédits bancaires 24 mois — date_operation = argent réellement reçu en banque
+  // Encaissements clients agrégés par jour sur 24 mois via RPC
+  // Source : lettrages (annule=false, hors 471) joints à la date bancaire réelle
   useEffect(() => {
     const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
-    supabase.from('lignes_bancaires').select('date_operation, credit')
-      .gte('date_operation', il24Mois.toISOString().slice(0, 10))
-      .not('credit', 'is', null)
-      .gt('credit', 0)
-      .order('date_operation')
-      .limit(20000)
+    supabase.rpc('get_encaissements_clients', { p_date_debut: il24Mois.toISOString().slice(0, 10) })
       .then(({ data }) => {
-        if (data) setEncaissementsRaw(data as { date_operation: string; credit: number }[])
+        if (data) setEncaissementsRaw(data as { date_operation: string; montant: number }[])
         setChargement(false)
       })
   }, [])

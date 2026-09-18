@@ -1,4 +1,4 @@
-import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { useDashboard, PeriodeEncaissement } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
@@ -44,10 +44,7 @@ function TooltipCustom({ active, payload, label }: { active?: boolean; payload?:
 export function BlocEncaissements({
   pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
 }: Props) {
-  const totalClient = pointsEncaissement.reduce((s, p) => s + p.client, 0)
-  const totalAutres = pointsEncaissement.reduce((s, p) => s + p.autres, 0)
-  const totalCourant = totalClient + totalAutres
-  const hasAutres = totalAutres > 0
+  const totalCourant = pointsEncaissement.reduce((s, p) => s + p.client, 0)
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -87,13 +84,7 @@ export function BlocEncaissements({
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={46} />
               <Tooltip content={<TooltipCustom />} cursor={{ fill: '#f9fafb' }} />
-              {hasAutres && (
-                <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
-              )}
-              <Bar dataKey="client" name="Crédits clients" stackId="a" fill="#4CC5BB" radius={hasAutres ? [0, 0, 0, 0] : [3, 3, 0, 0]} maxBarSize={36} />
-              {hasAutres && (
-                <Bar dataKey="autres" name="Autres (471)" stackId="a" fill="#1B2A4A" radius={[3, 3, 0, 0]} maxBarSize={36} />
-              )}
+<Bar dataKey="client" name="Encaissements clients" fill="#4CC5BB" radius={[3, 3, 0, 0]} maxBarSize={36} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
