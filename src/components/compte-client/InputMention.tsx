@@ -38,6 +38,13 @@ export function InputMention({ value, onChange, invites, onInvitesChange, placeh
     detectQuery(e.target.value, e.target.selectionStart)
   }
 
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === 'Tab' && query !== null && filtered.length > 0) {
+      e.preventDefault()
+      selectionnerMembre(filtered[0])
+    }
+  }
+
   function handleKeyUp(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Escape') { setQuery(null); return }
     detectQuery(e.currentTarget.value, e.currentTarget.selectionStart)
@@ -74,6 +81,7 @@ export function InputMention({ value, onChange, invites, onInvitesChange, placeh
         ref={textareaRef}
         value={value}
         onChange={handleChange}
+        onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
         onBlur={() => setTimeout(() => setQuery(null), 150)}
         placeholder={placeholder}
