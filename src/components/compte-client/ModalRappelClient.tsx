@@ -15,7 +15,7 @@ interface Props {
   onClose:         () => void
 }
 
-const NOTE_DEFAUT = '[Relance Ockham] '
+const NOTE_DEFAUT = ''
 
 async function creerEvenementGoogle(
   token:    string,
@@ -172,7 +172,7 @@ export function ModalRappelClient({ codeClient: _codeClient, nomClient, rappels,
       }
 
       let calendarEventId: string | null = null
-      const titre = `Rappel — ${nomClient}`
+      const titre = `[Relance Ockham] — ${nomClient}`
 
       if (provider === 'gmail' && accessToken) {
         calendarEventId = await creerEvenementGoogle(accessToken, titre, prevu_le, heure || null, note || null, invites)
