@@ -62,9 +62,17 @@ function ScoreDisplay({ score, frozen }: { score: number | null; frozen: boolean
 }
 
 export function RelanceRisqueCell({ level, score }: Props) {
+  // N0 : aucune relance → juste le score, pas de bruit visuel
+  if (level === 0) {
+    return (
+      <div aria-label={score !== null ? `Score risque ${score} sur 100` : 'Score non calculé'}>
+        <ScoreDisplay score={score} frozen={false} />
+      </div>
+    )
+  }
+
   const frozen = level === 'gel'
   const labelNiveau = level === 'gel' ? 'Client gelé, hors cycle de relance'
-    : level === 0 ? 'Aucune relance'
     : level === 3 ? 'Niveau 3, mise en demeure recommandée'
     : `Niveau ${level}`
   const labelScore = score === null ? '' : `. Score risque ${score} sur 100`

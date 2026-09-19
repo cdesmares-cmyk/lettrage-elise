@@ -158,7 +158,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const [filtreAlertes, setFiltreAlertes] = useState(false)
   const [filtreASuivre, setFiltreASuivre] = useState(false)
   const [filtreNiveau, setFiltreNiveau] = useState<'tous' | NiveauRelance>('tous')
-  const [filtreScore, setFiltreScore] = useState<'tous' | 'eleve' | 'critique'>('tous')
   const [pendingUnfollow, setPendingUnfollow] = useState<string | null>(null)
   const [filtresRelance, setFiltresRelance] = useState<Set<EtatRelance>>(new Set(RELANCE_ETATS_TOUS))
   const [relancePopupOpen, setRelancePopupOpen] = useState(false)
@@ -237,12 +236,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       if (a?.est_gele) return false
       return (a?.niveau_relance ?? 0) === filtreNiveau
     })
-    .filter(c => {
-      if (!alertesSignal || filtreScore === 'tous') return true
-      const score = alertesSignal.get(c.code_dso)?.score_risque ?? null
-      if (filtreScore === 'critique') return score !== null && score >= 86
-      return score !== null && score >= 56 && score < 86
-    })
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -278,43 +271,24 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         </div>
       )}
       {alertesSignal && alertesSignal.size > 0 && (
-        <div className="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 flex-wrap">
-          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
-            <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-0.5">Niveau</span>
-            {(['tous', 0, 1, 2, 3, 'gel'] as const).map(v => {
-              const active = filtreNiveau === v
-              const count = v === 'tous' ? null : niveauCounts[String(v)]
-              const label = v === 'tous' ? 'Tous' : v === 'gel' ? 'GEL' : `N${v}`
-              const colorActive = v === 3 ? 'bg-[#B91C1C] text-white' : v === 'gel' ? 'bg-slate-400 text-white' : 'bg-[#0E1A2B] text-white'
-              const colorText = v === 3 ? 'text-[#B91C1C]' : v === 'gel' ? 'text-slate-400' : 'text-gray-600'
-              return (
-                <button
-                  key={String(v)}
-                  onClick={() => { setFiltreNiveau(v); setPage(0) }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
-                >
-                  {label}{count !== null && <span className={`ml-1 font-normal ${active ? 'opacity-70' : 'text-gray-400'}`}>{count}</span>}
-                </button>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
-            <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-0.5">Score</span>
-            {([['tous', 'Tous'], ['eleve', 'Élevé ≥56'], ['critique', 'Critique ≥86']] as const).map(([v, label]) => {
-              const active = filtreScore === v
-              const colorActive = v === 'critique' ? 'bg-[#B91C1C] text-white' : v === 'eleve' ? 'bg-[#92400E] text-white' : 'bg-[#0E1A2B] text-white'
-              const colorText = v === 'critique' ? 'text-[#B91C1C]' : v === 'eleve' ? 'text-[#92400E]' : 'text-gray-600'
-              return (
-                <button
-                  key={v}
-                  onClick={() => { setFiltreScore(v); setPage(0) }}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
-                >
-                  {label}
-                </button>
-              )
-            })}
-          </div>
+        <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
+          <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-1">Niveau</span>
+          {(['tous', 1, 2, 3, 'gel'] as const).map(v => {
+            const active = filtreNiveau === v
+            const count = v === 'tous' ? null : niveauCounts[String(v)]
+            const label = v === 'tous' ? 'Tous' : v === 'gel' ? 'GEL' : `N${v}`
+            const colorActive = v === 3 ? 'bg-[#B91C1C] text-white' : v === 'gel' ? 'bg-slate-500 text-white' : 'bg-[#0E1A2B] text-white'
+            const colorText = v === 3 ? 'text-[#B91C1C]' : v === 'gel' ? 'text-slate-400' : 'text-gray-600'
+            return (
+              <button
+                key={String(v)}
+                onClick={() => { setFiltreNiveau(active && v !== 'tous' ? 'tous' : v); setPage(0) }}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
+              >
+                {label}{count !== null && <span className={`ml-1 font-normal ${active ? 'opacity-70' : 'text-gray-400'}`}>{count}</span>}
+              </button>
+            )
+          })}
         </div>
       )}
       <table className="w-full">
@@ -471,19 +445,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                               </button>
                             )
-                            const etat = etatRelance(c)
                             return (
                               <button
                                 onClick={e => { e.stopPropagation(); onRelancer(c) }}
                                 title="Relancer"
-                                className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all ${
-                                  etat === 'recente'
-                                    ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                                    : etat === 'sans_suite'
-                                    ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
-                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                                }`}
-                                style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
+                                className="w-7 h-7 flex items-center justify-center rounded-md border transition-all bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark"
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                               </button>
@@ -535,18 +501,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                                 ✉ Relancer
                               </button>
                             )
-                            const etat = etatRelance(c)
                             return (
                               <button
                                 onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                                  etat === 'recente'
-                                    ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                                    : etat === 'sans_suite'
-                                    ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
-                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                                }`}
-                                style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
+                                className="text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark"
                               >
                                 ✉ Relancer
                               </button>
