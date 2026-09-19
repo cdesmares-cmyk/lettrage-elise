@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -36,8 +36,6 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { facturesActives, scenarios, membresOrg } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const [dropdownOuvert, setDropdownOuvert] = useState(false)
-  const dropdownBtnRef = useRef<HTMLButtonElement>(null)
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
@@ -340,7 +338,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                 </div>
 
                 {estInterne ? (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
                     {membresAvecEmail.length === 0 ? (
                       <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun opérateur disponible.</p>
                     ) : membresAvecEmail.map(m => (
@@ -370,7 +368,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
                       </div>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
                         {contactsAvecEmail.map(c => (
                           <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                             <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-ockham-teal" />
@@ -401,7 +399,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               {/* 2 — Factures */}
               <div>
                 <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
                   {impayees.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune pièce à inclure</p>
                   ) : impayees.map(f => {
@@ -437,7 +435,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               </div>
 
               {/* 3 — Scénario */}
-              <div className="sticky bottom-0 bg-white pt-3 pb-2 border-t border-gray-100">
+              <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
                   {peutModifier && (
@@ -457,15 +455,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     <div className="relative">
                       {/* Bouton déclencheur */}
                       <button
-                        ref={dropdownBtnRef}
                         type="button"
-                        onClick={() => {
-                          if (dropdownBtnRef.current) {
-                            const r = dropdownBtnRef.current.getBoundingClientRect()
-                            setDropdownPos({ top: r.bottom + 6, left: r.left, width: r.width })
-                          }
-                          setDropdownOuvert(v => !v)
-                        }}
+                        onClick={() => setDropdownOuvert(v => !v)}
                         className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white hover:border-gray-300 transition-colors outline-none focus:border-ockham-teal"
                       >
                         {selScenario ? (
@@ -483,14 +474,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         </svg>
                       </button>
 
-                      {/* Liste déroulante */}
-                      {dropdownOuvert && dropdownPos && (
+                      {/* Liste déroulante inline — pousse le contenu vers le bas */}
+                      {dropdownOuvert && (
                         <>
-                          <div className="fixed inset-0 z-[60]" onClick={() => setDropdownOuvert(false)} />
-                          <div
-                            className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[61] py-1 max-h-48 overflow-y-auto"
-                            style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
-                          >
+                          <div className="fixed inset-0 z-[10]" onClick={() => setDropdownOuvert(false)} />
+                          <div className="relative z-[11] mt-1.5 bg-white border border-gray-200 rounded-xl shadow-sm py-1">
                             {externes.map(s => (
                               <button
                                 key={s.id}
