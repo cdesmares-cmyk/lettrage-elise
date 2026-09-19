@@ -399,9 +399,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               </div>
 
               {/* 2 — Factures */}
-              <div className="flex flex-col flex-1 min-h-0 gap-2">
-                <label className="flex-shrink-0 text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
-                <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto">
+              <div className="flex-shrink-0">
+                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
+                <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
                   {impayees.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune pièce à inclure</p>
                   ) : impayees.map(f => {
@@ -488,7 +488,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         <>
                           <div className="fixed inset-0 z-[60]" onClick={() => setDropdownOuvert(false)} />
                           <div
-                            className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[61] overflow-hidden py-1"
+                            className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[61] py-1 max-h-48 overflow-y-auto"
                             style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
                           >
                             {externes.map(s => (
