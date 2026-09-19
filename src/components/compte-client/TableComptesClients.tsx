@@ -1,5 +1,5 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { joursDepuis, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import { buildHtmlFromScenario, fmtEurosEmail } from '../../lib/relanceEmail'
@@ -8,6 +8,9 @@ import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } f
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
 import { useRole } from '../../contexts/RoleContext'
+import { RelanceRisqueCell } from './RelanceRisqueCell'
+import type { NiveauRelance } from './RelanceRisqueCell'
+import type { AlerteScore } from '../../hooks/useAlertesScore'
 
 interface Props {
   clients: CompteClient[]
@@ -33,18 +36,13 @@ interface Props {
   creditParClient?: Map<string, number>
   nbPiecesParClient?: Map<string, number>
   onToggleASuivre?: (codeDso: string) => void
+  alertesSignal?: Map<string, AlerteScore>
 }
 
 const PAGE_SIZE = 25
 
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
-}
-
-function classeScore(note: number) {
-  if (note <= 40) return { bar: 'bg-[#4CC5BB]', txt: 'text-[#0D9488]' }
-  if (note <= 70) return { bar: 'bg-[#E8B888]', txt: 'text-[#C07840]' }
-  return { bar: 'bg-red-400', txt: 'text-red-600' }
 }
 
 type EtatRelance = 'a_relancer' | 'recente' | 'sans_suite' | 'aucune_facture'
@@ -151,7 +149,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -159,6 +157,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filtreAlertes, setFiltreAlertes] = useState(false)
   const [filtreASuivre, setFiltreASuivre] = useState(false)
+  const [filtreNiveau, setFiltreNiveau] = useState<'tous' | NiveauRelance>('tous')
+  const [filtreScore, setFiltreScore] = useState<'tous' | 'eleve' | 'critique'>('tous')
   const [pendingUnfollow, setPendingUnfollow] = useState<string | null>(null)
   const [filtresRelance, setFiltresRelance] = useState<Set<EtatRelance>>(new Set(RELANCE_ETATS_TOUS))
   const [relancePopupOpen, setRelancePopupOpen] = useState(false)
@@ -213,10 +213,36 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     setFiltresRelance(prev => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
     setPage(0)
   }
-  const clientsFiltres = clients
+  const clientsFiltresBase = clients
     .filter(c => !filtreAlertes || c.relance_auto_alerte)
     .filter(c => !filtreASuivre || c.a_suivre)
     .filter(c => filtresRelance.size === 4 || filtresRelance.has(etatRelance(c)))
+
+  const niveauCounts = useMemo(() => {
+    const counts: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0, 'gel': 0 }
+    if (!alertesSignal) return counts
+    for (const c of clientsFiltresBase) {
+      const a = alertesSignal.get(c.code_dso)
+      if (a?.est_gele) { counts['gel']++; continue }
+      counts[String(a?.niveau_relance ?? 0)]++
+    }
+    return counts
+  }, [clientsFiltresBase, alertesSignal])
+
+  const clientsFiltres = clientsFiltresBase
+    .filter(c => {
+      if (!alertesSignal || filtreNiveau === 'tous') return true
+      const a = alertesSignal.get(c.code_dso)
+      if (filtreNiveau === 'gel') return a?.est_gele ?? false
+      if (a?.est_gele) return false
+      return (a?.niveau_relance ?? 0) === filtreNiveau
+    })
+    .filter(c => {
+      if (!alertesSignal || filtreScore === 'tous') return true
+      const score = alertesSignal.get(c.code_dso)?.score_risque ?? null
+      if (filtreScore === 'critique') return score !== null && score >= 86
+      return score !== null && score >= 56 && score < 86
+    })
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
@@ -251,6 +277,46 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           </button>
         </div>
       )}
+      {alertesSignal && alertesSignal.size > 0 && (
+        <div className="flex items-center gap-2.5 px-4 py-2 border-b border-gray-100 flex-wrap">
+          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
+            <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-0.5">Niveau</span>
+            {(['tous', 0, 1, 2, 3, 'gel'] as const).map(v => {
+              const active = filtreNiveau === v
+              const count = v === 'tous' ? null : niveauCounts[String(v)]
+              const label = v === 'tous' ? 'Tous' : v === 'gel' ? 'GEL' : `N${v}`
+              const colorActive = v === 3 ? 'bg-[#B91C1C] text-white' : v === 'gel' ? 'bg-slate-400 text-white' : 'bg-[#0E1A2B] text-white'
+              const colorText = v === 3 ? 'text-[#B91C1C]' : v === 'gel' ? 'text-slate-400' : 'text-gray-600'
+              return (
+                <button
+                  key={String(v)}
+                  onClick={() => { setFiltreNiveau(v); setPage(0) }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
+                >
+                  {label}{count !== null && <span className={`ml-1 font-normal ${active ? 'opacity-70' : 'text-gray-400'}`}>{count}</span>}
+                </button>
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-0.5">
+            <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-0.5">Score</span>
+            {([['tous', 'Tous'], ['eleve', 'Élevé ≥56'], ['critique', 'Critique ≥86']] as const).map(([v, label]) => {
+              const active = filtreScore === v
+              const colorActive = v === 'critique' ? 'bg-[#B91C1C] text-white' : v === 'eleve' ? 'bg-[#92400E] text-white' : 'bg-[#0E1A2B] text-white'
+              const colorText = v === 'critique' ? 'text-[#B91C1C]' : v === 'eleve' ? 'text-[#92400E]' : 'text-gray-600'
+              return (
+                <button
+                  key={v}
+                  onClick={() => { setFiltreScore(v); setPage(0) }}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
@@ -272,7 +338,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Nom" col="nom" {...thProps} align="left" />
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
-            <ColTh label="Score Risque" col="note_risque" {...thProps} align="left" />
+            <ColTh label="Signal · Risque" col="note_risque" {...thProps} align="left" />
             <th
               onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
               className={`px-3 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
@@ -308,7 +374,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         <tbody>
           {clientsPage.map(c => {
             const estOuvert = ouvert === c.code_dso
-            const sc = classeScore(c.note_risque)
             const factures = getFactures(c.code_dso)
             // nb_factures_total - nb_impayees = factures entièrement réglées (stats SQL, indépendant du cache)
             const nbReglees = c.nb_factures_total - c.nb_impayees
@@ -316,6 +381,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             const credit = creditParClient?.get(c.code_dso) ?? 0
             const soldeNet = c.encours_total - credit
             const nbPieces = nbPiecesParClient?.get(c.code_dso) ?? c.nb_impayees
+            const alerte = alertesSignal?.get(c.code_dso)
+            const signalLevel: NiveauRelance = alerte?.est_gele ? 'gel'
+              : alerte ? (alerte.niveau_relance as 0 | 1 | 2 | 3)
+              : 0
+            const signalScore = alerte?.score_risque ?? null
             return (
               <>
                 <tr
@@ -352,12 +422,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{nbPieces}</span>
                   </td>
                   <td className="px-3 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-14 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full ${sc.bar}`} style={{ width: `${c.note_risque}%` }} />
-                      </div>
-                      <span className={`text-xs font-bold tabular-nums ${sc.txt}`}>{c.note_risque}</span>
-                    </div>
+                    <RelanceRisqueCell level={signalLevel} score={signalScore} />
                   </td>
                   <td className="px-3 py-3 text-center">
                     <button

@@ -117,6 +117,11 @@ export function PageCompteClient() {
     )
   }, [comptes.clients, filtreCommercial, utilisateurs])
 
+  const alertesSignal = useMemo(
+    () => new Map(alertesScore.map(a => [a.code_client, a])),
+    [alertesScore]
+  )
+
   // Fil du jour : top 25 clients triés par score_fil_du_jour > 0
   const clientsFilDuJour = useMemo(() => {
     if (!alertesScore.length) return []
@@ -397,6 +402,7 @@ export function PageCompteClient() {
           creditParClient={comptes.creditParClient}
           nbPiecesParClient={comptes.nbPiecesParClient}
           onToggleASuivre={comptes.toggleASuivre}
+          alertesSignal={alertesSignal}
         />
       )}
 
@@ -434,6 +440,7 @@ export function PageCompteClient() {
                 creditParClient={comptes.creditParClient}
                 nbPiecesParClient={comptes.nbPiecesParClient}
                 onToggleASuivre={comptes.toggleASuivre}
+                alertesSignal={alertesSignal}
               />
             </>
           )}
