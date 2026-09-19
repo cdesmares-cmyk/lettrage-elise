@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -36,6 +36,8 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { facturesActives, scenarios, membresOrg } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const [dropdownOuvert, setDropdownOuvert] = useState(false)
+  const dropdownBtnRef = useRef<HTMLButtonElement>(null)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
@@ -455,8 +457,15 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                     <div className="relative">
                       {/* Bouton déclencheur */}
                       <button
+                        ref={dropdownBtnRef}
                         type="button"
-                        onClick={() => setDropdownOuvert(v => !v)}
+                        onClick={() => {
+                          if (dropdownBtnRef.current) {
+                            const r = dropdownBtnRef.current.getBoundingClientRect()
+                            setDropdownPos({ top: r.bottom + 6, left: r.left, width: r.width })
+                          }
+                          setDropdownOuvert(v => !v)
+                        }}
                         className="w-full flex items-center justify-between gap-2 border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-white hover:border-gray-300 transition-colors outline-none focus:border-ockham-teal"
                       >
                         {selScenario ? (
@@ -475,10 +484,13 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                       </button>
 
                       {/* Liste déroulante */}
-                      {dropdownOuvert && (
+                      {dropdownOuvert && dropdownPos && (
                         <>
                           <div className="fixed inset-0 z-[60]" onClick={() => setDropdownOuvert(false)} />
-                          <div className="absolute top-full mt-1.5 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg z-[61] overflow-hidden py-1">
+                          <div
+                            className="fixed bg-white border border-gray-200 rounded-xl shadow-lg z-[61] overflow-hidden py-1"
+                            style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+                          >
                             {externes.map(s => (
                               <button
                                 key={s.id}
