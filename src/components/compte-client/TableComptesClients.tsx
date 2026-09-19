@@ -342,8 +342,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   <td className="px-3 py-3">
                     <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
                   </td>
-                  <td className="px-3 py-3">
-                    <span className="text-sm font-semibold text-gray-800 line-clamp-2">{c.nom}</span>
+                  <td className="px-3 py-3 max-w-0">
+                    <span className="text-sm font-semibold text-gray-800 block truncate" title={c.nom}>{c.nom}</span>
                   </td>
                   <td className="px-3 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>
