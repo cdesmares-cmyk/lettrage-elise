@@ -396,68 +396,111 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   </td>
                   <td className="px-3 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      {peutModifier && (() => {
-                        if (c.nb_impayees === 0) return (
-                          <button disabled
-                            className="text-[10px] font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed"
-                            title="Aucune facture impayée"
-                          >
-                            ✉ Relancer
-                          </button>
-                        )
-                        const etat = etatRelance(c)
-                        return (
+                      {estOuvert ? (
+                        <>
+                          {/* Mode déroulé : icônes SVG compactes */}
+                          {peutModifier && (() => {
+                            if (c.nb_impayees === 0) return (
+                              <button disabled title="Aucune facture impayée"
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                              </button>
+                            )
+                            const etat = etatRelance(c)
+                            return (
+                              <button
+                                onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                                title="Relancer"
+                                className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all ${
+                                  etat === 'recente'
+                                    ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                    : etat === 'sans_suite'
+                                    ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
+                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                                }`}
+                                style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                              </button>
+                            )
+                          })()}
+                          {onCompenser && peutModifier && (() => {
+                            const aSources = factures.some(f => f.reste_du < -0.005 && !f.numero_piece.startsWith('411_'))
+                            if (!aSources) return null
+                            return (
+                              <button
+                                onClick={e => { e.stopPropagation(); onCompenser(c) }}
+                                title="Compenser un avoir ou un crédit avec une ou plusieurs factures"
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                              </button>
+                            )
+                          })()}
                           <button
-                            onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                            className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
-                              etat === 'recente'
-                                ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
-                                : etat === 'sans_suite'
-                                ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
-                                : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
-                            }`}
-                            style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
+                            onClick={e => { e.stopPropagation(); copierEncours(c, factures) }}
+                            title="Copier l'encours pour un mail"
+                            className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-300 text-gray-500 bg-white hover:border-ockham-teal hover:text-ockham-teal transition-all"
                           >
-                            ✉ Relancer
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                           </button>
-                        )
-                      })()}
-                      {estOuvert && onCompenser && peutModifier && (() => {
-                        const aSources = factures.some(f => f.reste_du < -0.005 && !f.numero_piece.startsWith('411_'))
-                        if (!aSources) return null
-                        return (
-                          <button
-                            onClick={e => { e.stopPropagation(); onCompenser(c) }}
-                            className="text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-300 hover:bg-violet-100 hover:border-violet-400 px-2.5 py-1 rounded-md transition-all"
-                            title="Compenser un avoir ou un crédit avec une ou plusieurs factures"
-                          >
-                            ⇄ Compenser
-                          </button>
-                        )
-                      })()}
-                      {estOuvert && (
-                        <button
-                          onClick={e => { e.stopPropagation(); copierEncours(c, factures) }}
-                          className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
-                          title="Copier l'encours pour un mail"
-                        >
-                          ⎘ Copier
-                        </button>
+                          <div className="relative inline-block">
+                            <button
+                              onClick={e => { e.stopPropagation(); onOptions(c) }}
+                              title="Options"
+                              className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-300 text-gray-500 bg-white hover:border-ockham-teal hover:text-ockham-teal transition-all"
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </button>
+                            {c.relance_auto_alerte && (
+                              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
+                                title="Problème de contact détecté — ouvrez Options › Relances pour traiter." />
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Mode replié : boutons texte Relancer + Options uniquement */}
+                          {peutModifier && (() => {
+                            if (c.nb_impayees === 0) return (
+                              <button disabled
+                                className="text-[10px] font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed"
+                                title="Aucune facture impayée"
+                              >
+                                ✉ Relancer
+                              </button>
+                            )
+                            const etat = etatRelance(c)
+                            return (
+                              <button
+                                onClick={e => { e.stopPropagation(); onRelancer(c) }}
+                                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
+                                  etat === 'recente'
+                                    ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                                    : etat === 'sans_suite'
+                                    ? 'border-[#C07840]/50 bg-[#F5E9D8] hover:bg-[#EDDBCA]'
+                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                                }`}
+                                style={etat === 'sans_suite' ? { color: '#C07840' } : undefined}
+                              >
+                                ✉ Relancer
+                              </button>
+                            )
+                          })()}
+                          <div className="relative inline-block">
+                            <button
+                              onClick={e => { e.stopPropagation(); onOptions(c) }}
+                              className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
+                            >
+                              ⚙ Options
+                            </button>
+                            {c.relance_auto_alerte && (
+                              <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
+                                title="Problème de contact détecté — ouvrez Options › Relances pour traiter." />
+                            )}
+                          </div>
+                        </>
                       )}
-                      <div className="relative inline-block">
-                        <button
-                          onClick={e => { e.stopPropagation(); onOptions(c) }}
-                          className="text-[10px] font-semibold text-gray-600 bg-white border border-gray-300 shadow-sm px-2.5 py-1 rounded-md hover:border-ockham-teal hover:text-ockham-teal transition-all"
-                        >
-                          ⚙ Options
-                        </button>
-                        {c.relance_auto_alerte && (
-                          <span
-                            className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-amber-500 border-2 border-white"
-                            title="Problème de contact détecté — ouvrez Options › Relances pour traiter."
-                          />
-                        )}
-                      </div>
                     </div>
                   </td>
                 </tr>
