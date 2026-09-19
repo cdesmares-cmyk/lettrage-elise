@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -36,6 +36,14 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const { facturesActives, scenarios, membresOrg } = useAppData()
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const [dropdownOuvert, setDropdownOuvert] = useState(false)
+  const colonneGaucheRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (dropdownOuvert && colonneGaucheRef.current) {
+      const el = colonneGaucheRef.current
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [dropdownOuvert])
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
 
@@ -255,7 +263,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           <div className="flex-1 overflow-hidden flex min-h-0">
 
             {/* Colonne gauche */}
-            <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-4">
+            <div ref={colonneGaucheRef} className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-4">
 
               {estConnecte ? (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
