@@ -257,10 +257,10 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           <div className="flex-1 overflow-hidden flex min-h-0">
 
             {/* Colonne gauche */}
-            <div className="w-2/5 border-r border-gray-100 flex flex-col overflow-hidden px-5 py-4 gap-4">
+            <div className="w-2/5 border-r border-gray-100 overflow-y-auto px-5 py-4 space-y-4">
 
               {estConnecte ? (
-                <div className="flex-shrink-0 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-emerald-600 text-sm flex-shrink-0">✓</span>
@@ -314,7 +314,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                   )}
                 </div>
               ) : (
-                <div className="flex-shrink-0 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-xs text-amber-700">Aucune boite mail connectée — la relance sera enregistrée sans envoi</p>
                   <button
                     onClick={() => { onFermer(); window.dispatchEvent(new CustomEvent('ockham:ouvrir-integrations')) }}
@@ -326,7 +326,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               )}
 
               {/* 1 — Destinataires */}
-              <div className="flex-shrink-0">
+              <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider">
                     <span className="text-ockham-navy/40 mr-1">1 —</span>
@@ -340,7 +340,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                 </div>
 
                 {estInterne ? (
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                  <div className="space-y-1.5">
                     {membresAvecEmail.length === 0 ? (
                       <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Aucun opérateur disponible.</p>
                     ) : membresAvecEmail.map(m => (
@@ -370,7 +370,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
                         <input type="email" value={emailFallback} onChange={e => setEmailFallback(e.target.value)} placeholder="Email *" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal" />
                       </div>
                     ) : (
-                      <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      <div className="space-y-1.5">
                         {contactsAvecEmail.map(c => (
                           <label key={c.id} className={`flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${contactsSel.includes(c.id) ? 'border-ockham-teal/40 bg-ockham-teal-muted' : 'border-gray-200 hover:border-gray-300'}`}>
                             <input type="checkbox" checked={contactsSel.includes(c.id)} onChange={() => toggleContact(c.id)} className="accent-ockham-teal" />
@@ -399,9 +399,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               </div>
 
               {/* 2 — Factures */}
-              <div className="flex-shrink-0">
+              <div>
                 <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2"><span className="text-ockham-navy/40 mr-1">2 —</span>Factures à inclure</label>
-                <div className="space-y-1.5 max-h-[220px] overflow-y-auto">
+                <div className="space-y-1.5">
                   {impayees.length === 0 ? (
                     <p className="text-xs text-gray-400">Aucune pièce à inclure</p>
                   ) : impayees.map(f => {
@@ -437,7 +437,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               </div>
 
               {/* 3 — Scénario */}
-              <div className="flex-shrink-0">
+              <div className="sticky bottom-0 bg-white pt-3 pb-2 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
                   {peutModifier && (
