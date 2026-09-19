@@ -2,7 +2,7 @@
 
 export type StatutJuridique = 'sauvegarde' | 'liquidation' | 'redressement' | 'cloture'
 export type StatutFacture = 'litige' | 'provisionne'
-export type VueMode = 'clients' | 'nebuleuse' | 'factures'
+export type VueMode = 'clients' | 'nebuleuse' | 'factures' | 'fil_du_jour'
 
 export interface CompteClient {
   code_dso: string

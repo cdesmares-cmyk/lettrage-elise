@@ -21,6 +21,7 @@ import { ModalCompositionRelance } from '../components/relances/ModalComposition
 import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useOutlookAuth } from '../hooks/useOutlookAuth'
+import { useAlertesScore } from '../hooks/useAlertesScore'
 import { exporterXls } from '../lib/exportXls'
 import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
@@ -29,6 +30,7 @@ const VUES: { val: VueMode; label: string; icon: React.ReactNode }[] = [
   { val: 'nebuleuse', label: 'Nébuleuse', icon: <IcNetwork size={13} /> },
   { val: 'clients', label: 'Comptes client', icon: <IcUser size={13} /> },
   { val: 'factures', label: 'Factures', icon: <IcFileText size={13} /> },
+  { val: 'fil_du_jour', label: 'Fil du jour', icon: <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> },
 ]
 
 export function PageCompteClient() {
@@ -73,6 +75,7 @@ export function PageCompteClient() {
 
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
+  const { alertes: alertesScore } = useAlertesScore()
 
   // Pré-filtre depuis URL : /compte-client?client=CODE_DSO (ouvert depuis la modale lettrage)
   useEffect(() => {
@@ -108,12 +111,21 @@ export function PageCompteClient() {
     const u = utilisateurs.find(x => x.id === filtreCommercial)
     if (!u) return comptes.clients
     const fullName = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
-    // Filtre par commercial_id (migration 117) avec fallback sur le champ texte commercial
     return comptes.clients.filter(c =>
       (c.commercial_id && c.commercial_id === u.id) ||
       (!c.commercial_id && (c.commercial === fullName || c.commercial === u.nom))
     )
   }, [comptes.clients, filtreCommercial, utilisateurs])
+
+  // Fil du jour : top 25 clients triés par score_fil_du_jour > 0
+  const clientsFilDuJour = useMemo(() => {
+    if (!alertesScore.length) return []
+    const scoreMap = new Map(alertesScore.map(a => [a.code_client, a.score_fil_du_jour]))
+    return comptes.clients
+      .filter(c => (scoreMap.get(c.code_dso) ?? 0) > 0)
+      .sort((a, b) => (scoreMap.get(b.code_dso) ?? 0) - (scoreMap.get(a.code_dso) ?? 0))
+      .slice(0, 25)
+  }, [comptes.clients, alertesScore])
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
@@ -385,6 +397,46 @@ export function PageCompteClient() {
           nbPiecesParClient={comptes.nbPiecesParClient}
           onToggleASuivre={comptes.toggleASuivre}
         />
+      )}
+
+      {vue === 'fil_du_jour' && (
+        <div>
+          {clientsFilDuJour.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-gray-200 mb-3"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <p className="text-sm font-semibold text-gray-400">Aucun client à traiter aujourd'hui</p>
+              <p className="text-xs text-gray-300 mt-1">Les scores sont recalculés chaque nuit. Revenez demain.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-xs font-bold text-ockham-navy">{clientsFilDuJour.length} client{clientsFilDuJour.length > 1 ? 's' : ''} à traiter aujourd'hui</span>
+                <span className="text-[10px] text-gray-400">· Triés par priorité de relance</span>
+              </div>
+              <TableComptesClients
+                clients={clientsFilDuJour}
+                chargement={comptes.chargement}
+                recherche=""
+                getFactures={code => factures.getFactures(code)}
+                estChargement={code => factures.estChargement(code)}
+                onExpand={() => {}}
+                onChargerHistorique={code => factures.chargerToutesFactures(code)}
+                estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
+                onStatutChange={factures.mettreAJourStatut}
+                onHistorique={setFacHistorique}
+                onOptions={c => setClientOptionsDso(c.code_dso)}
+                onRelancer={setClientRelance}
+                onCompenser={c => { setClientCompensationDso(c.code_dso); factures.chargerToutesFactures(c.code_dso) }}
+                dernieresRelances={dernieresRelances}
+                commentaires={commentaires}
+                onOuvrirCommentaire={setFacCommentaire}
+                creditParClient={comptes.creditParClient}
+                nbPiecesParClient={comptes.nbPiecesParClient}
+                onToggleASuivre={comptes.toggleASuivre}
+              />
+            </>
+          )}
+        </div>
       )}
 
       {vue === 'nebuleuse' && (
