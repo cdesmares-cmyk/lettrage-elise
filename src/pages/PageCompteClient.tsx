@@ -123,6 +123,7 @@ export function PageCompteClient() {
     const scoreMap = new Map(alertesScore.map(a => [a.code_client, a.score_fil_du_jour]))
     return comptes.clients
       .filter(c => (scoreMap.get(c.code_dso) ?? 0) > 0)
+      .filter(c => !c.statut_juridique || c.statut_juridique === 'cloture')
       .sort((a, b) => (scoreMap.get(b.code_dso) ?? 0) - (scoreMap.get(a.code_dso) ?? 0))
       .slice(0, 25)
   }, [comptes.clients, alertesScore])
