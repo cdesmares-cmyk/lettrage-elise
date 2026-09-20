@@ -65,7 +65,7 @@ export function PageTableauDeBord() {
       </div>
 
       {/* Activité recouvrement */}
-      {data.activiteRelances.length > 0 && (
+      {data.pointsActiviteRelances.some(p => p.nb_relances > 0) && (
         <div className="space-y-2">
           <SectionLabel>Activité recouvrement</SectionLabel>
           <BlocActiviteRelances {...data} />

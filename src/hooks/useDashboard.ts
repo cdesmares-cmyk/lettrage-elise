@@ -8,7 +8,8 @@ export type TopNb = 5 | 10 | 15
 export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
 export interface TopClient { code: string; nom: string; montant: number }
-export interface MoisActiviteRelance { mois: string; nb_relances: number; nb_clients: number; montant: number }
+export interface JourActiviteRelance { date_operation: string; nb_relances: number; montant: number }
+export interface PointActiviteRelance { label: string; nb_relances: number; montant: number }
 export interface TopFacture {
   numero: string; nomClient: string; montant: number
   dateEcheance: string | null; joursRetard: number
@@ -131,6 +132,57 @@ function computeEncaissements(
   }))
 }
 
+function computeActiviteRelances(
+  raw: JourActiviteRelance[],
+  periode: PeriodeEncaissement
+): PointActiviteRelance[] {
+  type Bucket = { label: string; start: string; end: string }
+  const buckets: Bucket[] = []
+  const now = TODAY
+
+  if (periode === 'jour') {
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now); d.setDate(d.getDate() - i)
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: isoDate(d), end: isoDate(d) })
+    }
+  } else if (periode === 'semaine') {
+    for (let i = 11; i >= 0; i--) {
+      const end = new Date(now); end.setDate(end.getDate() - i * 7)
+      const start = new Date(end); start.setDate(start.getDate() - 6)
+      buckets.push({ label: `S ${start.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`, start: isoDate(start), end: isoDate(end) })
+    }
+  } else if (periode === 'mois') {
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const endD = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
+      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: isoDate(d), end: isoDate(endD) })
+    }
+  } else if (periode === 'trimestre') {
+    const cQ = Math.floor(now.getMonth() / 3)
+    for (let i = 3; i >= 0; i--) {
+      let qIdx = cQ - i; let yr = now.getFullYear()
+      while (qIdx < 0) { qIdx += 4; yr-- }
+      const startD = new Date(yr, qIdx * 3, 1)
+      const endD = new Date(yr, qIdx * 3 + 3, 0)
+      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: isoDate(startD), end: isoDate(endD) })
+    }
+  } else {
+    for (let i = 1; i >= 0; i--) {
+      const yr = now.getFullYear() - i
+      buckets.push({ label: String(yr), start: `${yr}-01-01`, end: `${yr}-12-31` })
+    }
+  }
+
+  return buckets.map(b => {
+    const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
+    return {
+      label:       b.label,
+      nb_relances: slice.reduce((s, l) => s + Number(l.nb_relances), 0),
+      montant:     slice.reduce((s, l) => s + Number(l.montant), 0),
+    }
+  })
+}
+
 export function useDashboard() {
   const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec } = useAppData()
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
@@ -138,7 +190,8 @@ export function useDashboard() {
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number }[]>([])
-  const [activiteRelances, setActiviteRelances] = useState<MoisActiviteRelance[]>([])
+  const [activiteRelancesRaw, setActiviteRelancesRaw] = useState<JourActiviteRelance[]>([])
+  const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [chargement, setChargement] = useState(true)
 
   // Encaissements clients agrégés par jour sur 24 mois via RPC
@@ -152,10 +205,11 @@ export function useDashboard() {
       })
   }, [])
 
-  // Activité recouvrement : relances envoyées agrégées par mois sur 6 mois glissants
+  // Activité recouvrement : données journalières sur 2 ans — agrégation période côté client
   useEffect(() => {
-    supabase.rpc('get_activite_relances' as never, { p_nb_mois: 6 } as never)
-      .then(({ data }) => { if (data) setActiviteRelances(data as MoisActiviteRelance[]) })
+    const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
+    supabase.rpc('get_activite_relances' as never, { p_date_debut: il24Mois.toISOString().slice(0, 10) } as never)
+      .then(({ data }) => { if (data) setActiviteRelancesRaw(data as JourActiviteRelance[]) })
   }, [])
 
   const factures = useMemo(
@@ -231,7 +285,8 @@ export function useDashboard() {
   const topClients = useMemo(() => computeTopClients(facsFiltrees, topNbClients), [facsFiltrees, topNbClients])
   const topFactures = useMemo(() => computeTopFactures(facsFiltrees), [facsFiltrees])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsFiltrees), [facsFiltrees])
-  const pointsEncaissement = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
+  const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
+  const pointsActiviteRelances = useMemo(() => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances), [activiteRelancesRaw, periodeActiviteRelances])
 
   const moisExclusLabel = moisMax
     ? new Date(moisMax + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -247,7 +302,7 @@ export function useDashboard() {
     topClients, topNbClients, setTopNbClients,
     topFactures, balanceAgee,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
-    activiteRelances,
+    pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     encoursCourant, chargement,
     factures, clients,
   }
