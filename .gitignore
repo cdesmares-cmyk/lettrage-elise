@@ -28,3 +28,6 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Cache local de la CLI Supabase — regenere automatiquement
+supabase/.temp/
