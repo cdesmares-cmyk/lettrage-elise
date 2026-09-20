@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup V2 — Score Risque & Cycle Relance · OCKHAM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif; background: #EEF2F7; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+
+  /* Score bar */
+  .score-track {
+    width: 68px; height: 3px;
+    background: #E2E8F0; border-radius: 999px;
+    overflow: hidden; position: relative; display: inline-block;
+  }
+  .score-fill {
+    height: 100%; border-radius: 999px;
+    position: absolute; left: 0; top: 0; transition: width .3s;
+  }
+
+  /* Relance segments */
+  .seg { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+  .seg-empty   { background: #E2E8F0; }
+  .seg-teal    { background: #4CC5BB; }
+  .seg-slate   { background: #475569; }
+  .seg-charcoal { background: #1E293B; }
+
+  /* Row hover */
+  tbody tr { transition: background 120ms; }
+  tbody tr:hover { background: #F8FAFC !important; }
+
+  /* Code relance typography */
+  .code-r1 { color: #94A3B8; font-weight: 400; font-family: 'SF Mono', 'Fira Code', monospace; letter-spacing: .05em; }
+  .code-r2 { color: #334155; font-weight: 600; font-family: 'SF Mono', 'Fira Code', monospace; letter-spacing: .05em; }
+  .code-r3 { color: #0F172A; font-weight: 700; font-family: 'SF Mono', 'Fira Code', monospace; letter-spacing: .05em;
+             border-bottom: 1.5px solid #7F1D1D; padding-bottom: 0.5px; }
+
+  /* Score typography by tier */
+  .sc-low    { color: #94A3B8; font-weight: 400; }
+  .sc-mod    { color: #475569; font-weight: 500; }
+  .sc-high   { color: #1E293B; font-weight: 700; }
+  .sc-crit   { color: #0F172A; font-weight: 800; }
+
+  /* Client name weight by severity */
+  .client-n3 { color: #0F172A; font-weight: 700; }
+  .client-std { color: #1E293B; font-weight: 600; }
+
+  /* Subtle left indicator */
+  .row-n3 td:first-child { border-left: 2px solid #334155; }
+  .row-n2 td:first-child { border-left: 2px solid #CBD5E1; }
+  .row-std td:first-child { border-left: 2px solid transparent; }
+</style>
+</head>
+<body>
+
+<!-- ─── Nav OCKHAM ──────────────────────────────────────────── -->
+<nav style="background:#0E1A2B; border-bottom:2px solid #4CC5BB;" class="px-6 py-3 flex items-center gap-10">
+  <span class="text-white font-bold text-sm tracking-widest">OCKHAM</span>
+  <div class="flex gap-6 items-center">
+    <span class="text-white/40 text-xs font-medium">Dashboard</span>
+    <span style="color:#4CC5BB; border-bottom:1.5px solid #4CC5BB;" class="text-xs font-semibold pb-0.5">Comptes clients</span>
+    <span class="text-white/40 text-xs font-medium">Relances</span>
+    <span class="text-white/40 text-xs font-medium">Lettrage</span>
+  </div>
+</nav>
+
+<div class="max-w-6xl mx-auto px-6 py-6 space-y-5">
+
+  <!-- ─── Contexte mockup ─────────────────────────────────── -->
+  <div style="border-left:3px solid #4CC5BB; background:white;" class="rounded-r-xl px-5 py-3.5 flex items-start gap-3 shadow-sm">
+    <div>
+      <p style="color:#4CC5BB;" class="text-[10px] font-bold uppercase tracking-widest mb-1">Mockup V2 — Direction "Financière"</p>
+      <p class="text-xs text-slate-500 leading-relaxed">
+        Palette ardoise : aucun orange/rouge vif. Le <strong class="text-slate-700">score risque</strong> s'exprime par une barre fine + typographie progressive.
+        Le <strong class="text-slate-700">cycle de relance</strong> s'exprime par 3 segments + code monospace <span class="font-mono font-bold text-slate-800">R1 R2 R3</span>.
+        La sévérité se lit dans le poids typographique, pas dans la couleur.
+      </p>
+    </div>
+  </div>
+
+  <!-- ─── Onglets ─────────────────────────────────────────── -->
+  <div class="flex items-center gap-2">
+    <button style="background:#0E1A2B; color:white;" class="text-[11px] font-semibold px-4 py-2 rounded-lg">Clients</button>
+    <button class="text-[11px] text-slate-400 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">Nébuleuse</button>
+    <button class="text-[11px] text-slate-400 px-4 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">Factures</button>
+    <button style="color:#4CC5BB; border-color:#4CC5BB30;" class="text-[11px] font-medium px-4 py-2 rounded-lg border hover:bg-teal-50 transition-colors">Fil du jour</button>
+  </div>
+
+  <!-- ─── Table ───────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+    <table class="w-full border-collapse">
+      <thead>
+        <tr style="background:#F8FAFC; border-bottom:1px solid #E2E8F0;">
+          <th class="text-left px-5 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Client</th>
+          <th class="text-right px-4 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Encours</th>
+          <th class="text-right px-4 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Retard</th>
+          <th class="text-center px-4 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Risque</th>
+          <th class="text-center px-4 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Relance</th>
+          <th class="text-right px-5 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-widest">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-50">
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 01 — Score 93 · R3 · CRITIQUE                    -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n3">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-n3">BUREAU DESIGN CO</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">BDC001 · 6 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">12 500 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-700 tabular-nums">155j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:93%; background:#0F172A;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-crit">93</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+              </div>
+              <span class="text-[9px] code-r3">R3</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400 hover:border-slate-300 transition-colors">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 02 — Score 87 · R3 · CRITIQUE                    -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n3">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-n3">SCI LES ORMEAUX</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">SCI002 · 7 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">16 101 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-700 tabular-nums">128j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:87%; background:#0F172A;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-crit">87</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+              </div>
+              <span class="text-[9px] code-r3">R3</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 03 — Score 82 · R3 · CRITIQUE                    -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n3">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-n3">LEVASSEUR & FILS</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">LEV003 · 5 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">6 200 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-700 tabular-nums">110j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:82%; background:#1E293B;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-crit">82</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+                <span class="seg seg-charcoal"></span>
+              </div>
+              <span class="text-[9px] code-r3">R3</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 04 — Score 76 · R2                               -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n2">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">ARCADIA GROUP</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">ARC004 · 4 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">7 800 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-semibold text-slate-600 tabular-nums">82j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:76%; background:#1E293B;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-high">76</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r2">R2</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 05 — Score 71 · R2                               -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n2">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">CAMPUS VERRAZZANO</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">CAM005 · 5 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">8 440 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-semibold text-slate-600 tabular-nums">67j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:71%; background:#1E293B;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-high">71</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r2">R2</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 06 — Score 68 · R2                               -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-n2">
+          <td class="px-5 py-3.5">
+            <p class="text-[10px] text-slate-400 font-medium">Facturé à</p>
+            <p class="text-[13px] client-std">VSA PROPERTY</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">VSA006 · 4 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">5 200 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-semibold text-slate-600 tabular-nums">91j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:68%; background:#334155;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-high">68</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-slate"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r2">R2</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 07 — Score 48 · R1                               -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-std">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">SODEXO PARTENAIRES</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">SOD007 · 2 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">3 100 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm text-slate-500 tabular-nums">45j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:48%; background:#4CC5BB;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-mod">48</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-teal"></span>
+                <span class="seg seg-empty"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r1">R1</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 08 — Score 42 · R1                               -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-std">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">MARTINEAU SARL</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">MAR008 · 3 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">2 255 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm text-slate-500 tabular-nums">36j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:42%; background:#4CC5BB;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-mod">42</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-teal"></span>
+                <span class="seg seg-empty"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r1">R1</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <button style="color:#4CC5BB; border-color:#4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 09 — Score 35 · R1 · En cours (relancé)         -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-std">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">DUPONT & ASSOCIÉS</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">DUP009 · 2 factures</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm font-bold text-slate-800 tabular-nums">4 810 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm text-slate-400 tabular-nums">22j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:35%; background:#4CC5BB;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-mod">35</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-teal"></span>
+                <span class="seg seg-empty"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] code-r1">R1</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <span class="text-[10px] text-slate-400 italic">Relancé il y a 15j</span>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+        <!-- ══════════════════════════════════════════════════ -->
+        <!-- 10 — Score 18 · Payé                             -->
+        <!-- ══════════════════════════════════════════════════ -->
+        <tr class="row-std opacity-40">
+          <td class="px-5 py-3.5">
+            <p class="text-[13px] client-std">TECH SOLUTIONS INC</p>
+            <p class="text-[10px] text-slate-400 font-mono mt-0.5">TSI010 · 1 facture</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm text-slate-500 tabular-nums">980 €</p>
+          </td>
+          <td class="px-4 py-3.5 text-right">
+            <p class="text-sm text-slate-400 tabular-nums">5j</p>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="score-track">
+                <div class="score-fill" style="width:18%; background:#CBD5E1;"></div>
+              </div>
+              <span class="text-[11px] tabular-nums sc-low">18</span>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <div class="flex flex-col items-center gap-1.5">
+              <div class="flex gap-[3px]">
+                <span class="seg seg-empty"></span>
+                <span class="seg seg-empty"></span>
+                <span class="seg seg-empty"></span>
+              </div>
+              <span class="text-[9px] text-slate-300 font-mono">—</span>
+            </div>
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="flex items-center justify-end gap-2">
+              <span style="color:#4CC5BB;" class="text-[10px] font-semibold">✓ Payé</span>
+              <button class="text-[11px] px-3 py-1.5 rounded-lg border border-slate-200 text-slate-400">⚙ Options</button>
+            </div>
+          </td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div><!-- /table -->
+
+
+  <!-- ─── Légende ─────────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-5 space-y-5">
+    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Lecture des indicateurs</p>
+
+    <div class="grid grid-cols-2 gap-8">
+
+      <!-- Score risque -->
+      <div class="space-y-3">
+        <p class="text-[11px] font-semibold text-slate-700">Score risque (0 → 100)</p>
+        <div class="space-y-2.5">
+
+          <div class="flex items-center gap-3">
+            <div class="score-track flex-shrink-0">
+              <div class="score-fill" style="width:22%; background:#CBD5E1;"></div>
+            </div>
+            <span class="text-[11px] tabular-nums sc-low w-6">22</span>
+            <span class="text-[10px] text-slate-400">Faible · client peu risqué, encours récent</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="score-track flex-shrink-0">
+              <div class="score-fill" style="width:45%; background:#4CC5BB;"></div>
+            </div>
+            <span class="text-[11px] tabular-nums sc-mod w-6">45</span>
+            <span class="text-[10px] text-slate-400">Modéré · retard observable, première action</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="score-track flex-shrink-0">
+              <div class="score-fill" style="width:70%; background:#334155;"></div>
+            </div>
+            <span class="text-[11px] tabular-nums sc-high w-6">70</span>
+            <span class="text-[10px] text-slate-400">Élevé · retard significatif, historique de retard</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="score-track flex-shrink-0">
+              <div class="score-fill" style="width:90%; background:#0F172A;"></div>
+            </div>
+            <span class="text-[11px] tabular-nums sc-crit w-6">90</span>
+            <span class="text-[10px] text-slate-400">Critique · impayé persistant, plusieurs relances</span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Cycle relance -->
+      <div class="space-y-3">
+        <p class="text-[11px] font-semibold text-slate-700">Cycle relance (R1 → R3)</p>
+        <div class="space-y-2.5">
+
+          <div class="flex items-center gap-3">
+            <div class="flex gap-[3px] flex-shrink-0">
+              <span class="seg seg-teal"></span>
+              <span class="seg seg-empty"></span>
+              <span class="seg seg-empty"></span>
+            </div>
+            <span class="text-[9px] code-r1 w-4">R1</span>
+            <span class="text-[10px] text-slate-400">Première relance · factures jamais relancées ou toutes payées</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="flex gap-[3px] flex-shrink-0">
+              <span class="seg seg-slate"></span>
+              <span class="seg seg-slate"></span>
+              <span class="seg seg-empty"></span>
+            </div>
+            <span class="text-[9px] code-r2 w-4">R2</span>
+            <span class="text-[10px] text-slate-400">Deuxième relance · une précédente sans réponse sur ces factures</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="flex gap-[3px] flex-shrink-0">
+              <span class="seg seg-charcoal"></span>
+              <span class="seg seg-charcoal"></span>
+              <span class="seg seg-charcoal"></span>
+            </div>
+            <span class="text-[9px] code-r3 w-4">R3</span>
+            <span class="text-[10px] text-slate-400">Troisième relance · mise en demeure suggérée, situation bloquée</span>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <div class="flex gap-[3px] flex-shrink-0">
+              <span class="seg seg-empty"></span>
+              <span class="seg seg-empty"></span>
+              <span class="seg seg-empty"></span>
+            </div>
+            <span class="text-[9px] text-slate-300 font-mono w-4">—</span>
+            <span class="text-[10px] text-slate-400">Aucun cycle actif · payé ou hors périmètre</span>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Note sur le trait gauche -->
+    <div class="border-t border-slate-100 pt-4 flex items-start gap-3">
+      <div class="flex gap-2 items-center flex-shrink-0">
+        <div style="width:2px; height:32px; background:#334155; border-radius:1px;"></div>
+        <div style="width:2px; height:32px; background:#CBD5E1; border-radius:1px;"></div>
+        <div style="width:2px; height:32px; background:transparent; border-radius:1px; border:1px dashed #E2E8F0;"></div>
+      </div>
+      <p class="text-[10px] text-slate-400 leading-relaxed">
+        <strong class="text-slate-600">Trait gauche :</strong> indicateur secondaire sur la ligne.
+        Charcoal = R3 (situation bloquée). Gris clair = R2 (attention).
+        Absent = R1 standard. Ce trait n'utilise aucune couleur "alarme" —
+        il renforce la hiérarchie typographique sans distraire.
+      </p>
+    </div>
+
+  </div><!-- /legend -->
+
+</div><!-- /container -->
+</body>
+</html>

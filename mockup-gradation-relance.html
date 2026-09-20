@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Gradation Relance OCKHAM</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #F1F5F9; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 2px; }
+
+  /* Dot */
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex-shrink: 0;
+  }
+  .dot-teal  { background: #4CC5BB; }
+  .dot-amber { background: #F59E0B; }
+  .dot-red   { background: #EF4444; }
+  .dot-empty { background: #E5E7EB; }
+
+  /* Trait gauche coloré */
+  .row-n2 { border-left: 3px solid #F59E0B; }
+  .row-n3 { border-left: 3px solid #EF4444; }
+  .row-std { border-left: 3px solid transparent; }
+
+  /* Hover */
+  tr:hover td { background: rgba(0,0,0,0.015); }
+</style>
+</head>
+<body>
+
+<!-- Nav OCKHAM -->
+<nav style="background: #0E1A2B; border-bottom: 2px solid #4CC5BB;" class="px-6 py-3 flex items-center gap-10">
+  <span class="text-white font-bold text-sm tracking-widest">OCKHAM</span>
+  <div class="flex items-center gap-6">
+    <span class="text-white/40 text-xs font-medium cursor-pointer hover:text-white/70 transition-colors">Dashboard</span>
+    <span style="color: #4CC5BB; border-bottom: 2px solid #4CC5BB;" class="text-xs font-semibold pb-0.5">Comptes clients</span>
+    <span class="text-white/40 text-xs font-medium cursor-pointer hover:text-white/70 transition-colors">Relances</span>
+    <span class="text-white/40 text-xs font-medium cursor-pointer hover:text-white/70 transition-colors">Lettrage</span>
+  </div>
+</nav>
+
+<div class="max-w-6xl mx-auto px-6 py-6 space-y-6">
+
+  <!-- Bandeau contexte mockup -->
+  <div class="bg-white border border-blue-100 rounded-xl px-5 py-4 flex items-start gap-3">
+    <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+      <span class="text-blue-600 text-xs font-bold">?</span>
+    </div>
+    <div>
+      <p class="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">Mockup de validation — Gradation visuelle des relances</p>
+      <p class="text-xs text-gray-500 leading-relaxed">
+        Les <strong class="text-gray-700">points colorés</strong> indiquent le niveau de relance atteint pour ce client, basé sur l'historique des factures.
+        <strong class="text-amber-600">2 points amber</strong> = 2ème relance suggérée (une précédente sans réponse).
+        <strong class="text-red-500">3 points rouges</strong> = 3ème relance critique, mise en demeure conseillée.
+        Le <strong class="text-gray-700">niveau 1</strong> (première relance) est invisible — c'est l'état normal, pas besoin de le signaler.
+      </p>
+    </div>
+  </div>
+
+  <!-- Onglets vue -->
+  <div class="flex items-center gap-2">
+    <button style="background: #0E1A2B; color: white;" class="text-xs font-semibold px-4 py-2 rounded-lg flex items-center gap-1.5">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><rect x="1" y="1" width="4" height="4" rx="1" fill="white"/><rect x="7" y="1" width="4" height="4" rx="1" fill="white"/><rect x="1" y="7" width="4" height="4" rx="1" fill="white"/><rect x="7" y="7" width="4" height="4" rx="1" fill="white"/></svg>
+      Clients
+    </button>
+    <button class="text-xs font-medium px-4 py-2 rounded-lg text-gray-400 border border-gray-200 hover:border-gray-300 transition-colors">Nébuleuse</button>
+    <button class="text-xs font-medium px-4 py-2 rounded-lg text-gray-400 border border-gray-200 hover:border-gray-300 transition-colors">Factures</button>
+    <button style="color: #4CC5BB; border-color: #4CC5BB;" class="text-xs font-medium px-4 py-2 rounded-lg border hover:bg-teal-50 transition-colors flex items-center gap-1.5">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 5.5h9M5.5 1v9" stroke="#4CC5BB" stroke-width="1.5" stroke-linecap="round"/></svg>
+      Fil du jour
+    </button>
+  </div>
+
+  <!-- Table principale -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+    <!-- En-tête de table -->
+    <div style="background: #F8FAFC; border-bottom: 1px solid #E5E7EB;" class="grid grid-cols-12 px-5 py-2.5">
+      <div class="col-span-4 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Client</div>
+      <div class="col-span-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Encours</div>
+      <div class="col-span-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Retard</div>
+      <div class="col-span-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-center">Statut relance</div>
+      <div class="col-span-3 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right">Actions</div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 1 — Niveau 1 : standard, aucun signal -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-std grid grid-cols-12 px-5 py-3 border-b border-gray-50 items-center hover:bg-gray-50/60 transition-colors">
+      <div class="col-span-4">
+        <p class="text-sm font-semibold text-gray-800">MARTINEAU SARL</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">MAR001 · 3 factures</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">2 255 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">36j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <!-- N1 : chip teal standard, sans points -->
+        <span style="color: #4CC5BB; border-color: #4CC5BB20; background: #F0FDFB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-block">
+          À relancer
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <button style="color: #4CC5BB; border-color: #4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 2 — Niveau 2 : 2 points amber        -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-n2 grid grid-cols-12 px-5 py-3 border-b border-gray-50 items-center hover:bg-amber-50/40 transition-colors">
+      <div class="col-span-4">
+        <p class="text-sm font-semibold text-gray-800">CAMPUS VERRAZZANO</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">CAM002 · 5 factures</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">8 440 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">67j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <!-- N2 : chip amber + 2 points + 1 vide -->
+        <span style="color: #D97706; border-color: #F59E0B40; background: #FFFBEB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+          <span class="flex gap-0.5 items-center">
+            <span class="dot dot-amber"></span>
+            <span class="dot dot-amber"></span>
+            <span class="dot dot-empty"></span>
+          </span>
+          À relancer
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <button style="color: #D97706; border-color: #F59E0B; background: #FFFBEB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-amber-100 transition-colors">✉ Relancer</button>
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 3 — Niveau 3 : 3 points rouges       -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-n3 grid grid-cols-12 px-5 py-3 border-b border-gray-50 items-center hover:bg-red-50/30 transition-colors">
+      <div class="col-span-4">
+        <p class="text-sm font-semibold text-gray-800">SCI LES ORMEAUX</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">SCI003 · 7 factures</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">16 101 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">128j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <!-- N3 : chip rouge + 3 points -->
+        <span style="color: #DC2626; border-color: #EF444440; background: #FEF2F2;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+          <span class="flex gap-0.5 items-center">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-red"></span>
+            <span class="dot dot-red"></span>
+          </span>
+          Sans suite
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <button style="color: #DC2626; border-color: #EF4444; background: #FEF2F2;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-red-100 transition-colors">✉ Relancer</button>
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 4 — En cours (relancé récemment)     -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-std grid grid-cols-12 px-5 py-3 border-b border-gray-50 items-center hover:bg-gray-50/60 transition-colors">
+      <div class="col-span-4">
+        <p class="text-sm font-semibold text-gray-800">DUPONT & ASSOCIÉS</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">DUP004 · 2 factures</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">4 810 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">22j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-gray-200 text-gray-400 inline-block">
+          En cours
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <span class="text-[10px] text-gray-400 italic">Relancé il y a 15j</span>
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 5 — N2, Sans suite, amber            -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-n2 grid grid-cols-12 px-5 py-3 border-b border-gray-50 items-center hover:bg-amber-50/40 transition-colors">
+      <div class="col-span-4">
+        <p class="text-[10px] text-gray-400 font-medium mb-0.5">Facturé à</p>
+        <p class="text-sm font-semibold text-gray-800">VSA PROPERTY</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">VSA005 · 4 factures</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">5 200 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-600">91j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <span style="color: #D97706; border-color: #F59E0B40; background: #FFFBEB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+          <span class="flex gap-0.5 items-center">
+            <span class="dot dot-amber"></span>
+            <span class="dot dot-amber"></span>
+            <span class="dot dot-empty"></span>
+          </span>
+          Sans suite
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <button style="color: #D97706; border-color: #F59E0B; background: #FFFBEB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-amber-100 transition-colors">✉ Relancer</button>
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+    <!-- ─────────────────────────────────────────── -->
+    <!-- LIGNE 6 — N1, payé (reset)                 -->
+    <!-- ─────────────────────────────────────────── -->
+    <div class="row-std grid grid-cols-12 px-5 py-3 items-center hover:bg-gray-50/60 transition-colors opacity-50">
+      <div class="col-span-4">
+        <p class="text-sm font-semibold text-gray-800">TECH SOLUTIONS INC</p>
+        <p class="text-[10px] text-gray-400 font-mono mt-0.5">TSI006 · 1 facture</p>
+      </div>
+      <div class="col-span-2 text-right">
+        <p class="text-sm font-bold text-gray-800">980 €</p>
+      </div>
+      <div class="col-span-1 text-center">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">0j</span>
+      </div>
+      <div class="col-span-2 flex justify-center">
+        <span class="text-[10px] font-semibold px-2.5 py-1 rounded-full border border-emerald-200 text-emerald-600 bg-emerald-50 inline-block">
+          Payé ✓
+        </span>
+      </div>
+      <div class="col-span-3 flex items-center justify-end gap-2">
+        <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition-colors">⚙ Options</button>
+      </div>
+    </div>
+
+  </div><!-- /table -->
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- SECTION 2 : Fil du jour (même pattern)     -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div>
+    <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-3">Fil du jour — même signaux, contexte score</p>
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div style="background: linear-gradient(135deg, #0E1A2B, #1a2d44); border-bottom: 2px solid #4CC5BB;" class="px-5 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-white text-xs font-bold">Fil du jour</p>
+          <p class="text-white/40 text-[10px] mt-0.5">3 clients à traiter · Vendredi 19 sept.</p>
+        </div>
+        <span style="color: #4CC5BB; border-color: #4CC5BB40; background: rgba(76,197,187,0.1);" class="text-[10px] font-bold px-2.5 py-1 rounded-full border">Score risque</span>
+      </div>
+
+      <!-- Fil row N3 -->
+      <div class="row-n3 grid grid-cols-12 px-5 py-3.5 border-b border-gray-50 items-center hover:bg-red-50/20 transition-colors">
+        <div class="col-span-1 text-center">
+          <span class="text-lg font-black text-red-500">87</span>
+          <p class="text-[9px] text-gray-400 uppercase">score</p>
+        </div>
+        <div class="col-span-4 pl-3">
+          <p class="text-sm font-semibold text-gray-800">SCI LES ORMEAUX</p>
+          <p class="text-[10px] text-gray-400 mt-0.5">16 101 € · 128j de retard</p>
+        </div>
+        <div class="col-span-3 flex justify-center">
+          <span style="color: #DC2626; border-color: #EF444440; background: #FEF2F2;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+            <span class="flex gap-0.5 items-center">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-red"></span>
+              <span class="dot dot-red"></span>
+            </span>
+            Mise en demeure
+          </span>
+        </div>
+        <div class="col-span-4 flex items-center justify-end gap-2">
+          <button style="color: #DC2626; border-color: #EF4444; background: #FEF2F2;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-red-100 transition-colors">✉ Relancer</button>
+          <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400">⚙ Options</button>
+        </div>
+      </div>
+
+      <!-- Fil row N2 -->
+      <div class="row-n2 grid grid-cols-12 px-5 py-3.5 border-b border-gray-50 items-center hover:bg-amber-50/30 transition-colors">
+        <div class="col-span-1 text-center">
+          <span class="text-lg font-black text-amber-500">71</span>
+          <p class="text-[9px] text-gray-400 uppercase">score</p>
+        </div>
+        <div class="col-span-4 pl-3">
+          <p class="text-sm font-semibold text-gray-800">CAMPUS VERRAZZANO</p>
+          <p class="text-[10px] text-gray-400 mt-0.5">8 440 € · 67j de retard</p>
+        </div>
+        <div class="col-span-3 flex justify-center">
+          <span style="color: #D97706; border-color: #F59E0B40; background: #FFFBEB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+            <span class="flex gap-0.5 items-center">
+              <span class="dot dot-amber"></span>
+              <span class="dot dot-amber"></span>
+              <span class="dot dot-empty"></span>
+            </span>
+            2ème relance
+          </span>
+        </div>
+        <div class="col-span-4 flex items-center justify-end gap-2">
+          <button style="color: #D97706; border-color: #F59E0B; background: #FFFBEB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-amber-100 transition-colors">✉ Relancer</button>
+          <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400">⚙ Options</button>
+        </div>
+      </div>
+
+      <!-- Fil row N1 -->
+      <div class="row-std grid grid-cols-12 px-5 py-3.5 items-center hover:bg-gray-50/60 transition-colors">
+        <div class="col-span-1 text-center">
+          <span class="text-lg font-black" style="color: #4CC5BB;">58</span>
+          <p class="text-[9px] text-gray-400 uppercase">score</p>
+        </div>
+        <div class="col-span-4 pl-3">
+          <p class="text-sm font-semibold text-gray-800">MARTINEAU SARL</p>
+          <p class="text-[10px] text-gray-400 mt-0.5">2 255 € · 36j de retard</p>
+        </div>
+        <div class="col-span-3 flex justify-center">
+          <span style="color: #4CC5BB; border-color: #4CC5BB20; background: #F0FDFB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-block">
+            1ère relance
+          </span>
+        </div>
+        <div class="col-span-4 flex items-center justify-end gap-2">
+          <button style="color: #4CC5BB; border-color: #4CC5BB;" class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border hover:bg-teal-50 transition-colors">✉ Relancer</button>
+          <button class="text-[11px] font-semibold px-3 py-1.5 rounded-lg border border-gray-200 text-gray-400">⚙ Options</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /fil du jour -->
+
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!-- LÉGENDE & DÉCISIONS À VALIDER              -->
+  <!-- ═══════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 px-6 py-5 space-y-4">
+    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Légende · Ce qu'on valide</p>
+
+    <div class="grid grid-cols-3 gap-4">
+
+      <!-- N1 -->
+      <div class="border border-gray-100 rounded-xl p-4 space-y-2">
+        <div class="flex items-center gap-2">
+          <span style="color: #4CC5BB; border-color: #4CC5BB20; background: #F0FDFB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-block">1ère relance</span>
+          <span class="text-[9px] text-gray-400 font-mono">N1</span>
+        </div>
+        <p class="text-xs text-gray-500 leading-relaxed">Première fois qu'on relance ce client sur ces factures. Comportement standard, pas de signal d'alarme. Trait gauche absent.</p>
+        <p class="text-[10px] text-gray-400 italic">→ Scénario "Relance douce" pré-sélectionné</p>
+      </div>
+
+      <!-- N2 -->
+      <div class="border border-amber-100 rounded-xl p-4 space-y-2">
+        <div class="flex items-center gap-2">
+          <span style="color: #D97706; border-color: #F59E0B40; background: #FFFBEB;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+            <span class="flex gap-0.5"><span class="dot dot-amber"></span><span class="dot dot-amber"></span><span class="dot dot-empty"></span></span>
+            2ème relance
+          </span>
+          <span class="text-[9px] text-gray-400 font-mono">N2</span>
+        </div>
+        <p class="text-xs text-gray-500 leading-relaxed">Une relance précédente sur ces mêmes factures n'a pas déclenché de paiement. Situation qui se tend. Trait gauche amber.</p>
+        <p class="text-[10px] text-gray-400 italic">→ Scénario "Relance ferme" pré-sélectionné</p>
+      </div>
+
+      <!-- N3 -->
+      <div class="border border-red-100 rounded-xl p-4 space-y-2">
+        <div class="flex items-center gap-2">
+          <span style="color: #DC2626; border-color: #EF444440; background: #FEF2F2;" class="text-[10px] font-semibold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5">
+            <span class="flex gap-0.5"><span class="dot dot-red"></span><span class="dot dot-red"></span><span class="dot dot-red"></span></span>
+            Mise en demeure
+          </span>
+          <span class="text-[9px] text-gray-400 font-mono">N3</span>
+        </div>
+        <p class="text-xs text-gray-500 leading-relaxed">Deux relances ou plus sans réponse sur ces factures. Situation critique. Trait gauche rouge. Action urgente.</p>
+        <p class="text-[10px] text-gray-400 italic">→ Scénario "Mise en demeure" pré-sélectionné</p>
+      </div>
+
+    </div>
+
+    <!-- Questions de validation -->
+    <div class="border-t border-gray-100 pt-4 space-y-1.5">
+      <p class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Points à valider</p>
+      <p class="text-xs text-gray-600">① <strong>Label N1 :</strong> "1ère relance" ou rien du tout (chip teal neutre "À relancer") ?</p>
+      <p class="text-xs text-gray-600">② <strong>Label N3 :</strong> "Mise en demeure" directement dans le chip, ou garder "Sans suite" + points rouges ?</p>
+      <p class="text-xs text-gray-600">③ <strong>Trait gauche :</strong> suffisamment visible ou trop subtil à l'écran ?</p>
+      <p class="text-xs text-gray-600">④ <strong>Fil du jour :</strong> le label est plus explicite ("2ème relance" / "Mise en demeure") car l'opérateur est en mode action — ok ?</p>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+</body>
+</html>

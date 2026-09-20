@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup — Déclaration de créances</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f1f5f9; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+
+  /* ── Overlay ── */
+  .overlay { position: fixed; inset: 0; background: rgba(14,26,43,.45); display: flex; align-items: center; justify-content: center; padding: 24px; }
+
+  /* ── Modal ── */
+  .modal { background: #fff; border-radius: 16px; width: 100%; max-width: 760px; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,.18); }
+
+  /* ── Header modal ── */
+  .modal-header { background: #0E1A2B; padding: 16px 20px; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+  .modal-header .icon { width: 28px; height: 28px; background: rgba(76,197,187,.15); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+  .modal-header .icon svg { color: #4CC5BB; }
+  .modal-header h2 { color: #fff; font-size: 14px; font-weight: 600; flex: 1; }
+  .modal-header .close { width: 28px; height: 28px; border-radius: 7px; border: none; background: rgba(255,255,255,.08); color: rgba(255,255,255,.6); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .modal-header .close:hover { background: rgba(255,255,255,.14); }
+
+  /* ── Stepper ── */
+  .stepper { display: flex; align-items: center; gap: 0; padding: 14px 20px; border-bottom: 1px solid #f1f5f9; background: #fafafa; flex-shrink: 0; }
+  .step { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .step-num { width: 24px; height: 24px; border-radius: 50%; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+  .step-num.active { background: #3BA89F; color: #fff; }
+  .step-num.done { background: #E6F7F5; color: #3BA89F; }
+  .step-num.inactive { background: #f1f5f9; color: #94a3b8; }
+  .step-label { font-size: 12px; font-weight: 500; }
+  .step-label.active { color: #0E1A2B; }
+  .step-label.inactive { color: #94a3b8; }
+  .step-arrow { margin: 0 12px; color: #cbd5e1; font-size: 12px; }
+
+  /* ── Scroll body ── */
+  .modal-body { overflow-y: auto; flex: 1; padding: 20px; }
+
+  /* ── Section label ── */
+  .section-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px; }
+
+  /* ── Résumé client ── */
+  .client-bar { display: flex; align-items: center; gap: 10px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 10px 14px; margin-bottom: 20px; }
+  .client-code { font-family: monospace; font-size: 11px; color: #94a3b8; }
+  .client-name { font-weight: 700; font-size: 14px; color: #0f172a; flex: 1; }
+  .badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid; }
+  .badge-redressement { background: #fff7ed; color: #c2410c; border-color: #fed7aa; }
+  .badge-liquidation { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+  .badge-sauvegarde { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+  .jours { font-size: 11px; color: #94a3b8; }
+
+  /* ── Grille infos ── */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 24px; margin-bottom: 16px; }
+  .info-field p.lbl { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
+  .info-field p.val { font-size: 13px; color: #1e293b; }
+  .info-field.full { grid-column: span 2; }
+  .complement-box { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #475569; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .show-more { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .show-more span { font-size: 10px; color: #94a3b8; border: 1px solid #e2e8f0; border-radius: 20px; padding: 2px 10px; cursor: pointer; }
+
+  /* ── Divider ── */
+  .divider { height: 1px; background: #f1f5f9; margin: 20px 0; }
+
+  /* ── Form inputs ── */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-field { display: flex; flex-direction: column; gap: 4px; }
+  .form-field.full { grid-column: span 2; }
+  .form-field label { font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .06em; }
+  .form-field select, .form-field input, .form-field textarea { border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #1e293b; background: #fff; outline: none; font-family: inherit; }
+  .form-field select:focus, .form-field input:focus, .form-field textarea:focus { border-color: #4CC5BB; box-shadow: 0 0 0 3px rgba(76,197,187,.12); }
+  .form-field textarea { resize: none; min-height: 72px; }
+  .montant-hint { display: flex; gap: 8px; font-size: 10px; color: #94a3b8; margin-top: 4px; }
+  .montant-hint span b { color: #475569; }
+
+  /* ── Encours table ── */
+  .table-wrap { border: 1px solid #f1f5f9; border-radius: 10px; overflow: hidden; }
+  .table-wrap table { width: 100%; font-size: 12px; border-collapse: collapse; }
+  .table-wrap thead tr { background: #0E1A2B; }
+  .table-wrap thead th { padding: 9px 12px; text-align: left; font-size: 10px; font-weight: 600; color: rgba(255,255,255,.55); }
+  .table-wrap thead th:not(:first-child) { text-align: right; }
+  .table-wrap tbody tr { border-top: 1px solid #f8fafc; }
+  .table-wrap tbody td { padding: 8px 12px; color: #475569; }
+  .table-wrap tbody td:not(:first-child) { text-align: right; }
+  .table-wrap tbody td.copper { color: #C07840; font-weight: 700; }
+  .table-wrap tfoot tr { border-top: 1px solid #e2e8f0; background: #f8fafc; }
+  .table-wrap tfoot td { padding: 8px 12px; font-weight: 700; font-size: 11px; color: #64748b; text-transform: uppercase; }
+  .table-wrap tfoot td:not(:first-child) { text-align: right; }
+  .table-wrap tfoot td.copper { color: #C07840; }
+
+  /* ── Footer actions ── */
+  .modal-footer { padding: 14px 20px; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; background: #fff; }
+  .footer-left { display: flex; gap: 8px; }
+  .footer-right { display: flex; gap: 8px; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all .15s; }
+  .btn-ghost { background: transparent; color: #64748b; }
+  .btn-ghost:hover { background: #f8fafc; color: #1e293b; }
+  .btn-teal { background: #3BA89F; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .btn-teal:hover { background: #2d8a82; }
+  .btn-teal-outline { background: #fff; color: #3BA89F; border: 1.5px solid #3BA89F; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .btn-teal-outline:hover { background: #E6F7F5; }
+  .btn-navy { background: #0E1A2B; color: #fff; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .btn-navy:hover { background: #1a2d45; }
+  .btn-danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+  .btn-danger:hover { background: #fee2e2; }
+
+  /* ── PAGE 2 — CERFA ── */
+  .cerfa-wrap { font-family: 'Times New Roman', serif; }
+  .cerfa-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .cerfa-title { font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #0E1A2B; }
+  .cerfa-subtitle { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .cerfa-num { font-size: 11px; color: #64748b; text-align: right; }
+
+  .cerfa-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .cerfa-box { border: 1.5px solid #0E1A2B; border-radius: 4px; padding: 10px 12px; }
+  .cerfa-box-title { font-size: 11px; font-weight: 700; color: #0E1A2B; text-transform: uppercase; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+  .cerfa-box p { font-size: 12px; color: #1e293b; line-height: 1.7; }
+  .cerfa-box .field-empty { color: #94a3b8; font-style: italic; font-size: 11px; }
+  .cerfa-box .field-label { font-size: 10px; color: #94a3b8; display: block; margin-top: 6px; text-transform: uppercase; letter-spacing: .05em; }
+  .cerfa-box .field-val { font-size: 12px; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 2px; margin-bottom: 4px; }
+
+  .cerfa-creance { border: 1.5px solid #0E1A2B; border-radius: 4px; margin-bottom: 12px; overflow: hidden; }
+  .cerfa-creance-title { background: #0E1A2B; color: #fff; font-size: 12px; font-weight: 700; text-transform: uppercase; padding: 8px 12px; text-align: center; letter-spacing: .06em; }
+  .cerfa-creance-note { font-size: 10px; color: rgba(255,255,255,.6); display: block; font-style: italic; font-weight: 400; }
+  .cerfa-creance table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .cerfa-creance th { border: 1px solid #cbd5e1; padding: 7px 10px; background: #f8fafc; font-weight: 600; font-size: 11px; text-align: center; color: #0E1A2B; }
+  .cerfa-creance td { border: 1px solid #cbd5e1; padding: 9px 12px; }
+  .cerfa-creance td.row-label { font-weight: 700; font-size: 12px; color: #0E1A2B; background: #f8fafc; }
+  .cerfa-creance td.amount { text-align: right; font-size: 13px; color: #C07840; font-weight: 600; }
+  .cerfa-creance td.total { text-align: right; font-size: 14px; color: #0E1A2B; font-weight: 700; }
+
+  .cerfa-footer-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .cerfa-footer-left { font-size: 12px; }
+  .cerfa-footer-left .line { border-bottom: 1px solid #0E1A2B; margin-bottom: 16px; padding-bottom: 2px; color: #1e293b; min-height: 22px; }
+  .cerfa-footer-left .line.label { color: #94a3b8; font-size: 10px; border-bottom: none; margin-bottom: 2px; padding-bottom: 0; }
+  .cerfa-mandataire-box { border: 1.5px solid #0E1A2B; border-radius: 4px; padding: 10px 12px; min-height: 80px; }
+  .cerfa-mandataire-box .cerfa-box-title { margin-bottom: 4px; }
+
+  .badge-prefilled { display: inline-flex; align-items: center; gap: 4px; background: #E6F7F5; color: #3BA89F; border: 1px solid #b2e8e4; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 1px 6px; margin-left: 6px; vertical-align: middle; font-family: -apple-system, sans-serif; }
+  .badge-manual { display: inline-flex; align-items: center; gap: 4px; background: #fffbeb; color: #b45309; border: 1px solid #fde68a; border-radius: 4px; font-size: 10px; font-weight: 600; padding: 1px 6px; margin-left: 6px; vertical-align: middle; font-family: -apple-system, sans-serif; }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="overlay">
+  <div class="modal">
+
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4CC5BB" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      </div>
+      <h2>Suivi de la procédure</h2>
+      <button class="close">✕</button>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper">
+      <div class="step" onclick="goTo(1)">
+        <div class="step-num" id="num1">1</div>
+        <span class="step-label" id="lbl1">Suivi procédure</span>
+      </div>
+      <span class="step-arrow">→</span>
+      <div class="step" onclick="goTo(2)">
+        <div class="step-num" id="num2">2</div>
+        <span class="step-label" id="lbl2">Déclaration de créances</span>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════════════ PAGE 1 ════════ -->
+    <div class="modal-body" id="page1">
+
+      <!-- Résumé client -->
+      <div class="client-bar">
+        <span class="client-code">67072</span>
+        <span class="client-name">FACTORIELLES</span>
+        <span class="badge badge-redressement">Redressement judiciaire</span>
+        <span class="jours">22 j depuis parution</span>
+      </div>
+
+      <!-- Publication BODACC -->
+      <p class="section-label">Publication BODACC</p>
+      <div class="grid2">
+        <div class="info-field full">
+          <p class="lbl">Type de jugement</p>
+          <p class="val">Jugement d'ouverture d'une procédure de redressement judiciaire</p>
+        </div>
+        <div class="info-field">
+          <p class="lbl">Tribunal</p>
+          <p class="val">Greffe du Tribunal des Activités Économiques du Mans</p>
+        </div>
+        <div class="info-field">
+          <p class="lbl">Date de jugement</p>
+          <p class="val">28 juil. 2026</p>
+        </div>
+        <div class="info-field">
+          <p class="lbl">Date de parution BODACC</p>
+          <p class="val">04 août 2026</p>
+        </div>
+        <div class="info-field">
+          <p class="lbl">Source</p>
+          <p class="val" style="color:#3BA89F;cursor:pointer">Voir sur BODACC ↗</p>
+        </div>
+        <div class="info-field full">
+          <p class="lbl">Complément jugement</p>
+          <div class="complement-box">
+            Jugement prononçant l'ouverture d'une procédure de redressement judiciaire, date de cessation des paiements le 26 juin 2026, désignant administrateur SELAS Adjust prise en la personne de Maître François MERCIER 3, boulevard du Maréchal Foch – 49055 Angers avec les pouvoirs d'assister le débiteur pour tous les actes relatifs à la gestion, mandataire judiciaire SELARL MJ Cor...
+          </div>
+          <div class="show-more"><span>Afficher plus</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Déclaration -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <p class="section-label" style="margin:0">Déclaration de créances</p>
+        <span style="font-size:10px;color:#64748b;background:#fff7ed;border:1px solid #fed7aa;border-radius:20px;padding:2px 10px;font-weight:600;color:#c2410c;">⚠ 38 j restants sur 60</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Statut</label>
+          <select><option>Brouillon</option><option>Déclarée</option></select>
+        </div>
+        <div class="form-field">
+          <label>Date de déclaration</label>
+          <input type="date" />
+        </div>
+        <div class="form-field">
+          <label>Montant créancier (€)</label>
+          <input type="number" value="758.56" />
+          <div class="montant-hint"><span>Échu : <b>551 €</b></span><span>·</span><span>À échoir : <b>207 €</b></span></div>
+        </div>
+        <div class="form-field">
+          <label>Référence dossier</label>
+          <input type="text" placeholder="N° dossier mandataire" />
+        </div>
+        <div class="form-field">
+          <label>Contact mandataire — Nom Prénom</label>
+          <input type="text" placeholder="Nom et prénom" />
+        </div>
+        <div class="form-field">
+          <label>Contact mandataire — Email / Tél</label>
+          <input type="text" placeholder="Email ou téléphone" />
+        </div>
+        <div class="form-field full">
+          <label>Notes internes</label>
+          <textarea placeholder="Observations, suivi…"></textarea>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Encours -->
+      <p class="section-label">Encours client</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>N° pièce</th>
+              <th style="text-align:right">Montant TTC</th>
+              <th style="text-align:right">Reste dû</th>
+              <th style="text-align:center">Échéance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="font-family:monospace;color:#64748b;font-size:11px">FA2026-0841</td><td style="text-align:right;color:#475569">487 €</td><td class="copper" style="text-align:right">487 €</td><td style="text-align:center;color:#64748b">15 juin 2026</td></tr>
+            <tr><td style="font-family:monospace;color:#64748b;font-size:11px">FA2026-0612</td><td style="text-align:right;color:#475569">271 €</td><td class="copper" style="text-align:right">271 €</td><td style="text-align:center;color:#64748b">10 août 2026</td></tr>
+          </tbody>
+          <tfoot>
+            <tr><td>Total</td><td style="text-align:right;color:#475569">758 €</td><td class="copper" style="text-align:right">758 €</td><td></td></tr>
+          </tfoot>
+        </table>
+      </div>
+
+    </div><!-- /page1 -->
+
+    <!-- ════════════════════════════════════════ PAGE 2 ════════ -->
+    <div class="modal-body hidden" id="page2">
+      <div class="cerfa-wrap">
+
+        <!-- En-tête CERFA -->
+        <div class="cerfa-header">
+          <div>
+            <div class="cerfa-title">Déclaration de créances</div>
+            <div class="cerfa-subtitle">à adresser au représentant des créanciers, mandataire judiciaire</div>
+          </div>
+          <div class="cerfa-num">N° 10021*01<br><span style="font-size:10px;color:#94a3b8">CERFA officiel</span></div>
+        </div>
+
+        <!-- Créancier + Mandataire du créancier -->
+        <div class="cerfa-row2">
+          <div class="cerfa-box">
+            <div class="cerfa-box-title">Créancier <span class="badge-prefilled">✓ Pré-rempli</span></div>
+            <p>
+              <span class="field-label">Raison sociale</span>
+              <span class="field-val">MELEZE SAS</span>
+              <span class="field-label">Adresse</span>
+              <span class="field-val">12 rue de la Paix – 75001 Paris</span>
+              <span class="field-label">SIRET</span>
+              <span class="field-val">53468662100036</span>
+            </p>
+          </div>
+          <div class="cerfa-box">
+            <div class="cerfa-box-title">Mandataire du créancier <span class="badge-manual">À compléter</span></div>
+            <p class="field-empty">Non renseigné — compléter si représenté par un avocat ou mandataire</p>
+          </div>
+        </div>
+
+        <!-- Débiteur + Procédure -->
+        <div class="cerfa-row2">
+          <div class="cerfa-box">
+            <div class="cerfa-box-title">Débiteur <span class="badge-prefilled">✓ Pré-rempli</span></div>
+            <p>
+              <span class="field-label">Dénomination</span>
+              <span class="field-val">FACTORIELLES</span>
+              <span class="field-label">SIRET</span>
+              <span class="field-val">48291763500024</span>
+              <span class="field-label">Tribunal</span>
+              <span class="field-val">Greffe du Tribunal des Activités Écon. du Mans</span>
+            </p>
+          </div>
+          <div class="cerfa-box">
+            <div class="cerfa-box-title">Procédure <span class="badge-prefilled">✓ Pré-rempli</span></div>
+            <p>
+              <span class="field-label">Nature du jugement</span>
+              <span class="field-val">Jugement d'ouverture d'une procédure de redressement judiciaire</span>
+              <span class="field-label">Date du jugement</span>
+              <span class="field-val">28 juillet 2026</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Créance déclarée -->
+        <div class="cerfa-creance">
+          <div class="cerfa-creance-title">
+            Créance déclarée
+            <span class="cerfa-creance-note">(Le décompte et la liste des pièces sont à joindre en annexe)</span>
+            <span class="badge-prefilled" style="margin-left:8px">✓ Pré-rempli</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:28%"></th>
+                <th>Créance chirographaire<br><span style="font-weight:400;font-size:10px;color:#64748b">(sans privilège)</span></th>
+                <th>Créance privilégiée</th>
+                <th>Observations</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="row-label">Montant échu</td>
+                <td class="amount">551,00 €</td>
+                <td></td>
+                <td style="font-size:11px;color:#64748b">Factures échues au 26/08/2026</td>
+              </tr>
+              <tr>
+                <td class="row-label">Montant à échoir</td>
+                <td class="amount">207,56 €</td>
+                <td></td>
+                <td style="font-size:11px;color:#64748b">Factures à échéance future</td>
+              </tr>
+              <tr>
+                <td class="row-label">Total T.T.C.</td>
+                <td class="total">758,56 €</td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Fait à + Représentant -->
+        <div class="cerfa-footer-row">
+          <div class="cerfa-footer-left">
+            <span class="line label">Fait à</span>
+            <div class="line">Paris</div>
+            <span class="line label">Le</span>
+            <div class="line">26 août 2026</div>
+            <span class="line label">Nom et qualité du signataire</span>
+            <div class="line" style="color:#94a3b8;font-style:italic;font-size:12px">À compléter avant envoi</div>
+            <div style="margin-top:16px;font-size:11px;color:#475569">
+              <b>requiert l'admission de sa créance pour un montant total de</b>
+              <span style="color:#C07840;font-weight:700;font-size:14px"> 758,56 €</span> <b>T.T.C.</b>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#64748b;font-style:italic">Certifié sincère — SIGNATURE</div>
+          </div>
+          <div>
+            <div class="cerfa-mandataire-box">
+              <div class="cerfa-box-title">Représentant des créanciers <span class="badge-manual">À compléter</span></div>
+              <p class="field-empty" style="font-size:11px">Coordonnées du mandataire judiciaire désigné par le tribunal — à récupérer dans le complément jugement</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- /page2 -->
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <div class="footer-left">
+        <button class="btn btn-ghost" id="btn-cancel">Annuler</button>
+      </div>
+      <div class="footer-right" id="footer-p1">
+        <button class="btn btn-teal-outline" id="btn-declaration" onclick="goTo(2)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Déclaration
+        </button>
+        <button class="btn btn-teal">Sauvegarder</button>
+      </div>
+      <div class="footer-right hidden" id="footer-p2">
+        <button class="btn btn-ghost" onclick="goTo(1)">← Retour suivi</button>
+        <button class="btn btn-navy">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Télécharger PDF
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function goTo(page) {
+    const p1 = document.getElementById('page1')
+    const p2 = document.getElementById('page2')
+    const fp1 = document.getElementById('footer-p1')
+    const fp2 = document.getElementById('footer-p2')
+    const num1 = document.getElementById('num1')
+    const num2 = document.getElementById('num2')
+    const lbl1 = document.getElementById('lbl1')
+    const lbl2 = document.getElementById('lbl2')
+
+    if (page === 1) {
+      p1.classList.remove('hidden'); p2.classList.add('hidden')
+      fp1.classList.remove('hidden'); fp2.classList.add('hidden')
+      num1.className = 'step-num active'; lbl1.className = 'step-label active'
+      num2.className = 'step-num inactive'; lbl2.className = 'step-label inactive'
+    } else {
+      p1.classList.add('hidden'); p2.classList.remove('hidden')
+      fp1.classList.add('hidden'); fp2.classList.remove('hidden')
+      num1.className = 'step-num done'; lbl1.className = 'step-label inactive'
+      num2.className = 'step-num active'; lbl2.className = 'step-label active'
+    }
+  }
+  goTo(1)
+</script>
+</body>
+</html>

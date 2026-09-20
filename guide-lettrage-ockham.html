@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Guide Lettrage — OCKHAM</title>
+<style>
+  :root {
+    --navy: #0E1A2B;
+    --navy-mid: #1A2D47;
+    --teal: #4CC5BB;
+    --teal-dark: #3aafa6;
+    --teal-muted: #EAF8F7;
+    --indigo: #4F46E5;
+    --indigo-muted: #EEF2FF;
+    --orange: #F97316;
+    --orange-muted: #FFF7ED;
+    --emerald: #10B981;
+    --emerald-muted: #ECFDF5;
+    --amber: #F59E0B;
+    --amber-muted: #FFFBEB;
+    --red: #EF4444;
+    --red-muted: #FEF2F2;
+    --gray-50: #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-400: #9CA3AF;
+    --gray-500: #6B7280;
+    --gray-700: #374151;
+    --gray-800: #1F2937;
+    --gray-900: #111827;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.6;
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── SIDEBAR ── */
+  nav {
+    width: 260px;
+    min-width: 260px;
+    background: var(--navy);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 24px;
+  }
+
+  .nav-logo {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    margin-bottom: 8px;
+  }
+
+  .nav-logo-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--teal);
+    letter-spacing: -0.3px;
+  }
+
+  .nav-logo-sub {
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 2px;
+  }
+
+  .nav-section {
+    padding: 12px 20px 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.25);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+
+  nav a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 20px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+    text-decoration: none;
+    transition: all 0.15s;
+    border-left: 3px solid transparent;
+  }
+
+  nav a:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.05);
+    border-left-color: var(--teal);
+  }
+
+  nav a .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--teal);
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  /* ── MAIN ── */
+  main {
+    flex: 1;
+    padding: 48px 56px;
+    max-width: 900px;
+  }
+
+  .page-header {
+    margin-bottom: 48px;
+    padding-bottom: 24px;
+    border-bottom: 2px solid var(--gray-200);
+  }
+
+  .badge-version {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--teal-dark);
+    background: var(--teal-muted);
+    border: 1px solid #c0ece9;
+    border-radius: 20px;
+    padding: 3px 10px;
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--navy);
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span { color: var(--teal-dark); }
+
+  .subtitle {
+    font-size: 16px;
+    color: var(--gray-500);
+    margin-top: 10px;
+  }
+
+  /* ── SECTIONS ── */
+  section {
+    margin-bottom: 64px;
+    scroll-margin-top: 32px;
+  }
+
+  h2 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--teal);
+    font-size: 13px;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  .section-lead {
+    font-size: 14px;
+    color: var(--gray-500);
+    margin-bottom: 24px;
+    padding-left: 40px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 14px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ── STEPS ── */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+
+  .step {
+    display: flex;
+    gap: 16px;
+    padding: 14px 0;
+    border-left: 2px solid var(--gray-200);
+    padding-left: 20px;
+    margin-left: 14px;
+    position: relative;
+  }
+
+  .step:last-child { border-left-color: transparent; }
+
+  .step-num {
+    position: absolute;
+    left: -14px;
+    top: 16px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: var(--teal);
+    font-size: 11px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-content { flex: 1; padding-top: 2px; }
+
+  .step-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin-bottom: 4px;
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: var(--gray-500);
+    line-height: 1.55;
+  }
+
+  /* ── CALLOUTS ── */
+  .callout {
+    display: flex;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .callout-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  .callout.info { background: var(--teal-muted); color: #1a6b66; border: 1px solid #c0ece9; }
+  .callout.warning { background: var(--amber-muted); color: #92400e; border: 1px solid #fcd34d; }
+  .callout.danger { background: var(--red-muted); color: #991b1b; border: 1px solid #fca5a5; }
+  .callout.success { background: var(--emerald-muted); color: #065f46; border: 1px solid #6ee7b7; }
+  .callout.rule { background: var(--indigo-muted); color: #3730a3; border: 1px solid #c7d2fe; }
+
+  /* ── MOCKUPS ── */
+  .mockup {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+
+  .mockup-bar {
+    background: var(--navy);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mockup-bar-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .mockup-bar-title {
+    font-size: 11px;
+    color: rgba(255,255,255,0.5);
+    font-weight: 600;
+    margin-left: 8px;
+  }
+
+  .mockup-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--gray-200);
+    padding: 0 16px;
+    background: #fff;
+    overflow-x: auto;
+  }
+
+  .mockup-tab {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-400);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  .mockup-tab.active {
+    color: var(--teal-dark);
+    border-bottom-color: var(--teal);
+  }
+
+  .mockup-tab .count {
+    display: inline-block;
+    font-size: 10px;
+    background: var(--gray-100);
+    color: var(--gray-500);
+    border-radius: 10px;
+    padding: 1px 6px;
+    margin-left: 4px;
+    font-weight: 700;
+  }
+
+  .mockup-tab.active .count {
+    background: var(--teal-muted);
+    color: var(--teal-dark);
+  }
+
+  .mockup-body { padding: 12px 16px; }
+
+  .mockup-row {
+    display: grid;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    margin-bottom: 4px;
+    cursor: default;
+  }
+
+  .mockup-row:hover { background: var(--gray-50); }
+  .mockup-row.selected { background: var(--teal-muted); border: 1px solid #c0ece9; }
+  .mockup-row.header { font-size: 10px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+  }
+
+  .badge-lettre { background: var(--emerald-muted); color: #065f46; }
+  .badge-attente { background: var(--amber-muted); color: #92400e; }
+  .badge-partiel { background: #FEF3C7; color: #92400e; }
+  .badge-411 { background: var(--indigo-muted); color: var(--indigo); }
+  .badge-non { background: var(--gray-100); color: var(--gray-500); }
+  .badge-lcr { background: #E0F2FE; color: #075985; }
+
+  /* ── STATUS GRID ── */
+  .status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .status-item {
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+  }
+
+  .status-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 4px;
+  }
+
+  .status-desc { font-size: 12px; color: var(--gray-500); }
+
+  /* ── TWO-COLUMN ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* ── TABLE ── */
+  table.ref {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  table.ref th {
+    background: var(--gray-50);
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gray-400);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  table.ref td {
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    vertical-align: top;
+  }
+
+  table.ref tr:last-child td { border-bottom: none; }
+
+  code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    background: var(--gray-100);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--navy);
+  }
+
+  /* ── TIMELINE ── */
+  .timeline {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    margin: 16px 0;
+    position: relative;
+  }
+
+  .tl-item {
+    flex: 1;
+    text-align: center;
+    position: relative;
+  }
+
+  .tl-item::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    right: 0;
+    left: 50%;
+    height: 2px;
+    background: var(--gray-200);
+  }
+
+  .tl-item:last-child::before { display: none; }
+
+  .tl-dot {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 800;
+    margin: 0 auto 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tl-label { font-size: 11px; font-weight: 700; color: var(--gray-700); line-height: 1.3; }
+  .tl-sub { font-size: 10px; color: var(--gray-400); margin-top: 2px; }
+
+  /* ── HR ── */
+  hr { border: none; border-top: 1px solid var(--gray-200); margin: 32px 0; }
+
+  /* Print */
+  @media print {
+    nav { display: none; }
+    main { padding: 24px; max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══ SIDEBAR NAV ══ -->
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-title">OCKHAM</div>
+    <div class="nav-logo-sub">Module Lettrage · Guide opérateur</div>
+  </div>
+
+  <div class="nav-section">Démarrage</div>
+  <a href="#intro"><span class="dot"></span> Présentation générale</a>
+  <a href="#statuts"><span class="dot"></span> Codes statuts</a>
+
+  <div class="nav-section">Cas d'usage</div>
+  <a href="#lettrage-direct"><span class="dot"></span> Lettrage direct</a>
+  <a href="#detection-auto"><span class="dot"></span> Détection automatique</a>
+  <a href="#411-client"><span class="dot"></span> Compte 411 Client</a>
+  <a href="#411-attente"><span class="dot"></span> 411 Attente</a>
+  <a href="#lcr-cheque"><span class="dot"></span> LCR &amp; Chèques</a>
+
+  <div class="nav-section">Finalisation</div>
+  <a href="#export"><span class="dot"></span> Export comptable</a>
+  <a href="#correction"><span class="dot"></span> Correction d'un lettrage</a>
+
+  <div class="nav-section">Référence</div>
+  <a href="#regles"><span class="dot"></span> Règles de dates</a>
+  <a href="#faq"><span class="dot"></span> Questions fréquentes</a>
+</nav>
+
+<!-- ══ MAIN CONTENT ══ -->
+<main>
+
+  <!-- PAGE HEADER -->
+  <div class="page-header">
+    <div class="badge-version">Guide opérateur v2026</div>
+    <h1>Module <span>Lettrage</span><br>Guide d'utilisation</h1>
+    <p class="subtitle">Réconciliation des virements bancaires avec vos factures clients — pas à pas.</p>
+  </div>
+
+
+  <!-- ══ SECTION 1 : PRÉSENTATION ══ -->
+  <section id="intro">
+    <h2><span class="section-num">1</span> Présentation générale</h2>
+    <p class="section-lead">Le module de lettrage est le cœur de la réconciliation comptable. Il permet de faire correspondre chaque virement reçu sur votre compte bancaire avec une ou plusieurs factures clients.</p>
+
+    <div class="callout info">
+      <span class="callout-icon">💡</span>
+      <div>
+        <strong>Principe fondamental</strong><br>
+        Chaque crédit sur votre relevé bancaire doit être "lettré" — c'est-à-dire relié à une ou plusieurs factures. Une ligne non lettrée reste en suspens jusqu'à l'export comptable.
+      </div>
+    </div>
+
+    <!-- Mockup de l'interface principale -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <div class="mockup-bar-dot" style="background:#EF4444"></div>
+        <div class="mockup-bar-dot" style="background:#F59E0B"></div>
+        <div class="mockup-bar-dot" style="background:#10B981"></div>
+        <span class="mockup-bar-title">Module Lettrage — Vue principale</span>
+      </div>
+      <div class="mockup-tabs">
+        <div class="mockup-tab active">À lettrer <span class="count">12</span></div>
+        <div class="mockup-tab">Partiels <span class="count">3</span></div>
+        <div class="mockup-tab">Lettrés <span class="count">247</span></div>
+        <div class="mockup-tab">Compte <span class="count">5</span></div>
+        <div class="mockup-tab">Remises <span class="count">2</span></div>
+        <div class="mockup-tab">Export</div>
+      </div>
+      <div class="mockup-body">
+        <div class="mockup-row header" style="grid-template-columns: 90px 1fr 80px 100px 90px">
+          <span>Date</span><span>Libellé</span><span>Montant</span><span>Statut</span><span>Action</span>
+        </div>
+        <div class="mockup-row" style="grid-template-columns: 90px 1fr 80px 100px 90px">
+          <span style="color:var(--gray-400);font-size:11px">30/04/2026</span>
+          <span style="font-weight:600;font-size:12px">VIR SEPA NOVAPEX<br><span style="font-size:10px;color:var(--gray-400)">REF/2026040713</span></span>
+          <span style="font-weight:700;font-size:13px;color:var(--teal-dark)">181,03 €</span>
+          <span><div class="badge badge-non">Non lettré</div></span>
+          <span style="font-size:11px;color:var(--teal-dark);font-weight:600;cursor:pointer">Lettrer →</span>
+        </div>
+        <div class="mockup-row selected" style="grid-template-columns: 90px 1fr 80px 100px 90px">
+          <span style="color:var(--gray-400);font-size:11px">28/04/2026</span>
+          <span style="font-weight:600;font-size:12px">VIR SEPA DUPONT SARL<br><span style="font-size:10px;color:var(--gray-400)">REF/2026042801</span></span>
+          <span style="font-weight:700;font-size:13px;color:var(--teal-dark)">2 450,00 €</span>
+          <span><div class="badge badge-non">Non lettré</div></span>
+          <span style="font-size:11px;color:var(--teal-dark);font-weight:600;cursor:pointer">Lettrer →</span>
+        </div>
+        <div class="mockup-row" style="grid-template-columns: 90px 1fr 80px 100px 90px">
+          <span style="color:var(--gray-400);font-size:11px">25/04/2026</span>
+          <span style="font-weight:600;font-size:12px">VIR SEPA MARTIN ET CIE</span>
+          <span style="font-weight:700;font-size:13px;color:var(--teal-dark)">795,60 €</span>
+          <span><div class="badge badge-partiel">Partiel</div></span>
+          <span style="font-size:11px;color:var(--teal-dark);font-weight:600;cursor:pointer">Compléter →</span>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:13px;color:var(--gray-500);margin-bottom:16px">Les onglets permettent de naviguer entre les différents états des lignes bancaires :</p>
+
+    <div class="status-grid">
+      <div class="status-item">
+        <div class="status-label" style="color:var(--gray-500)">À lettrer</div>
+        <div class="status-desc">Virements reçus, pas encore affectés à une facture.</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label" style="color:var(--amber)">Partiels</div>
+        <div class="status-desc">Montant partiellement lettré — un reliquat reste à affecter.</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label" style="color:var(--emerald)">Lettrés</div>
+        <div class="status-desc">100 % du montant affecté. Éligibles à l'export comptable.</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label" style="color:var(--indigo)">Compte</div>
+        <div class="status-desc">Virements en attente d'identification ou d'affectation fine (411).</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label" style="color:#075985">Remises</div>
+        <div class="status-desc">LCR et chèques saisis en anticipation de l'encaissement.</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label" style="color:var(--teal-dark)">Export</div>
+        <div class="status-desc">Génération de l'export comptable sur une période donnée.</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 2 : STATUTS ══ -->
+  <section id="statuts">
+    <h2><span class="section-num">2</span> Codes couleur et statuts</h2>
+    <p class="section-lead">Chaque ligne bancaire affiche un badge coloré indiquant son état de traitement.</p>
+
+    <table class="ref">
+      <thead>
+        <tr>
+          <th>Badge</th>
+          <th>Signification</th>
+          <th>Action requise</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-non">Non lettré</span></td>
+          <td>Virement reçu, aucune affectation</td>
+          <td>Lettrer sur une ou plusieurs factures</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-partiel">Partiel</span></td>
+          <td>Une partie seulement est lettrée</td>
+          <td>Compléter ou laisser en suspens si justifié</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-lettre">✓ Lettré</span></td>
+          <td>100 % du montant affecté</td>
+          <td>Rien — prêt pour l'export comptable</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-411">411 Client</span></td>
+          <td>Client identifié, factures à affecter</td>
+          <td>Dispatcher depuis l'onglet Compte</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-attente">411 Attente</span></td>
+          <td>Client non encore identifié</td>
+          <td>Identifier puis dispatcher</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-lcr">LCR / CHQ</span></td>
+          <td>Titre de paiement saisi en anticipation</td>
+          <td>Associer à la ligne bancaire à réception</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ══ SECTION 3 : LETTRAGE DIRECT ══ -->
+  <section id="lettrage-direct">
+    <h2><span class="section-num">3</span> Lettrage direct</h2>
+    <p class="section-lead">Cas le plus courant : un virement client correspond directement à une ou plusieurs factures identifiables.</p>
+
+    <div class="callout rule">
+      <span class="callout-icon">📅</span>
+      <div><strong>Règle de date</strong> — La date du lettrage est automatiquement celle de la ligne bancaire (date du virement). Vous n'avez rien à saisir.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Procédure pas à pas</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Sélectionner une ligne dans l'onglet "À lettrer"</div>
+            <div class="step-desc">Cliquez sur la ligne bancaire à traiter. Le panneau de lettrage s'ouvre à droite avec le montant disponible à affecter.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Saisir le ou les numéros de factures</div>
+            <div class="step-desc">Tapez directement un numéro de facture — le système cherche automatiquement et affiche le solde restant dû. Vous pouvez ajouter plusieurs lignes pour ventiler le virement.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Vérifier les montants</div>
+            <div class="step-desc">La barre de progression indique le % attribué. Un badge vert "100 %" confirme l'équilibre parfait. Vous pouvez aussi laisser un reliquat si le virement ne couvre pas tout.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Valider</div>
+            <div class="step-desc">Cliquez sur "Valider le lettrage". La ligne passe en statut <span class="badge badge-lettre">Lettré</span> ou <span class="badge badge-partiel">Partiel</span> selon le montant attribué.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mockup panneau lettrage -->
+    <div class="mockup">
+      <div class="mockup-bar">
+        <span class="mockup-bar-title">Panneau de lettrage — VIR SEPA NOVAPEX · 181,03 €</span>
+      </div>
+      <div class="mockup-body" style="display:grid;grid-template-columns:1fr 280px;gap:16px">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Affecter à des factures</div>
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+            <div style="display:flex;gap:8px;align-items:center">
+              <input style="flex:1;border:1px solid #c7d2fe;border-radius:6px;padding:6px 10px;font-size:12px;font-family:monospace;background:white" value="2026040016" readonly />
+              <input style="width:80px;border:1px solid var(--gray-200);border-radius:6px;padding:6px 8px;font-size:12px;text-align:right;font-family:monospace" value="181,03" readonly />
+            </div>
+            <div style="font-size:10px;color:var(--emerald);font-weight:600;margin-top:6px">✓ NOVAPEX · reste dû : 181,03 €</div>
+          </div>
+          <button style="width:100%;border:1px dashed var(--gray-200);border-radius:8px;padding:8px;font-size:12px;color:var(--gray-400);background:transparent;cursor:pointer">+ Ajouter une ligne</button>
+        </div>
+        <div style="border-left:1px solid var(--gray-200);padding-left:16px">
+          <div style="background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:12px;margin-bottom:12px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--gray-400)">Disponible</span><span style="font-weight:700">181,03 €</span></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px"><span style="color:var(--gray-400)">Attribué</span><span style="font-weight:700;color:var(--emerald)">181,03 €</span></div>
+            <div style="border-top:1px solid var(--gray-200);margin:8px 0"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px">
+              <span style="font-weight:600">Restant</span>
+              <div style="display:flex;align-items:center;gap:6px">
+                <span style="font-weight:800;color:var(--emerald)">0,00 €</span>
+                <span style="font-size:10px;background:var(--emerald-muted);color:var(--emerald);border-radius:10px;padding:2px 8px;font-weight:700">✓ 100 %</span>
+              </div>
+            </div>
+          </div>
+          <button style="width:100%;background:var(--indigo);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:700;cursor:pointer">✓ Valider le lettrage</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="callout success">
+        <span class="callout-icon">✅</span>
+        <div><strong>Annuler avant export</strong><br>Cliquez sur la croix (×) de la ligne lettrée pour annuler. Le solde de la facture est restauré immédiatement.</div>
+      </div>
+      <div class="callout warning">
+        <span class="callout-icon">🔒</span>
+        <div><strong>Après l'export</strong><br>La ligne est verrouillée. Toute correction doit passer par le module dédié (voir section 7).</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 4 : DÉTECTION AUTO ══ -->
+  <section id="detection-auto">
+    <h2><span class="section-num">4</span> Détection automatique</h2>
+    <p class="section-lead">Le bouton "Détection auto" analyse le libellé du virement et propose les factures les plus probables. Utile pour les clients réguliers ou quand la référence est lisible dans le libellé.</p>
+
+    <div class="card">
+      <div class="card-title">🔍 Comment fonctionne la détection</div>
+      <table class="ref" style="margin-bottom:0">
+        <thead>
+          <tr><th>Source de suggestion</th><th>Badge</th><th>Fiabilité</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>N° de facture détecté dans le libellé du virement</td>
+            <td><span class="badge" style="background:#f3e8ff;color:#6b21a8">N° détecté</span></td>
+            <td>⬤⬤⬤ Haute</td>
+          </tr>
+          <tr>
+            <td>Client reconnu via historique de virements SEPA</td>
+            <td><span class="badge" style="background:#dbeafe;color:#1e40af">Client reconnu</span></td>
+            <td>⬤⬤◯ Moyenne à haute</td>
+          </tr>
+          <tr>
+            <td>Factures lettrées sur des virements similaires</td>
+            <td><span class="badge" style="background:var(--emerald-muted);color:var(--emerald)">Historique</span></td>
+            <td>⬤◯◯ Indicative</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">💡</span>
+      <div>Vous pouvez aussi <strong>rechercher manuellement</strong> par code client, nom ou numéro de facture dans la barre de recherche de la modale. Les résultats montrent le montant TTC et le restant dû en temps réel.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Procédure</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Cliquer sur "Détection auto"</div>
+            <div class="step-desc">Disponible dans le panneau de lettrage, dans les vues 411 Client et 411 Attente.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Sélectionner les factures proposées</div>
+            <div class="step-desc">Cochez une ou plusieurs factures dans la liste. Le total sélectionné s'affiche en bas de la modale.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Injecter dans le formulaire</div>
+            <div class="step-desc">Cliquez sur "↗ Injecter dans le formulaire". Les lignes sont automatiquement pré-remplies avec les montants correspondants.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">Valider comme pour un lettrage classique</div>
+            <div class="step-desc">Ajustez les montants si nécessaire, puis validez.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 5 : 411 CLIENT ══ -->
+  <section id="411-client">
+    <h2><span class="section-num">5</span> Compte 411 Client</h2>
+    <p class="section-lead">Quand un virement est clairement d'un client identifié mais qu'on ne sait pas encore sur quelle facture l'affecter, on l'impute à son compte 411. C'est un compte transitoire, à dispatcher ensuite.</p>
+
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot" style="background:var(--indigo-muted);color:var(--indigo)">1</div>
+        <div class="tl-label">Affectation<br>au 411</div>
+        <div class="tl-sub">Date du virement</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot" style="background:var(--amber-muted);color:var(--amber)">⟳</div>
+        <div class="tl-label">En attente<br>d'affectation</div>
+        <div class="tl-sub">Vue "Compte"</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot" style="background:var(--emerald-muted);color:var(--emerald)">2</div>
+        <div class="tl-label">Dispatch sur<br>les factures</div>
+        <div class="tl-sub">Date du jour</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot" style="background:var(--teal-muted);color:var(--teal-dark)">✓</div>
+        <div class="tl-label">Ligne lettrée<br>sur factures</div>
+        <div class="tl-sub">Prêt à exporter</div>
+      </div>
+    </div>
+
+    <div class="callout rule">
+      <span class="callout-icon">📅</span>
+      <div>
+        <strong>Deux dates différentes :</strong><br>
+        • L'affectation initiale au compte 411 prend la <strong>date du virement bancaire</strong><br>
+        • Le dispatch sur les factures réelles prend la <strong>date du jour du dispatch</strong>
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title" style="color:var(--indigo)">Étape 1 — Affecter au 411</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Dans "À lettrer", sélectionner la ligne</div>
+              <div class="step-desc">Ouvrir le panneau de lettrage.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Choisir "Compte client" dans le sélecteur</div>
+              <div class="step-desc">Saisir le code client (ex : 61108). Le montant s'affecte au compte <code>411_61108</code>.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Valider</div>
+              <div class="step-desc">La ligne bancaire passe en <span class="badge badge-lettre">Lettré</span>. La ligne apparaît dans l'onglet "Compte".</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--emerald)">Étape 2 — Dispatcher depuis "Compte"</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Aller dans l'onglet "Compte"</div>
+              <div class="step-desc">Toutes les lignes en attente de dispatch sont listées.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Sélectionner la ligne 411</div>
+              <div class="step-desc">Le panneau affiche le crédit disponible et les factures du client (via "Détection auto").</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Dispatcher ce compte 411</div>
+              <div class="step-desc">Le crédit 411 est annulé et remplacé par de vrais lettrages sur les factures. La ligne quitte la vue "Compte".</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">🔄</span>
+      <div><strong>Annulation du dispatch</strong> — Si le dispatch a été fait par erreur, retrouvez la ligne dans l'onglet "Lettrés", annulez les lettrages correspondants. Le crédit 411 est restauré et la ligne réapparaît dans la vue "Compte" pour un nouveau dispatch.</div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 6 : 411 ATTENTE ══ -->
+  <section id="411-attente">
+    <h2><span class="section-num">6</span> 411 Attente</h2>
+    <p class="section-lead">Un virement reçu mais dont le client n'est pas encore identifié. On le classe en "Attente" le temps de faire les recherches nécessaires.</p>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>Différence avec 411 Client</strong> — Le 411 Attente est un compte commun à tous les virements non identifiés. Il ne porte pas de code client spécifique. Une fois le client identifié, on dispatche directement sur ses factures.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Procédure complète</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Affecter en "411 Attente" depuis "À lettrer"</div>
+            <div class="step-desc">Dans le panneau de lettrage, choisir "411 Attente" dans le sélecteur. La ligne est marquée comme en attente — elle n'est pas encore affectée à un client ni à une facture.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">La ligne apparaît dans l'onglet "Compte"</div>
+            <div class="step-desc">Avec un badge orange distinctif. Elle reste visible jusqu'à ce qu'elle soit intégralement dispatchée.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Dispatcher une fois le client identifié</div>
+            <div class="step-desc">Sélectionner la ligne, utiliser "Détection auto" ou saisir les numéros de factures manuellement, puis valider. La date du dispatch = date du jour.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-content">
+            <div class="step-title">La ligne quitte la vue "Compte"</div>
+            <div class="step-desc">Les vrais lettrages sont créés sur les factures du client. Le virement est désormais réconcilié.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout rule">
+      <span class="callout-icon">📅</span>
+      <div>
+        <strong>Dates :</strong><br>
+        • Affectation initiale en "Attente" : <strong>date du virement</strong> (pour l'export comptable)<br>
+        • Dispatch sur les factures : <strong>date du jour du dispatch</strong>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 7 : LCR / CHÈQUE ══ -->
+  <section id="lcr-cheque">
+    <h2><span class="section-num">7</span> LCR et Chèques</h2>
+    <p class="section-lead">Les Lettres de Change Relevé (LCR) et remises de chèques fonctionnent en deux temps : saisie anticipée, puis confirmation à réception bancaire.</p>
+
+    <div class="callout info">
+      <span class="callout-icon">💡</span>
+      <div><strong>Principe</strong> — Vous saisissez la remise avec les numéros de factures <em>avant</em> que la banque ne valide. Cela permet de voir le solde prévisionnel des factures. La facture est officiellement payée seulement quand la ligne bancaire arrive et est associée.</div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title" style="color:#075985">Phase 1 — Saisir la remise</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Onglet "Remises" → "Saisir une remise"</div>
+              <div class="step-desc">Choisissez le type (Chèque ou LCR), le numéro de bordereau.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Pour LCR : saisir le montant total</div>
+              <div class="step-desc">Le système vérifie que la somme des factures correspond (tolérance ±5 centimes).</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Ajouter les numéros de factures</div>
+              <div class="step-desc">Tapez chaque numéro — le montant restant dû est proposé automatiquement.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Créer la remise</div>
+              <div class="step-desc">La remise apparaît en <strong>"À encaisser"</strong>. Les factures affichent un solde prévisionnel.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="color:var(--emerald)">Phase 2 — Encaisser</div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">La ligne bancaire apparaît dans "À lettrer"</div>
+              <div class="step-desc">La banque a crédité le montant de la remise.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">Sélectionner la ligne → choisir la remise</div>
+              <div class="step-desc">Dans le panneau, choisir "LCR" ou "Chèque" et sélectionner la remise correspondante.</div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Valider l'encaissement</div>
+              <div class="step-desc">Les factures sont officiellement payées à la <strong>date de la ligne bancaire</strong>. La remise passe en "Encaissée".</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout warning">
+      <span class="callout-icon">⚠️</span>
+      <div><strong>Une remise encaissée ne peut plus être modifiée.</strong> En cas d'erreur après encaissement, contactez votre administrateur pour une correction via le module dédié.</div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 8 : EXPORT ══ -->
+  <section id="export">
+    <h2><span class="section-num">8</span> Export comptable</h2>
+    <p class="section-lead">L'export génère un fichier comptable couvrant toutes les lignes 100 % lettrées sur la période sélectionnée et les verrouille définitivement.</p>
+
+    <div class="callout danger">
+      <span class="callout-icon">🔒</span>
+      <div><strong>Action irréversible</strong> — Une fois l'export lancé, toutes les lignes incluses sont verrouillées. Elles ne peuvent plus être annulées simplement. Toute correction nécessite le module de correction.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Procédure d'export</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Aller dans l'onglet "Export"</div>
+            <div class="step-desc">Sélectionner la plage de dates (début / fin de période comptable).</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Lancer l'aperçu</div>
+            <div class="step-desc">Le système affiche un résumé : nombre de lignes, montant total, compensations, corrections incluses. Vérifiez avant de continuer.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Confirmer et exporter</div>
+            <div class="step-desc">Téléchargez le fichier Excel. Les lignes sont verrouillées simultanément — tout écart doit être traité en correction.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>
+        <strong>Ce qui est inclus dans l'export :</strong><br>
+        • Toutes les lignes bancaires 100 % lettrées sur la période<br>
+        • Les compensations avoir/facture de la période<br>
+        • Les corrections de lettrage de la période<br><br>
+        <strong>Ce qui n'est pas inclus :</strong> lignes partielles, 411 non dispatchés, remises non encaissées.
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 9 : CORRECTION ══ -->
+  <section id="correction">
+    <h2><span class="section-num">9</span> Correction d'un lettrage</h2>
+    <p class="section-lead">Après export, si une erreur est détectée, le module de correction permet de délettrer et relettre sans casser la cohérence comptable.</p>
+
+    <div class="two-col">
+      <div class="card" style="border-left: 3px solid var(--emerald)">
+        <div class="card-title">Avant l'export</div>
+        <p style="font-size:13px;color:var(--gray-500)">Annulation simple via la croix (×) sur la ligne dans l'onglet "Lettrés".<br><br>Le solde de la facture est restauré immédiatement. Aucune trace comptable.</p>
+      </div>
+      <div class="card" style="border-left: 3px solid var(--orange)">
+        <div class="card-title">Après l'export</div>
+        <p style="font-size:13px;color:var(--gray-500)">Module de correction (accessible depuis la barre d'actions).<br><br>Une écriture de contre-passation est créée (montant négatif) puis une nouvelle affectation sur la bonne facture. Traçabilité comptable complète.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔧 Procédure de correction post-export</div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <div class="step-title">Ouvrir le module de correction</div>
+            <div class="step-desc">Bouton "Corriger un lettrage" dans la barre d'actions du module Lettrage.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <div class="step-title">Saisir les montants à corriger</div>
+            <div class="step-desc">Entrez un montant <strong>négatif</strong> pour la facture à délettrer, un montant <strong>positif</strong> pour la facture à relettre. Le total doit être égal à zéro.</div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <div class="step-title">Valider la correction</div>
+            <div class="step-desc">Les écritures de correction sont créées et seront incluses dans le prochain export comptable. L'historique des corrections est consultable dans l'onglet "Historique" du module.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout success">
+      <span class="callout-icon">✅</span>
+      <div><strong>La correction est toujours possible</strong>, même après export. Les nouvelles écritures (correction + reletrage) seront incluses dans le prochain export de la période concernée. Aucune modification de l'export passé.</div>
+    </div>
+  </section>
+
+
+  <!-- ══ SECTION 10 : RÈGLES DE DATES ══ -->
+  <section id="regles">
+    <h2><span class="section-num">10</span> Règles de dates — référence</h2>
+    <p class="section-lead">La date du lettrage est déterminante pour la comptabilité. Voici les règles qui s'appliquent à chaque opération.</p>
+
+    <table class="ref">
+      <thead>
+        <tr>
+          <th>Opération</th>
+          <th>Date du lettrage</th>
+          <th>Remarque</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Lettrage direct</strong> (virement → facture)</td>
+          <td><span class="badge" style="background:var(--indigo-muted);color:var(--indigo)">Date du virement</span></td>
+          <td>Automatique, non modifiable</td>
+        </tr>
+        <tr>
+          <td><strong>411 Client</strong> — affectation initiale</td>
+          <td><span class="badge" style="background:var(--indigo-muted);color:var(--indigo)">Date du virement</span></td>
+          <td>Apparaît dans l'export comptable</td>
+        </tr>
+        <tr>
+          <td><strong>411 Client</strong> — dispatch sur factures</td>
+          <td><span class="badge" style="background:var(--emerald-muted);color:var(--emerald)">Date du dispatch</span></td>
+          <td>Jour où l'opérateur effectue le dispatch</td>
+        </tr>
+        <tr>
+          <td><strong>411 Attente</strong> — affectation initiale</td>
+          <td><span class="badge" style="background:var(--indigo-muted);color:var(--indigo)">Date du virement</span></td>
+          <td>Apparaît dans l'export comptable</td>
+        </tr>
+        <tr>
+          <td><strong>411 Attente</strong> — dispatch sur factures</td>
+          <td><span class="badge" style="background:var(--emerald-muted);color:var(--emerald)">Date du dispatch</span></td>
+          <td>Jour où le client est identifié et dispatché</td>
+        </tr>
+        <tr>
+          <td><strong>LCR / Chèque</strong> — encaissement</td>
+          <td><span class="badge" style="background:var(--indigo-muted);color:var(--indigo)">Date du virement</span></td>
+          <td>Date de crédit bancaire, pas de saisie</td>
+        </tr>
+        <tr>
+          <td><strong>Correction post-export</strong></td>
+          <td><span class="badge" style="background:var(--emerald-muted);color:var(--emerald)">Date du jour</span></td>
+          <td>Visible dans l'export suivant</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+
+  <!-- ══ SECTION 11 : FAQ ══ -->
+  <section id="faq">
+    <h2><span class="section-num">11</span> Questions fréquentes</h2>
+    <p class="section-lead">Les situations les plus courantes rencontrées en utilisation quotidienne.</p>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">❓ Un virement couvre plusieurs factures de montants différents</div>
+      <p style="font-size:13px;color:var(--gray-500)">Ajoutez autant de lignes que nécessaire dans le panneau de lettrage. Chaque ligne correspond à une facture. Le système vérifie que la somme ne dépasse pas le montant disponible.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">❓ Un virement est supérieur à la facture</div>
+      <p style="font-size:13px;color:var(--gray-500)">Deux options : (1) lettrer partiellement la facture et laisser un reliquat en "Partiel", ou (2) ventiler le surplus sur d'autres factures ou en "Autres" avec un commentaire.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">❓ Je ne trouve pas la facture dans la recherche</div>
+      <p style="font-size:13px;color:var(--gray-500)">La recherche porte sur les <strong>factures avec un solde restant dû non nul</strong>. Une facture déjà soldée n'apparaît pas. Si vous cherchez une facture déjà réglée pour correction, utilisez le module de correction.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">❓ J'ai fait une erreur de dispatch 411 après l'export</div>
+      <p style="font-size:13px;color:var(--gray-500)">Le dispatch 411 génère des écritures de correction — il reste possible même après export. Ouvrez à nouveau la vue "Compte", sélectionnez la ligne et re-dispatchée sur les bonnes factures. Les anciennes écritures de correction seront contre-passées automatiquement.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">❓ Comment retrouver un lettrage passé ?</div>
+      <p style="font-size:13px;color:var(--gray-500)">Dans l'onglet "Lettrés", utilisez le filtre par date ou par client. Vous pouvez aussi rechercher directement depuis la fiche d'un client dans le module Compte Client.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">❓ Quelle est la différence entre "Correction" et "Annulation" ?</div>
+      <p style="font-size:13px;color:var(--gray-500)">
+        <strong>Annulation</strong> (avant export) : suppression pure et simple du lettrage, aucune trace comptable.<br>
+        <strong>Correction</strong> (après export) : création d'une contre-passation + nouveau lettrage. Les deux écritures restent visibles dans l'historique pour la traçabilité comptable.
+      </p>
+    </div>
+  </section>
+
+  <div style="margin-top:48px;padding-top:24px;border-top:1px solid var(--gray-200);font-size:12px;color:var(--gray-400);text-align:center">
+    OCKHAM — Module Lettrage · Guide opérateur · 2026<br>
+    Pour toute question, contactez votre administrateur OCKHAM.
+  </div>
+
+</main>
+
+</body>
+</html>
