@@ -8,6 +8,7 @@ export type TopNb = 5 | 10 | 15
 export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
 export interface TopClient { code: string; nom: string; montant: number }
+export interface MoisActiviteRelance { mois: string; nb_relances: number; nb_clients: number; montant: number }
 export interface TopFacture {
   numero: string; nomClient: string; montant: number
   dateEcheance: string | null; joursRetard: number
@@ -137,6 +138,7 @@ export function useDashboard() {
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number }[]>([])
+  const [activiteRelances, setActiviteRelances] = useState<MoisActiviteRelance[]>([])
   const [chargement, setChargement] = useState(true)
 
   // Encaissements clients agrégés par jour sur 24 mois via RPC
@@ -148,6 +150,12 @@ export function useDashboard() {
         if (data) setEncaissementsRaw(data as { date_operation: string; montant: number }[])
         setChargement(false)
       })
+  }, [])
+
+  // Activité recouvrement : relances envoyées agrégées par mois sur 6 mois glissants
+  useEffect(() => {
+    supabase.rpc('get_activite_relances' as never, { p_nb_mois: 6 } as never)
+      .then(({ data }) => { if (data) setActiviteRelances(data as MoisActiviteRelance[]) })
   }, [])
 
   const factures = useMemo(
@@ -239,6 +247,7 @@ export function useDashboard() {
     topClients, topNbClients, setTopNbClients,
     topFactures, balanceAgee,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
+    activiteRelances,
     encoursCourant, chargement,
     factures, clients,
   }

@@ -2,6 +2,7 @@ import { useDashboard } from '../hooks/useDashboard'
 import { BlocKpis } from '../components/tableau-de-bord/BlocKpis'
 import { BlocAnalyse } from '../components/tableau-de-bord/BlocAnalyse'
 import { BlocEncaissements } from '../components/tableau-de-bord/BlocEncaissements'
+import { BlocActiviteRelances } from '../components/tableau-de-bord/BlocActiviteRelances'
 import { BlocPersonnalise } from '../components/tableau-de-bord/BlocPersonnalise'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,14 @@ export function PageTableauDeBord() {
         <SectionLabel>Évolution des encaissements</SectionLabel>
         <BlocEncaissements {...data} />
       </div>
+
+      {/* Activité recouvrement */}
+      {data.activiteRelances.length > 0 && (
+        <div className="space-y-2">
+          <SectionLabel>Activité recouvrement</SectionLabel>
+          <BlocActiviteRelances {...data} />
+        </div>
+      )}
 
       {/* Widgets */}
       <div className="space-y-2">
