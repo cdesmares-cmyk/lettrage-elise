@@ -1,5 +1,5 @@
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import type { useDashboard, PeriodeEncaissement, PointActiviteRelance } from '../../hooks/useDashboard'
+import type { useDashboard, PeriodeEncaissement } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
 
