@@ -8,7 +8,7 @@ import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } f
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
 import { useRole } from '../../contexts/RoleContext'
-import { RelanceRisqueCell } from './RelanceRisqueCell'
+import { RisqueCell, RelanceCell } from './RelanceRisqueCell'
 import type { NiveauRelance } from './RelanceRisqueCell'
 import type { AlerteScore } from '../../hooks/useAlertesScore'
 
@@ -312,7 +312,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Nom" col="nom" {...thProps} align="left" />
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
-            <ColTh label="Signal · Risque" col="note_risque" {...thProps} align="left" />
+            <ColTh label="Risque" col="note_risque" {...thProps} align="left" />
+            {/* Pas triable : le niveau vient de alertesSignal, pas de la ligne client. */}
+            <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 select-none">
+              <span className="flex items-center justify-start">Relance</span>
+            </th>
             <th
               onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
               className={`px-3 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
@@ -396,7 +400,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{nbPieces}</span>
                   </td>
                   <td className="px-3 py-3">
-                    <RelanceRisqueCell level={signalLevel} score={signalScore} />
+                    <RisqueCell score={signalScore} frozen={alerte?.est_gele ?? false} />
+                  </td>
+                  <td className="px-3 py-3">
+                    <RelanceCell level={signalLevel} jours={alerte?.jours_derniere_relance ?? null} />
                   </td>
                   <td className="px-3 py-3 text-center">
                     <button
@@ -530,7 +537,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
                 {estOuvert && !modeSelection && (
                   <tr key={`${c.code_dso}-fac`}>
-                    <td colSpan={10} className="px-0 py-0 border-b border-gray-100">
+                    <td colSpan={11} className="px-0 py-0 border-b border-gray-100">
                       <div className="bg-gray-50 border-l-2 border-ockham-teal ml-0 overflow-hidden">
                         {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
                           // Toutes les factures sont réglées — pas d'impayée en mémoire

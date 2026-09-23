@@ -1,10 +1,5 @@
 export type NiveauRelance = 0 | 1 | 2 | 3 | 'gel'
 
-interface Props {
-  level: NiveauRelance
-  score: number | null
-}
-
 const BAR_HEIGHTS = [5, 8, 11] as const
 
 function SignalGauge({ level }: { level: NiveauRelance }) {
@@ -61,32 +56,46 @@ function ScoreDisplay({ score, frozen }: { score: number | null; frozen: boolean
   return <span className={`${base} text-[#64748B]`}>{score}</span>
 }
 
-export function RelanceRisqueCell({ level, score }: Props) {
-  // N0 : aucune relance → juste le score, pas de bruit visuel
+/** Colonne « Risque » : le score seul. Barré si le client est gelé. */
+export function RisqueCell({ score, frozen }: { score: number | null; frozen: boolean }) {
+  const label = score === null ? 'Score non calculé'
+    : frozen ? `Client gelé. Score risque ${score} sur 100`
+    : `Score risque ${score} sur 100`
+  return (
+    <div aria-label={label}>
+      <ScoreDisplay score={score} frozen={frozen} />
+    </div>
+  )
+}
+
+/**
+ * Colonne « Relance » : où en est le client, et depuis combien de temps.
+ * Les deux vont ensemble — « N1 · 2 j » on laisse respirer, « N1 · 45 j » on
+ * escalade. Le niveau seul ne distingue pas ces deux cas.
+ * Le gel masque le niveau, comme avant la refonte : à trancher avec la
+ * gradation du risque, pas ici.
+ */
+export function RelanceCell({ level, jours }: { level: NiveauRelance; jours: number | null }) {
   if (level === 0) {
-    return (
-      <div aria-label={score !== null ? `Score risque ${score} sur 100` : 'Score non calculé'}>
-        <ScoreDisplay score={score} frozen={false} />
-      </div>
-    )
+    return <span className="font-mono text-[11px] text-[#94A3B8]" aria-label="Jamais relancé">—</span>
   }
 
-  const frozen = level === 'gel'
+  const afficheJours = level !== 'gel' && jours !== null
   const labelNiveau = level === 'gel' ? 'Client gelé, hors cycle de relance'
     : level === 3 ? 'Niveau 3, mise en demeure recommandée'
     : `Niveau ${level}`
-  const labelScore = score === null ? '' : `. Score risque ${score} sur 100`
+  const labelJours = afficheJours ? `. Dernière relance il y a ${jours} jour${jours > 1 ? 's' : ''}` : ''
 
   return (
-    <div
-      className="flex items-center gap-1.5"
-      role="img"
-      aria-label={`${labelNiveau}${labelScore}`}
-    >
+    <div className="flex items-center gap-1.5" role="img" aria-label={`${labelNiveau}${labelJours}`}>
       <SignalGauge level={level} />
       <LevelCode level={level} />
-      <span className="w-px h-3 bg-gray-200 shrink-0" aria-hidden />
-      <ScoreDisplay score={score} frozen={frozen} />
+      {afficheJours && (
+        <>
+          <span className="text-[10px] text-gray-300 shrink-0" aria-hidden>·</span>
+          <span className="font-mono text-[11px] tabular-nums text-[#64748B] shrink-0">{jours} j</span>
+        </>
+      )}
     </div>
   )
 }

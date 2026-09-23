@@ -12,6 +12,7 @@ export interface AlerteScore {
   score_risque: number
   score_fil_du_jour: number
   niveau_relance: number
+  jours_derniere_relance: number | null
   est_gele: boolean
   date_calcul: string
 }
@@ -29,7 +30,7 @@ export function useAlertesScore() {
       const today = new Date().toISOString().split('T')[0]
       const { data, error } = await supabase
         .from('alertes_score')
-        .select('id, code_client, nom_client, encours_ttc, retard_max_jours, score_risque, score_fil_du_jour, niveau_relance, est_gele, date_calcul')
+        .select('id, code_client, nom_client, encours_ttc, retard_max_jours, score_risque, score_fil_du_jour, niveau_relance, jours_derniere_relance, est_gele, date_calcul')
         .eq('organisation_id', profil.organisation_id)
         .eq('date_calcul', today)
         .order('score_risque', { ascending: false })
