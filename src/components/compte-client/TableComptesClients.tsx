@@ -222,8 +222,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     if (!alertesSignal) return counts
     for (const c of clientsFiltresBase) {
       const a = alertesSignal.get(c.code_dso)
-      if (a?.est_gele) { counts['gel']++; continue }
-      counts[String(a?.niveau_relance ?? 0)]++
+      // Pas de score calculé : le client n'est pas en retard, il n'entre dans
+      // aucun niveau. Le compter en N0 gonflerait la liste "jamais relancé"
+      // avec des clients qu'il n'y a aucune raison de relancer.
+      if (!a) continue
+      if (a.est_gele) { counts['gel']++; continue }
+      counts[String(a.niveau_relance)]++
     }
     return counts
   }, [clientsFiltresBase, alertesSignal])
@@ -233,8 +237,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       if (!alertesSignal || filtreNiveau === 'tous') return true
       const a = alertesSignal.get(c.code_dso)
       if (filtreNiveau === 'gel') return a?.est_gele ?? false
-      if (a?.est_gele) return false
-      return (a?.niveau_relance ?? 0) === filtreNiveau
+      if (!a) return false
+      if (a.est_gele) return false
+      return a.niveau_relance === filtreNiveau
     })
   const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
@@ -273,16 +278,21 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       {alertesSignal && alertesSignal.size > 0 && (
         <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
           <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-1">Niveau</span>
-          {(['tous', 1, 2, 3, 'gel'] as const).map(v => {
+          {(['tous', 0, 1, 2, 3, 'gel'] as const).map(v => {
             const active = filtreNiveau === v
             const count = v === 'tous' ? null : niveauCounts[String(v)]
             const label = v === 'tous' ? 'Tous' : v === 'gel' ? 'GEL' : `N${v}`
             const colorActive = v === 3 ? 'bg-[#B91C1C] text-white' : v === 'gel' ? 'bg-slate-500 text-white' : 'bg-[#0E1A2B] text-white'
-            const colorText = v === 3 ? 'text-[#B91C1C]' : v === 'gel' ? 'text-slate-400' : 'text-gray-600'
+            const colorText = v === 3 ? 'text-[#B91C1C]' : (v === 'gel' || v === 0) ? 'text-slate-400' : 'text-gray-600'
+            const titre = v === 'tous' ? 'Tous les clients'
+              : v === 'gel' ? 'Clients en procédure collective, hors cycle de relance'
+              : v === 0 ? 'En retard, jamais relancé sur les factures encore ouvertes'
+              : `${v} relance${v > 1 ? 's' : ''} envoyée${v > 1 ? 's' : ''} sur les factures encore ouvertes`
             return (
               <button
                 key={String(v)}
                 onClick={() => { setFiltreNiveau(active && v !== 'tous' ? 'tous' : v); setPage(0) }}
+                title={titre}
                 className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-colors ${active ? colorActive : `${colorText} hover:bg-gray-100`}`}
               >
                 {label}{count !== null && <span className={`ml-1 font-normal ${active ? 'opacity-70' : 'text-gray-400'}`}>{count}</span>}
