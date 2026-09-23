@@ -1,37 +1,72 @@
--- Migration 037 : Crons score-calc (6h00) + score-digest (7h30)
--- ⚠️  À exécuter manuellement dans le SQL Editor de Supabase
+-- Migration 037 : Crons score-calc + score-digest
+--
+-- ⚠️  CE FICHIER NE S'EXÉCUTE PAS. Tout y est en commentaire : c'est un mode
+--     d'emploi à copier dans Supabase > SQL Editor. Une tâche planifiée ne peut
+--     pas être créée par une migration ordinaire (droits pg_cron + valeur du
+--     secret, absente du dépôt).
+--
+-- ═══════════════════════════════════════════════════════════════════════════
+--  À LIRE AVANT DE COPIER — corrigé le 2026-09-23
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+--  1. L'en-tête obligatoire est « x-cron-secret », PAS « Authorization: Bearer ».
+--     Depuis le commit 9482718 (juillet 2026), score-calc, score-digest,
+--     bodacc-sync et bodacc-alerts répondent 401 sans ce secret.
+--     Valeur : Dashboard > Edge Functions > Secrets > CRON_SECRET.
+--
+--     La version précédente de ce fichier donnait « Authorization: Bearer ».
+--     L'avoir recopié a tué le calcul des scores du 20 au 23 septembre 2026,
+--     sans la moindre alerte : cron.job_run_details affichait « succeeded »
+--     parce que pg_cron ne juge que l'envoi de la requête, jamais la réponse.
+--     Le code HTTP réel se lit dans Edge Functions > la fonction > Invocations.
+--
+--  2. cron.schedule sous un nom DÉJÀ EXISTANT écrase la tâche sur place et
+--     garde son jobid. Ni doublon, ni message : la tâche qui fonctionnait est
+--     remplacée en silence. Vérifier le jobid retourné (score-calc-daily = 21).
+--
+--  3. Les horaires ci-dessous sont ceux réellement en production, en UTC.
+--     Le calcul doit rester largement avant le digest.
+--
 -- Prérequis : extensions pg_cron et pg_net activées (Database > Extensions)
--- Valeurs à renseigner : Project Settings > General (ref) et API (service_role)
 
--- ── 1. Calcul quotidien des scores à 6h00 UTC ────────────────────────────────
+-- ── 1. Calcul quotidien des scores — 06:00 UTC (08:00 Paris) ─────────────────
 -- SELECT cron.schedule(
 --   'score-calc-daily',
 --   '0 6 * * *',
 --   $$
 --   SELECT net.http_post(
 --     url     := 'https://PROJECT_REF.supabase.co/functions/v1/score-calc',
---     headers := '{"Authorization": "Bearer SERVICE_ROLE_KEY", "Content-Type": "application/json"}'::jsonb,
+--     headers := '{"x-cron-secret": "CRON_SECRET_VALUE", "Content-Type": "application/json"}'::jsonb,
 --     body    := '{}'::jsonb
 --   );
 --   $$
 -- );
 
--- ── 2. Digest email alertes à 7h30 UTC (après score-calc) ────────────────────
+-- ── 2. Digest email des alertes — 16:20 UTC (18:20 Paris) ────────────────────
 -- SELECT cron.schedule(
 --   'score-digest-daily',
---   '30 7 * * *',
+--   '20 16 * * *',
 --   $$
 --   SELECT net.http_post(
 --     url     := 'https://PROJECT_REF.supabase.co/functions/v1/score-digest',
---     headers := '{"Authorization": "Bearer SERVICE_ROLE_KEY", "Content-Type": "application/json"}'::jsonb,
+--     headers := '{"x-cron-secret": "CRON_SECRET_VALUE", "Content-Type": "application/json"}'::jsonb,
 --     body    := '{}'::jsonb
 --   );
 --   $$
 -- );
 
--- ── Vérifier les crons actifs ─────────────────────────────────────────────────
--- SELECT jobname, schedule, command, active FROM cron.job ORDER BY jobname;
+-- ── Contrôle des crons, sans afficher le secret ──────────────────────────────
+-- SELECT jobid, jobname, schedule, active,
+--        command ILIKE '%x-cron-secret%' AS envoie_le_secret
+-- FROM cron.job ORDER BY jobid;
+--
+-- Les tâches purement SQL (axonaut-sync-step, odoo-sync-step) sont à false
+-- normalement : elles ne passent pas par HTTP et n'ont pas de secret à envoyer.
 
--- ── Supprimer un cron (si besoin de recréer) ─────────────────────────────────
+-- ── Vérifier qu'un appel a bien abouti, dans les 2 h qui suivent ─────────────
+-- SELECT status_code, left(content, 200) AS reponse, created
+-- FROM net._http_response ORDER BY created DESC LIMIT 5;
+
+-- ── Supprimer un cron ────────────────────────────────────────────────────────
 -- SELECT cron.unschedule('score-calc-daily');
 -- SELECT cron.unschedule('score-digest-daily');

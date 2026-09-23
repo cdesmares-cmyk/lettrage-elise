@@ -31,3 +31,8 @@ dist-ssr
 
 # Cache local de la CLI Supabase — regenere automatiquement
 supabase/.temp/
+
+# Exports de base de donnees — contiennent des donnees comptables reelles
+sauvegarde-*.sql
+dump-*.sql
+backup-*.sql
