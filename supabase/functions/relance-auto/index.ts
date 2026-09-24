@@ -206,12 +206,21 @@ Deno.serve(async (req: Request) => {
   if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET)
     return json({ error: 'unauthorized' }, 401)
 
+  // Mode simulation : appeler avec ?dry_run=1. La fonction fait TOUT le travail
+  // — selection, eligibilite, choix du scenario, construction des emails — puis
+  // s'arrete avant l'envoi. Aucun email, aucune ecriture en base.
+  // Sert a repondre a la question que le journal ne savait pas traiter :
+  // pourquoi tel client a-t-il ete ecarte ?
+  const dryRun = new URL(req.url).searchParams.get('dry_run') === '1'
+
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY)
     const today = new Date().toISOString().split('T')[0]
     let nbEnvoyes = 0
     let nbSkip = 0
     let nbErreurs = 0
+    // Une ligne par client examine, avec la decision et sa raison.
+    const decisions: { org: string; client: string; nom: string; decision: string; detail?: string }[] = []
 
     // 1. Orgs avec mode auto actif
     const { data: orgs, error: errOrgs } = await supabase
@@ -231,15 +240,31 @@ Deno.serve(async (req: Request) => {
       let nbSkipOrg    = 0
       let nbErreursOrg = 0
 
-      // 2. Scénario niveau 1 de l'org
+      // 2. Scénario de premier niveau de l'org, EXTERNE uniquement.
+      //
+      // Le filtre sur le type est indispensable : un scénario interne est
+      // rédigé pour un commercial (« Ton client X présente un encours… »), pas
+      // pour le client. La colonne type existe depuis la migration 152 et
+      // n'était pas lue ici — troisième oubli après le calcul du niveau de
+      // relance et le front, tous deux corrigés le 24/09/2026.
+      //
+      // Le tri secondaire sur created_at rend le choix DÉTERMINISTE. Sans lui,
+      // deux scénarios de même niveau se disputent la première place sans
+      // aucune règle : SAS MELEZE en avait deux au niveau 1, dont un interne.
+      // Les 35 envois passés ont tous pris le bon, par chance et non par règle.
       const { data: scenarios } = await supabase
         .from('scenarios_relance')
-        .select('id, objet, corps_texte')
+        .select('id, nom, niveau, objet, corps_texte')
         .eq('organisation_id', orgId)
+        .eq('type', 'externe')
         .order('niveau', { ascending: true })
+        .order('created_at', { ascending: true })
         .limit(1)
       const scenario = scenarios?.[0]
-      if (!scenario) { console.log(`[relance-auto] org ${orgId} : aucun scénario — skip`); continue }
+      if (!scenario) { console.log(`[relance-auto] org ${orgId} : aucun scénario externe — skip`); continue }
+      // Tracé dans les Invocations : on doit pouvoir dire après coup quel
+      // message est parti, sans avoir à le déduire.
+      console.log(`[relance-auto] org ${orgId} : scénario « ${scenario.nom} » (niveau ${scenario.niveau}, externe)`)
 
       // 3. Clients éligibles
       const { data: clients } = await supabase
@@ -250,6 +275,7 @@ Deno.serve(async (req: Request) => {
         .eq('relance_auto_alerte', false)
         .is('statut_juridique', null)
       if (!clients?.length) {
+        if (dryRun) { continue }
         await supabase.from('organisations').update({
           relance_auto_derniere_exec:   new Date().toISOString(),
           relance_auto_dernier_statut:  'ok',
@@ -260,7 +286,7 @@ Deno.serve(async (req: Request) => {
 
       // 4. Chargement batch : dédup + contacts + factures + avoirs + crédits 411 en 5 requêtes
       const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
-      const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res] = await Promise.all([
+      const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res, nePasRelancerRes, manuellesRes] = await Promise.all([
         supabase.from('relances_auto_log').select('code_client')
           .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
         supabase.from('contacts_client').select('code_client, email, role_contact')
@@ -274,9 +300,35 @@ Deno.serve(async (req: Request) => {
         // P3 : crédits 411 non dispatchés pour bloquer la relance si dette couverte
         supabase.from('factures').select('code_client, reste_du')
           .eq('organisation_id', orgId).like('numero_piece', '411_%').lt('reste_du', -0.005),
+        // Factures qu'un opérateur a explicitement sorties du circuit de relance
+        // (litige, plan de règlement, avoir en cours). Le drapeau vit sur le
+        // commentaire de facture depuis la migration 023, et n'était lu que par
+        // le navigateur : le robot relançait quand même.
+        supabase.from('commentaires_factures').select('numero_piece')
+          .eq('organisation_id', orgId).eq('ne_pas_relancer', true),
+        // Relances MANUELLES récentes. La déduplication ne regardait que
+        // relances_auto_log : un client relancé à la main la veille recevait
+        // quand même la relance automatique le lendemain. Même fenêtre que la
+        // déduplication automatique, et relances externes seulement — une
+        // notification interne à un commercial n'est pas un contact client.
+        supabase.from('relances').select('code_client')
+          .eq('organisation_id', orgId).eq('type', 'externe')
+          .neq('statut', 'brouillon')
+          .not('envoyee_le', 'is', null)
+          .gte('envoyee_le', seuilDedup),
       ])
 
+      // Un client est écarté s'il a été relancé récemment, par le robot OU par
+      // un opérateur. Les deux comptent : c'est le client qui reçoit l'email,
+      // peu importe qui l'a déclenché.
       const dedupSet = new Set((dedupRes.data ?? []).map((r: { code_client: string }) => r.code_client))
+      for (const r of (manuellesRes.data ?? [])) dedupSet.add((r as { code_client: string }).code_client)
+
+      // Un opérateur a dit « ne pas relancer cette facture ». C'est une décision
+      // humaine, elle prime sur toute règle automatique.
+      const nePasRelancerSet = new Set(
+        (nePasRelancerRes.data ?? []).map((r: { numero_piece: string }) => r.numero_piece)
+      )
 
       // P3 : somme des crédits 411 par client (valeurs négatives)
       const credits411Map = new Map<string, number>()
@@ -327,28 +379,48 @@ Deno.serve(async (req: Request) => {
         const nomClient           = client.nom as string
         const delaiEcheanceClient = (client.delai_echeance_jours as number | null) ?? delaiEcheanceOrg
 
-        if (dedupSet.has(codeDso)) { nbSkip++; nbSkipOrg++; continue }
+        if (dedupSet.has(codeDso)) {
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
+            detail: `deja relance dans les ${delaiRerelance} derniers jours (robot ou operateur)` })
+          nbSkip++; nbSkipOrg++; continue
+        }
 
         const contacts       = contactsMap.get(codeDso) ?? []
         const relanceC       = contacts.filter(c => c.role_contact === 'relance')
         const compteC        = contacts.filter(c => c.role_contact === 'comptabilite')
         const destinataires  = (relanceC.length ? relanceC : compteC).map(c => c.email).filter(Boolean)
-        if (!destinataires.length) { nbSkip++; nbSkipOrg++; continue }
+        if (!destinataires.length) {
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
+            detail: 'aucun contact actif avec le role relance ou comptabilite' })
+          nbSkip++; nbSkipOrg++; continue
+        }
 
         const facturesEligibles = (facturesMap.get(codeDso) ?? []).filter(f => {
+          // Décision humaine : on ne relance pas, quelle que soit l'échéance.
+          // Si toutes les factures du client sont dans ce cas, il ressort sans
+          // facture éligible et se retrouve écarté un peu plus bas.
+          if (nePasRelancerSet.has(f.numero_piece)) return false
           const echeance     = f.date_echeance
             ? new Date(f.date_echeance)
             : new Date(new Date(f.date_emission).getTime() + delaiEcheanceClient * 86_400_000)
           const declenchement = new Date(echeance.getTime() + delaiDeclenche * 86_400_000)
           return declenchement.toISOString().split('T')[0] <= today
         })
-        if (!facturesEligibles.length) { nbSkip++; nbSkipOrg++; continue }
+        if (!facturesEligibles.length) {
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
+            detail: `aucune facture echue depuis plus de ${delaiDeclenche} jours, ou toutes marquees "ne pas relancer"` })
+          nbSkip++; nbSkipOrg++; continue
+        }
 
         const montantDu   = facturesEligibles.reduce((s, f) => s + f.reste_du, 0)
         // P3 : si les crédits 411 non dispatchés couvrent totalement la dette, pas de relance
         const credit411   = credits411Map.get(codeDso) ?? 0  // valeur négative
         const montantNet  = montantDu + credit411
-        if (montantNet <= 0.005) { nbSkip++; nbSkipOrg++; continue }
+        if (montantNet <= 0.005) {
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
+            detail: 'avoirs et credits couvrent la totalite de la dette' })
+          nbSkip++; nbSkipOrg++; continue
+        }
 
         const ctx         = { nomClient, codeClient: codeDso, montantDu, nomOrg: orgNom }
         const objet     = resolveBalises(scenario.objet as string, ctx)
@@ -369,10 +441,18 @@ Deno.serve(async (req: Request) => {
         }))
         const html = buildHtml(corps, lignes, signatureAuto, lignesAvoirs)
 
+        decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'relance',
+          detail: `${facturesEligibles.length} facture(s), ${fmtEuros(montantNet)} du, vers ${destinataires.join(', ')}` })
         pending.push({ to: destinataires, objet, html, codeDso, nomClient, montantDu, facturesEligibles, scenarioId: scenario.id as string })
       }
 
       // 6. Envoi par batch de 100 + logs en batch
+      // En simulation on s'arrete ici : ni Resend, ni ecriture dans
+      // relances_auto_log, ni mise a jour de l'organisation.
+      if (dryRun) {
+        console.log(`[relance-auto][SIMULATION] org ${orgNom} : ${pending.length} client(s) partiraient, ${nbSkipOrg} ecarte(s)`)
+        continue
+      }
       const BATCH_SIZE = 100
       for (let i = 0; i < pending.length; i += BATCH_SIZE) {
         const batch   = pending.slice(i, i + BATCH_SIZE)
@@ -402,6 +482,19 @@ Deno.serve(async (req: Request) => {
         relance_auto_dernier_statut:  nbErreursOrg > 0 ? 'partiel' : 'ok',
         relance_auto_dernier_message: `${nbEnvoyesOrg} envoyé${nbEnvoyesOrg !== 1 ? 's' : ''} · ${nbSkipOrg} ignoré${nbSkipOrg !== 1 ? 's' : ''} · ${nbErreursOrg} erreur${nbErreursOrg !== 1 ? 's' : ''}`,
       } as never).eq('id', orgId)
+    }
+
+    // Simulation : on sort AVANT d'ecrire quoi que ce soit, y compris le
+    // journal. Un tour a blanc ne doit laisser aucune trace, sinon il fausse
+    // la lecture du journal reel.
+    if (dryRun) {
+      return json({
+        simulation: true,
+        aucun_email_envoye: true,
+        partiraient: decisions.filter(d => d.decision === 'relance').length,
+        ecartes: decisions.filter(d => d.decision === 'ecarte').length,
+        detail: decisions,
+      })
     }
 
     await supabase.from('cron_runs').insert({
