@@ -1,0 +1,27 @@
+# Configuration du projet Supabase, lue par le CLI au deploiement.
+#
+# POURQUOI CE FICHIER EXISTE. Le 2026-09-24, un deploiement de relance-auto
+# sans option a REACTIVE la verification de jeton sur la fonction : la porte
+# d'entree Supabase s'est mise a exiger un en-tete Authorization que le
+# planificateur n'envoie pas. Reponse immediate :
+#   401 {"code":"UNAUTHORIZED_NO_AUTH_HEADER","message":"Missing authorization header"}
+# Sans correction, la relance automatique ne tournait plus du tout — la meme
+# panne silencieuse que celle du calcul des scores du 20 au 23 septembre.
+#
+# Declarer le reglage ici le rend permanent : un futur deploiement, par qui que
+# ce soit, repartira du bon parametre au lieu du defaut.
+#
+# ATTENTION. Ce fichier ne decrit que les fonctions dont le reglage a ete
+# VERIFIE. Les autres fonctions deployees (score-calc, score-digest,
+# bodacc-sync, bodacc-alerts, resend-webhook, gmail-oauth-callback,
+# gmail-refresh-token, axonaut-sync, admin-users, superadmin-data) n'y figurent
+# pas : leur reglage actuel n'a pas ete controle. Avant d'en deployer une,
+# verifier comment elle est appelee, sinon le meme 401 se reproduira.
+
+# Fonctions appelees par le planificateur avec l'en-tete x-cron-secret.
+# Elles portent leur propre controle d'acces dans le code : la premiere chose
+# que fait la fonction est de comparer x-cron-secret au secret CRON_SECRET.
+# La verification de jeton de la plateforme ferait double emploi et, surtout,
+# rejetterait l'appel avant meme d'atteindre ce controle.
+[functions.relance-auto]
+verify_jwt = false
