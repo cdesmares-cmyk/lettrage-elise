@@ -23,7 +23,9 @@ function SignalGauge({ level }: { level: NiveauRelance }) {
 }
 
 function LevelCode({ level }: { level: NiveauRelance }) {
-  const base = 'font-mono text-[11px] w-[48px] shrink-0'
+  // 36px : juste de quoi aligner "N3 MED", le plus large. Plus large, le niveau
+  // et son anciennete se lisent comme deux informations separees.
+  const base = 'font-mono text-[11px] w-[36px] shrink-0'
   if (level === 'gel') return <span className={`${base} text-[#94A3B8]`}>GEL</span>
   if (level === 0)     return <span className={`${base} text-[#94A3B8]`}>—</span>
   if (level === 3) {

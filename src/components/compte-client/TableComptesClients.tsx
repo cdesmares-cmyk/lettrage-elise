@@ -1,7 +1,6 @@
 // Vue principale : une ligne par client, expandable pour voir les factures
 import { useState, useEffect, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
-import { joursDepuis, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
 import { buildHtmlFromScenario, fmtEurosEmail } from '../../lib/relanceEmail'
 import type { FactureLigne } from '../../lib/relanceEmail'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
@@ -45,8 +44,10 @@ function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-type EtatRelance = 'a_relancer' | 'aujourdhui' | 'recente' | 'sans_suite' | 'aucune_facture'
-const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'aujourdhui', 'recente', 'sans_suite', 'aucune_facture'])
+// Deux etats, volontairement : le filtre est le miroir exact du bouton Relancer.
+// Une seule source, donc aucune contradiction possible entre les deux.
+type EtatRelance = 'a_relancer' | 'aujourdhui'
+const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'aujourdhui'])
 
 /** Vrai si la date tombe le jour civil courant, en heure locale. Volontairement
  *  pas "il y a moins de 24 h" : le marqueur doit se remettre a zero a minuit. */
@@ -210,13 +211,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   // Ces calculs et ce hook doivent rester AVANT les early returns pour ne jamais
   // modifier le nombre de hooks appelés entre deux rendus (règle React).
   function etatRelance(c: CompteClient): EtatRelance {
-    if (c.nb_impayees === 0) return 'aucune_facture'
     const derniere = dernieresRelances?.get(c.code_dso)
-    if (!derniere) return 'a_relancer'
-    if (estAujourdhui(derniere)) return 'aujourdhui'
-    const jours = joursDepuis(derniere)
-    if (jours < SEUIL_SANS_SUITE_DEFAUT) return 'recente'
-    return 'sans_suite'
+    return derniere && estAujourdhui(derniere) ? 'aujourdhui' : 'a_relancer'
   }
   function toggleRelance(v: EtatRelance) {
     setFiltresRelance(prev => { const next = new Set(prev); if (next.has(v)) next.delete(v); else next.add(v); return next })
@@ -683,24 +679,6 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
               Relancé aujourd’hui
             </span>
-          </label>
-          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
-            <input type="checkbox" checked={filtresRelance.has('recente')} onChange={() => toggleRelance('recente')} className="accent-ockham-teal w-3.5 h-3.5" />
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-300">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-              Relancé récemment
-            </span>
-          </label>
-          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
-            <input type="checkbox" checked={filtresRelance.has('sans_suite')} onChange={() => toggleRelance('sans_suite')} className="w-3.5 h-3.5" style={{ accentColor: '#C07840' }} />
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border" style={{ background: '#F5E9D8', color: '#C07840', borderColor: '#C0784050' }}>
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-              Sans suite
-            </span>
-          </label>
-          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
-            <input type="checkbox" checked={filtresRelance.has('aucune_facture')} onChange={() => toggleRelance('aucune_facture')} className="accent-ockham-teal w-3.5 h-3.5" />
-            <span className="text-[10px] font-medium text-gray-400">— Aucune facture impayée</span>
           </label>
         </div>
       )}
