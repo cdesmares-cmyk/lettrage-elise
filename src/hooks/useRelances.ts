@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -122,6 +122,12 @@ export function useRelances() {
   const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
   const [lettragesMap, setLettragesMap] = useState<Map<string, string[]>>(new Map())
 
+  // Compteur de rechargement. L'incrementer relance le chargement des relances.
+  // Appele apres un envoi, pour que l'ecran reflete immediatement ce qui vient
+  // de partir, sans attendre un rechargement de page.
+  const [tickRechargement, setTickRechargement] = useState(0)
+  const recharger = useCallback(() => setTickRechargement(t => t + 1), [])
+
   useEffect(() => {
     supabase.from('ref_valeurs').select('valeur').eq('categorie', 'config_seuil_sans_suite').maybeSingle()
       .then(({ data }) => {
@@ -179,7 +185,7 @@ export function useRelances() {
         setLettragesMap(ltMap)
         setChargement(false)
       })
-  }, [utilisateur])
+  }, [utilisateur, tickRechargement])
 
   // Écrit payee_detectee_le la première fois qu'une relance est détectée comme payée
   useEffect(() => {
@@ -264,5 +270,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, recharger }
 }

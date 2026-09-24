@@ -135,11 +135,14 @@ export function PageCompteClient() {
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
-  const { relances } = useRelances()
+  const { relances, recharger: rechargerRelances } = useRelances()
   const dernieresRelances = useMemo(() => {
     const map = new Map<string, string>()
     for (const r of relances) {
       if (!r.envoyee_le || r.statut === 'brouillon') continue
+      // Une relance interne notifie un commercial : le client n'a rien recu.
+      // Elle ne doit donc pas colorer le bouton ni alimenter les filtres.
+      if (r.type !== 'externe') continue
       const actuelle = map.get(r.code_client)
       if (!actuelle || r.envoyee_le > actuelle) map.set(r.code_client, r.envoyee_le)
     }
@@ -534,7 +537,7 @@ export function PageCompteClient() {
       <ModalCompositionRelance
         client={clientRelance}
         onFermer={() => setClientRelance(null)}
-        onSent={() => setClientRelance(null)}
+        onSent={() => { setClientRelance(null); rechargerRelances() }}
         gmailAuth={messagerie}
         commentaires={commentaires}
         onOuvrirContacts={clientRelance ? () => {
@@ -551,7 +554,7 @@ export function PageCompteClient() {
           gmailAuth={messagerie}
           commentaires={commentaires}
           onFermer={() => setRelanceMasseOuverte(false)}
-          onFini={() => { setRelanceMasseOuverte(false); setModeSelection(false); setSelection(new Set()) }}
+          onFini={() => { setRelanceMasseOuverte(false); setModeSelection(false); setSelection(new Set()); rechargerRelances() }}
         />
       )}
 

@@ -45,8 +45,17 @@ function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-type EtatRelance = 'a_relancer' | 'recente' | 'sans_suite' | 'aucune_facture'
-const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'recente', 'sans_suite', 'aucune_facture'])
+type EtatRelance = 'a_relancer' | 'aujourdhui' | 'recente' | 'sans_suite' | 'aucune_facture'
+const RELANCE_ETATS_TOUS = new Set<EtatRelance>(['a_relancer', 'aujourdhui', 'recente', 'sans_suite', 'aucune_facture'])
+
+/** Vrai si la date tombe le jour civil courant, en heure locale. Volontairement
+ *  pas "il y a moins de 24 h" : le marqueur doit se remettre a zero a minuit. */
+function estAujourdhui(iso: string): boolean {
+  const d = new Date(iso), n = new Date()
+  return d.getFullYear() === n.getFullYear()
+    && d.getMonth() === n.getMonth()
+    && d.getDate() === n.getDate()
+}
 
 const STATUT_LABELS: Record<string, string> = {
   sauvegarde:   'Sauvegarde',
@@ -204,6 +213,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     if (c.nb_impayees === 0) return 'aucune_facture'
     const derniere = dernieresRelances?.get(c.code_dso)
     if (!derniere) return 'a_relancer'
+    if (estAujourdhui(derniere)) return 'aujourdhui'
     const jours = joursDepuis(derniere)
     if (jours < SEUIL_SANS_SUITE_DEFAUT) return 'recente'
     return 'sans_suite'
@@ -215,7 +225,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   const clientsFiltresBase = clients
     .filter(c => !filtreAlertes || c.relance_auto_alerte)
     .filter(c => !filtreASuivre || c.a_suivre)
-    .filter(c => filtresRelance.size === 4 || filtresRelance.has(etatRelance(c)))
+    .filter(c => filtresRelance.size === RELANCE_ETATS_TOUS.size || filtresRelance.has(etatRelance(c)))
 
   const niveauCounts = useMemo(() => {
     const counts: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0, 'gel': 0 }
@@ -350,11 +360,11 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 relancePopupPos.current = { top: rect.bottom + 4, left: Math.max(4, rect.right - 215) }
                 setRelancePopupOpen(o => !o)
               }}
-              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < 4 ? 'text-ockham-teal' : 'text-gray-400'}`}
+              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < RELANCE_ETATS_TOUS.size ? 'text-ockham-teal' : 'text-gray-400'}`}
             >
               <span className="flex items-center justify-center gap-1">
                 Relances
-                <span className={`text-[9px] ${filtresRelance.size < 4 ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtresRelance.size < 3 ? '▼' : '⬍'}</span>
+                <span className={`text-[9px] ${filtresRelance.size < RELANCE_ETATS_TOUS.size ? 'text-ockham-teal' : 'text-gray-300'}`}>{filtresRelance.size < RELANCE_ETATS_TOUS.size - 1 ? '▼' : '⬍'}</span>
               </span>
             </th>
           </tr>
@@ -374,6 +384,9 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
               : alerte ? (alerte.niveau_relance as 0 | 1 | 2 | 3)
               : 0
             const signalScore = alerte?.score_risque ?? null
+            // Meme source que le filtre : le bouton et le filtre ne peuvent pas
+            // se contredire.
+            const relanceEtat = etatRelance(c)
             return (
               <>
                 <tr
@@ -465,8 +478,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             return (
                               <button
                                 onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                                title="Relancer"
-                                className="w-7 h-7 flex items-center justify-center rounded-md border transition-all bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark"
+                                title={relanceEtat === 'aujourdhui' ? 'Déjà relancé aujourd’hui' : 'Relancer'}
+                                className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all ${
+                                  relanceEtat === 'aujourdhui'
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-300 hover:bg-emerald-100'
+                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                                }`}
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
                               </button>
@@ -521,9 +538,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             return (
                               <button
                                 onClick={e => { e.stopPropagation(); onRelancer(c) }}
-                                className="text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark"
+                                title={relanceEtat === 'aujourdhui' ? 'Déjà relancé aujourd’hui' : 'Relancer'}
+                                className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-all ${
+                                  relanceEtat === 'aujourdhui'
+                                    ? 'bg-emerald-50 text-emerald-600 border-emerald-300 hover:bg-emerald-100'
+                                    : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
+                                }`}
                               >
-                                ✉ Relancer
+                                {relanceEtat === 'aujourdhui' ? '✓ Relancé' : '✉ Relancer'}
                               </button>
                             )
                           })()}
@@ -642,10 +664,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
         >
           <div className="px-4 pb-1.5 border-b border-gray-100 mb-1">
             <button
-              onClick={() => { setFiltresRelance(filtresRelance.size < 4 ? new Set(RELANCE_ETATS_TOUS) : new Set()); setPage(0) }}
+              onClick={() => { setFiltresRelance(filtresRelance.size < RELANCE_ETATS_TOUS.size ? new Set(RELANCE_ETATS_TOUS) : new Set()); setPage(0) }}
               className="text-[10px] font-semibold text-ockham-teal hover:text-ockham-teal-dark transition-colors cursor-pointer"
             >
-              {filtresRelance.size === 4 ? 'Tout décocher' : 'Tout cocher'}
+              {filtresRelance.size === RELANCE_ETATS_TOUS.size ? 'Tout décocher' : 'Tout cocher'}
             </button>
           </div>
           <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
@@ -653,6 +675,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-ockham-teal text-white border-ockham-teal">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
               À relancer
+            </span>
+          </label>
+          <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
+            <input type="checkbox" checked={filtresRelance.has('aujourdhui')} onChange={() => toggleRelance('aujourdhui')} className="accent-emerald-500 w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-600 border-emerald-300">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Relancé aujourd’hui
             </span>
           </label>
           <label className="flex items-center gap-2.5 px-4 py-1.5 hover:bg-gray-50 transition-colors cursor-pointer">
