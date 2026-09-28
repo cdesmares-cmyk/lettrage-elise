@@ -27,6 +27,7 @@ export function BlocKpis({
   montantSeuilMois, seuilAnciennete, setSeuilAnciennete,
   libelleMoisPrec, libelleMoisAnPrec,
   encoursCourant, balanceAgee,
+  creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
 }: Props) {
   const dso = dsoRoulant ?? 0
   const cfg = dsoConfig(dso)
@@ -41,16 +42,65 @@ export function BlocKpis({
 
         {/* DSO Hero */}
         <div
-          className="rounded-2xl border px-6 py-5 flex flex-col gap-3 relative overflow-hidden shadow-sm"
+          className="rounded-2xl border px-6 py-5 flex flex-col gap-3 relative shadow-sm"
           style={{ background: `linear-gradient(135deg, #fff 55%, ${cfg.bg})`, borderColor: cfg.border }}
         >
-          {/* Anneau décoratif */}
-          <div style={{
-            position: 'absolute', right: -40, top: -40,
-            width: 180, height: 180, borderRadius: '50%',
-            background: `conic-gradient(${cfg.jauge} 0 ${gaugeWidth * 3.6}deg, #E5E7EB ${gaugeWidth * 3.6}deg 360deg)`,
-            opacity: 0.15, pointerEvents: 'none'
-          }} />
+          {/* Anneau décoratif — rogné par son propre conteneur, pour que
+              l'encart d'audit puisse déborder de la tuile. */}
+          <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+            <div style={{
+              position: 'absolute', right: -40, top: -40,
+              width: 180, height: 180, borderRadius: '50%',
+              background: `conic-gradient(${cfg.jauge} 0 ${gaugeWidth * 3.6}deg, #E5E7EB ${gaugeWidth * 3.6}deg 360deg)`,
+              opacity: 0.15
+            }} />
+          </div>
+
+          {/* Auditabilité : la formule ET les nombres qui y entrent, pour que
+              le calcul soit refaisable de tête. */}
+          {dsoRoulant !== null && (
+            <div className="group absolute top-3 right-3 z-20">
+              <button
+                type="button"
+                aria-label="Détail du calcul du DSO"
+                className="w-5 h-5 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 focus:text-gray-500 focus:outline-none transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                </svg>
+              </button>
+
+              <div className="hidden group-hover:block group-focus-within:block absolute right-0 top-7 w-[320px] bg-white border border-gray-200 rounded-xl shadow-xl p-4 text-left cursor-default z-30">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-3">
+                  Comment ce chiffre est calculé
+                </p>
+
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <span className="text-[11px] text-gray-500">Créances clients</span>
+                  <span className="font-mono text-[11px] font-semibold text-gray-800 tabular-nums">{fmtEuro(creancesClients)}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-snug mb-3">
+                  {fmtNb(nbClientsDebiteurs)} clients au solde débiteur, tous âges.
+                  Avoirs et acomptes compensés à l'intérieur de chaque client,
+                  jamais entre clients.
+                </p>
+
+                <div className="flex items-baseline justify-between gap-3 mb-1">
+                  <span className="text-[11px] text-gray-500">Chiffre d'affaires</span>
+                  <span className="font-mono text-[11px] font-semibold text-gray-800 tabular-nums">{fmtEuro(ca12Mois)}</span>
+                </div>
+                <p className="text-[10px] text-gray-400 leading-snug mb-3">
+                  12 mois glissants, TTC, net d'avoirs{dsoPeriode ? ' — ' + dsoPeriode : ''}.
+                </p>
+
+                <div className="border-t border-gray-100 pt-2.5 font-mono text-[10px] text-gray-600 tabular-nums leading-relaxed">
+                  {fmtEuro(creancesClients)} ÷ {fmtEuro(ca12Mois)} × 365
+                  <br />
+                  <span className="font-bold text-gray-800">= {dsoRoulant.toFixed(1)} jours</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
             DSO roulant — 12 mois

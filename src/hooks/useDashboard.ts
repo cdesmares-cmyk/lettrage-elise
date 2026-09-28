@@ -191,6 +191,7 @@ function computeActiviteRelances(
 
 export function useDashboard() {
   const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec } = useAppData()
+  void ca12MoisPrec // conserve pour le bandeau "hors dernier mois" des autres KPI
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
@@ -225,11 +226,6 @@ export function useDashboard() {
 
   // moisMax = vrai mois le plus récent en BDD, mis à jour à chaque import
   const moisMax = moisMaxBrut
-  const moisMaxPrec = useMemo(() => {
-    if (!moisMaxBrut) return ''
-    const yr = parseInt(moisMaxBrut.slice(0, 4)), mo = parseInt(moisMaxBrut.slice(5, 7))
-    return isoMois(new Date(mo === 1 ? yr - 1 : yr, mo === 1 ? 11 : mo - 2, 1))
-  }, [moisMaxBrut])
 
   // M-1 et N-1 par rapport à moisMax
   const moisRefYear = moisMax ? parseInt(moisMax.slice(0, 4)) : TODAY.getFullYear()
@@ -254,26 +250,62 @@ export function useDashboard() {
     [facsFiltrees]
   )
 
-  // DSO : fenêtre 12 mois glissante — toggle ON décale d'un mois en arrière (+ CA matching)
-  const encours12Mois = useMemo(() => {
-    const refMois = exclureDernierMois ? moisMaxPrec : moisMax
-    if (!refMois) return 0
-    const yr = parseInt(refMois.slice(0, 4)), mo = parseInt(refMois.slice(5, 7))
-    let startMo = mo - 11; let startYr = yr
-    if (startMo <= 0) { startMo += 12; startYr -= 1 }
-    const il12MoisStr = `${startYr}-${String(startMo).padStart(2, '0')}-01`
-    const lastDay = new Date(yr, mo, 0).getDate()
-    const moisEndStr = `${yr}-${String(mo).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
-    return facsFiltrees
-      .filter(f => f.reste_du > 0.005
-        && (f.date_emission ?? '') >= il12MoisStr
-        && (f.date_emission ?? '') <= moisEndStr)
-      .reduce((s, f) => s + f.reste_du, 0)
-  }, [facsFiltrees, moisMax, moisMaxPrec, exclureDernierMois])
+  // L'ancien encours12Mois a ete retire : il ne retenait que les factures
+  // emises dans les 12 derniers mois, laissant hors du DSO toutes les creances
+  // plus anciennes — jusqu'a quatre ans dans les donnees reelles. C'etait
+  // l'inverse de ce qu'on attend d'un indicateur de recouvrement, et cela
+  // sous-estimait le DSO de pres de 20 %.
 
-  const dsoRoulant = exclureDernierMois
-    ? (ca12MoisPrec > 0 ? encours12Mois / ca12MoisPrec * 365 : null)
-    : (ca12Mois > 0 ? encours12Mois / ca12Mois * 365 : null)
+  // ── DSO, lecture comptable ──────────────────────────────────────────────
+  // Solde par client, puis somme des seuls soldes DEBITEURS.
+  //
+  // Un bilan ne compense jamais un client debiteur avec un client crediteur :
+  // les creances vont a l'actif, les avances recues au passif. En revanche un
+  // avoir chez Dupont s'impute bien sur les factures de Dupont. On compense
+  // donc DANS chaque client, jamais ENTRE clients.
+  //
+  // On part de facturesActives et non de factures : il faut les avoirs et les
+  // pseudo-pieces 411 pour que la compensation ait un sens.
+  //
+  // Aucun filtre d'age : une creance de quatre ans pese autant qu'une creance
+  // du mois. C'est tout l'interet de l'indicateur. L'ancienne version ne
+  // retenait que 12 mois d'emission et sous-estimait le DSO de 20 %.
+  const soldesParClient = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const f of facturesActives) {
+      if (Math.abs(f.reste_du) <= 0.005) continue
+      m.set(f.code_client, (m.get(f.code_client) ?? 0) + f.reste_du)
+    }
+    return m
+  }, [facturesActives])
+
+  const creancesClients = useMemo(() => {
+    let s = 0
+    for (const v of soldesParClient.values()) if (v > 0) s += v
+    return s
+  }, [soldesParClient])
+
+  const nbClientsDebiteurs = useMemo(() => {
+    let n = 0
+    for (const v of soldesParClient.values()) if (v > 0) n++
+    return n
+  }, [soldesParClient])
+
+  // Periode du denominateur, pour l'encart d'audit. Fenetre de 12 mois se
+  // terminant au mois de reference inclus.
+  const dsoPeriode = useMemo(() => {
+    if (!moisMax) return ''
+    const yr = parseInt(moisMax.slice(0, 4)), mo = parseInt(moisMax.slice(5, 7))
+    const fmt = (d: Date) => d.toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })
+    return fmt(new Date(yr, mo - 12, 1)) + ' → ' + fmt(new Date(yr, mo - 1, 1))
+  }, [moisMax])
+
+  // Le bouton "exclure le dernier mois" ne s'applique plus au DSO : il decalait
+  // la fenetre d'un mois, ce qui retirait du numerateur le mois le plus recent
+  // — presque entierement impaye — et y ajoutait celui d'il y a un an, presque
+  // entierement regle. Le DSO baissait mecaniquement. Le bouton garde ses
+  // autres effets, sur les factures echues et l'encours.
+  const dsoRoulant = ca12Mois > 0 ? creancesClients / ca12Mois * 365 : null
 
   const montantMoisPrec = useMemo(
     () => factures.filter(f => f.reste_du > 0.005 && f.date_emission?.slice(0, 7) === moisPrecStr).reduce((s, f) => s + f.reste_du, 0),
@@ -310,6 +342,7 @@ export function useDashboard() {
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     encoursCourant, chargement,
+    creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,
   }
 }
