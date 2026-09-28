@@ -52,7 +52,10 @@ function TooltipActivite({ active, payload, label }: {
   )
 }
 
-export function BlocActiviteRelances({ pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances }: Props) {
+export function BlocActiviteRelances({
+  pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
+  operateursActivite, filtreOperateur, setFiltreOperateur,
+}: Props) {
   if (!pointsActiviteRelances.length) return null
 
   const hasData = pointsActiviteRelances.some(p => p.nb_relances > 0)
@@ -74,6 +77,30 @@ export function BlocActiviteRelances({ pointsActiviteRelances, periodeActiviteRe
             </span>
           )}
         </div>
+        <div className="flex items-center gap-2">
+          {/* Filtre operateur. Affiche seulement s'il y a plus d'une personne
+              a relancer : a une seule, le selecteur n'apporte rien et encombre
+              un en-tete qui porte deja cinq boutons de periode. */}
+          {operateursActivite.length > 1 && (
+            <div className="relative">
+              <select
+                value={filtreOperateur}
+                onChange={e => setFiltreOperateur(e.target.value)}
+                className={`text-[10px] font-semibold pl-2.5 pr-6 py-1 rounded border appearance-none bg-white outline-none transition-colors cursor-pointer ${
+                  filtreOperateur
+                    ? 'border-ockham-teal text-ockham-teal'
+                    : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <option value="">Tous les opérateurs</option>
+                {operateursActivite.map(o => (
+                  <option key={o.id} value={o.id}>{o.label}</option>
+                ))}
+              </select>
+              <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
+            </div>
+          )}
+
         <div className="flex gap-1">
           {PERIODES.map(p => (
             <button
@@ -88,6 +115,7 @@ export function BlocActiviteRelances({ pointsActiviteRelances, periodeActiviteRe
               {p.label}
             </button>
           ))}
+        </div>
         </div>
       </div>
 

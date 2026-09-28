@@ -8,7 +8,7 @@ export type TopNb = 5 | 10 | 15
 export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
 export interface TopClient { code: string; nom: string; montant: number }
-export interface JourActiviteRelance { date_operation: string; nb_relances: number; montant: number }
+export interface JourActiviteRelance { date_operation: string; operateur_id: string | null; nb_relances: number; montant: number }
 export interface PointActiviteRelance { label: string; nb_relances: number; montant: number }
 export interface TopFacture {
   numero: string; nomClient: string; montant: number
@@ -140,7 +140,10 @@ function computeEncaissements(
 
 function computeActiviteRelances(
   raw: JourActiviteRelance[],
-  periode: PeriodeEncaissement
+  periode: PeriodeEncaissement,
+  // Chaine vide = tous les operateurs. Le filtrage se fait ici, sur des donnees
+  // deja chargees : changer d'operateur ne declenche aucune requete.
+  operateurId: string
 ): PointActiviteRelance[] {
   type Bucket = { label: string; start: string; end: string }
   const buckets: Bucket[] = []
@@ -179,8 +182,10 @@ function computeActiviteRelances(
     }
   }
 
+  const lignes = operateurId ? raw.filter(l => l.operateur_id === operateurId) : raw
+
   return buckets.map(b => {
-    const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
+    const slice = lignes.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     return {
       label:       b.label,
       nb_relances: slice.reduce((s, l) => s + Number(l.nb_relances), 0),
@@ -190,7 +195,7 @@ function computeActiviteRelances(
 }
 
 export function useDashboard() {
-  const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec } = useAppData()
+  const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec, membresOrg } = useAppData()
   void ca12MoisPrec // conserve pour le bandeau "hors dernier mois" des autres KPI
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
@@ -199,6 +204,7 @@ export function useDashboard() {
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
   const [activiteRelancesRaw, setActiviteRelancesRaw] = useState<JourActiviteRelance[]>([])
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
+  const [filtreOperateur, setFiltreOperateur] = useState<string>('')
   const [chargement, setChargement] = useState(true)
 
   // Encaissements clients agrégés par jour sur 24 mois via RPC
@@ -324,7 +330,22 @@ export function useDashboard() {
   const topFactures = useMemo(() => computeTopFactures(facsFiltrees), [facsFiltrees])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsFiltrees), [facsFiltrees])
   const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
-  const pointsActiviteRelances = useMemo(() => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances), [activiteRelancesRaw, periodeActiviteRelances])
+  // On ne propose que les operateurs qui ont REELLEMENT relance : une liste de
+  // tous les membres afficherait des noms sans aucune donnee derriere.
+  // Un operateur parti de l'organisation disparait de la liste, mais ses
+  // relances restent comptees dans "Tous les operateurs".
+  const operateursActivite = useMemo(() => {
+    const ids = new Set(activiteRelancesRaw.map(l => l.operateur_id).filter(Boolean))
+    return membresOrg
+      .filter(m => ids.has(m.id))
+      .map(m => ({ id: m.id, label: m.prenom ? `${m.prenom} ${m.nom}` : m.nom }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'fr'))
+  }, [activiteRelancesRaw, membresOrg])
+
+  const pointsActiviteRelances = useMemo(
+    () => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances, filtreOperateur),
+    [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur]
+  )
 
   const moisExclusLabel = moisMax
     ? new Date(moisMax + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
@@ -341,6 +362,7 @@ export function useDashboard() {
     topFactures, balanceAgee,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
+    operateursActivite, filtreOperateur, setFiltreOperateur,
     encoursCourant, chargement,
     creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,
