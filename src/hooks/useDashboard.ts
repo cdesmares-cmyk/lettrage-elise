@@ -347,6 +347,13 @@ export function useDashboard() {
     [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur]
   )
 
+  // Y a-t-il de l'activite, toutes periodes et tous operateurs confondus ?
+  // Sert a decider de l'affichage du bloc. Il ne faut surtout pas se baser sur
+  // pointsActiviteRelances : un filtre operateur qui ne renvoie rien ferait
+  // disparaitre le bloc, donc le selecteur, donc le moyen de revenir en
+  // arriere. Un controle ne doit jamais dependre de ce qu'il controle.
+  const aDesRelances = activiteRelancesRaw.length > 0
+
   const moisExclusLabel = moisMax
     ? new Date(moisMax + '-01').toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : ''
@@ -362,7 +369,7 @@ export function useDashboard() {
     topFactures, balanceAgee,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
-    operateursActivite, filtreOperateur, setFiltreOperateur,
+    operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
     encoursCourant, chargement,
     creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,
