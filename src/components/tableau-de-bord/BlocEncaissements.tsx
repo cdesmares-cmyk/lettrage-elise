@@ -63,7 +63,7 @@ export function BlocEncaissements({
               </span>
               {totalAutres > 0 && (
                 <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
-                  <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: '#94A3B8' }} />
+                  <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: '#CBD5E1' }} />
                   hors clients
                   <span className="font-mono font-semibold text-gray-700">{fmtEuro(totalAutres)}</span>
                 </span>
@@ -106,7 +106,7 @@ export function BlocEncaissements({
                   quotidien. Pas d'arrondi : il creerait une encoche entre les
                   deux segments. */}
               <Bar dataKey="client" stackId="enc" name="Encaissements clients" fill="#4CC5BB" maxBarSize={36} />
-              <Bar dataKey="autres" stackId="enc" name="Hors clients" fill="#94A3B8" maxBarSize={36} />
+              <Bar dataKey="autres" stackId="enc" name="Hors clients" fill="#CBD5E1" maxBarSize={36} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
