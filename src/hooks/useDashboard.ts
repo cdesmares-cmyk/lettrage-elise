@@ -85,7 +85,7 @@ function isoDate(d: Date): string {
 }
 
 function computeEncaissements(
-  raw: { date_operation: string; montant: number }[],
+  raw: { date_operation: string; montant: number; montant_autres: number }[],
   periode: PeriodeEncaissement
 ): PointEncaissement[] {
   type Bucket = { label: string; start: string; end: string }
@@ -125,11 +125,17 @@ function computeEncaissements(
     }
   }
 
-  return buckets.map(b => ({
-    label: b.label,
-    client: raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end).reduce((s, l) => s + l.montant, 0),
-    autres: 0,
-  }))
+  return buckets.map(b => {
+    const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
+    return {
+      label:  b.label,
+      client: slice.reduce((s, l) => s + l.montant, 0),
+      // montant_autres : credits bancaires non rattaches a un client — aides
+      // publiques, remboursements. Le ?? 0 protege le cas ou la fonction SQL
+      // n'a pas encore ete mise a jour en base.
+      autres: slice.reduce((s, l) => s + (l.montant_autres ?? 0), 0),
+    }
+  })
 }
 
 function computeActiviteRelances(
@@ -189,7 +195,7 @@ export function useDashboard() {
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
-  const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number }[]>([])
+  const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
   const [activiteRelancesRaw, setActiviteRelancesRaw] = useState<JourActiviteRelance[]>([])
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [chargement, setChargement] = useState(true)
@@ -200,7 +206,7 @@ export function useDashboard() {
     const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
     supabase.rpc('get_encaissements_clients' as never, { p_date_debut: il24Mois.toISOString().slice(0, 10) } as never)
       .then(({ data }) => {
-        if (data) setEncaissementsRaw(data as { date_operation: string; montant: number }[])
+        if (data) setEncaissementsRaw(data as { date_operation: string; montant: number; montant_autres: number }[])
         setChargement(false)
       })
   }, [])

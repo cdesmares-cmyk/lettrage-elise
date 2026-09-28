@@ -44,15 +44,31 @@ function TooltipCustom({ active, payload, label }: { active?: boolean; payload?:
 export function BlocEncaissements({
   pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
 }: Props) {
-  const totalCourant = pointsEncaissement.reduce((s, p) => s + p.client, 0)
+  const totalClients = pointsEncaissement.reduce((s, p) => s + p.client, 0)
+  const totalAutres  = pointsEncaissement.reduce((s, p) => s + p.autres, 0)
+  const totalCourant = totalClients + totalAutres
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap">
           <h3 className="text-sm font-bold text-gray-800">Encaissements</h3>
           {totalCourant > 0 && (
-            <span className="text-[11px] font-mono font-bold text-gray-600">{fmtEuro(totalCourant)}</span>
+            <>
+              <span className="text-[11px] font-mono font-bold text-gray-600">{fmtEuro(totalCourant)}</span>
+              <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: '#4CC5BB' }} />
+                dont clients
+                <span className="font-mono font-semibold text-gray-700">{fmtEuro(totalClients)}</span>
+              </span>
+              {totalAutres > 0 && (
+                <span className="flex items-center gap-1.5 text-[10px] text-gray-500">
+                  <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: '#94A3B8' }} />
+                  hors clients
+                  <span className="font-mono font-semibold text-gray-700">{fmtEuro(totalAutres)}</span>
+                </span>
+              )}
+            </>
           )}
         </div>
         <div className="flex gap-1">
@@ -84,7 +100,13 @@ export function BlocEncaissements({
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={46} />
               <Tooltip content={<TooltipCustom />} cursor={{ fill: '#f9fafb' }} />
-<Bar dataKey="client" name="Encaissements clients" fill="#4CC5BB" radius={[3, 3, 0, 0]} maxBarSize={36} />
+              {/* Empile, clients EN BAS : dans une barre empilee, seule la
+                  serie du bas reste comparable d'une periode a l'autre, car
+                  elle part toujours de zero. C'est celle qu'on suit au
+                  quotidien. Pas d'arrondi : il creerait une encoche entre les
+                  deux segments. */}
+              <Bar dataKey="client" stackId="enc" name="Encaissements clients" fill="#4CC5BB" maxBarSize={36} />
+              <Bar dataKey="autres" stackId="enc" name="Hors clients" fill="#94A3B8" maxBarSize={36} />
             </ComposedChart>
           </ResponsiveContainer>
         )}
