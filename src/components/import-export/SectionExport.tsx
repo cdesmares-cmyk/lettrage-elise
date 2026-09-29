@@ -85,17 +85,20 @@ interface RowClient {
   operateur: string | null
   plateforme: string | null
   code_groupement: string | null
+  commercial_id: string | null
   siret: string | null
   relance_auto_active: boolean
   encours_net?: number
   nb_factures_total?: number
 }
 
-function exporterClientsXlsx(clients: RowClient[]) {
+// L'email est la cle de l'aller-retour : on exporte ce que l'import sait relire.
+// Une seule colonne, volontairement — deux en feraient deux verites possibles.
+function exporterClientsXlsx(clients: RowClient[], emailParUtilisateur: Map<string, string>) {
   const lignes = clients.map(c => ({
     'Code client':         c.code_dso,
     'Nom':                 c.nom,
-    'Commercial':          c.commercial ?? '',
+    'Commercial (email)':  emailParUtilisateur.get(c.commercial_id ?? '') ?? '',
     'Opérateur':           c.operateur ?? '',
     'Plateforme':          c.plateforme ?? '',
     'Code groupement':     c.code_groupement ?? '',
@@ -257,7 +260,7 @@ export function SectionExport() {
         fetchAll<RowClient>((from, to) =>
           supabase
             .from('clients')
-            .select('code_dso, nom, commercial, operateur, plateforme, code_groupement, siret, relance_auto_active')
+            .select('code_dso, nom, commercial, commercial_id, operateur, plateforme, code_groupement, siret, relance_auto_active')
             .order('nom')
             .range(from, to)
         ),
@@ -274,6 +277,15 @@ export function SectionExport() {
         return
       }
 
+      // Email par utilisateur : c'est ce que la colonne « Commercial (email) »
+      // doit porter, et ce que l'import sait relire sans ambiguite.
+      const { data: utilisateurs } = await supabase.from('utilisateurs').select('id, email')
+      const emailParUtilisateur = new Map<string, string>(
+        ((utilisateurs as unknown as { id: string; email: string }[] | null) ?? [])
+          .filter(u => u.email)
+          .map(u => [u.id, u.email])
+      )
+
       const encoursMap = new Map(encours.map(e => [e.code_dso, e]))
       const clientsAvecEncours = clients.map(c => ({
         ...c,
@@ -281,7 +293,7 @@ export function SectionExport() {
         nb_factures_total: encoursMap.get(c.code_dso)?.nb_factures_total ?? 0,
       }))
 
-      exporterClientsXlsx(clientsAvecEncours)
+      exporterClientsXlsx(clientsAvecEncours, emailParUtilisateur)
       toast.success(`${clients.length} client${clients.length > 1 ? 's' : ''} exporté${clients.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des clients')

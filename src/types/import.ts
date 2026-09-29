@@ -58,6 +58,12 @@ export interface ResultatValidation {
   nom_fichier: string
   codes_existants?: string[]          // codes_dso déjà en base
   noms_existants?: Record<string, string>  // nom actuel en base par code_dso — évite d'écraser lors d'un import sans colonne nom
+  // Commercial actuel en base par code_dso — permet de le RÉÉCRIRE tel quel quand
+  // le fichier ne le reconnaît pas, au lieu de l'effacer.
+  commerciaux_existants?: Record<string, { commercial: string | null; commercial_id: string | null }>
+  // Valeurs de la colonne Commercial qu'aucun utilisateur ne permet d'identifier,
+  // avec le nombre de lignes concernées. Affiché avant l'écriture.
+  commerciaux_non_reconnus?: { valeur: string; nb: number }[]
 }
 
 // Résultat final après insertion en base

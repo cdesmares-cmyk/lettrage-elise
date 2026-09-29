@@ -87,38 +87,105 @@ export function useImportClients() {
 
     const tousLesCodes = [...vus]
 
-    // Table de correspondance commercial : nom (lowercase) et email → nom stocké
-    const { data: utilisateursData } = await supabase.from('utilisateurs').select('nom, email')
-    const commerciauxMap = new Map<string, string>()
-    for (const u of (utilisateursData as unknown as { nom: string; email: string }[] | null) ?? []) {
-      if (u.nom) commerciauxMap.set(u.nom.toLowerCase().trim(), u.nom.trim())
-      if (u.email) commerciauxMap.set(u.email.toLowerCase().trim(), u.nom.trim())
+    // ── Resolution du commercial ────────────────────────────────────────────
+    //
+    // L'EMAIL est la cle. C'est la seule valeur du systeme qui identifie une
+    // personne sans ambiguite : ni accent, ni ordre prenom/nom, ni homonyme.
+    // Cette base compte trois comptes portant « Clement Desmares » — un
+    // rapprochement par nom y est imprevisible.
+    //
+    // Les ecritures du nom restent acceptees EN REPLI, pour les fichiers deja
+    // en circulation. Mais une graphie partagee par deux utilisateurs est
+    // marquee ambigue et refusee : mieux vaut ne rien ecrire que de choisir au
+    // hasard.
+    //
+    // Le libelle stocke est celui du panneau Options — « Nom Prenom ». L'import
+    // ecrivait « Nom » seul, que le selecteur ne sait pas afficher : la donnee
+    // etait juste et le champ paraissait vide.
+    interface RowUtil { id: string; prenom: string | null; nom: string; email: string }
+    const { data: utilisateursData } = await supabase
+      .from('utilisateurs').select('id, prenom, nom, email')
+
+    type Cible = { id: string; libelle: string }
+    const parEmail = new Map<string, Cible>()
+    const parNom   = new Map<string, Cible | null>()   // null = graphie ambigue
+
+    for (const u of (utilisateursData as unknown as RowUtil[] | null) ?? []) {
+      const libelle = u.prenom ? `${u.nom} ${u.prenom}` : u.nom
+      const cible: Cible = { id: u.id, libelle }
+      if (u.email) parEmail.set(u.email.toLowerCase().trim(), cible)
+      const graphies = u.prenom
+        ? [u.nom, `${u.nom} ${u.prenom}`, `${u.prenom} ${u.nom}`]
+        : [u.nom]
+      for (const g of graphies) {
+        const cle = g.toLowerCase().trim()
+        if (!cle) continue
+        const vu = parNom.get(cle)
+        if (vu === undefined) parNom.set(cle, cible)
+        else if (vu === null || vu.id !== u.id) parNom.set(cle, null)
+      }
+    }
+
+    function resoudreCommercial(brut: string): Cible | null {
+      const cle = brut.toLowerCase().trim()
+      return parEmail.get(cle) ?? parNom.get(cle) ?? null
     }
 
     // Clients déjà en base : récupère code_dso + nom actuel
-    interface RowClientNom { code_dso: string; nom: string }
+    interface RowClientNom {
+      code_dso: string; nom: string
+      commercial: string | null; commercial_id: string | null
+    }
     const nomsExistants: Record<string, string> = {}
+    const commerciauxExistants: Record<string, { commercial: string | null; commercial_id: string | null }> = {}
     for (let i = 0; i < tousLesCodes.length; i += 500) {
       const { data } = await supabase
         .from('clients')
-        .select('code_dso, nom')
+        .select('code_dso, nom, commercial, commercial_id')
         .in('code_dso', tousLesCodes.slice(i, i + 500))
       const rows = data as unknown as RowClientNom[] | null
-      rows?.forEach(r => { nomsExistants[r.code_dso] = r.nom })
+      rows?.forEach(r => {
+        nomsExistants[r.code_dso] = r.nom
+        commerciauxExistants[r.code_dso] = { commercial: r.commercial, commercial_id: r.commercial_id }
+      })
     }
     const existants = new Set(Object.keys(nomsExistants))
 
     const nouveaux = lignesUniques.filter(l => !existants.has((l[colPivot] ?? '').trim()))
     const miseAJour = lignesUniques.filter(l => existants.has((l[colPivot] ?? '').trim()))
 
+    // La colonne Commercial n'est traitee que si elle est mappee. Sinon on ne
+    // touche ni au texte ni au lien.
+    const aColonneCommercial = mapping.some(m => m.champ_cible === 'commercial')
+    const nonReconnus = new Map<string, number>()
+
     const lignes_a_inserer = lignesUniques.map(l => {
       const row = appliquerMapping(l, mapping)
-      if (row.commercial) {
-        const val = String(row.commercial).toLowerCase().trim()
-        row.commercial = commerciauxMap.get(val) ?? null
+      if (!aColonneCommercial) return row
+
+      const code    = (l[colPivot] ?? '').trim()
+      const actuel  = commerciauxExistants[code]
+      const brut    = row.commercial == null ? '' : String(row.commercial).trim()
+      const cible   = brut ? resoudreCommercial(brut) : null
+
+      if (cible) {
+        row.commercial    = cible.libelle
+        row.commercial_id = cible.id
+      } else {
+        // Cellule vide ou valeur non reconnue : on REECRIT l'existant.
+        // PostgREST normalise tous les rangs d'un lot sur l'union des cles —
+        // omettre la cle ici mettrait null sur les autres rangs. On la porte
+        // donc toujours, avec la valeur d'aujourd'hui.
+        if (brut) nonReconnus.set(brut, (nonReconnus.get(brut) ?? 0) + 1)
+        row.commercial    = actuel?.commercial ?? null
+        row.commercial_id = actuel?.commercial_id ?? null
       }
       return row
     })
+
+    const commerciaux_non_reconnus = [...nonReconnus.entries()]
+      .map(([valeur, nb]) => ({ valeur, nb }))
+      .sort((a, b) => b.nb - a.nb)
 
     const apercu = lignesUniques.slice(0, 10).map(l => {
       const code = (l[colPivot] ?? '').trim()
@@ -139,6 +206,8 @@ export function useImportClients() {
       nom_fichier: fichier.name,
       codes_existants: [...existants],
       noms_existants: nomsExistants,
+      commerciaux_existants: commerciauxExistants,
+      commerciaux_non_reconnus,
     }
   }
 

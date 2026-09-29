@@ -138,6 +138,32 @@ export function EtapeValidation({
         )}
       </div>
 
+      {/* Bannière commerciaux non reconnus (import_clients) */}
+      {(resultat.commerciaux_non_reconnus?.length ?? 0) > 0 && (
+        <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-sm text-amber-800">
+          <span className="flex-shrink-0">⚠️</span>
+          <div>
+            <strong>
+              {resultat.commerciaux_non_reconnus!.length} valeur
+              {resultat.commerciaux_non_reconnus!.length > 1 ? 's' : ''} de la colonne Commercial
+              non reconnue{resultat.commerciaux_non_reconnus!.length > 1 ? 's' : ''}
+            </strong>
+            {' '}— ces clients <strong>garderont leur commercial actuel</strong>, rien ne sera effacé.
+            <div className="mt-1.5 font-mono text-[11px] leading-relaxed">
+              {resultat.commerciaux_non_reconnus!.slice(0, 8).map(c => (
+                <div key={c.valeur}>« {c.valeur} » — {c.nb} ligne{c.nb > 1 ? 's' : ''}</div>
+              ))}
+              {resultat.commerciaux_non_reconnus!.length > 8 && (
+                <div>… et {resultat.commerciaux_non_reconnus!.length - 8} autre(s)</div>
+              )}
+            </div>
+            <div className="mt-1.5 text-[12px]">
+              Utilisez l'<strong>adresse email</strong> de l'utilisateur : c'est la seule clé sans ambiguïté.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bannière sur-paiement (import_lettrage uniquement) */}
       {estLettrage && (resultat.nb_avertissements ?? 0) > 0 && (
         <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-sm text-amber-800">
