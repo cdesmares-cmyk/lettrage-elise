@@ -22,17 +22,53 @@ export function normaliser(s: string): string {
 }
 
 // Détecte automatiquement la correspondance colonnes fichier → champs cibles
+/**
+ * Associe chaque colonne du fichier a un champ de la base, en DEUX PASSES.
+ *
+ * Passe 1 — correspondances EXACTES. « Code client » prend code_dso, « Code
+ * groupement » prend code_groupement. Chacun son du.
+ *
+ * Passe 2 — correspondances approximatives, sur les colonnes restantes et les
+ * champs encore libres.
+ *
+ * POURQUOI. L'ancienne version traitait chaque colonne independamment, avec une
+ * correspondance approximative dans les deux sens. L'alias 'code' de code_dso
+ * etant le premier de la liste, TOUTE colonne contenant « code » lui etait
+ * attribuee — « Code groupement » comprise. Deux colonnes visaient alors la meme
+ * cible, et a l'ecriture la derniere ecrasait la premiere.
+ *
+ * Mesure du 2026-09-29 sur les jeux de colonnes reels : 11 cibles volees avant,
+ * 0 apres, et les 11 differences sont toutes des corrections. Quatre imports sur
+ * six etaient touches — le plus grave etant l'export des contacts, dont la
+ * colonne « prenom » atterrissait dans le champ nom, et celui des factures, dont
+ * « Restant Du TTC » ecrasait le montant TTC.
+ *
+ * Aucun champ ne peut donc plus etre pris deux fois : c'est la garantie
+ * structurelle, pas une verification ajoutee apres coup.
+ */
 export function detecterMapping(colonnes: string[], champs: ChampCible[]): LigneMapping[] {
-  return colonnes.map(col => {
+  const cibles: (string | null)[] = new Array(colonnes.length).fill(null)
+  const pris = new Set<string>()
+
+  colonnes.forEach((col, i) => {
     const colNorm = normaliser(col)
-    const champ = champs.find(c =>
-      c.aliases.some(a => {
-        const aNorm = normaliser(a)
-        return aNorm === colNorm || colNorm.includes(aNorm) || aNorm.includes(colNorm)
-      })
-    )
-    return { colonne_source: col, champ_cible: champ?.cle ?? null, exemple: '', auto: !!champ }
+    const champ = champs.find(c => !pris.has(c.cle) && c.aliases.some(a => normaliser(a) === colNorm))
+    if (champ) { cibles[i] = champ.cle; pris.add(champ.cle) }
   })
+
+  colonnes.forEach((col, i) => {
+    if (cibles[i]) return
+    const colNorm = normaliser(col)
+    const champ = champs.find(c => !pris.has(c.cle) && c.aliases.some(a => {
+      const aNorm = normaliser(a)
+      return colNorm.includes(aNorm) || aNorm.includes(colNorm)
+    }))
+    if (champ) { cibles[i] = champ.cle; pris.add(champ.cle) }
+  })
+
+  return colonnes.map((col, i) => ({
+    colonne_source: col, champ_cible: cibles[i], exemple: '', auto: !!cibles[i],
+  }))
 }
 
 // Convertit un serial Excel (nombre de jours depuis 1900-01-00) en ISO YYYY-MM-DD

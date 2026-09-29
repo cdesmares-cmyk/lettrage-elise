@@ -170,6 +170,22 @@ export function useImportClients() {
       //   - Client existant sans nom dans le fichier → nom actuel récupéré en base
       //   - Nouveau client sans nom dans le fichier  → nom = code_dso
       const nomsExistants = resultat.noms_existants ?? {}
+
+      // Garde-fou : aucune ligne ne doit partir sans code client. Sans lui,
+      // PostgreSQL repond « null value in column code_dso violates not-null
+      // constraint », message que personne ne peut relier a son fichier.
+      const sansCode = resultat.lignes_a_inserer.filter(
+        l => !l['code_dso'] || String(l['code_dso']).trim() === ''
+      ).length
+      if (sansCode > 0) {
+        await supabase.from('imports').delete().eq('id', importRec.id)
+        throw new Error(
+          `${sansCode} ligne${sansCode > 1 ? 's' : ''} sans code client. ` +
+          'Vérifiez que la colonne « Code client » est bien celle qui porte les codes, ' +
+          'et qu\'aucune autre colonne ne vise le même champ.'
+        )
+      }
+
       try {
         for (let i = 0; i < resultat.lignes_a_inserer.length; i += 500) {
           const lot = resultat.lignes_a_inserer.slice(i, i + 500).map(row => {

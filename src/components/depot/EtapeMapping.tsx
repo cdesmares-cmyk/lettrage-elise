@@ -24,6 +24,15 @@ export function EtapeMapping({
   const champPivot = champs.find(c => c.est_pivot)
 
   const pivotMappe = mapping.some(m => m.champ_cible === champPivot?.cle)
+
+  // La detection automatique ne peut plus produire de doublon, mais un choix
+  // manuel le peut encore. Deux colonnes sur le meme champ : la derniere ecrase
+  // la premiere a l'ecriture, en silence. On bloque plutot que de deviner.
+  const ciblesEnDoublon = [...new Set(
+    mapping
+      .map(m => m.champ_cible)
+      .filter((c, i, arr): c is string => !!c && arr.indexOf(c) !== i)
+  )]
   const champsRequisNonMappes = champs.filter(
     c => c.requis && !c.est_pivot && !mapping.some(m => m.champ_cible === c.cle)
   )
@@ -42,6 +51,18 @@ export function EtapeMapping({
         <div className="flex gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-4 text-sm text-red-700">
           <span>⚠️</span>
           <span>La colonne <strong>{champPivot?.label}</strong> (clé pivot) doit être mappée pour continuer.</span>
+        </div>
+      )}
+
+      {/* Avertissement doublon de cible */}
+      {ciblesEnDoublon.length > 0 && (
+        <div className="flex gap-2 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 mb-4 text-sm text-red-700">
+          <span>⚠️</span>
+          <span>
+            Plusieurs colonnes visent le même champ :{' '}
+            <strong>{ciblesEnDoublon.map(cle => champs.find(c => c.cle === cle)?.label ?? cle).join(', ')}</strong>.
+            Une seule sera conservée et l'autre écrasera ses valeurs — corrigez avant de continuer.
+          </span>
         </div>
       )}
 
@@ -145,7 +166,7 @@ export function EtapeMapping({
         </button>
         <button
           onClick={onSuivant}
-          disabled={!pivotMappe || chargement}
+          disabled={!pivotMappe || ciblesEnDoublon.length > 0 || chargement}
           className="flex items-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-5 py-2.5 rounded-lg transition-colors"
         >
           {chargement ? (
