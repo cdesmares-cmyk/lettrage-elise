@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppData } from '../contexts/AppDataContext'
+import { useAuth } from '../contexts/AuthContext'
+import { useAlertesScore } from './useAlertesScore'
 import type { FactureDetail } from '../types/client'
 
 export type PeriodeEncaissement = 'jour' | 'semaine' | 'mois' | 'trimestre' | 'annee'
@@ -8,6 +10,14 @@ export type TopNb = 5 | 10 | 15
 export type SeuilAnciennete = 3 | 6 | 12 | 18 | 24
 
 export interface TopClient { code: string; nom: string; montant: number }
+/** Un portefeuille = l'ensemble des clients rattaches a un utilisateur.
+ *  L'identifiant special 'aucun' porte les clients sans commercial. */
+export interface Portefeuille { id: string; label: string; nb: number }
+export interface CouvertureRelance {
+  enRetard: number      // clients du portefeuille ayant au moins une facture echue
+  relances: number      // ... dont une relance date de 30 jours ou moins
+  enAttente: number     // ... les autres : c'est la liste de travail
+}
 export interface JourActiviteRelance { date_operation: string; operateur_id: string | null; nb_relances: number; montant: number }
 export interface PointActiviteRelance { label: string; nb_relances: number; montant: number }
 export interface TopFacture {
@@ -46,11 +56,11 @@ function computeTopClients(factures: FactureDetail[], n: number): TopClient[] {
   return [...map.values()].sort((a, b) => b.montant - a.montant).slice(0, n)
 }
 
-function computeTopFactures(factures: FactureDetail[]): TopFacture[] {
+function computeTopFactures(factures: FactureDetail[], nb: number): TopFacture[] {
   return factures
     .filter(f => f.reste_du > 0.005)
     .sort((a, b) => b.reste_du - a.reste_du)
-    .slice(0, 10)
+    .slice(0, nb)
     .map(f => ({
       numero: f.numero_piece,
       nomClient: f.nom_client ?? f.code_client,
@@ -196,9 +206,14 @@ function computeActiviteRelances(
 
 export function useDashboard() {
   const { facturesActives, clients, moisMaxBrut, ca12Mois, ca12MoisPrec, membresOrg } = useAppData()
+  // utilisateur.id est l identifiant Supabase, egal a utilisateurs.id
+  // (regle d acces : auth.uid() = id). profil ne le porte pas.
+  const { utilisateur } = useAuth()
+  const { alertes } = useAlertesScore()
   void ca12MoisPrec // conserve pour le bandeau "hors dernier mois" des autres KPI
   const [exclureDernierMois, setExclureDernierMois] = useState(false)
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
+  const [topNbFactures, setTopNbFactures] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
@@ -326,9 +341,89 @@ export function useDashboard() {
     return factures.filter(f => f.reste_du > 0.005 && f.date_emission && new Date(f.date_emission) < dateRef).reduce((s, f) => s + f.reste_du, 0)
   }, [factures, seuilAnciennete])
 
-  const topClients = useMemo(() => computeTopClients(facsFiltrees, topNbClients), [facsFiltrees, topNbClients])
-  const topFactures = useMemo(() => computeTopFactures(facsFiltrees), [facsFiltrees])
-  const balanceAgee = useMemo(() => computeBalanceAgee(facsFiltrees), [facsFiltrees])
+  // ── Portefeuilles commerciaux ──────────────────────────────────────────────
+  //
+  // Le cadrage s'applique au SEUL bloc d'analyse, pas a la page. Les tuiles du
+  // haut restent globales — le DSO notamment, dont le denominateur (le chiffre
+  // d'affaires sur 12 mois) n'existe qu'une fois par organisation. Un selecteur
+  // en haut de page laisserait croire que tout suit, et un chiffre global pose
+  // au milieu de chiffres cadres finit toujours par etre lu de travers.
+  const PF_AUCUN = 'aucun'
+
+  const portefeuilles = useMemo<Portefeuille[]>(() => {
+    const parId = new Map<string, number>()
+    let sansCommercial = 0
+    for (const c of clients) {
+      if (c.commercial_id) parId.set(c.commercial_id, (parId.get(c.commercial_id) ?? 0) + 1)
+      else sansCommercial++
+    }
+    const liste: Portefeuille[] = membresOrg
+      .filter(m => parId.has(m.id))
+      .map(m => ({
+        id: m.id,
+        label: m.prenom ? `${m.prenom} ${m.nom}` : m.nom,
+        nb: parId.get(m.id) ?? 0,
+      }))
+      .sort((a, b) => b.nb - a.nb)
+    // « Non attribues » se place apres les vrais portefeuilles : c'est un sujet
+    // de travail, pas un residu qu'on releguerait en fin de liste.
+    if (sansCommercial > 0) liste.push({ id: PF_AUCUN, label: 'Non attribués', nb: sansCommercial })
+    return liste
+  }, [clients, membresOrg])
+
+  // Par defaut, chacun ouvre sur SON portefeuille. Sans ce reglage, la
+  // fonctionnalite reste un filtre qu'on pense a utiliser ; avec lui, elle
+  // devient le tableau de bord de la personne.
+  //
+  // Le defaut est DEDUIT, pas pose par un effet : null = « je n'ai pas encore
+  // choisi », et la chaine vide = « j'ai choisi tout le portefeuille ». Les deux
+  // se distinguent, donc un clic sur « Tout le portefeuille » tient, meme si les
+  // clients arrivent apres. Un useEffect qui appelle setState ici reglerait le
+  // filtre pendant le rendu suivant : deuxieme passe, et le choix de
+  // l'utilisateur ecrase au prochain chargement.
+  const [choixPortefeuille, setFiltrePortefeuille] = useState<string | null>(null)
+  const filtrePortefeuille =
+    choixPortefeuille ??
+    (utilisateur?.id && portefeuilles.some(p => p.id === utilisateur.id) ? utilisateur.id : '')
+
+  const codesPortefeuille = useMemo(() => {
+    if (!filtrePortefeuille) return null
+    const codes = new Set<string>()
+    for (const c of clients) {
+      const proprietaire = c.commercial_id ?? PF_AUCUN
+      if (proprietaire === filtrePortefeuille) codes.add(c.code_dso)
+    }
+    return codes
+  }, [clients, filtrePortefeuille])
+
+  const facsAnalyse = useMemo(
+    () => codesPortefeuille ? facsFiltrees.filter(f => codesPortefeuille.has(f.code_client)) : facsFiltrees,
+    [facsFiltrees, codesPortefeuille]
+  )
+
+  const resumePortefeuille = useMemo(() => {
+    const ouvertes = facsAnalyse.filter(f => f.reste_du > 0.005)
+    return {
+      encours:  ouvertes.reduce((s, f) => s + f.reste_du, 0),
+      clients:  codesPortefeuille ? codesPortefeuille.size : new Set(clients.map(c => c.code_dso)).size,
+      factures: ouvertes.length,
+    }
+  }, [facsAnalyse, codesPortefeuille, clients])
+
+  // Couverture de relance. Denominateur volontaire : les clients EN RETARD.
+  // Relancer un client qui n'est pas echu n'a aucun sens, et l'inclure
+  // fabriquerait un taux decourageant et faux.
+  const couvertureRelance = useMemo<CouvertureRelance>(() => {
+    const concernes = alertes.filter(a => !codesPortefeuille || codesPortefeuille.has(a.code_client))
+    const relances = concernes.filter(
+      a => a.jours_derniere_relance !== null && a.jours_derniere_relance <= 30
+    ).length
+    return { enRetard: concernes.length, relances, enAttente: concernes.length - relances }
+  }, [alertes, codesPortefeuille])
+
+  const topClients = useMemo(() => computeTopClients(facsAnalyse, topNbClients), [facsAnalyse, topNbClients])
+  const topFactures = useMemo(() => computeTopFactures(facsAnalyse, topNbFactures), [facsAnalyse, topNbFactures])
+  const balanceAgee = useMemo(() => computeBalanceAgee(facsAnalyse), [facsAnalyse])
   const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
   // On ne propose que les operateurs qui ont REELLEMENT relance : une liste de
   // tous les membres afficherait des noms sans aucune donnee derriere.
@@ -366,7 +461,9 @@ export function useDashboard() {
     libelleMoisPrec: moisPrecDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
     libelleMoisAnPrec: moisAnPrecDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
     topClients, topNbClients, setTopNbClients,
-    topFactures, balanceAgee,
+    topFactures, topNbFactures, setTopNbFactures, balanceAgee,
+    portefeuilles, filtrePortefeuille, setFiltrePortefeuille,
+    resumePortefeuille, couvertureRelance,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,

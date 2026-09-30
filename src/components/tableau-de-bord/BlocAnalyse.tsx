@@ -9,6 +9,7 @@ const _fmtEuro = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maxi
 const _fmtK    = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
 function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 function fmtK(n: number)    { return n >= 1000 ? _fmtK.format(n / 1000) + 'k€' : _fmtK.format(n) + '€' }
+function fmtNb(n: number)   { return _fmtK.format(n) }
 
 const AGE_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444', '#991b1b']
 
@@ -31,12 +32,88 @@ function CardHeader({ children, action }: { children: React.ReactNode; action?: 
   )
 }
 
-export function BlocAnalyse({ topClients, topNbClients, setTopNbClients, topFactures, balanceAgee }: Props) {
+export function BlocAnalyse({
+  topClients, topNbClients, setTopNbClients,
+  topFactures, topNbFactures, setTopNbFactures, balanceAgee,
+  portefeuilles, filtrePortefeuille, setFiltrePortefeuille,
+  resumePortefeuille, couvertureRelance,
+}: Props) {
   const [clientModal, setClientModal] = useState<{ code: string; nom: string } | null>(null)
   const maxMontantClient = topClients[0]?.montant ?? 1
 
+  const cv = couvertureRelance
+  const pctRelances = cv.enRetard > 0 ? Math.round((cv.relances / cv.enRetard) * 100) : 0
+
   return (
     <>
+      {/* Bandeau portefeuille — cadre CE bloc, et lui seul. Les tuiles du haut
+          restent globales : le DSO n'est pas découpable par portefeuille. */}
+      {portefeuilles.length > 0 && (
+        <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-3 mb-3 flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="flex items-center gap-2.5">
+            <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">Portefeuille</span>
+            <div className="relative">
+              <select
+                value={filtrePortefeuille}
+                onChange={e => setFiltrePortefeuille(e.target.value)}
+                aria-label="Choisir un portefeuille"
+                className={`text-xs font-semibold pl-3 pr-8 py-1.5 rounded-lg border appearance-none bg-white outline-none transition-colors cursor-pointer ${
+                  filtrePortefeuille
+                    ? 'border-ockham-teal text-ockham-teal'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}
+              >
+                <option value="">Tout le portefeuille</option>
+                {portefeuilles.map(p => (
+                  <option key={p.id} value={p.id}>{p.label} — {fmtNb(p.nb)}</option>
+                ))}
+              </select>
+              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
+            </div>
+          </div>
+
+          <div className="flex items-baseline gap-4 text-xs">
+            <span className="font-mono font-bold text-gray-800 tabular-nums">{fmtEuro(resumePortefeuille.encours)}</span>
+            <span className="text-gray-400">
+              <span className="font-semibold text-gray-600 tabular-nums">{fmtNb(resumePortefeuille.clients)}</span> clients
+            </span>
+            <span className="text-gray-400">
+              <span className="font-semibold text-gray-600 tabular-nums">{fmtNb(resumePortefeuille.factures)}</span> pièces
+            </span>
+          </div>
+
+          {/* Couverture de relance. Dénominateur : les clients EN RETARD — les
+              seuls sur lesquels une relance a un sens. Et on met en avant le
+              nombre à traiter, pas le pourcentage manquant : une liste de
+              travail, pas un jugement. */}
+          {cv.enRetard > 0 && (
+            <div className="flex items-center gap-3 ml-auto min-w-[260px]">
+              <div className="flex-1">
+                <div className="flex items-baseline justify-between mb-1">
+                  <span className="text-[10px] font-bold uppercase tracking-[.08em] text-gray-400">
+                    Couverture de relance
+                  </span>
+                  <span className="text-[10px] text-gray-400">
+                    {fmtNb(cv.enRetard)} client{cv.enRetard > 1 ? 's' : ''} en retard
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-gray-100 overflow-hidden flex">
+                  <div className="h-full bg-ockham-teal" style={{ width: `${pctRelances}%` }} />
+                </div>
+                <div className="flex items-baseline justify-between mt-1 text-[11px]">
+                  <span className="text-ockham-teal font-semibold tabular-nums">
+                    {fmtNb(cv.relances)} relancé{cv.relances > 1 ? 's' : ''} ce mois
+                  </span>
+                  <span className={`font-semibold tabular-nums ${cv.enAttente > 0 ? 'text-ockham-copper' : 'text-gray-400'}`}>
+                    {fmtNb(cv.enAttente)} en attente
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-3">
 
         {/* Top clients */}
@@ -91,7 +168,27 @@ export function BlocAnalyse({ topClients, topNbClients, setTopNbClients, topFact
 
         {/* Top factures */}
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-          <CardHeader>Top 10 factures — montant restant</CardHeader>
+          <CardHeader
+            action={
+              <div className="flex gap-1">
+                {([5, 10, 15] as TopNb[]).map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setTopNbFactures(n)}
+                    className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-colors ${
+                      topNbFactures === n
+                        ? 'bg-ockham-teal text-white'
+                        : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            }
+          >
+            Top factures — montant restant
+          </CardHeader>
           <div className="flex-1 overflow-auto">
             {topFactures.length === 0 ? (
               <div className="flex items-center justify-center h-full text-xs text-gray-400 py-8">Aucune facture impayée</div>

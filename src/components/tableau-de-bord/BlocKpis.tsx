@@ -28,6 +28,7 @@ export function BlocKpis({
   libelleMoisPrec, libelleMoisAnPrec,
   encoursCourant, balanceAgee,
   creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
+  filtrePortefeuille,
 }: Props) {
   const dso = dsoRoulant ?? 0
   const cfg = dsoConfig(dso)
@@ -104,6 +105,11 @@ export function BlocKpis({
 
           <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">
             DSO roulant — 12 mois
+            {/* Un chiffre global posé à côté de chiffres cadrés se lit de
+                travers. Dès qu'un portefeuille est choisi, on le dit. */}
+            {filtrePortefeuille && (
+              <span className="normal-case tracking-normal font-semibold text-gray-300"> · tout le portefeuille</span>
+            )}
           </span>
 
           {dsoRoulant !== null ? (
