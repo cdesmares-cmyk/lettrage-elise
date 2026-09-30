@@ -1,5 +1,5 @@
 // Volet latéral coulissant — édition des infos client + contacts
-import { useState, useEffect, useLayoutEffect, useRef, useId, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useId, useCallback, useMemo } from 'react'
 import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
@@ -154,6 +154,20 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
   const [statut, setStatut]           = useState<StatutJuridique | ''>('')
   const [commercial, setCommercial]   = useState('')
   const [commercialId, setCommercialId] = useState<string | null>(null)
+
+  // Le LIEN fait foi, le texte n'est qu'un affichage — c'est la regle posee par
+  // la migration 117. Le libelle affiche se deduit donc du lien des qu'il
+  // resout, et ne retombe sur le texte que faute de mieux.
+  //
+  // Sans ca, un texte au mauvais format masque une attribution parfaitement
+  // valide : un client rattache a Sarah Palucci mais portant « Palucci » au
+  // lieu de « Palucci Sarah » affichait « — Aucun — », alors que le lien etait
+  // juste. Constate en production le 29/09.
+  const libelleCommercial = useMemo(() => {
+    const u = commercialId ? commerciauxData.find(x => x.id === commercialId) : null
+    if (u) return u.prenom ? `${u.nom} ${u.prenom}` : u.nom
+    return commercial
+  }, [commercialId, commercial, commerciauxData])
   const [operateur, setOperateur]     = useState('')
   const [plateforme, setPlateforme]   = useState('')
   const [groupement, setGroupement]   = useState('')
@@ -266,7 +280,9 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
 
     const ok = await onSauvegarder(client!.code_dso, {
       statut_juridique: statut || null,
-      commercial: commercial.trim() || null,
+      // On enregistre le libelle affiche : si le lien resout, le texte se
+      // remet ainsi d'aplomb tout seul au premier enregistrement.
+      commercial: libelleCommercial.trim() || null,
       commercial_id: commercialId,
       operateur: operateur.trim() || null,
       plateforme: valPlateforme || null,
@@ -689,7 +705,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
 
             <SelectRef
               label="Commercial"
-              valeur={commercial}
+              valeur={libelleCommercial}
               setValeur={name => {
                 setCommercial(name)
                 const match = commerciauxData.find(u => (u.prenom ? `${u.nom} ${u.prenom}` : u.nom) === name)
