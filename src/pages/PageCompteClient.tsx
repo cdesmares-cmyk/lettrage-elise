@@ -189,11 +189,21 @@ export function PageCompteClient() {
     setExportSelectionEnCours(false)
   }
 
-  // KPIs dynamiques en vue "factures" selon la plage de dates sélectionnée
-  // Utilise facturesActives directement (même source que l'export) pour garantir la cohérence
+  // KPIs dynamiques en vue "factures" selon la plage de dates ET le commercial
+  // sélectionnés. Utilise facturesActives directement (même source que l'export)
+  // pour garantir la cohérence.
+  //
+  // Les KPIs doivent suivre le filtre commercial : un encours global posé
+  // au-dessus d'un tableau cadré sur une personne se lit comme l'encours de
+  // cette personne. Sans ce recalcul, le total du haut contredirait les lignes
+  // du bas — et c'est le total que l'utilisateur retient.
   const kpisVueFiltree = useMemo(() => {
-    if (vue !== 'factures' || (!factureDateDebut && !factureDateFin)) return comptes.kpis
+    if (vue !== 'factures' || (!factureDateDebut && !factureDateFin && !filtreCommercial)) return comptes.kpis
     let facs = facturesActives
+    if (filtreCommercial) {
+      const codes = new Set(clientsFiltres.map(c => c.code_dso))
+      facs = facs.filter(f => codes.has(f.code_client))
+    }
     if (factureDateDebut) facs = facs.filter(f => (f.date_emission ?? '') >= factureDateDebut)
     if (factureDateFin)   facs = facs.filter(f => (f.date_emission ?? '') <= factureDateFin)
     const credits = facs.filter(f => f.reste_du > 0.005)
@@ -206,7 +216,7 @@ export function PageCompteClient() {
       nbFacturesAttente: credits.length,
       nbAvoirsCredits: credits.filter(f => f.est_avoir).length,
     }
-  }, [vue, factureDateDebut, factureDateFin, facturesActives, comptes.kpis])
+  }, [vue, factureDateDebut, factureDateFin, filtreCommercial, clientsFiltres, facturesActives, comptes.kpis])
 
   function fmtEncours(n: number) {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
@@ -301,7 +311,7 @@ export function PageCompteClient() {
           ) : null}
         </div>
 
-        {vue === 'clients' && commerciauxActifs.length > 0 && (
+        {(vue === 'clients' || vue === 'factures') && commerciauxActifs.length > 0 && (
           <div className="relative">
             <select
               value={filtreCommercial}
@@ -467,7 +477,7 @@ export function PageCompteClient() {
 
       {vue === 'factures' && (
         <TableFacturesFlat
-          clients={comptes.clients}
+          clients={clientsFiltres}
           getFactures={codes => factures.getFactures(codes)}
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
