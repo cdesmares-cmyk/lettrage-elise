@@ -26,6 +26,8 @@ interface KpiOrg {
   creances: number
   nb_clients: number
   nb_factures: number
+  nb_factures_echues: number
+  nb_clients_echus: number
   ca12: number
   dso: number | null
   non_echu: number
@@ -44,6 +46,16 @@ const TRANCHES: { cle: keyof KpiOrg; label: string; couleur: string }[] = [
   { cle: 'retard_61_90',   label: '61 – 90j',  couleur: '#E05C3E' },
   { cle: 'retard_90_plus', label: '+90j',      couleur: '#A32E1F' },
 ]
+
+// Seuils et couleurs recopies de BlocKpis : un DSO « Bon » doit avoir la meme
+// teinte dans le portail et dans la structure, sinon les deux ecrans se
+// contredisent a l'oeil avant meme de se contredire en chiffres.
+function dsoConfig(dso: number) {
+  if (dso <= 30) return { texte: '#059669', bg: '#ECFDF5', border: '#A7F3D0', label: 'Excellent' }
+  if (dso <= 45) return { texte: '#3BA89F', bg: '#ECFDFB', border: '#CFEDE9', label: 'Bon'       }
+  if (dso <= 60) return { texte: '#D97706', bg: '#FFFBEB', border: '#FDE68A', label: 'Attention' }
+  return              { texte: '#DC2626', bg: '#FEF2F2', border: '#FECACA', label: 'Critique'  }
+}
 
 function fmtEuro(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
@@ -85,13 +97,23 @@ function Pastille({ nom }: { nom: string }) {
   )
 }
 
-function Kpi({ label, valeur, accent }: { label: string; valeur: string; accent?: string }) {
+// Meme anatomie que les tuiles du tableau de bord — libelle en petites
+// capitales grises, chiffre en gros, sous-titre explicatif — mais resserree :
+// ici on compare des structures entre elles, on ne pilote pas l'une d'elles.
+function Tuile({ label, valeur, sous, couleur, bordure, fond }: {
+  label: string; valeur: string; sous: string
+  couleur?: string; bordure?: string; fond?: string
+}) {
   return (
-    <div className="min-w-[88px]">
-      <p className="text-[9px] font-bold uppercase tracking-[.08em] text-gray-400 mb-1">{label}</p>
-      <p className="font-mono font-bold text-[19px] leading-none tabular-nums" style={{ color: accent ?? '#1F2937' }}>
+    <div
+      className="rounded-xl border px-4 py-3.5 bg-white"
+      style={{ borderColor: bordure ?? '#F3F4F6', background: fond ?? '#fff' }}
+    >
+      <p className="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400 leading-tight">{label}</p>
+      <p className="font-extrabold tabular-nums leading-none mt-1.5" style={{ fontSize: 26, color: couleur ?? '#111827' }}>
         {valeur}
       </p>
+      <p className="text-[10px] text-gray-400 mt-1.5 leading-tight">{sous}</p>
     </div>
   )
 }
@@ -99,28 +121,18 @@ function Kpi({ label, valeur, accent }: { label: string; valeur: string; accent?
 function LigneStructure({ k, onOuvrir, enCours }: { k: KpiOrg; onOuvrir: () => void; enCours: boolean }) {
   const [deplie, setDeplie] = useState(false)
   const total = TRANCHES.reduce((s, t) => s + (k[t.cle] as number), 0)
+  const cfg = dsoConfig(k.dso ?? 0)
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-4">
 
-      {/* Ligne principale : le nom a gauche, les chiffres toujours aux memes
-          colonnes — c'est ce qui permet de balayer les DSO verticalement. */}
-      <div className="flex items-center gap-5 flex-wrap">
-        <div className="flex items-center gap-3 min-w-[190px]">
-          <Pastille nom={k.nom} />
-          <div className="min-w-0">
-            <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{k.nom}</p>
-            {k.code_org && <p className="text-gray-400 text-[11px] font-mono mt-0.5">{k.code_org}</p>}
-          </div>
+      {/* En-tete : qui on regarde, et par ou on y entre. */}
+      <div className="flex items-center gap-3 mb-3.5">
+        <Pastille nom={k.nom} />
+        <div className="min-w-0 flex-1">
+          <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{k.nom}</p>
+          {k.code_org && <p className="text-gray-400 text-[11px] font-mono mt-0.5">{k.code_org}</p>}
         </div>
-
-        <div className="flex items-center gap-7 flex-wrap flex-1">
-          <Kpi label="DSO roulant"  valeur={k.dso === null ? '—' : `${k.dso.toFixed(1)} j`} accent="#3BA89F" />
-          <Kpi label="Encours TTC"  valeur={fmtEuro(k.encours_ttc)} />
-          <Kpi label="Clients"      valeur={fmtNb(k.nb_clients)} />
-          <Kpi label="Retard +90j"  valeur={fmtEuro(k.retard_90_plus)} accent={k.retard_90_plus > 0 ? '#A32E1F' : undefined} />
-        </div>
-
         <button
           onClick={onOuvrir}
           disabled={enCours}
@@ -130,11 +142,46 @@ function LigneStructure({ k, onOuvrir, enCours }: { k: KpiOrg; onOuvrir: () => v
         </button>
       </div>
 
+      {/* Les quatre memes tuiles que la premiere rangee du tableau de bord
+          d'une structure, dans le meme ordre. Qui connait l'un lit l'autre
+          sans apprendre quoi que ce soit. Les colonnes etant fixes, les DSO
+          s'alignent verticalement d'une structure a l'autre. */}
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: '1.4fr 1fr 1fr 1fr' }}>
+        <Tuile
+          label="DSO roulant — 12 mois"
+          valeur={k.dso === null ? '—' : `${k.dso.toFixed(1)} j`}
+          sous={k.dso === null ? 'chiffre d\u2019affaires de référence absent' : cfg.label}
+          couleur={k.dso === null ? '#D1D5DB' : cfg.texte}
+          bordure={k.dso === null ? undefined : cfg.border}
+          fond={k.dso === null ? undefined : `linear-gradient(135deg, #fff 60%, ${cfg.bg})`}
+        />
+        <Tuile
+          label="Factures impayées échues"
+          valeur={fmtNb(k.nb_factures_echues)}
+          sous="Échéance dépassée"
+          couleur={k.nb_factures_echues > 0 ? '#DC2626' : undefined}
+        />
+        <Tuile
+          label="Clients avec impayés échus"
+          valeur={fmtNb(k.nb_clients_echus)}
+          sous="Clients distincts concernés"
+          couleur={k.nb_clients_echus > 0 ? '#D97706' : undefined}
+        />
+        <Tuile
+          label="Encours total TTC"
+          valeur={fmtEuro(k.encours_ttc)}
+          sous="Toutes factures ouvertes"
+        />
+      </div>
+
       {/* Balance agee en une barre : la forme se lit d'un coup d'oeil, et elle
           se compare d'une structure a l'autre sans lire un seul chiffre. */}
       {total > 0 && (
-        <div className="mt-4">
-          <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+        <div className="mt-3.5">
+          <p className="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400 mb-1.5">
+            Balance âgée des créances
+          </p>
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
             {TRANCHES.map(t => {
               const v = k[t.cle] as number
               if (v <= 0) return null
@@ -315,7 +362,7 @@ export function VuePortail() {
           )}
 
           {onglet === 'tableau-de-bord' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-4">
               {kpis === null && (
                 <p className="text-sm text-gray-400">Calcul des indicateurs…</p>
               )}
