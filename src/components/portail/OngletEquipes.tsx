@@ -35,6 +35,8 @@ export function OngletEquipes() {
   const [lignes, setLignes] = useState<LigneEquipe[] | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [enCours, setEnCours] = useState<string | null>(null)
+  const [recherche, setRecherche] = useState('')
+  const [filtreStructure, setFiltreStructure] = useState('')
 
   // Un compteur plutot qu'une fonction de rechargement : apres une ecriture on
   // l'incremente, et l'effet relit. La lecture reste au meme endroit, et l'etat
@@ -72,6 +74,19 @@ export function OngletEquipes() {
 
   const nomComplet = (l: LigneEquipe) => (l.prenom ? `${l.prenom} ${l.nom}` : l.nom)
 
+  // Recherche sur le nom ET l'email : on cherche souvent quelqu'un dont on a
+  // l'adresse sous les yeux sans se rappeler l'orthographe exacte du nom.
+  // La normalisation retire les accents — « Palucci » doit trouver « Palùcci ».
+  const normaliser = (v: string) =>
+    v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+
+  const visibles = (lignes ?? []).filter(l => {
+    if (filtreStructure && !l.structures.includes(filtreStructure)) return false
+    if (!recherche.trim()) return true
+    const q = normaliser(recherche)
+    return normaliser(nomComplet(l)).includes(q) || normaliser(l.email).includes(q)
+  })
+
   return (
     <div className="flex flex-col gap-4">
 
@@ -79,6 +94,55 @@ export function OngletEquipes() {
         Ouvrez ou fermez l’accès d’une personne à l’une de vos structures.
         La structure d’origine ne peut pas être retirée — elle définit son rattachement.
       </p>
+
+      {/* Barre de recherche — même vocabulaire que celle du Compte client :
+          qui connaît l'une se sert de l'autre sans réfléchir. */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 flex-1 min-w-[220px] max-w-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400 flex-shrink-0">
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+          </svg>
+          <input
+            type="text"
+            value={recherche}
+            onChange={e => setRecherche(e.target.value)}
+            placeholder="Rechercher un nom, un e-mail…"
+            className="text-xs text-gray-700 placeholder-gray-400 outline-none w-full bg-transparent"
+          />
+          {recherche && (
+            <button
+              onClick={() => setRecherche('')}
+              className="text-gray-400 hover:text-gray-600 text-xs flex-shrink-0"
+            >✕</button>
+          )}
+        </div>
+
+        <div className="relative">
+          <select
+            value={filtreStructure}
+            onChange={e => setFiltreStructure(e.target.value)}
+            aria-label="Filtrer par structure"
+            className={`text-xs font-semibold pl-3 pr-8 py-1.5 rounded-lg border appearance-none bg-white outline-none transition-colors cursor-pointer ${
+              filtreStructure
+                ? 'border-ockham-teal text-ockham-teal'
+                : 'border-gray-200 text-gray-500 hover:border-gray-300'
+            }`}
+          >
+            <option value="">Toutes les structures</option>
+            {organisations.map(o => (
+              <option key={o.id} value={o.id}>{o.nom}</option>
+            ))}
+          </select>
+          <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[10px]">▾</span>
+        </div>
+
+        {lignes && (
+          <span className="text-[12px] text-gray-400 tabular-nums">
+            {visibles.length} personne{visibles.length > 1 ? 's' : ''}
+            {visibles.length !== lignes.length && ` sur ${lignes.length}`}
+          </span>
+        )}
+      </div>
 
       {erreur && (
         <div className="px-4 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -95,7 +159,11 @@ export function OngletEquipes() {
         </div>
       )}
 
-      {lignes?.map(l => {
+      {lignes && lignes.length > 0 && visibles.length === 0 && (
+        <p className="text-sm text-gray-400">Aucune personne ne correspond à cette recherche.</p>
+      )}
+
+      {visibles.map(l => {
         const estMoi = l.utilisateur_id === utilisateur?.id
         return (
           <div key={l.utilisateur_id} className="bg-white border border-gray-100 rounded-2xl shadow-sm px-5 py-4">
