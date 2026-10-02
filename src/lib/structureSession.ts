@@ -30,3 +30,25 @@ export function marquerStructureChoisie(organisationId: string): void {
 export function oublierStructureChoisie(): void {
   try { sessionStorage.removeItem(CLE) } catch { /* stockage indisponible */ }
 }
+
+/** Ou retourner apres une bascule : la page demandee, telle quelle.
+ *
+ *  Le portail est rendu A L'ADRESSE demandee — il remplace l'application sans
+ *  naviguer — donc l'adresse courante est encore celle du lien clique. Choisir
+ *  une structure y ramene naturellement, sans rien avoir a memoriser.
+ *
+ *  Le parametre org est retire : si l'utilisateur a choisi une structure
+ *  differente de celle du lien, le garder ferait rebasculer en boucle.
+ *
+ *  sansOrg sert justement a distinguer les deux cas : un choix explicite au
+ *  portail le met a vrai, une bascule automatique depuis un lien le laisse a
+ *  faux pour conserver l'adresse intacte. */
+export function destinationCourante(sansOrg = false): string {
+  const { pathname, search } = window.location
+  if (pathname === '/' || pathname === '/connexion') return '/tableau-de-bord'
+  if (!sansOrg) return pathname + search
+  const params = new URLSearchParams(search)
+  params.delete('org')
+  const q = params.toString()
+  return pathname + (q ? '?' + q : '')
+}

@@ -43,9 +43,16 @@ interface AlereteRow {
   score_risque: number
 }
 
-function buildDigest(alertes: AlereteRow[], date: string): string {
+function buildDigest(alertes: AlereteRow[], date: string, orgId: string): string {
   const lignes = alertes.slice(0, 10).map((a, i) => {
-    const lien = `${APP_URL}/compte-client?client=${encodeURIComponent(a.code_client)}`
+    // Le lien porte SA structure. Les codes clients ne sont uniques QUE par
+    // organisation : sans ce parametre, un destinataire rattache a plusieurs
+    // structures ouvrirait le bon code dans la mauvaise societe, et rien a
+    // l'ecran ne le signalerait.
+    //
+    // Sans effet pour un compte mono-structure : le front ignore le parametre
+    // quand l'utilisateur n'a aucune appartenance declaree.
+    const lien = `${APP_URL}/compte-client?client=${encodeURIComponent(a.code_client)}&org=${orgId}`
     return `<tr style="border-bottom:1px solid #e5e7eb;">
       <td style="padding:10px 8px;font-size:13px;color:#6b7280;text-align:center;">${i + 1}</td>
       <td style="padding:10px 8px;">
@@ -195,7 +202,7 @@ Deno.serve(async (req: Request) => {
 
       if (!emails.length) continue
 
-      const html = buildDigest(rows, dateAffichee)
+      const html = buildDigest(rows, dateAffichee, orgId)
       const sujet = `Alertes Score Client OCKHAM — ${rows.length} client(s) à surveiller`
 
       for (const email of emails) {

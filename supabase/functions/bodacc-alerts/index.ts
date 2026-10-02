@@ -91,11 +91,18 @@ interface LigneDigest {
 }
 
 // ── TEMPLATE DIGEST — tableau groupé par client ───────────────────────────────
-function buildDigestEmail(lignes: LigneDigest[], dateStr: string, nomOrg?: string): string {
+function buildDigestEmail(lignes: LigneDigest[], dateStr: string, orgId: string, nomOrg?: string): string {
   const nbClients = lignes.length
 
   const lignesHtml = lignes.map((l, i) => {
-    const lienClient = `${APP_URL}/compte-client?client=${encodeURIComponent(l.code_client)}`
+    // Le lien porte SA structure. Les codes clients ne sont uniques QUE par
+    // organisation : sans ce parametre, un destinataire rattache a plusieurs
+    // structures ouvrirait le bon code dans la mauvaise societe, et rien a
+    // l'ecran ne le signalerait.
+    //
+    // Sans effet pour un compte mono-structure : le front ignore le parametre
+    // quand l'utilisateur n'a aucune appartenance declaree.
+    const lienClient = `${APP_URL}/compte-client?client=${encodeURIComponent(l.code_client)}&org=${orgId}`
     const bg = i % 2 === 0 ? '#ffffff' : '#f9fafb'
     const badgeColor  = colorType(l.type_prioritaire)
     const badgeBg     = l.type_prioritaire === 'liquidation' ? '#fef2f2'
@@ -352,7 +359,7 @@ Deno.serve(async (req: Request) => {
 
         // — Envoi digest
         const sujet = `[Ockham] ${nomOrg ? nomOrg + ' - ' : ''}${lignes.length} nouvelle${lignes.length > 1 ? 's' : ''} alerte${lignes.length > 1 ? 's' : ''} BODACC - ${dateStr}`
-        const html  = buildDigestEmail(lignes, dateStr, nomOrg)
+        const html  = buildDigestEmail(lignes, dateStr, orgId, nomOrg)
         for (const email of emails) {
           const ok = await envoyerEmail(email, sujet, html)
           if (ok) nbEmailsEnvoyés++

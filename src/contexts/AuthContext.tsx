@@ -30,7 +30,7 @@ interface ContexteAuth {
   utilisateur: User | null
   profil: ProfilUtilisateur | null
   organisations: OrganisationMembre[]
-  basculerStructure: (organisationId: string) => Promise<void>
+  basculerStructure: (organisationId: string, destination?: string) => Promise<void>
   chargement: boolean
   typeMotDePasse: 'invite' | 'recovery' | null
   motDePasseDefini: () => void
@@ -133,7 +133,7 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function basculerStructure(organisationId: string) {
+  async function basculerStructure(organisationId: string, destination = '/tableau-de-bord') {
     // C'est la base qui decide : la fonction verifie l'appartenance avant
     // d'ecrire, et un declencheur la verifie une seconde fois. Le navigateur
     // demande, il ne choisit pas.
@@ -148,7 +148,7 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
     // Rechargement COMPLET, volontairement. L'application garde les factures et
     // les clients en memoire : un changement d'etat en douceur afficherait les
     // donnees de la structure precedente sous le nom de la nouvelle.
-    window.location.assign('/tableau-de-bord')
+    window.location.assign(destination)
   }
 
   function motDePasseDefini() { setTypeMotDePasse(null) }

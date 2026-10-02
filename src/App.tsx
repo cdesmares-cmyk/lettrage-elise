@@ -2,7 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
-import { structureChoisieCetteSession } from './lib/structureSession'
+import { structureChoisieCetteSession, destinationCourante } from './lib/structureSession'
 import { VuePortail } from './components/portail/VuePortail'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { FournisseurCorrection } from './contexts/CorrectionContext'
@@ -67,8 +67,32 @@ function SplashChargement({ nom }: { nom?: string }) {
 // Garde de route : redirige vers /connexion si non authentifié,
 // affiche un écran de chargement pendant la récupération des données initiales
 function RoutePrivee({ children }: { children: React.ReactNode }) {
-  const { session, chargement: chargementAuth, profil, organisations } = useAuth()
+  const { session, chargement: chargementAuth, profil, organisations, basculerStructure } = useAuth()
   const { chargement: chargementDonnees } = useAppData()
+  // Un garde-fou de rendu, pas un etat : il empeche la bascule de partir deux
+  // fois sans provoquer de rendu supplementaire.
+  const basculeLancee = React.useRef(false)
+
+  // Un lien d'email porte SA structure (&org=...). On y bascule avant d'ouvrir
+  // la fiche demandee : les codes clients ne sont uniques QUE par organisation,
+  // donc sans ca le lien ouvrirait le bon code dans la mauvaise societe — et
+  // rien a l'ecran ne le signalerait.
+  //
+  // Sans appartenance declaree, la liste est vide et ce bloc ne fait rien : un
+  // compte mono-structure ignore simplement le parametre.
+  React.useEffect(() => {
+    if (basculeLancee.current) return
+    const cible = new URLSearchParams(window.location.search).get('org')
+    if (!cible) return
+    if (!organisations.some(o => o.id === cible)) return
+    if (organisations.find(o => o.est_active)?.id === cible) return
+    basculeLancee.current = true
+    // Destination : la meme adresse. Apres rechargement la structure active
+    // correspond, donc ce bloc ne se redeclenche pas.
+    basculerStructure(cible, destinationCourante()).catch(e => {
+      console.warn('[Ockham] bascule depuis un lien impossible :', e)
+    })
+  }, [organisations, basculerStructure])
 
   if (chargementAuth) return <div className="min-h-screen bg-gray-50" />
 

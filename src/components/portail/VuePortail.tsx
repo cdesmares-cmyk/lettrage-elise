@@ -17,6 +17,7 @@ import { useState, useEffect } from 'react'
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
+import { destinationCourante } from '../../lib/structureSession'
 
 type Onglet = 'tableau-de-bord' | 'organisations'
 
@@ -277,7 +278,11 @@ export function VuePortail() {
     setErreur(null)
     setEnCours(id)
     try {
-      await basculerStructure(id)
+      // On retourne la ou l'utilisateur allait : si le portail s'est affiche
+      // sur un lien de notification, le choix d'une structure y ramene. Le
+      // parametre org du lien est retire, sinon un choix different de celui du
+      // lien ferait rebasculer en boucle.
+      await basculerStructure(id, destinationCourante(true))
     } catch (e) {
       setErreur(e instanceof Error ? e.message : 'Structure refusée')
       setEnCours(null)
