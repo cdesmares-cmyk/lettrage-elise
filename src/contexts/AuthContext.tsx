@@ -1,9 +1,13 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { marquerStructureChoisie } from '../lib/structureSession'
 
 interface ProfilUtilisateur {
   role: string
+  /** Structure ACTIVE, pas celle d'origine. Tout le front doit lire celle-ci :
+   *  c'est elle que get_my_organisation_id() renvoie cote base, donc la seule
+   *  avec laquelle une ecriture sera acceptee. */
   organisation_id: string
   nom_organisation: string
   code_org: string
@@ -12,10 +16,21 @@ interface ProfilUtilisateur {
   initiales: string
 }
 
+/** Une structure dont l'utilisateur est membre. Liste vide = compte
+ *  mono-structure, c'est le cas de tous les comptes aujourd'hui. */
+export interface OrganisationMembre {
+  id: string
+  nom: string
+  code_org: string | null
+  est_active: boolean
+}
+
 interface ContexteAuth {
   session: Session | null
   utilisateur: User | null
   profil: ProfilUtilisateur | null
+  organisations: OrganisationMembre[]
+  basculerStructure: (organisationId: string) => Promise<void>
   chargement: boolean
   typeMotDePasse: 'invite' | 'recovery' | null
   motDePasseDefini: () => void
@@ -25,6 +40,8 @@ const ContexteAuth = createContext<ContexteAuth>({
   session: null,
   utilisateur: null,
   profil: null,
+  organisations: [],
+  basculerStructure: async () => {},
   chargement: true,
   typeMotDePasse: null,
   motDePasseDefini: () => {},
@@ -33,6 +50,7 @@ const ContexteAuth = createContext<ContexteAuth>({
 export function FournisseurAuth({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profil, setProfil] = useState<ProfilUtilisateur | null>(null)
+  const [organisations, setOrganisations] = useState<OrganisationMembre[]>([])
   const [chargement, setChargement] = useState(true)
   // Détection invitation ou reset mot de passe via le hash de l'URL
   const [typeMotDePasse, setTypeMotDePasse] = useState<'invite' | 'recovery' | null>(() => {
@@ -49,14 +67,28 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
       .eq('id', userId)
       .single()
     const d = data as { role: string; organisation_id: string; prenom: string; nom: string; initiales: string; organisations: { nom: string; code_org: string | null } | null } | null
+
+    // Les structures dont le compte est membre. Vide pour un compte
+    // mono-structure — c'est le cas des 22 comptes existants, qui gardent donc
+    // exactement le comportement d'avant.
+    const { data: orgsData } = await supabase.rpc('mes_organisations')
+    const orgs = (orgsData ?? []) as OrganisationMembre[]
+    setOrganisations(orgs)
+
+    // La structure active fait foi des qu'elle existe. Le nom embarque par la
+    // requete ci-dessus suit la cle etrangere organisation_id, c'est-a-dire la
+    // structure D'ORIGINE : apres une bascule il ne correspondrait plus a ce
+    // qui est affiche a l'ecran.
+    const active = orgs.find(o => o.est_active) ?? null
+
     if (d) setProfil({
       role: d.role,
-      organisation_id: d.organisation_id,
+      organisation_id: active?.id ?? d.organisation_id,
       prenom: d.prenom ?? '',
       nom: d.nom ?? '',
       initiales: d.initiales ?? '',
-      nom_organisation: d.organisations?.nom ?? '',
-      code_org: d.organisations?.code_org ?? '',
+      nom_organisation: active?.nom ?? d.organisations?.nom ?? '',
+      code_org: active?.code_org ?? d.organisations?.code_org ?? '',
     })
   }
 
@@ -83,10 +115,28 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  async function basculerStructure(organisationId: string) {
+    // C'est la base qui decide : la fonction verifie l'appartenance avant
+    // d'ecrire, et un declencheur la verifie une seconde fois. Le navigateur
+    // demande, il ne choisit pas.
+    // Les types Supabase generes ne connaissent pas encore les fonctions des
+    // migrations 170/171. A regenerer quand le CLI sera relance.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any).rpc('basculer_organisation', { p_organisation_id: organisationId })
+    if (error) throw new Error(error.message)
+
+    marquerStructureChoisie(organisationId)
+
+    // Rechargement COMPLET, volontairement. L'application garde les factures et
+    // les clients en memoire : un changement d'etat en douceur afficherait les
+    // donnees de la structure precedente sous le nom de la nouvelle.
+    window.location.assign('/tableau-de-bord')
+  }
+
   function motDePasseDefini() { setTypeMotDePasse(null) }
 
   return (
-    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, profil, chargement, typeMotDePasse, motDePasseDefini }}>
+    <ContexteAuth.Provider value={{ session, utilisateur: session?.user ?? null, profil, organisations, basculerStructure, chargement, typeMotDePasse, motDePasseDefini }}>
       {children}
     </ContexteAuth.Provider>
   )

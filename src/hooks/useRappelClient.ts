@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 
 export interface Rappel {
   id:                string
@@ -14,6 +15,10 @@ export interface Rappel {
 
 export function useRappelClient(codeClient: string | null) {
   const [rappels, setRappels] = useState<Rappel[]>([])
+  // La structure ACTIVE. utilisateurs.organisation_id porte celle d'ORIGINE, et
+  // la regle d'insertion compare a l'active : lire la colonne ferait echouer
+  // l'ecriture apres une bascule de structure.
+  const { profil } = useAuth()
 
   async function charger() {
     if (!codeClient) { setRappels([]); return }
@@ -38,16 +43,11 @@ export function useRappelClient(codeClient: string | null) {
   }): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return false
-    const { data: me } = await supabase
-      .from('utilisateurs' as never)
-      .select('organisation_id')
-      .eq('id', user.id)
-      .maybeSingle() as { data: { organisation_id: string } | null }
-    if (!me?.organisation_id) return false
+    if (!profil?.organisation_id) return false
     const { error } = await supabase
       .from('rappels_client' as never)
       .insert({
-        organisation_id:   me.organisation_id,
+        organisation_id:   profil.organisation_id,
         code_client:       codeClient,
         type:              'rappel_perso',
         prevu_le:          params.prevu_le,

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 
 interface OdooConfig {
@@ -23,6 +24,8 @@ export interface OdooSyncProgress {
 }
 
 export function useOdooIntegration() {
+  // La structure ACTIVE, pas celle d'origine — voir le commentaire a l'upsert.
+  const { profil } = useAuth()
   const [integration, setIntegration]   = useState<Integration | null>(null)
   const [enCours, setEnCours]           = useState(false)
   const [syncProgress, setSyncProgress] = useState<OdooSyncProgress | null>(null)
@@ -44,18 +47,15 @@ export function useOdooIntegration() {
   ): Promise<boolean> {
     setEnCours(true)
     try {
-      // Récupère l'organisation_id explicitement pour satisfaire le WITH CHECK RLS
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: me, error: meErr } = await (supabase as any)
-        .from('utilisateurs')
-        .select('organisation_id')
-        .single() as { data: { organisation_id: string } | null; error: unknown }
-      if (meErr || !me?.organisation_id) throw new Error('Organisation introuvable')
+      // La structure ACTIVE, exigee par le WITH CHECK de la regle d'insertion.
+      // Lire utilisateurs.organisation_id donnerait celle d'ORIGINE, et
+      // l'ecriture serait refusee apres une bascule de structure.
+      if (!profil?.organisation_id) throw new Error('Organisation introuvable')
 
       const { error } = await supabase
         .from('integrations')
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .upsert({ provider: 'odoo', api_key: apiKey, config: { url, db, username }, actif: true, organisation_id: me.organisation_id } as any, {
+        .upsert({ provider: 'odoo', api_key: apiKey, config: { url, db, username }, actif: true, organisation_id: profil.organisation_id } as any, {
           onConflict: 'organisation_id,provider',
         })
       if (error) throw error

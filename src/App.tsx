@@ -2,6 +2,8 @@ import React from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
+import { structureChoisieCetteSession } from './lib/structureSession'
+import { PortailStructures } from './components/PortailStructures'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { FournisseurCorrection } from './contexts/CorrectionContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -65,12 +67,20 @@ function SplashChargement({ nom }: { nom?: string }) {
 // Garde de route : redirige vers /connexion si non authentifié,
 // affiche un écran de chargement pendant la récupération des données initiales
 function RoutePrivee({ children }: { children: React.ReactNode }) {
-  const { session, chargement: chargementAuth, profil } = useAuth()
+  const { session, chargement: chargementAuth, profil, organisations } = useAuth()
   const { chargement: chargementDonnees } = useAppData()
 
   if (chargementAuth) return <div className="min-h-screen bg-gray-50" />
 
   if (!session) return <Navigate to="/connexion" replace />
+
+  // Portail : pour les comptes rattaches a plusieurs structures, le choix est un
+  // geste conscient, repete a chaque connexion. Un compte mono-structure n'a
+  // aucune appartenance declaree et passe donc directement — rien ne change
+  // pour lui.
+  if (organisations.length >= 2 && !structureChoisieCetteSession()) {
+    return <PortailStructures />
+  }
 
   if (chargementDonnees) return <SplashChargement nom={profil?.nom_organisation} />
 

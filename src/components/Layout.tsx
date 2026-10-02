@@ -101,7 +101,7 @@ const NAV_OUTILS = [
 
 export function Layout() {
   const { isCommercial, isExterne } = useRole()
-  const { profil } = useAuth()
+  const { profil, organisations } = useAuth()
   const { relances, lettragesMap, seuilSansSuite } = useRelances()
 
   const nbAlertes = useMemo(() => {
@@ -138,6 +138,24 @@ export function Layout() {
           >O</div>
           <span className="text-white font-bold text-[15px] tracking-[0.06em]">OCKHAM</span>
         </div>
+
+        {/* Structure active — affichee en permanence des que le compte en a
+            plusieurs. Sans repere visible, rien a l'ecran ne distingue deux
+            structures : c'est le chemin direct vers un import depose dans la
+            mauvaise societe, et un import ne se revert pas. */}
+        {organisations.length >= 2 && profil?.nom_organisation && (
+          <div className="px-4 py-2.5 border-b border-white/[0.06] bg-ockham-teal/[0.07]">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ockham-teal/70 mb-0.5">
+              Structure
+            </p>
+            <p className="text-white text-[13px] font-semibold truncate leading-tight">
+              {profil.nom_organisation}
+            </p>
+            {profil.code_org && (
+              <p className="text-white/35 text-[10px] font-mono mt-0.5">{profil.code_org}</p>
+            )}
+          </div>
+        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
