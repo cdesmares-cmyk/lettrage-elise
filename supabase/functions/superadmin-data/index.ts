@@ -179,6 +179,84 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true })
     }
 
+    // ── ATTACH_STRUCTURE ──────────────────────────────────────────────────────
+    // Rattacher un compte a une structure supplementaire. C'est le PERIMETRE,
+    // et il n'est accorde que par OCKHAM : un client ne doit jamais pouvoir
+    // s'ajouter une structure qu'il ne paye pas.
+    //
+    // On ecrit AUSSI la structure d'origine si elle manque. Le declencheur
+    // trg_utilisateurs_valider_structure_active exige qu'elle figure parmi les
+    // appartenances des qu'il en existe une : l'omettre rendrait le compte
+    // immodifiable, sans message comprehensible.
+    if (action === 'attach_structure') {
+      const { user_id, organisation_id } = body
+      if (!user_id || !organisation_id)
+        return json({ error: 'user_id et organisation_id sont requis' }, 400)
+
+      const { data: cible } = await supabase
+        .from('utilisateurs').select('organisation_id, role').eq('id', user_id).single()
+      if (!cible) return json({ error: 'Utilisateur introuvable' }, 404)
+
+      const c = cible as { organisation_id: string; role: string }
+      if (c.role === 'externe')
+        return json({ error: 'Un compte externe ne peut pas etre multi-structures' }, 400)
+
+      const { error } = await supabase
+        .from('membres_organisations')
+        .upsert(
+          [
+            { utilisateur_id: user_id, organisation_id: c.organisation_id },
+            { utilisateur_id: user_id, organisation_id },
+          ] as never,
+          { onConflict: 'utilisateur_id,organisation_id', ignoreDuplicates: true },
+        )
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true })
+    }
+
+    // ── DETACH_STRUCTURE ──────────────────────────────────────────────────────
+    if (action === 'detach_structure') {
+      const { user_id, organisation_id } = body
+      if (!user_id || !organisation_id)
+        return json({ error: 'user_id et organisation_id sont requis' }, 400)
+
+      const { data: cible } = await supabase
+        .from('utilisateurs').select('organisation_id, organisation_active_id').eq('id', user_id).single()
+      if (!cible) return json({ error: 'Utilisateur introuvable' }, 404)
+
+      const c = cible as { organisation_id: string; organisation_active_id: string | null }
+
+      // Retirer l'origine casserait l'invariant. Pour deplacer quelqu'un, on
+      // change sa structure d'origine — ce n'est pas la meme operation.
+      if (c.organisation_id === organisation_id)
+        return json({ error: "On ne retire pas la structure d'origine. Changez-la plutot." }, 400)
+
+      const { error } = await supabase
+        .from('membres_organisations')
+        .delete()
+        .eq('utilisateur_id', user_id)
+        .eq('organisation_id', organisation_id)
+      if (error) return json({ error: error.message }, 400)
+
+      // La structure retiree etait la structure active : on ramene le compte
+      // sur son origine plutot que de le laisser pointer vers un acces perdu.
+      if (c.organisation_active_id === organisation_id) {
+        await supabase.from('utilisateurs')
+          .update({ organisation_active_id: null } as never).eq('id', user_id)
+      }
+
+      // S'il ne reste que l'origine, l'appartenance n'a plus d'objet : on
+      // revient a l'etat « mono-structure », sans portail ni bloc de contexte.
+      const { data: restantes } = await supabase
+        .from('membres_organisations').select('organisation_id').eq('utilisateur_id', user_id)
+      const liste = (restantes ?? []) as { organisation_id: string }[]
+      if (liste.length === 1 && liste[0].organisation_id === c.organisation_id) {
+        await supabase.from('membres_organisations').delete().eq('utilisateur_id', user_id)
+      }
+
+      return json({ ok: true })
+    }
+
     // ── TOGGLE_ORG ────────────────────────────────────────────────────────────
     if (action === 'toggle_org') {
       const { organisation_id, actif } = body

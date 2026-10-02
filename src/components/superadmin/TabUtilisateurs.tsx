@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { type UtilisateurDetailSA, useSuperAdminOrg } from '../../hooks/useSuperAdminOrg'
+import { ModalStructuresUtilisateur } from './ModalStructuresUtilisateur'
 
 const IcPlus     = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
 const IcChevron  = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
@@ -9,11 +10,15 @@ const formaterDate = (iso: string | null) =>
 
 // ── Ligne utilisateur ─────────────────────────────────────────────────────────
 
-function LigneUtilisateur({ u, actions }: {
+function LigneUtilisateur({ u, actions, orgId }: {
   u: UtilisateurDetailSA
   actions: ReturnType<typeof useSuperAdminOrg>
+  // L ecran liste les utilisateurs DE cette organisation : c est donc leur
+  // structure d origine, celle qui n est pas detachable.
+  orgId: string
 }) {
   const [menuOuvert, setMenuOuvert] = useState(false)
+  const [modaleStructures, setModaleStructures] = useState(false)
   const [tempPwd, setTempPwd]       = useState<string | null>(null)
   const [copie, setCopie]           = useState(false)
   const [enCours, setEnCours]       = useState<string | null>(null)
@@ -96,6 +101,13 @@ function LigneUtilisateur({ u, actions }: {
                   </button>
                 )}
                 <div className="border-t border-gray-100 my-1" />
+                {/* Le perimetre : a quelles structures ce compte a acces. C'est
+                    le geste qui accompagne chaque vente de SIRET. */}
+                <button className={itemCls} onClick={() => { setMenuOuvert(false); setModaleStructures(true) }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+                  Structures accessibles
+                </button>
+                <div className="border-t border-gray-100 my-1" />
                 <button className={`${itemCls} ${u.suspendu ? 'text-green-700 hover:!bg-green-50' : 'text-red-600 hover:!bg-red-50'}`} onClick={() => handleAction('suspend')}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   {u.suspendu ? 'Réactiver le compte' : 'Suspendre le compte'}
@@ -105,6 +117,17 @@ function LigneUtilisateur({ u, actions }: {
           </div>
         </td>
       </tr>
+
+      {modaleStructures && (
+        <tr className="contents"><td className="contents">
+          <ModalStructuresUtilisateur
+            userId={u.id}
+            email={u.email}
+            origineId={orgId}
+            onFermer={() => setModaleStructures(false)}
+          />
+        </td></tr>
+      )}
 
       {tempPwd && (
         <tr className="contents"><td className="contents">
@@ -208,7 +231,7 @@ export function TabUtilisateurs({ orgId, actions }: {
                 </tr>
               </thead>
               <tbody>
-                {(detail?.utilisateurs ?? []).map(u => <LigneUtilisateur key={u.id} u={u} actions={actions} />)}
+                {(detail?.utilisateurs ?? []).map(u => <LigneUtilisateur key={u.id} u={u} actions={actions} orgId={orgId} />)}
                 {detail?.utilisateurs.length === 0 && (
                   <tr><td colSpan={5} className="py-6 text-center text-sm text-gray-400 italic">Aucun utilisateur dans cette organisation.</td></tr>
                 )}
