@@ -43,11 +43,25 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
   })
 
   async function chargerProfil(userId: string) {
-    const { data } = await supabase
+    // Le lien a suivre est NOMME explicitement.
+    //
+    // Depuis la table membres_organisations, il existe deux chemins entre
+    // utilisateurs et organisations : la cle etrangere directe, et la table de
+    // liaison. L'API refuse alors la requete entiere (PGRST201) — et le profil
+    // revenant vide, c'est le nom de l'organisation, le mois de reference, le
+    // chiffre d'affaires, le DSO et les roles qui tombent d'un coup.
+    //
+    // Nommer le lien rend cette requete insensible a l'ajout de n'importe
+    // quelle relation future entre ces deux tables.
+    const { data, error } = await supabase
       .from('utilisateurs')
-      .select('role, organisation_id, prenom, nom, initiales, organisations(nom, code_org)')
+      .select('role, organisation_id, prenom, nom, initiales, organisations!utilisateurs_organisation_id_fkey(nom, code_org)')
       .eq('id', userId)
       .single()
+    // Signalee, jamais avalee : c'est ce silence qui a rendu la panne
+    // invisible, le profil vide ne se manifestant que par des ecrans
+    // incomplets.
+    if (error) console.warn('[Ockham] chargement du profil impossible :', error.message, error)
     const d = data as { role: string; organisation_id: string; prenom: string; nom: string; initiales: string; organisations: { nom: string; code_org: string | null } | null } | null
     if (d) setProfil({
       role: d.role,
