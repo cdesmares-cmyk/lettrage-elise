@@ -28,13 +28,21 @@ export function ModalStructuresUtilisateur({ userId, email, origineId, onFermer 
 
   useEffect(() => {
     let annule = false
+    // Les organisations se lisent directement — le superadmin les voit toutes.
+    // Les appartenances passent par la fonction serveur : leurs regles
+    // d'isolation sont ecrites pour les clients, et ne couvrent pas le cas du
+    // superadmin consultant le compte d'un tiers.
     Promise.all([
       supabase.from('organisations').select('id, nom, code_org').order('nom'),
-      supabase.from('membres_organisations').select('organisation_id').eq('utilisateur_id', userId),
-    ]).then(([orgs, mem]) => {
+      supabase.functions.invoke('superadmin-data', {
+        body: { action: 'get_user_structures', user_id: userId },
+      }),
+    ]).then(([orgs, rep]) => {
       if (annule) return
       setOrganisations((orgs.data ?? []) as OrgRow[])
-      setMembres(((mem.data ?? []) as { organisation_id: string }[]).map(m => m.organisation_id))
+      const d = rep.data as { structures?: string[] } | null
+      setMembres(d?.structures ?? [])
+      if (rep.error) console.warn('[Ockham] lecture des structures impossible :', rep.error)
     })
     return () => { annule = true }
   }, [userId, version])

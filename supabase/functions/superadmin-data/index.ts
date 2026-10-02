@@ -179,6 +179,33 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true })
     }
 
+    // ── GET_USER_STRUCTURES ───────────────────────────────────────────────────
+    // La lecture passe par ici, et pas par le navigateur.
+    //
+    // membres_organisations porte des regles d'isolation ecrites pour les
+    // CLIENTS : chacun voit ses appartenances, un admin celles de son
+    // perimetre. Le superadmin OCKHAM n'entre dans aucune de ces deux cases
+    // quand il consulte le compte d'un tiers — la lecture revenait vide, et
+    // l'ecran annoncait « compte mono-structure » a propos d'un compte qui en
+    // avait trois.
+    //
+    // La cle de service ignore ces regles, et le controle de role en tete de
+    // fonction suffit : seul un superadmin arrive jusqu'ici.
+    if (action === 'get_user_structures') {
+      const { user_id } = body
+      if (!user_id) return json({ error: 'user_id requis' }, 400)
+
+      const [{ data: membres }, { data: cible }] = await Promise.all([
+        supabase.from('membres_organisations').select('organisation_id').eq('utilisateur_id', user_id),
+        supabase.from('utilisateurs').select('organisation_id').eq('id', user_id).single(),
+      ])
+
+      return json({
+        structures: ((membres ?? []) as { organisation_id: string }[]).map(m => m.organisation_id),
+        origine_id: (cible as { organisation_id: string } | null)?.organisation_id ?? null,
+      })
+    }
+
     // ── ATTACH_STRUCTURE ──────────────────────────────────────────────────────
     // Rattacher un compte a une structure supplementaire. C'est le PERIMETRE,
     // et il n'est accorde que par OCKHAM : un client ne doit jamais pouvoir
