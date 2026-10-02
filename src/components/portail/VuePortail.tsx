@@ -5,18 +5,52 @@
 // connexion quand le compte est rattache a plusieurs structures, et on en sort
 // en ouvrant l'une d'elles.
 //
-// Deux onglets : les chiffres par structure, et le choix de la structure dans
-// laquelle travailler. Aucune donnee comptable d'une structure n'est chargee
-// ici — seulement des noms, et plus tard des agregats calcules cote serveur.
+// Deux onglets : les chiffres de chaque structure, et le choix de celle dans
+// laquelle travailler. Aucune ligne comptable n'est chargee ici — uniquement
+// des TOTAUX, calcules en base par kpis_mes_organisations() (migration 172).
 //
 // La navigation est un etat local et non des routes : cette vue remplace
-// l'application entiere le temps du choix, elle n'a pas a exister dans le
-// routeur de l'application.
-import { useState } from 'react'
+// l'application le temps du choix, elle n'a pas a exister dans son routeur.
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 
 type Onglet = 'tableau-de-bord' | 'organisations'
+
+interface KpiOrg {
+  id: string
+  nom: string
+  code_org: string | null
+  est_active: boolean
+  encours_ttc: number
+  creances: number
+  nb_clients: number
+  nb_factures: number
+  ca12: number
+  dso: number | null
+  non_echu: number
+  retard_1_30: number
+  retard_31_60: number
+  retard_61_90: number
+  retard_90_plus: number
+}
+
+// Tranches de la balance agee, dans l'ordre et avec les couleurs du tableau de
+// bord : un lecteur qui connait l'un doit reconnaitre l'autre.
+const TRANCHES: { cle: keyof KpiOrg; label: string; couleur: string }[] = [
+  { cle: 'non_echu',       label: 'Non échu',  couleur: '#4CC5BB' },
+  { cle: 'retard_1_30',    label: '1 – 30j',   couleur: '#F0B429' },
+  { cle: 'retard_31_60',   label: '31 – 60j',  couleur: '#E8853A' },
+  { cle: 'retard_61_90',   label: '61 – 90j',  couleur: '#E05C3E' },
+  { cle: 'retard_90_plus', label: '+90j',      couleur: '#A32E1F' },
+]
+
+function fmtEuro(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M€`
+  if (n >= 10_000)    return `${Math.round(n / 1_000)} k€`
+  return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+}
+function fmtNb(n: number): string { return n.toLocaleString('fr-FR') }
 
 function IcDashboard() {
   return (
@@ -26,7 +60,6 @@ function IcDashboard() {
     </svg>
   )
 }
-
 function IcOrganisations() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -37,9 +70,103 @@ function IcOrganisations() {
 }
 
 const ONGLETS: { val: Onglet; label: string; icone: React.ReactNode }[] = [
-  { val: 'tableau-de-bord', label: 'Tableau de bord',  icone: <IcDashboard /> },
+  { val: 'tableau-de-bord', label: 'Tableau de bord',   icone: <IcDashboard /> },
   { val: 'organisations',   label: 'Mes organisations', icone: <IcOrganisations /> },
 ]
+
+function Pastille({ nom }: { nom: string }) {
+  return (
+    <div
+      className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0"
+      style={{ background: '#E6F7F5', color: '#3BA89F' }}
+    >
+      {nom.slice(0, 2).toUpperCase()}
+    </div>
+  )
+}
+
+function Kpi({ label, valeur, accent }: { label: string; valeur: string; accent?: string }) {
+  return (
+    <div className="min-w-[88px]">
+      <p className="text-[9px] font-bold uppercase tracking-[.08em] text-gray-400 mb-1">{label}</p>
+      <p className="font-mono font-bold text-[19px] leading-none tabular-nums" style={{ color: accent ?? '#1F2937' }}>
+        {valeur}
+      </p>
+    </div>
+  )
+}
+
+function LigneStructure({ k, onOuvrir, enCours }: { k: KpiOrg; onOuvrir: () => void; enCours: boolean }) {
+  const [deplie, setDeplie] = useState(false)
+  const total = TRANCHES.reduce((s, t) => s + (k[t.cle] as number), 0)
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-4">
+
+      {/* Ligne principale : le nom a gauche, les chiffres toujours aux memes
+          colonnes — c'est ce qui permet de balayer les DSO verticalement. */}
+      <div className="flex items-center gap-5 flex-wrap">
+        <div className="flex items-center gap-3 min-w-[190px]">
+          <Pastille nom={k.nom} />
+          <div className="min-w-0">
+            <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{k.nom}</p>
+            {k.code_org && <p className="text-gray-400 text-[11px] font-mono mt-0.5">{k.code_org}</p>}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-7 flex-wrap flex-1">
+          <Kpi label="DSO roulant"  valeur={k.dso === null ? '—' : `${k.dso.toFixed(1)} j`} accent="#3BA89F" />
+          <Kpi label="Encours TTC"  valeur={fmtEuro(k.encours_ttc)} />
+          <Kpi label="Clients"      valeur={fmtNb(k.nb_clients)} />
+          <Kpi label="Retard +90j"  valeur={fmtEuro(k.retard_90_plus)} accent={k.retard_90_plus > 0 ? '#A32E1F' : undefined} />
+        </div>
+
+        <button
+          onClick={onOuvrir}
+          disabled={enCours}
+          className="text-[12px] font-semibold text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/30 hover:border-ockham-teal rounded-lg px-3.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
+        >
+          {enCours ? 'Ouverture…' : 'Ouvrir →'}
+        </button>
+      </div>
+
+      {/* Balance agee en une barre : la forme se lit d'un coup d'oeil, et elle
+          se compare d'une structure a l'autre sans lire un seul chiffre. */}
+      {total > 0 && (
+        <div className="mt-4">
+          <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
+            {TRANCHES.map(t => {
+              const v = k[t.cle] as number
+              if (v <= 0) return null
+              return <div key={t.cle} style={{ width: `${(v / total) * 100}%`, background: t.couleur }} />
+            })}
+          </div>
+
+          <button
+            onClick={() => setDeplie(d => !d)}
+            className="text-[11px] text-gray-400 hover:text-gray-600 mt-2 transition-colors"
+          >
+            {deplie ? 'Masquer le détail' : 'Détail de la balance âgée'}
+          </button>
+
+          {deplie && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100">
+              {TRANCHES.map(t => (
+                <div key={t.cle}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.couleur }} />
+                    <span className="text-[10px] font-semibold text-gray-500">{t.label}</span>
+                  </div>
+                  <p className="font-mono text-[13px] text-gray-800 tabular-nums">{fmtEuro(k[t.cle] as number)}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function VuePortail() {
   // On ouvre sur « Mes organisations » : a la connexion, le geste attendu est
@@ -48,6 +175,16 @@ export function VuePortail() {
   const { organisations, basculerStructure, utilisateur } = useAuth()
   const [enCours, setEnCours] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
+  const [kpis, setKpis] = useState<KpiOrg[] | null>(null)
+
+  useEffect(() => {
+    let annule = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(supabase as any).rpc('kpis_mes_organisations').then(({ data }: { data: KpiOrg[] | null }) => {
+      if (!annule) setKpis(data ?? [])
+    })
+    return () => { annule = true }
+  }, [])
 
   async function ouvrir(id: string) {
     setErreur(null)
@@ -83,7 +220,7 @@ export function VuePortail() {
           <span className="text-white font-bold text-[15px] tracking-[0.06em]">OCKHAM</span>
         </div>
 
-        {/* Le perimetre, pas une structure : on est au-dessus. */}
+        {/* Le perimetre, pas une structure : ici on est au-dessus. */}
         <div className="px-4 py-2.5 border-b border-white/[0.06] bg-ockham-teal/[0.07]">
           <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ockham-teal/70 mb-0.5">
             Périmètre
@@ -153,17 +290,10 @@ export function VuePortail() {
                   className="group text-left bg-white border border-gray-100 hover:border-ockham-teal rounded-xl shadow-sm hover:shadow-md px-5 py-5 transition-all disabled:opacity-50 disabled:cursor-wait"
                 >
                   <div className="flex items-start gap-3 mb-5">
-                    <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0"
-                      style={{ background: '#E6F7F5', color: '#3BA89F' }}
-                    >
-                      {o.nom.slice(0, 2).toUpperCase()}
-                    </div>
+                    <Pastille nom={o.nom} />
                     <div className="min-w-0">
                       <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{o.nom}</p>
-                      {o.code_org && (
-                        <p className="text-gray-400 text-[11px] font-mono mt-0.5">{o.code_org}</p>
-                      )}
+                      {o.code_org && <p className="text-gray-400 text-[11px] font-mono mt-0.5">{o.code_org}</p>}
                     </div>
                   </div>
 
@@ -171,7 +301,7 @@ export function VuePortail() {
                     <span className="text-[12px] font-semibold text-ockham-teal">
                       {enCours === o.id ? 'Ouverture…' : 'Ouvrir l’application'}
                     </span>
-                    <span className="text-ockham-teal text-sm translate-x-0 group-hover:translate-x-0.5 transition-transform">→</span>
+                    <span className="text-ockham-teal text-sm group-hover:translate-x-0.5 transition-transform">→</span>
                   </div>
                 </button>
               ))}
@@ -179,46 +309,36 @@ export function VuePortail() {
           )}
 
           {onglet === 'tableau-de-bord' && (
-            <>
-              {/* Les chiffres viendront d'agregats calcules cote serveur, un par
-                  structure. Tant qu'ils n'existent pas, on montre la place
-                  qu'ils occuperont plutot que des valeurs inventees. */}
-              <div className="mb-5 px-4 py-3 rounded-lg bg-ockham-copper-light border border-ockham-copper/25 text-[13px] text-gray-700">
-                Les indicateurs par structure arrivent au prochain lot. Ils seront calculés
-                chaque nuit, structure par structure — aucune donnée comptable ne circulera
-                d’une société à l’autre.
-              </div>
+            <div className="flex flex-col gap-3">
+              {kpis === null && (
+                <p className="text-sm text-gray-400">Calcul des indicateurs…</p>
+              )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                {organisations.map(o => (
-                  <div key={o.id} className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-5">
-                    <div className="flex items-start gap-3 mb-5">
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-[13px] flex-shrink-0"
-                        style={{ background: '#E6F7F5', color: '#3BA89F' }}
-                      >
-                        {o.nom.slice(0, 2).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{o.nom}</p>
-                        {o.code_org && (
-                          <p className="text-gray-400 text-[11px] font-mono mt-0.5">{o.code_org}</p>
-                        )}
-                      </div>
-                    </div>
+              {kpis?.length === 0 && (
+                <div className="px-4 py-3 rounded-lg bg-ockham-copper-light border border-ockham-copper/25 text-[13px] text-gray-700">
+                  Aucun indicateur disponible. Si cet écran reste vide alors que vos structures
+                  s’affichent dans l’onglet voisin, c’est que la migration 172 n’est pas appliquée.
+                </div>
+              )}
 
-                    <div className="grid grid-cols-3 gap-3">
-                      {['Encours TTC', 'Clients', 'Retard +90j'].map(label => (
-                        <div key={label}>
-                          <p className="text-[9px] font-bold uppercase tracking-[.08em] text-gray-400 mb-1">{label}</p>
-                          <p className="text-gray-300 font-mono text-lg leading-none">—</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
+              {kpis?.map(k => (
+                <LigneStructure
+                  key={k.id}
+                  k={k}
+                  enCours={enCours === k.id}
+                  onOuvrir={() => ouvrir(k.id)}
+                />
+              ))}
+
+              {/* Le DSO d'une structure sans chiffre d'affaires de reference ne
+                  peut pas se calculer. Le dire vaut mieux qu'afficher un zero. */}
+              {kpis && kpis.some(k => k.dso === null) && (
+                <p className="text-[12px] text-gray-400 mt-1">
+                  Un DSO affiché « — » signifie que la structure n’a pas encore de chiffre
+                  d’affaires de référence : il se calcule au premier dépôt de fichier.
+                </p>
+              )}
+            </div>
           )}
 
         </div>
