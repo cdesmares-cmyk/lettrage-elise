@@ -18,8 +18,9 @@ import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, 
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { destinationCourante } from '../../lib/structureSession'
+import { OngletEquipes } from './OngletEquipes'
 
-type Onglet = 'tableau-de-bord' | 'organisations'
+type Onglet = 'tableau-de-bord' | 'organisations' | 'equipes'
 
 interface KpiOrg {
   id: string
@@ -102,9 +103,19 @@ function IcOrganisations() {
   )
 }
 
+function IcEquipes() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  )
+}
+
 const ONGLETS: { val: Onglet; label: string; icone: React.ReactNode }[] = [
   { val: 'tableau-de-bord', label: 'Tableau de bord',   icone: <IcDashboard /> },
   { val: 'organisations',   label: 'Mes organisations', icone: <IcOrganisations /> },
+  { val: 'equipes',         label: 'Équipes',            icone: <IcEquipes /> },
 ]
 
 function Pastille({ nom }: { nom: string }) {
@@ -294,9 +305,10 @@ export function VuePortail() {
     window.location.assign('/connexion')
   }
 
-  const titre = onglet === 'organisations'
-    ? { h: 'Mes organisations', s: 'Choisissez la structure dans laquelle travailler' }
-    : { h: 'Tableau de bord',   s: 'Vue d’ensemble de vos structures' }
+  const titre =
+      onglet === 'organisations' ? { h: 'Mes organisations', s: 'Choisissez la structure dans laquelle travailler' }
+    : onglet === 'equipes'       ? { h: 'Équipes',           s: 'Qui accède à quelle structure' }
+    :                              { h: 'Tableau de bord',   s: 'Vue d’ensemble de vos structures' }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
@@ -399,6 +411,8 @@ export function VuePortail() {
               ))}
             </div>
           )}
+
+          {onglet === 'equipes' && <OngletEquipes />}
 
           {onglet === 'tableau-de-bord' && (
             <div className="flex flex-col gap-9">
