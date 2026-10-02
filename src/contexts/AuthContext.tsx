@@ -71,7 +71,11 @@ export function FournisseurAuth({ children }: { children: ReactNode }) {
     // Les structures dont le compte est membre. Vide pour un compte
     // mono-structure — c'est le cas des 22 comptes existants, qui gardent donc
     // exactement le comportement d'avant.
-    const { data: orgsData } = await supabase.rpc('mes_organisations')
+    // L'erreur est signalee, pas avalee : sans ca, une fonction absente ou un
+    // droit manquant se traduit par un portail qui ne s'affiche jamais, sans
+    // aucune trace. C'est exactement ce qui nous a fait chercher a l'aveugle.
+    const { data: orgsData, error: orgsErr } = await supabase.rpc('mes_organisations')
+    if (orgsErr) console.warn('[Ockham] mes_organisations() a echoue :', orgsErr.message, orgsErr)
     const orgs = (orgsData ?? []) as OrganisationMembre[]
     setOrganisations(orgs)
 

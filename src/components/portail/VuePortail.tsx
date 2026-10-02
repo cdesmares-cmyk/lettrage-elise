@@ -176,13 +176,19 @@ export function VuePortail() {
   const [enCours, setEnCours] = useState<string | null>(null)
   const [erreur, setErreur] = useState<string | null>(null)
   const [kpis, setKpis] = useState<KpiOrg[] | null>(null)
+  const [erreurKpis, setErreurKpis] = useState<string | null>(null)
 
   useEffect(() => {
     let annule = false
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(supabase as any).rpc('kpis_mes_organisations').then(({ data }: { data: KpiOrg[] | null }) => {
-      if (!annule) setKpis(data ?? [])
-    })
+    ;(supabase as any).rpc('kpis_mes_organisations')
+      .then(({ data, error }: { data: KpiOrg[] | null; error: { message: string } | null }) => {
+        if (annule) return
+        // Signalee et affichee : une fonction absente ne doit pas se traduire
+        // par un ecran vide sans explication.
+        if (error) { console.warn('[Ockham] kpis_mes_organisations() a echoue :', error.message); setErreurKpis(error.message) }
+        setKpis(data ?? [])
+      })
     return () => { annule = true }
   }, [])
 
@@ -316,8 +322,11 @@ export function VuePortail() {
 
               {kpis?.length === 0 && (
                 <div className="px-4 py-3 rounded-lg bg-ockham-copper-light border border-ockham-copper/25 text-[13px] text-gray-700">
-                  Aucun indicateur disponible. Si cet écran reste vide alors que vos structures
-                  s’affichent dans l’onglet voisin, c’est que la migration 172 n’est pas appliquée.
+                  Aucun indicateur disponible. Si vos structures s’affichent dans l’onglet voisin,
+                  c’est que la migration 172 n’est pas appliquée.
+                  {erreurKpis && (
+                    <span className="block mt-1.5 font-mono text-[11px] text-gray-500">{erreurKpis}</span>
+                  )}
                 </div>
               )}
 
