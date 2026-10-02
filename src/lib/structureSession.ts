@@ -23,3 +23,10 @@ export function structureChoisieCetteSession(): boolean {
 export function marquerStructureChoisie(organisationId: string): void {
   try { sessionStorage.setItem(CLE, organisationId) } catch { /* stockage indisponible */ }
 }
+
+/** Oublie le choix de la session pour revenir au portail. Ne touche pas a la
+ *  structure active en base : tant qu'aucune autre n'est choisie, l'utilisateur
+ *  reste rattache a celle d'ou il vient. */
+export function oublierStructureChoisie(): void {
+  try { sessionStorage.removeItem(CLE) } catch { /* stockage indisponible */ }
+}

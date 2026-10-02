@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { FournisseurAuth, useAuth } from './contexts/AuthContext'
 import { structureChoisieCetteSession } from './lib/structureSession'
-import { PortailStructures } from './components/PortailStructures'
+import { VuePortail } from './components/portail/VuePortail'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { FournisseurCorrection } from './contexts/CorrectionContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -79,7 +79,7 @@ function RoutePrivee({ children }: { children: React.ReactNode }) {
   // aucune appartenance declaree et passe donc directement — rien ne change
   // pour lui.
   if (organisations.length >= 2 && !structureChoisieCetteSession()) {
-    return <PortailStructures />
+    return <VuePortail />
   }
 
   if (chargementDonnees) return <SplashChargement nom={profil?.nom_organisation} />

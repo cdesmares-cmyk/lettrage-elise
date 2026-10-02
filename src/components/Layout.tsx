@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useRole } from '../contexts/RoleContext'
 import { useAuth } from '../contexts/AuthContext'
+import { oublierStructureChoisie } from '../lib/structureSession'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
 import { useRelances, etatVue, joursDepuis } from '../hooks/useRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
@@ -154,6 +155,15 @@ export function Layout() {
             {profil.code_org && (
               <p className="text-white/35 text-[10px] font-mono mt-0.5">{profil.code_org}</p>
             )}
+            {/* Sans ce retour, changer de structure imposerait de se
+                deconnecter. Le rechargement complet est volontaire : il garantit
+                qu'il ne reste rien de la structure courante en memoire. */}
+            <button
+              onClick={() => { oublierStructureChoisie(); window.location.assign('/tableau-de-bord') }}
+              className="text-ockham-teal/70 hover:text-ockham-teal text-[10px] font-semibold mt-1.5 transition-colors"
+            >
+              Changer de structure
+            </button>
           </div>
         )}
 
