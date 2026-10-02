@@ -90,24 +90,7 @@
 BEGIN;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 1. Voir les appartenances de son perimetre
--- ────────────────────────────────────────────────────────────────────────────
--- S'ajoute a membres_organisations_select_own, qui laisse chacun voir les
--- siennes. Celle-ci laisse un admin voir celles des structures dont il est
--- lui-meme membre — pas une de plus.
-
-DROP POLICY IF EXISTS membres_organisations_select_perimetre ON membres_organisations;
-CREATE POLICY membres_organisations_select_perimetre ON membres_organisations
-  FOR SELECT USING (
-    get_my_role() = 'admin'
-    AND organisation_id IN (
-      SELECT m.organisation_id FROM membres_organisations m
-      WHERE m.utilisateur_id = auth.uid()
-    )
-  );
-
--- ────────────────────────────────────────────────────────────────────────────
--- 2. Ouvrir une structure a quelqu'un
+-- 1. Ouvrir une structure a quelqu'un
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION ouvrir_structure(p_utilisateur_id uuid, p_organisation_id uuid)
@@ -180,7 +163,7 @@ REVOKE ALL     ON FUNCTION ouvrir_structure(uuid, uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION ouvrir_structure(uuid, uuid) TO authenticated;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 3. Retirer une structure a quelqu'un
+-- 2. Retirer une structure a quelqu'un
 -- ────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION fermer_structure(p_utilisateur_id uuid, p_organisation_id uuid)
@@ -235,7 +218,7 @@ REVOKE ALL     ON FUNCTION fermer_structure(uuid, uuid) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION fermer_structure(uuid, uuid) TO authenticated;
 
 -- ────────────────────────────────────────────────────────────────────────────
--- 4. L'onglet Equipes
+-- 3. L'onglet Equipes
 -- ────────────────────────────────────────────────────────────────────────────
 -- Une ligne par personne du perimetre, avec les structures auxquelles elle a
 -- acces. Ne renvoie que des identites : nom, email, role. Aucune donnee
@@ -278,6 +261,35 @@ $$;
 
 REVOKE ALL     ON FUNCTION equipes_mes_organisations() FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION equipes_mes_organisations() TO authenticated;
+
+-- ────────────────────────────────────────────────────────────────────────────
+-- 4. Voir les appartenances de son perimetre
+-- ────────────────────────────────────────────────────────────────────────────
+-- S'ajoute a membres_organisations_select_own, qui laisse chacun voir les
+-- siennes. Celle-ci laisse un admin voir celles des structures dont il est
+-- lui-meme membre — pas une de plus.
+--
+-- PLACEE EN DERNIER, ET VOLONTAIREMENT. Modifier une regle prend un verrou
+-- exclusif sur la table : tant qu'il est tenu, plus personne ne peut la lire.
+-- Au debut de la transaction, il aurait ete tenu pendant toute la creation des
+-- fonctions, et une simple lecture de l'application suffisait a provoquer un
+-- interblocage. Ici il ne dure que le temps de l'instruction.
+--
+-- lock_timeout borne l'attente : au-dela de cinq secondes on echoue avec un
+-- message clair plutot que de bloquer les lecteurs ou de rejouer un
+-- interblocage. La transaction entiere est alors annulee — il suffit de
+-- relancer.
+SET LOCAL lock_timeout = '5s';
+
+DROP POLICY IF EXISTS membres_organisations_select_perimetre ON membres_organisations;
+CREATE POLICY membres_organisations_select_perimetre ON membres_organisations
+  FOR SELECT USING (
+    get_my_role() = 'admin'
+    AND organisation_id IN (
+      SELECT m.organisation_id FROM membres_organisations m
+      WHERE m.utilisateur_id = auth.uid()
+    )
+  );
 
 COMMIT;
 
