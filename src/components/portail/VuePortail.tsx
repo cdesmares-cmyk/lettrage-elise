@@ -7,11 +7,14 @@
 //
 // Deux onglets : les chiffres de chaque structure, et le choix de celle dans
 // laquelle travailler. Aucune ligne comptable n'est chargee ici — uniquement
-// des TOTAUX, calcules en base par kpis_mes_organisations() (migration 172).
+// des TOTAUX, calcules en base par kpis_mes_organisations().
 //
-// La navigation est un etat local et non des routes : cette vue remplace
-// l'application le temps du choix, elle n'a pas a exister dans son routeur.
+// Le vocabulaire visuel est celui du tableau de bord, repris au balisage pres :
+// tuiles blanches posees sur le fond gris de la page, memes libelles, memes
+// seuils de couleur, meme graphique de balance agee. Qui connait l'un lit
+// l'autre sans rien apprendre.
 import { useState, useEffect } from 'react'
+import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 
@@ -37,19 +40,19 @@ interface KpiOrg {
   retard_90_plus: number
 }
 
-// Tranches de la balance agee, dans l'ordre et avec les couleurs du tableau de
-// bord : un lecteur qui connait l'un doit reconnaitre l'autre.
-const TRANCHES: { cle: keyof KpiOrg; label: string; couleur: string }[] = [
-  { cle: 'non_echu',       label: 'Non échu',  couleur: '#4CC5BB' },
-  { cle: 'retard_1_30',    label: '1 – 30j',   couleur: '#F0B429' },
-  { cle: 'retard_31_60',   label: '31 – 60j',  couleur: '#E8853A' },
-  { cle: 'retard_61_90',   label: '61 – 90j',  couleur: '#E05C3E' },
-  { cle: 'retard_90_plus', label: '+90j',      couleur: '#A32E1F' },
+// Memes couleurs et memes tranches que la balance agee du tableau de bord.
+const AGE_COLORS = ['#10b981', '#f59e0b', '#f97316', '#ef4444', '#991b1b']
+const TRANCHES: { cle: keyof KpiOrg; label: string }[] = [
+  { cle: 'non_echu',       label: 'Non échu' },
+  { cle: 'retard_1_30',    label: '1 – 30j'  },
+  { cle: 'retard_31_60',   label: '31 – 60j' },
+  { cle: 'retard_61_90',   label: '61 – 90j' },
+  { cle: 'retard_90_plus', label: '+90j'     },
 ]
 
-// Seuils et couleurs recopies de BlocKpis : un DSO « Bon » doit avoir la meme
-// teinte dans le portail et dans la structure, sinon les deux ecrans se
-// contredisent a l'oeil avant meme de se contredire en chiffres.
+// Seuils recopies de BlocKpis : un DSO « Bon » doit avoir la meme teinte dans
+// le portail et dans la structure, sinon les deux ecrans se contredisent a
+// l'oeil avant de se contredire en chiffres.
 function dsoConfig(dso: number) {
   if (dso <= 30) return { texte: '#059669', bg: '#ECFDF5', border: '#A7F3D0', label: 'Excellent' }
   if (dso <= 45) return { texte: '#3BA89F', bg: '#ECFDFB', border: '#CFEDE9', label: 'Bon'       }
@@ -63,6 +66,23 @@ function fmtEuro(n: number): string {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
 function fmtNb(n: number): string { return n.toLocaleString('fr-FR') }
+function fmtK(v: number): string { return v >= 1000 ? `${Math.round(v / 1000)}k€` : String(v) }
+
+function TooltipEuro({ active, payload, label }: {
+  active?: boolean
+  payload?: { value: number }[]
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2">
+      <p className="text-[11px] font-semibold text-gray-700">{label}</p>
+      <p className="text-[12px] font-mono font-bold text-gray-900 tabular-nums">
+        {payload[0].value.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })}
+      </p>
+    </div>
+  )
+}
 
 function IcDashboard() {
   return (
@@ -97,121 +117,135 @@ function Pastille({ nom }: { nom: string }) {
   )
 }
 
-// Meme anatomie que les tuiles du tableau de bord — libelle en petites
-// capitales grises, chiffre en gros, sous-titre explicatif — mais resserree :
-// ici on compare des structures entre elles, on ne pilote pas l'une d'elles.
-function Tuile({ label, valeur, sous, couleur, bordure, fond }: {
+function BoutonOuvrir({ onClick, enCours }: { onClick: () => void; enCours: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={enCours}
+      className="text-[12px] font-semibold text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/30 hover:border-ockham-teal rounded-lg px-3.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
+    >
+      {enCours ? 'Ouverture…' : 'Ouvrir →'}
+    </button>
+  )
+}
+
+/** Tuile au balisage du tableau de bord : fond blanc, coin arrondi large,
+ *  ombre legere, bordure teintee selon la gravite. Elle est posee sur le fond
+ *  gris de la page — c'est ce contraste qui la fait exister, et c'est
+ *  precisement ce qu'une carte englobante blanche detruisait. */
+function Tuile({ label, valeur, sous, couleurTexte, couleurBordure, fond, taille = 26 }: {
   label: string; valeur: string; sous: string
-  couleur?: string; bordure?: string; fond?: string
+  couleurTexte?: string; couleurBordure?: string; fond?: string; taille?: number
 }) {
   return (
     <div
-      className="rounded-xl border px-4 py-3.5 bg-white"
-      style={{ borderColor: bordure ?? '#F3F4F6', background: fond ?? '#fff' }}
+      className="bg-white rounded-2xl border shadow-sm px-5 py-4 flex flex-col gap-2"
+      style={{ borderColor: couleurBordure ?? '#F3F4F6', background: fond }}
     >
-      <p className="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400 leading-tight">{label}</p>
-      <p className="font-extrabold tabular-nums leading-none mt-1.5" style={{ fontSize: 26, color: couleur ?? '#111827' }}>
+      <span className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400">{label}</span>
+      <span
+        className="font-extrabold tabular-nums leading-tight"
+        style={{ fontSize: taille, color: couleurTexte ?? '#111827' }}
+      >
         {valeur}
-      </p>
-      <p className="text-[10px] text-gray-400 mt-1.5 leading-tight">{sous}</p>
+      </span>
+      <span className="text-[11px] text-gray-400 leading-snug">{sous}</span>
     </div>
   )
 }
 
-function LigneStructure({ k, onOuvrir, enCours }: { k: KpiOrg; onOuvrir: () => void; enCours: boolean }) {
-  const [deplie, setDeplie] = useState(false)
-  const total = TRANCHES.reduce((s, t) => s + (k[t.cle] as number), 0)
+function BlocStructure({ k, onOuvrir, enCours }: { k: KpiOrg; onOuvrir: () => void; enCours: boolean }) {
   const cfg = dsoConfig(k.dso ?? 0)
+  const donnees = TRANCHES.map(t => ({ label: t.label, montant: k[t.cle] as number }))
+  const total = donnees.reduce((s, d) => s + d.montant, 0)
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-4">
-
+    <section>
       {/* En-tete : qui on regarde, et par ou on y entre. */}
-      <div className="flex items-center gap-3 mb-3.5">
+      <div className="flex items-center gap-3 mb-3">
         <Pastille nom={k.nom} />
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-gray-900 text-[15px] truncate leading-tight">{k.nom}</p>
+          <p className="font-bold text-gray-900 text-[16px] truncate leading-tight">{k.nom}</p>
           {k.code_org && <p className="text-gray-400 text-[11px] font-mono mt-0.5">{k.code_org}</p>}
         </div>
-        <button
-          onClick={onOuvrir}
-          disabled={enCours}
-          className="text-[12px] font-semibold text-ockham-teal hover:text-ockham-teal-dark border border-ockham-teal/30 hover:border-ockham-teal rounded-lg px-3.5 py-1.5 transition-colors disabled:opacity-50 disabled:cursor-wait whitespace-nowrap"
-        >
-          {enCours ? 'Ouverture…' : 'Ouvrir →'}
-        </button>
+        <BoutonOuvrir onClick={onOuvrir} enCours={enCours} />
       </div>
 
-      {/* Les quatre memes tuiles que la premiere rangee du tableau de bord
-          d'une structure, dans le meme ordre. Qui connait l'un lit l'autre
-          sans apprendre quoi que ce soit. Les colonnes etant fixes, les DSO
-          s'alignent verticalement d'une structure a l'autre. */}
-      <div className="grid gap-2.5" style={{ gridTemplateColumns: '1.4fr 1fr 1fr 1fr' }}>
+      {/* La premiere rangee du tableau de bord d'une structure, meme ordre et
+          memes libelles. Les colonnes etant fixes, les DSO s'alignent
+          verticalement d'une structure a l'autre. */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr', gap: 12 }}>
         <Tuile
           label="DSO roulant — 12 mois"
           valeur={k.dso === null ? '—' : `${k.dso.toFixed(1)} j`}
-          sous={k.dso === null ? 'chiffre d\u2019affaires de référence absent' : cfg.label}
-          couleur={k.dso === null ? '#D1D5DB' : cfg.texte}
-          bordure={k.dso === null ? undefined : cfg.border}
+          sous={k.dso === null ? 'Chiffre d’affaires de référence absent' : cfg.label}
+          taille={32}
+          couleurTexte={k.dso === null ? '#D1D5DB' : cfg.texte}
+          couleurBordure={k.dso === null ? undefined : cfg.border}
           fond={k.dso === null ? undefined : `linear-gradient(135deg, #fff 60%, ${cfg.bg})`}
         />
         <Tuile
           label="Factures impayées échues"
           valeur={fmtNb(k.nb_factures_echues)}
           sous="Échéance dépassée"
-          couleur={k.nb_factures_echues > 0 ? '#DC2626' : undefined}
+          couleurTexte={k.nb_factures_echues > 0 ? '#DC2626' : undefined}
+          couleurBordure={k.nb_factures_echues > 0 ? '#FEE2E2' : undefined}
         />
         <Tuile
           label="Clients avec impayés échus"
           valeur={fmtNb(k.nb_clients_echus)}
           sous="Clients distincts concernés"
-          couleur={k.nb_clients_echus > 0 ? '#D97706' : undefined}
+          couleurTexte={k.nb_clients_echus > 0 ? '#D97706' : '#9CA3AF'}
+          couleurBordure={k.nb_clients_echus > 0 ? '#FEF3C7' : undefined}
         />
         <Tuile
           label="Encours total TTC"
           valeur={fmtEuro(k.encours_ttc)}
           sous="Toutes factures ouvertes"
+          taille={22}
         />
       </div>
 
-      {/* Balance agee en une barre : la forme se lit d'un coup d'oeil, et elle
-          se compare d'une structure a l'autre sans lire un seul chiffre. */}
+      {/* Balance agee : le meme graphique que le tableau de bord, resserre.
+          La legende passe a droite plutot qu'en dessous — elle y tient sans
+          allonger la page, ce qui compte quand on empile quatre structures. */}
       {total > 0 && (
-        <div className="mt-3.5">
-          <p className="text-[9px] font-bold uppercase tracking-[.1em] text-gray-400 mb-1.5">
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm mt-3 px-5 py-4">
+          <p className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400 mb-2">
             Balance âgée des créances
           </p>
-          <div className="flex h-2.5 rounded-full overflow-hidden bg-gray-100">
-            {TRANCHES.map(t => {
-              const v = k[t.cle] as number
-              if (v <= 0) return null
-              return <div key={t.cle} style={{ width: `${(v / total) * 100}%`, background: t.couleur }} />
-            })}
-          </div>
+          <div className="flex gap-6 items-center">
+            <div className="flex-1 min-w-0">
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={donnees} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={fmtK} tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} width={46} />
+                  <Tooltip content={<TooltipEuro />} cursor={{ fill: '#f9fafb' }} />
+                  <Bar dataKey="montant" radius={[4, 4, 0, 0]} maxBarSize={44}>
+                    {donnees.map((_, i) => <Cell key={i} fill={AGE_COLORS[i]} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
 
-          <button
-            onClick={() => setDeplie(d => !d)}
-            className="text-[11px] text-gray-400 hover:text-gray-600 mt-2 transition-colors"
-          >
-            {deplie ? 'Masquer le détail' : 'Détail de la balance âgée'}
-          </button>
-
-          {deplie && (
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-3 pt-3 border-t border-gray-100">
-              {TRANCHES.map(t => (
-                <div key={t.cle}>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: t.couleur }} />
-                    <span className="text-[10px] font-semibold text-gray-500">{t.label}</span>
+            <div className="space-y-1.5 w-[190px] flex-shrink-0">
+              {donnees.map((t, i) => (
+                <div key={t.label} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: AGE_COLORS[i] }} />
+                    <span className="text-gray-600">{t.label}</span>
                   </div>
-                  <p className="font-mono text-[13px] text-gray-800 tabular-nums">{fmtEuro(k[t.cle] as number)}</p>
+                  <span className={`font-mono font-semibold tabular-nums ${t.montant > 0 ? 'text-gray-800' : 'text-gray-300'}`}>
+                    {fmtEuro(t.montant)}
+                  </span>
                 </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    </section>
   )
 }
 
@@ -322,7 +356,7 @@ export function VuePortail() {
 
       {/* ── CONTENU ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="px-8 py-7 max-w-6xl">
+        <div className="px-8 py-7 max-w-[1400px]">
 
           <h1 className="text-[26px] font-bold text-gray-900 leading-tight">{titre.h}</h1>
           <p className="text-sm text-gray-500 mt-1 mb-7">{titre.s}</p>
@@ -340,7 +374,7 @@ export function VuePortail() {
                   key={o.id}
                   onClick={() => ouvrir(o.id)}
                   disabled={enCours !== null}
-                  className="group text-left bg-white border border-gray-100 hover:border-ockham-teal rounded-xl shadow-sm hover:shadow-md px-5 py-5 transition-all disabled:opacity-50 disabled:cursor-wait"
+                  className="group text-left bg-white border border-gray-100 hover:border-ockham-teal rounded-2xl shadow-sm hover:shadow-md px-5 py-5 transition-all disabled:opacity-50 disabled:cursor-wait"
                 >
                   <div className="flex items-start gap-3 mb-5">
                     <Pastille nom={o.nom} />
@@ -362,7 +396,7 @@ export function VuePortail() {
           )}
 
           {onglet === 'tableau-de-bord' && (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-9">
               {kpis === null && (
                 <p className="text-sm text-gray-400">Calcul des indicateurs…</p>
               )}
@@ -370,7 +404,7 @@ export function VuePortail() {
               {kpis?.length === 0 && (
                 <div className="px-4 py-3 rounded-lg bg-ockham-copper-light border border-ockham-copper/25 text-[13px] text-gray-700">
                   Aucun indicateur disponible. Si vos structures s’affichent dans l’onglet voisin,
-                  c’est que la migration 172 n’est pas appliquée.
+                  c’est que la migration 174 n’est pas appliquée.
                   {erreurKpis && (
                     <span className="block mt-1.5 font-mono text-[11px] text-gray-500">{erreurKpis}</span>
                   )}
@@ -378,7 +412,7 @@ export function VuePortail() {
               )}
 
               {kpis?.map(k => (
-                <LigneStructure
+                <BlocStructure
                   key={k.id}
                   k={k}
                   enCours={enCours === k.id}
@@ -389,7 +423,7 @@ export function VuePortail() {
               {/* Le DSO d'une structure sans chiffre d'affaires de reference ne
                   peut pas se calculer. Le dire vaut mieux qu'afficher un zero. */}
               {kpis && kpis.some(k => k.dso === null) && (
-                <p className="text-[12px] text-gray-400 mt-1">
+                <p className="text-[12px] text-gray-400">
                   Un DSO affiché « — » signifie que la structure n’a pas encore de chiffre
                   d’affaires de référence : il se calcule au premier dépôt de fichier.
                 </p>
