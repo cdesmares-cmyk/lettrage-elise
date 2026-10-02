@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useRole } from '../contexts/RoleContext'
 import { useAuth } from '../contexts/AuthContext'
-import { oublierStructureChoisie } from '../lib/structureSession'
+import { ModalChangerStructure } from './ModalChangerStructure'
 import { useCorrectionContext } from '../contexts/CorrectionContext'
 import { useRelances, etatVue, joursDepuis } from '../hooks/useRelances'
 import { MenuAdmin } from './admin/MenuAdmin'
@@ -101,6 +101,7 @@ const NAV_OUTILS = [
 
 
 export function Layout() {
+  const [modaleStructure, setModaleStructure] = useState(false)
   const { isCommercial, isExterne } = useRole()
   const { profil, organisations } = useAuth()
   const { relances, lettragesMap, seuilSansSuite } = useRelances()
@@ -139,33 +140,6 @@ export function Layout() {
           >O</div>
           <span className="text-white font-bold text-[15px] tracking-[0.06em]">OCKHAM</span>
         </div>
-
-        {/* Structure active — affichee en permanence des que le compte en a
-            plusieurs. Sans repere visible, rien a l'ecran ne distingue deux
-            structures : c'est le chemin direct vers un import depose dans la
-            mauvaise societe, et un import ne se revert pas. */}
-        {organisations.length >= 2 && profil?.nom_organisation && (
-          <div className="px-4 py-2.5 border-b border-white/[0.06] bg-ockham-teal/[0.07]">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ockham-teal/70 mb-0.5">
-              Structure
-            </p>
-            <p className="text-white text-[13px] font-semibold truncate leading-tight">
-              {profil.nom_organisation}
-            </p>
-            {profil.code_org && (
-              <p className="text-white/35 text-[10px] font-mono mt-0.5">{profil.code_org}</p>
-            )}
-            {/* Sans ce retour, changer de structure imposerait de se
-                deconnecter. Le rechargement complet est volontaire : il garantit
-                qu'il ne reste rien de la structure courante en memoire. */}
-            <button
-              onClick={() => { oublierStructureChoisie(); window.location.assign('/tableau-de-bord') }}
-              className="text-ockham-teal/70 hover:text-ockham-teal text-[10px] font-semibold mt-1.5 transition-colors"
-            >
-              Changer de structure
-            </button>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
@@ -236,6 +210,39 @@ export function Layout() {
           )}
         </nav>
 
+        {/* Structure active — posee pres de l'identite, pas pres de la
+            navigation : c'est une information de contexte, « ou suis-je », pas
+            une destination.
+
+            Sans ce repere, deux structures donnent des ecrans indiscernables —
+            le chemin direct vers un import depose dans la mauvaise societe, et
+            un import ne se revert pas.
+
+            Aucun libelle « changer de structure » : le survol et le chevron
+            suffisent a dire que c'est cliquable, comme le bloc profil juste en
+            dessous. */}
+        {organisations.length >= 2 && profil?.nom_organisation && (
+          <button
+            onClick={() => setModaleStructure(true)}
+            className="mx-2 mb-1 px-2.5 py-2 rounded-lg bg-ockham-teal/[0.07] hover:bg-ockham-teal/[0.14] border border-ockham-teal/15 hover:border-ockham-teal/30 transition-colors text-left flex items-center gap-2 group"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ockham-teal/70 mb-0.5">
+                Structure
+              </p>
+              <p className="text-white text-[13px] font-semibold truncate leading-tight">
+                {profil.nom_organisation}
+              </p>
+              {profil.code_org && (
+                <p className="text-white/35 text-[10px] font-mono mt-0.5">{profil.code_org}</p>
+              )}
+            </div>
+            <span className="text-ockham-teal/50 group-hover:text-ockham-teal text-[11px] flex-shrink-0 transition-colors">
+              ▾
+            </span>
+          </button>
+        )}
+
         {/* Bas sidebar — profil + menu admin (auto-suffisant) */}
         <div className="border-t border-white/[0.06] px-2 py-3">
           {/* Badge lecture seule */}
@@ -262,6 +269,8 @@ export function Layout() {
           <MenuAdmin />
         </div>
       </aside>
+
+      {modaleStructure && <ModalChangerStructure onFermer={() => setModaleStructure(false)} />}
 
       {/* ── ZONE DROITE ── */}
       <main className="flex-1 overflow-y-auto px-6 py-6 dark:bg-slate-950">
