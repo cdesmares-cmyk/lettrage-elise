@@ -126,7 +126,35 @@ Deno.serve(async (req: Request) => {
         api_key_masked: i.api_key ? `••••••${i.api_key.slice(-4)}` : null,
       }))
 
-      return json({ utilisateurs, integrations, runs: orgRuns })
+      // ── Les personnes qui ACCEDENT a cette organisation sans en etre ──
+      // Sans cette liste, on accorde un acces que plus personne ne retrouve
+      // depuis la societe concernee : sa fiche ne montrait que les gens dont
+      // elle est la structure d'origine.
+      const { data: membres } = await supabase
+        .from('membres_organisations').select('utilisateur_id').eq('organisation_id', organisation_id)
+      const idsMembres = ((membres ?? []) as { utilisateur_id: string }[]).map(m => m.utilisateur_id)
+
+      let acces_externes: unknown[] = []
+      if (idsMembres.length) {
+        const { data: ext } = await supabase
+          .from('utilisateurs')
+          .select('id, email, initiales, role, organisation_id')
+          .in('id', idsMembres)
+          .neq('organisation_id', organisation_id)
+
+        type ExtRow = { id: string; email: string; initiales: string | null; role: string; organisation_id: string }
+        const lignes = (ext ?? []) as ExtRow[]
+
+        if (lignes.length) {
+          const { data: orgsExt } = await supabase
+            .from('organisations').select('id, nom')
+            .in('id', [...new Set(lignes.map(l => l.organisation_id))])
+          const nomParOrg = new Map(((orgsExt ?? []) as { id: string; nom: string }[]).map(o => [o.id, o.nom]))
+          acces_externes = lignes.map(l => ({ ...l, org_origine: nomParOrg.get(l.organisation_id) ?? '—' }))
+        }
+      }
+
+      return json({ utilisateurs, integrations, runs: orgRuns, acces_externes })
     }
 
     // ── CREATE_ORG ────────────────────────────────────────────────────────────
@@ -177,6 +205,70 @@ Deno.serve(async (req: Request) => {
       } as never, { onConflict: 'id' })
 
       return json({ ok: true })
+    }
+
+    // ── GET_ALL_USERS ─────────────────────────────────────────────────────────
+    // Le second axe de navigation : toutes les personnes, toutes organisations
+    // confondues. L'ecran etait organisation d'abord — pour trouver quelqu'un
+    // il fallait deja savoir ou il est. A six societes ca passe, a cent non.
+    //
+    // Chaque ligne porte sa structure D'ORIGINE et ses ACCES supplementaires.
+    // Les deux ne se confondent pas : l'origine est le rattachement, l'acces
+    // est une permission de plus.
+    if (action === 'get_all_users') {
+      const [{ data: users }, { data: orgs }, { data: membres }] = await Promise.all([
+        supabase.from('utilisateurs')
+          .select('id, email, prenom, nom, initiales, role, organisation_id, cree_le'),
+        supabase.from('organisations').select('id, nom, code_org'),
+        supabase.from('membres_organisations').select('utilisateur_id, organisation_id'),
+      ])
+
+      // Un seul appel pour tous les statuts, et non un par personne : la fiche
+      // d'une organisation en fait un par utilisateur, ce qui tient a vingt
+      // mais pas a cinq cents. Au-dela de mille comptes il faudra paginer.
+      type AuthRow = {
+        id: string
+        last_sign_in_at: string | null
+        email_confirmed_at: string | null
+        banned_until: string | null
+      }
+      const { data: auth } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const parId = new Map<string, AuthRow>(
+        ((auth?.users ?? []) as unknown as AuthRow[]).map(a => [a.id, a])
+      )
+
+      type OrgRow = { id: string; nom: string; code_org: string | null }
+      const orgParId = new Map<string, OrgRow>(
+        ((orgs ?? []) as OrgRow[]).map(o => [o.id, o])
+      )
+
+      const accesParUser = new Map<string, string[]>()
+      for (const m of (membres ?? []) as { utilisateur_id: string; organisation_id: string }[]) {
+        if (!accesParUser.has(m.utilisateur_id)) accesParUser.set(m.utilisateur_id, [])
+        accesParUser.get(m.utilisateur_id)!.push(m.organisation_id)
+      }
+
+      type UserRow = {
+        id: string; email: string; prenom: string | null; nom: string | null
+        initiales: string | null; role: string; organisation_id: string; cree_le: string
+      }
+
+      const utilisateurs = ((users ?? []) as UserRow[]).map(u => {
+        const org = orgParId.get(u.organisation_id)
+        const au  = parId.get(u.id)
+        return {
+          ...u,
+          org_nom:      org?.nom ?? '—',
+          org_code:     org?.code_org ?? null,
+          // Les acces SUPPLEMENTAIRES : on retire l'origine, qui n'en est pas un.
+          acces:        (accesParUser.get(u.id) ?? []).filter(o => o !== u.organisation_id),
+          derniere_connexion:    au?.last_sign_in_at ?? null,
+          invitation_en_attente: au ? !au.email_confirmed_at : false,
+          suspendu:              au?.banned_until ? new Date(au.banned_until) > new Date() : false,
+        }
+      })
+
+      return json({ utilisateurs, organisations: orgs ?? [] })
     }
 
     // ── GET_USER_STRUCTURES ───────────────────────────────────────────────────

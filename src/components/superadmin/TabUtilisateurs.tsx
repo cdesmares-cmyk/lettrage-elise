@@ -240,6 +240,42 @@ export function TabUtilisateurs({ orgId, actions }: {
           </div>
         )
       }
+
+      {/* Les personnes qui ACCEDENT a cette organisation sans en etre.
+          Sans cette liste, on accorde un acces que plus personne ne retrouve
+          depuis la societe concernee : le tableau ci-dessus ne montre que les
+          gens dont elle est la structure d'origine. */}
+      {(detail?.acces_externes?.length ?? 0) > 0 && (
+        <div className="mt-6 pt-5 border-t border-gray-100">
+          <p className="text-[10px] font-bold uppercase tracking-[.1em] text-gray-400 mb-1">
+            Accès depuis d’autres sociétés
+          </p>
+          <p className="text-[11px] text-gray-400 mb-3">
+            Ces personnes ne sont pas rattachées à cette organisation, mais peuvent y travailler.
+          </p>
+          <div className="flex flex-col gap-2">
+            {detail!.acces_externes!.map(a => (
+              <div key={a.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-ockham-teal-muted/50 border border-ockham-teal/15">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[11px] flex-shrink-0"
+                  style={{ background: '#E6F7F5', color: '#3BA89F' }}
+                >
+                  {(a.initiales || a.email.slice(0, 2)).toUpperCase().slice(0, 3)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold text-gray-900 truncate leading-tight">{a.email}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Rattaché à <span className="font-semibold text-gray-700">{a.org_origine}</span>
+                  </p>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-[.08em] text-gray-400 flex-shrink-0">
+                  {a.role === 'responsable_poste_client' ? 'Credit Manager' : a.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

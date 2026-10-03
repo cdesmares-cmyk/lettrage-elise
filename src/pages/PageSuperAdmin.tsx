@@ -6,8 +6,34 @@ import { ModalNouvelleOrg } from '../components/superadmin/ModalNouvelleOrg'
 import { CarteOrg } from '../components/superadmin/CarteOrg'
 import { SectionMonitoring } from '../components/superadmin/SectionMonitoring'
 import { ModalOrg } from '../components/superadmin/ModalOrg'
+import { VueUtilisateurs } from '../components/superadmin/VueUtilisateurs'
 
 const PAGE_SIZE = 20
+
+type Vue = 'organisations' | 'utilisateurs'
+
+function IcOrgs() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/>
+      <path d="M9 21v-6h6v6"/><path d="M9 11h.01"/><path d="M15 11h.01"/>
+    </svg>
+  )
+}
+
+function IcUsers() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  )
+}
+
+const VUES: { val: Vue; label: string; icone: React.ReactNode }[] = [
+  { val: 'organisations', label: 'Organisations', icone: <IcOrgs /> },
+  { val: 'utilisateurs',  label: 'Utilisateurs',  icone: <IcUsers /> },
+]
 
 function IcRefresh({ spin }: { spin?: boolean }) {
   return (
@@ -60,6 +86,7 @@ export function PageSuperAdmin() {
   const [orgDetail, setOrgDetail]       = useState<OrganisationSA | null>(null)
   const [recherche, setRecherche]       = useState('')
   const [page, setPage]                 = useState(1)
+  const [vue, setVue]                   = useState<Vue>('organisations')
 
   useEffect(() => {
     if (profil?.role === 'superadmin') chargerDashboard()
@@ -90,35 +117,73 @@ export function PageSuperAdmin() {
   if (!profil || profil.role !== 'superadmin') return <Navigate to="/tableau-de-bord" replace />
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-ockham-navy border-b border-ockham-teal/20 px-8 py-4 flex items-center justify-between sticky top-0 z-40">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-ockham-teal/10">
-            <span className="text-ockham-teal font-extrabold text-lg">O</span>
-          </div>
-          <div>
-            <span className="text-white font-bold text-sm tracking-wide">OCKHAM</span>
-            <span className="ml-2 px-2 py-0.5 bg-ockham-teal/20 text-ockham-teal text-[10px] font-bold rounded-full uppercase tracking-wider">
-              Super Admin
-            </span>
-          </div>
+    <div className="h-screen flex overflow-hidden bg-gray-50">
+
+      {/* ── SIDEBAR ──
+          Meme vocabulaire que le portail : les deux vues consolidees du produit
+          doivent se ressembler. Et deux axes de navigation plutot qu'un, parce
+          que chercher une personne sans savoir dans quelle societe elle est
+          etait impossible. */}
+      <aside className="w-[220px] flex-shrink-0 flex flex-col h-screen" style={{ background: '#0E1A2B' }}>
+        <div className="flex items-center gap-2.5 px-4 py-5 border-b border-white/[0.06]">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-[1.1rem] flex-shrink-0"
+            style={{ background: 'rgba(76,197,187,0.1)', color: '#4CC5BB', border: '1.5px solid rgba(76,197,187,0.35)' }}
+          >O</div>
+          <span className="text-white font-bold text-[15px] tracking-[0.06em]">OCKHAM</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400">{profil.initiales || profil.role}</span>
-          <a href="/tableau-de-bord" className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer">
+
+        <div className="px-4 py-2.5 border-b border-white/[0.06] bg-ockham-teal/[0.07]">
+          <p className="text-[9px] font-bold uppercase tracking-[0.1em] text-ockham-teal/70 mb-0.5">Rôle</p>
+          <p className="text-white text-[13px] font-semibold leading-tight">Super Admin</p>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-white/40 px-2.5 pt-1 pb-1.5">
+            Navigation
+          </p>
+          {VUES.map(({ val, label, icone }) => {
+            const actif = vue === val
+            return (
+              <button
+                key={val}
+                onClick={() => setVue(val)}
+                className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-medium transition-colors border text-left ${
+                  actif
+                    ? 'bg-ockham-teal/[0.12] text-ockham-teal border-ockham-teal/20'
+                    : 'text-white/65 border-transparent hover:bg-white/[0.05] hover:text-white/90'
+                }`}
+              >
+                <span className={actif ? 'text-ockham-teal' : 'text-white/55'}>{icone}</span>
+                {label}
+              </button>
+            )
+          })}
+        </nav>
+
+        <div className="px-3 py-3 border-t border-white/[0.06]">
+          <p className="text-white/70 text-[12px] font-semibold truncate">{profil.initiales || profil.role}</p>
+          <a href="/tableau-de-bord" className="text-white/35 hover:text-white/70 text-[11px] transition-colors">
             ← Retour à l'app
           </a>
         </div>
-      </header>
+      </aside>
 
-      <main className="max-w-screen-xl mx-auto px-8 py-8">
+      <main className="flex-1 overflow-y-auto">
+        <div className="px-8 py-7 max-w-screen-xl">
         {/* Titre + actions */}
         <div className="flex items-start justify-between mb-6 gap-4 flex-wrap">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Pilotage multi-organisations</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Vue consolidée de toutes les organisations OCKHAM Finance</p>
+            <h1 className="text-xl font-bold text-gray-900">
+              {vue === 'organisations' ? 'Organisations' : 'Utilisateurs'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {vue === 'organisations'
+                ? 'Vue consolidée de toutes les organisations OCKHAM Finance'
+                : 'Toutes les personnes, toutes sociétés confondues'}
+            </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className={`flex items-center gap-2 flex-wrap ${vue === 'organisations' ? '' : 'hidden'}`}>
             <button
               onClick={chargerDashboard} disabled={chargement}
               className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-gray-300 rounded-lg transition-colors cursor-pointer disabled:opacity-40"
@@ -133,6 +198,10 @@ export function PageSuperAdmin() {
             </button>
           </div>
         </div>
+
+        {vue === 'utilisateurs' && <VueUtilisateurs />}
+
+        {vue === 'organisations' && (<>
 
         {/* KPIs globaux */}
         {!chargement && organisations.length > 0 && (
@@ -220,6 +289,8 @@ export function PageSuperAdmin() {
         )}
 
         <SectionMonitoring runs={runs} />
+        </>)}
+        </div>
       </main>
 
       <ModalNouvelleOrg ouvert={modalOuvert} onFermer={() => setModalOuvert(false)} onCreer={creerOrganisation} />

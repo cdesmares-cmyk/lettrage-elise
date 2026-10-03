@@ -21,10 +21,23 @@ export interface IntegrationSA {
   api_key_masked: string | null
 }
 
+/** Une personne qui ACCEDE a cette organisation sans en etre : son
+ *  rattachement est ailleurs. Sans cette liste, un acces accorde n'etait plus
+ *  retrouvable depuis la societe concernee. */
+export interface AccesExterneSA {
+  id: string
+  email: string
+  initiales: string | null
+  role: string
+  organisation_id: string
+  org_origine: string
+}
+
 export interface OrgDetail {
   utilisateurs: UtilisateurDetailSA[]
   integrations: IntegrationSA[]
   runs: CronRun[]
+  acces_externes?: AccesExterneSA[]
 }
 
 export function useSuperAdminOrg() {
