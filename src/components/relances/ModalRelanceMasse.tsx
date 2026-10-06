@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -62,22 +62,35 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const [progression, setProgression] = useState<{ enCours: boolean; current: number; total: number; resultats: Resultat[]; termine: boolean }>({ enCours: false, current: 0, total: 0, resultats: [], termine: false })
   const [enArrierePlan, setEnArrierePlan] = useState(false)
 
-  // Sélectionne le scénario niveau 1 par défaut dès que les scénarios sont chargés
+  // Un envoi en masse part TOUJOURS chez les contacts du client. Un scénario
+  // interne s'adresse a un commercial : son texte n'a rien a faire dans la
+  // boite d'un client. Ici, contrairement a la modale a l'unite, il n'existe
+  // aucun routage vers les operateurs — donc on ne propose que l'externe.
+  const scenariosExternes = useMemo(
+    () => scenarios.filter(s => s.type === 'externe'),
+    [scenarios]
+  )
+
+  // Sélectionne le scénario externe de niveau 1 par défaut.
+  // Aucun repli sur scenarios[0] : c'est ce repli qui a envoyé une
+  // notification interne chez de vrais clients. Sans scénario externe,
+  // on ne choisit rien et l'envoi reste bloqué.
   useEffect(() => {
-    if (!scenarios.length || scenarioId !== null) return
-    const defaut = scenarios.find(s => s.niveau === 1) ?? scenarios[0]
+    if (!scenariosExternes.length || scenarioId !== null) return
+    const defaut = scenariosExternes.find(s => s.niveau === 1) ?? scenariosExternes[0]
     setScenarioId(defaut.id)
     setSujet(defaut.objet)
-  }, [scenarios])
+  }, [scenariosExternes])
 
   // Pré-remplit le sujet quand l'opérateur change de scénario
   function changerScenario(id: string) {
+    const s = scenariosExternes.find(sc => sc.id === id)
+    if (!s) return
     setScenarioId(id)
-    const s = scenarios.find(sc => sc.id === id)
-    if (s) setSujet(s.objet)
+    setSujet(s.objet)
   }
 
-  const scenarioCourant = scenarios.find(s => s.id === scenarioId) ?? null
+  const scenarioCourant = scenariosExternes.find(s => s.id === scenarioId) ?? null
 
   // Chargement des contacts pour tous les clients en une seule requête
   useEffect(() => {
@@ -121,10 +134,19 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const avecContact    = etats.filter(e => e.contacts.some(c => c.email))
   const sansContact    = etats.filter(e => !e.contacts.some(c => c.email))
   const totalEncours   = clients.reduce((s, c) => s + c.encours_total, 0)
+  // Sans scénario externe retenu, rien ne part : le bouton reste éteint.
   const peutEnvoyer    = !progression.enCours && !progression.termine && avecContact.length > 0
+                         && scenarioCourant?.type === 'externe'
 
   async function handleEnvoyer() {
     if (!utilisateur || !peutEnvoyer) return
+    // Verrou de dernier recours. L'interface ne propose plus que de l'externe,
+    // mais ce test ne dépend pas de l'interface : si un scénario interne
+    // revenait un jour dans la liste, l'envoi s'arrêterait quand même ici.
+    if (scenarioCourant?.type !== 'externe') {
+      toast.error('Scénario interne : il notifie un commercial, il ne part pas chez un client.')
+      return
+    }
     const signature = estConnecte ? await recupererSignature() : null
     const cibles = etats.filter(e => e.contacts.some(c => c.email))
     setProgression({ enCours: true, current: 0, total: cibles.length, resultats: [], termine: false })
@@ -178,6 +200,12 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
         statut:             'envoyee',
         envoyee_le:         new Date().toISOString(),
         points_attribues:   10,
+        // Ecrit explicitement, plus laisse au defaut de la colonne : ce qui
+        // part chez un client se declare, ca ne se deduit pas.
+        // (relances ne porte pas de scenario_id — cette colonne est sur
+        // relances_auto_log, la table du robot. Retrouver quel scenario est
+        // parti chez qui passe donc encore par le texte de l'objet.)
+        type:               'externe',
       }
       if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 
@@ -262,22 +290,39 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
 
               {/* Scénario */}
               <div>
-                <label className="block text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2">
-                  <span className="text-ockham-navy/40 mr-1">1 —</span>Scénario de relance
+                <label className="flex items-center gap-2 text-[11px] font-bold text-ockham-teal uppercase tracking-wider mb-2">
+                  <span><span className="text-ockham-navy/40 mr-1">1 —</span>Scénario de relance</span>
+                  {/* Mêmes jetons que la pastille EXT de la modale à l'unité :
+                      un seul code couleur pour « ça part chez le client ». */}
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-ockham-teal-muted text-ockham-teal border border-ockham-teal/20 tracking-normal">
+                    EXT
+                  </span>
                 </label>
-                {scenarios.length > 0 ? (
-                  <select
-                    value={scenarioId ?? ''}
-                    onChange={e => changerScenario(e.target.value)}
-                    disabled={progression.enCours || progression.termine}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal disabled:opacity-50 cursor-pointer"
-                  >
-                    {scenarios.map(s => (
-                      <option key={s.id} value={s.id}>{s.nom}</option>
-                    ))}
-                  </select>
+                {scenariosExternes.length > 0 ? (
+                  <>
+                    <select
+                      value={scenarioId ?? ''}
+                      onChange={e => changerScenario(e.target.value)}
+                      disabled={progression.enCours || progression.termine}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-ockham-teal disabled:opacity-50 cursor-pointer"
+                    >
+                      {scenariosExternes.map(s => (
+                        <option key={s.id} value={s.id}>Niveau {s.niveau} — {s.nom}</option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Seuls les scénarios externes sont proposés. Un scénario interne notifie un
+                      commercial : il s’envoie client par client, depuis la fiche du client.
+                    </p>
+                  </>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">Aucun scénario configuré — créez-en un dans Admin → Scénarios de relance.</p>
+                  <div className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">
+                    <p className="text-xs font-semibold text-amber-800">Aucun scénario externe.</p>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      Un envoi en masse part chez les clients : il lui faut un scénario externe.
+                      À créer dans Admin → Scénarios de relance.
+                    </p>
+                  </div>
                 )}
               </div>
 
