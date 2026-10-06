@@ -23,8 +23,8 @@ function SignalGauge({ level }: { level: NiveauRelance }) {
 }
 
 function LevelCode({ level }: { level: NiveauRelance }) {
-  // 36px : juste de quoi aligner "N3 MED", le plus large. Plus large, le niveau
-  // et son anciennete se lisent comme deux informations separees.
+  // 36px : juste de quoi aligner "N3 MED", le plus large. Largeur fixe pour que
+  // les codes s'alignent verticalement d'une ligne a l'autre dans la colonne.
   const base = 'font-mono text-[11px] w-[36px] shrink-0'
   if (level === 'gel') return <span className={`${base} text-[#94A3B8]`}>GEL</span>
   if (level === 0)     return <span className={`${base} text-[#94A3B8]`}>—</span>
@@ -71,33 +71,44 @@ export function RisqueCell({ score, frozen }: { score: number | null; frozen: bo
 }
 
 /**
- * Colonne « Relance » : où en est le client, et depuis combien de temps.
- * Les deux vont ensemble — « N1 · 2 j » on laisse respirer, « N1 · 45 j » on
- * escalade. Le niveau seul ne distingue pas ces deux cas.
+ * Colonne « Niveau » : où en est le client dans le cycle de relance.
+ * Séparée de l'ancienneté depuis qu'il faut pouvoir trier les deux
+ * indépendamment — filtrer N1, puis classer du plus ancien au plus récent.
  * Le gel masque le niveau, comme avant la refonte : à trancher avec la
  * gradation du risque, pas ici.
  */
-export function RelanceCell({ level, jours }: { level: NiveauRelance; jours: number | null }) {
+export function NiveauCell({ level }: { level: NiveauRelance }) {
   if (level === 0) {
     return <span className="font-mono text-[11px] text-[#94A3B8]" aria-label="Jamais relancé">—</span>
   }
 
-  const afficheJours = level !== 'gel' && jours !== null
-  const labelNiveau = level === 'gel' ? 'Client gelé, hors cycle de relance'
+  const label = level === 'gel' ? 'Client gelé, hors cycle de relance'
     : level === 3 ? 'Niveau 3, mise en demeure recommandée'
     : `Niveau ${level}`
-  const labelJours = afficheJours ? `. Dernière relance il y a ${jours} jour${jours > 1 ? 's' : ''}` : ''
 
   return (
-    <div className="flex items-center gap-1.5" role="img" aria-label={`${labelNiveau}${labelJours}`}>
+    <div className="flex items-center gap-1.5" role="img" aria-label={label}>
       <SignalGauge level={level} />
       <LevelCode level={level} />
-      {afficheJours && (
-        <>
-          <span className="text-[10px] text-gray-300 shrink-0" aria-hidden>·</span>
-          <span className="font-mono text-[11px] tabular-nums text-[#64748B] shrink-0">{jours} j</span>
-        </>
-      )}
     </div>
+  )
+}
+
+/**
+ * Colonne « Ancienneté » : depuis combien de jours remonte la dernière relance.
+ * Un tiret, jamais un zéro, quand il n'y a rien à dater — jamais relancé, ou
+ * client gelé hors cycle. Zéro voudrait dire « relancé aujourd'hui ».
+ */
+export function AncienneteCell({ level, jours }: { level: NiveauRelance; jours: number | null }) {
+  if (level === 0 || level === 'gel' || jours === null) {
+    return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Aucune relance à dater">—</span>
+  }
+  return (
+    <span
+      className="font-mono text-[11px] tabular-nums text-[#64748B]"
+      aria-label={`Dernière relance il y a ${jours} jour${jours > 1 ? 's' : ''}`}
+    >
+      {jours} j
+    </span>
   )
 }

@@ -7,7 +7,7 @@ import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } f
 import { LignesFactures } from './LignesFactures'
 import { Pagination } from '../Pagination'
 import { useRole } from '../../contexts/RoleContext'
-import { RisqueCell, RelanceCell } from './RelanceRisqueCell'
+import { RisqueCell, NiveauCell, AncienneteCell } from './RelanceRisqueCell'
 import type { NiveauRelance } from './RelanceRisqueCell'
 import type { AlerteScore } from '../../hooks/useAlertesScore'
 
@@ -79,27 +79,44 @@ const STATUT_ICONES = {
 
 type SortDir = 'asc' | 'desc'
 
-function sortRows<T extends Record<string, unknown>>(data: T[], col: keyof T, dir: SortDir): T[] {
+// Les colonnes Niveau et Ancienneté ne sont pas des champs de la ligne client :
+// elles viennent de alertesSignal. D'où le tri par accesseur plutôt que par nom
+// de champ — sans ça, aucun des deux en-têtes ne peut trier.
+const COL_NIVEAU = 'niveau_relance'
+const COL_ANCIENNETE = 'jours_derniere_relance'
+
+/** `videEnBas` : une valeur absente n'est pas une petite valeur, elle ne se
+ *  classe pas. Les clients jamais relancés restent en bas dans les deux sens,
+ *  sinon inverser le tri les remonterait en tête d'une liste de relance. */
+function sortRows<T>(data: T[], valeur: (row: T) => unknown, dir: SortDir, videEnBas = false): T[] {
   return [...data].sort((a, b) => {
-    const av = a[col] ?? '', bv = b[col] ?? ''
-    const cmp = typeof av === 'number' && typeof bv === 'number'
-      ? av - bv
-      : String(av).localeCompare(String(bv), 'fr-FR', { numeric: true })
+    const av = valeur(a), bv = valeur(b)
+    if (videEnBas) {
+      const aVide = av === null || av === undefined
+      const bVide = bv === null || bv === undefined
+      if (aVide || bVide) return aVide && bVide ? 0 : aVide ? 1 : -1
+    }
+    const x = av ?? '', y = bv ?? ''
+    const cmp = typeof x === 'number' && typeof y === 'number'
+      ? x - y
+      : String(x).localeCompare(String(y), 'fr-FR', { numeric: true })
     return dir === 'asc' ? cmp : -cmp
   })
 }
 
-function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
+function ColTh({ label, col, sort, dir, onSort, align = 'left', title }: {
   label: string; col: string
   sort: string; dir: SortDir
   onSort: (col: string) => void
   align?: 'left' | 'right' | 'center'
+  title?: string
 }) {
   const active = sort === col
   const alignCls = align === 'right' ? 'justify-end' : align === 'center' ? 'justify-center' : 'justify-start'
   return (
     <th
       onClick={() => onSort(col)}
+      title={title}
       className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
       <span className={`flex items-center gap-1 ${alignCls}`}>
@@ -247,7 +264,17 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       if (a.est_gele) return false
       return a.niveau_relance === filtreNiveau
     })
-  const clientsTries = sortRows(clientsFiltres as unknown as Record<string, unknown>[], sortCol, sortDir) as unknown as CompteClient[]
+  // Niveau et ancienneté se lisent dans alertesSignal, les autres colonnes dans
+  // la ligne client. Gel et hors cycle ne se classent ni en niveau ni en
+  // ancienneté : ils n'ont pas de valeur, ils vont en bas.
+  const triAlerte = sortCol === COL_NIVEAU || sortCol === COL_ANCIENNETE
+  function valeurTri(c: CompteClient): unknown {
+    if (!triAlerte) return (c as unknown as Record<string, unknown>)[sortCol]
+    const a = alertesSignal?.get(c.code_dso)
+    if (!a || a.est_gele) return null
+    return sortCol === COL_NIVEAU ? a.niveau_relance : a.jours_derniere_relance
+  }
+  const clientsTries = sortRows(clientsFiltres, valeurTri, sortDir, triAlerte)
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
   const clientsPage = clientsTries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
@@ -329,10 +356,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             <ColTh label="Encours TTC" col="encours_total" {...thProps} align="right" />
             <ColTh label="Pièces actives" col="nb_impayees" {...thProps} align="center" />
             <ColTh label="Risque" col="note_risque" {...thProps} align="left" />
-            {/* Pas triable : le niveau vient de alertesSignal, pas de la ligne client. */}
-            <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-400 select-none">
-              <span className="flex items-center justify-start">Relance</span>
-            </th>
+            <ColTh
+              label="Niveau" col={COL_NIVEAU} {...thProps} align="left"
+              title="Relances envoyées au client sur les factures encore ouvertes. N3 : mise en demeure recommandée."
+            />
+            <ColTh
+              label="Ancienneté" col={COL_ANCIENNETE} {...thProps} align="right"
+              title="Jours depuis la dernière relance sur une facture encore ouverte. Recalculé chaque nuit : une relance envoyée aujourd’hui n’apparaît ici que demain."
+            />
             <th
               onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
               className={`px-3 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
@@ -422,7 +453,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <RisqueCell score={signalScore} frozen={alerte?.est_gele ?? false} />
                   </td>
                   <td className="px-3 py-3">
-                    <RelanceCell level={signalLevel} jours={alerte?.jours_derniere_relance ?? null} />
+                    <NiveauCell level={signalLevel} />
+                  </td>
+                  <td className="px-3 py-3 text-right">
+                    <AncienneteCell level={signalLevel} jours={alerte?.jours_derniere_relance ?? null} />
                   </td>
                   <td className="px-3 py-3 text-center">
                     <button
@@ -565,7 +599,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
 
                 {estOuvert && !modeSelection && (
                   <tr key={`${c.code_dso}-fac`}>
-                    <td colSpan={11} className="px-0 py-0 border-b border-gray-100">
+                    <td colSpan={12} className="px-0 py-0 border-b border-gray-100">
                       <div className="bg-gray-50 border-l-2 border-ockham-teal ml-0 overflow-hidden">
                         {factures.length === 0 && nbReglees > 0 && !estHistoriqueCharge(c.code_dso) ? (
                           // Toutes les factures sont réglées — pas d'impayée en mémoire
