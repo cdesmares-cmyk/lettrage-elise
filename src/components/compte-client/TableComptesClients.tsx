@@ -119,7 +119,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left', title }: {
       title={title}
       className={`px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
-      <span className={`flex items-center gap-1 ${alignCls}`}>
+      <span className={`flex items-center gap-1 leading-tight ${alignCls}`}>
         {label}
         <span className={`text-[9px] ${active ? 'text-ockham-teal' : 'text-gray-300'}`}>
           {active ? (dir === 'asc' ? '▲' : '▼') : '⬍'}
@@ -288,8 +288,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
   if (chargement) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Chargement…</div>
   if (!clients.length) return <div className="bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center py-16 text-sm text-gray-400">Aucun client trouvé.</div>
 
+  // overflow-x-auto, plus clip : les colonnes ayant désormais une largeur fixe,
+  // elles ne se compressent plus sur un écran étroit. Couper aurait rendu les
+  // boutons Relancer inatteignables ; on fait défiler à la place. Sans danger
+  // pour les menus : ils sont tous en position fixed.
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-clip min-h-[1400px]">
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto min-h-[1400px]">
       {nbAlertes > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-gray-100 bg-amber-50">
           <span className="w-2 h-2 rounded-full bg-amber-500 flex-shrink-0" />
@@ -334,7 +338,32 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           })}
         </div>
       )}
-      <table className="w-full">
+      {/* table-fixed : les largeurs ci-dessous font loi, le navigateur ne les
+          recalcule plus selon le contenu de la page affichée. Sans ça, une
+          colonne se rétrécit dès que la page n'a que des valeurs courtes, puis
+          s'élargit à la page suivante — et une valeur trop large part à la
+          ligne, ce qui fait sauter la hauteur de la ligne entière.
+          Seul « Nom » n'a pas de largeur : il absorbe ce qui reste, donc le
+          tableau ne dépasse jamais son cadre, quelle que soit la fenêtre. */}
+      <table className="w-full table-fixed min-w-[1000px]">
+        {/* Chaque largeur tient le plus large des deux : le contenu, ou
+            l'en-tête avec sa flèche de tri. Un en-tête d'un seul mot
+            (GROUPEMENT, RISQUE) ne peut pas revenir à la ligne : s'il déborde,
+            il déborde pour de bon. D'où la marge sur ces colonnes-là. */}
+        <colgroup>
+          <col className="w-9" />       {/* chevron / case à cocher */}
+          <col className="w-[92px]" />  {/* Code */}
+          <col />                       {/* Nom — prend tout ce qui reste */}
+          <col className="w-[116px]" /> {/* Encours TTC */}
+          <col className="w-[84px]" />  {/* Pièces actives */}
+          <col className="w-[76px]" />  {/* Risque */}
+          <col className="w-[80px]" />  {/* Niveau : jauge + code N */}
+          <col className="w-[60px]" />  {/* J+ */}
+          <col className="w-[68px]" />  {/* À suivre */}
+          <col className="w-[112px]" /> {/* Statut juridique */}
+          <col className="w-[108px]" /> {/* Groupement */}
+          <col className="w-[152px]" /> {/* Relances : deux boutons */}
+        </colgroup>
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
             <th className="w-8 px-2 py-2.5 text-center">
@@ -419,7 +448,10 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 <tr
                   key={c.code_dso}
                   onClick={() => toggle(c.code_dso)}
-                  className={`cursor-pointer transition-colors border-b border-gray-50 ${
+                  // h-16 : toutes les lignes font la même hauteur, qu'un nom
+                  // tienne sur une ligne ou deux. Sans ça la grille respire
+                  // différemment à chaque ligne et l'œil ne suit plus.
+                  className={`h-16 cursor-pointer transition-colors border-b border-gray-50 ${
                     modeSelection
                       ? estSelectionne ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50'
                       : estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'
@@ -438,10 +470,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     )}
                   </td>
                   <td className="px-2 py-3">
-                    <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
+                    <span className="inline-block font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded whitespace-nowrap">{c.code_dso}</span>
                   </td>
                   <td className="px-2 py-3">
-                    <span className="text-sm font-semibold text-gray-800 line-clamp-2">{c.nom}</span>
+                    {/* leading-tight : deux lignes de nom tiennent dans les
+                        64 px de la ligne, sans la pousser. */}
+                    <span className="text-sm font-semibold text-gray-800 leading-tight line-clamp-2">{c.nom}</span>
                   </td>
                   <td className="px-2 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>

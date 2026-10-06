@@ -106,7 +106,9 @@ export function AncienneteCell({ level, jours }: { level: NiveauRelance; jours: 
   }
   return (
     <span
-      className="font-mono text-[11px] tabular-nums text-[#64748B]"
+      // nowrap : « 112 j » doit rester sur une ligne. Casser entre le nombre et
+      // l'unité rallongeait la ligne du tableau et cassait la grille.
+      className="font-mono text-[11px] tabular-nums whitespace-nowrap text-[#64748B]"
       aria-label={`Dernière relance il y a ${jours} jour${jours > 1 ? 's' : ''}`}
     >
       {jours} j
