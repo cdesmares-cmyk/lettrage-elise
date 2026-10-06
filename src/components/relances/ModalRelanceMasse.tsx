@@ -119,13 +119,10 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
     return m
   }, [etats, facturesActives, commentaires])
 
-  /** Rien a reclamer : aucune ligne, ou un solde net nul ou crediteur.
-   *  En relance a l'unite un humain voit « −1 200 € » et n'envoie pas. Ici
-   *  personne ne relit les 25 lignes : le garde-fou doit etre dans le code. */
-  function estEcarte(code: string): boolean {
-    const p = perimetres.get(code)
-    return !p || p.lignes.length === 0 || p.net <= 0.005
-  }
+  // Aucun filtre sur le montant, volontairement : un solde nul ou crediteur se
+  // relance quand meme. Le net est affiche sur chaque ligne, c'est la qu'il se
+  // controle — a l'oeil, avant d'envoyer, pas par une regle automatique.
+  // Seul cas non envoye : zero ligne, un mail vide n'a aucun sens.
 
   // Chargement des contacts pour tous les clients en une seule requête
   useEffect(() => {
@@ -166,10 +163,8 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
     setEtats(prev => prev.map((x, i) => i === idx ? { ...x, contacts: [...x.contacts, data as Contact], nomForm: '', emailForm: '', ajoutEnCours: false } : x))
   }, [etats])
 
-  // Trois états, et un seul part : un contact ET quelque chose à réclamer.
-  const ecartes        = etats.filter(e => estEcarte(e.client.code_dso))
-  const avecContact    = etats.filter(e => e.contacts.some(c => c.email) && !estEcarte(e.client.code_dso))
-  const sansContact    = etats.filter(e => !e.contacts.some(c => c.email) && !estEcarte(e.client.code_dso))
+  const avecContact    = etats.filter(e => e.contacts.some(c => c.email))
+  const sansContact    = etats.filter(e => !e.contacts.some(c => c.email))
   // Le total reellement reclame : la somme des montants nets qui partiront,
   // pas la somme des encours de fiche. L'operateur doit pouvoir rapprocher ce
   // total de la somme des lignes affichees en dessous.
@@ -188,7 +183,7 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       return
     }
     const signature = estConnecte ? await recupererSignature() : null
-    const cibles = etats.filter(e => e.contacts.some(c => c.email) && !estEcarte(e.client.code_dso))
+    const cibles = etats.filter(e => e.contacts.some(c => c.email))
     setProgression({ enCours: true, current: 0, total: cibles.length, resultats: [], termine: false })
 
     const resultats: Resultat[] = []
@@ -198,11 +193,8 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       // Le perimetre affiche dans la liste, pas un second calcul.
       const perimetre = perimetres.get(e.client.code_dso)
       const impayees = perimetre?.lignes ?? []
-      if (!impayees.length || (perimetre?.net ?? 0) <= 0.005) {
-        const r: Resultat = {
-          nom: e.client.nom, succes: false,
-          raison: impayees.length ? 'Solde nul ou créditeur' : 'Aucune facture impayée',
-        }
+      if (!impayees.length) {
+        const r: Resultat = { nom: e.client.nom, succes: false, raison: 'Aucune facture impayée' }
         resultats.push(r)
         setProgression(prev => ({ ...prev, current: prev.current + 1, resultats: [...prev.resultats, r] }))
         continue
@@ -300,7 +292,6 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
               <p className="text-sm font-bold text-white">Relance massive — <span className="text-ockham-teal">{clients.length} client{clients.length > 1 ? 's' : ''} sélectionné{clients.length > 1 ? 's' : ''}</span></p>
               <p className="text-xs text-white/50 mt-0.5">
                 Montant réclamé : {fmtEncours(totalEncours)} · {avecContact.length} prêt{avecContact.length > 1 ? 's' : ''} · {sansContact.length} sans contact
-                {ecartes.length > 0 && <> · {ecartes.length} écarté{ecartes.length > 1 ? 's' : ''}</>}
               </p>
             </div>
             {!progression.enCours && (
@@ -405,12 +396,6 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                       <span className="text-amber-700 font-medium">{sansContact.length} client{sansContact.length > 1 ? 's' : ''} sans contact — à compléter ci-contre</span>
                     </div>
                   )}
-                  {ecartes.length > 0 && (
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0" />
-                      <span className="text-gray-500 font-medium">{ecartes.length} client{ecartes.length > 1 ? 's' : ''} écarté{ecartes.length > 1 ? 's' : ''} — solde nul ou créditeur</span>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -460,36 +445,28 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                   {etats.map((e, idx) => {
                     const contactsEmail = e.contacts.filter(c => c.email)
                     const perimetre = perimetres.get(e.client.code_dso)
-                    const ecarte = estEcarte(e.client.code_dso)
-                    // « a un contact » et « il y a quelque chose a reclamer »
-                    // sont deux questions distinctes. Les confondre ferait
-                    // reclamer un contact a un client qui en a deja un.
                     const aContact = contactsEmail.length > 0
                     return (
                       <div
                         key={e.client.code_dso}
-                        className={`border rounded-xl px-4 py-3 transition-colors ${
-                          ecarte ? 'bg-gray-50 border-gray-200' : aContact ? 'bg-white border-gray-200' : 'bg-amber-50/60 border-amber-200'
-                        }`}
+                        className={`border rounded-xl px-4 py-3 transition-colors ${aContact ? 'bg-white border-gray-200' : 'bg-amber-50/60 border-amber-200'}`}
                       >
                         <div className="flex items-start gap-3">
                           {/* Statut icône */}
-                          <span className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${
-                            ecarte ? 'bg-gray-200 text-gray-500' : aContact ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'
-                          }`}>
-                            {ecarte ? '—' : aContact ? '✓' : '⚠'}
+                          <span className={`mt-0.5 w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold ${aContact ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                            {aContact ? '✓' : '⚠'}
                           </span>
 
                           <div className="flex-1 min-w-0">
                             {/* Identité */}
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className={`text-sm font-semibold truncate ${ecarte ? 'text-gray-500' : 'text-gray-800'}`}>{e.client.nom}</span>
+                              <span className="text-sm font-semibold text-gray-800 truncate">{e.client.nom}</span>
                               <span className="font-mono text-[10px] text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{e.client.code_dso}</span>
                               {/* Le montant NET qui partira dans l'email, pas
                                   l'encours de la fiche client : c'est celui-la
                                   qu'il faut pouvoir verifier avant d'envoyer. */}
                               <span className={`text-[11px] font-bold tabular-nums ${
-                                !perimetre ? 'text-gray-400' : perimetre.net < 0 ? 'text-emerald-600' : ecarte ? 'text-gray-400' : 'text-gray-700'
+                                (perimetre?.net ?? 0) < 0 ? 'text-emerald-600' : 'text-gray-700'
                               }`}>
                                 {fmtEncours(perimetre?.net ?? 0)}
                               </span>
@@ -499,11 +476,6 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                               {!!perimetre?.nbCredits && (
                                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                                   {perimetre.nbCredits} avoir{perimetre.nbCredits > 1 ? 's' : ''} déduit{perimetre.nbCredits > 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {ecarte && (
-                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">
-                                  {perimetre?.lignes.length ? 'SOLDE NUL OU CRÉDITEUR — NON ENVOYÉ' : 'RIEN À RÉCLAMER — NON ENVOYÉ'}
                                 </span>
                               )}
                             </div>
@@ -519,9 +491,8 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                               </div>
                             )}
 
-                            {/* Form ajout contact si aucun. Inutile sur un
-                                client ecarte : rien ne partira de toute facon. */}
-                            {!aContact && !ecarte && (
+                            {/* Form ajout contact si aucun */}
+                            {!aContact && (
                               <div className="mt-2 space-y-1.5">
                                 <p className="text-[11px] text-amber-700 font-medium">Aucun contact — ajoutez-en un pour pouvoir envoyer</p>
                                 <div className="flex items-center gap-1.5">
