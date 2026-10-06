@@ -117,7 +117,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left', title }: {
     <th
       onClick={() => onSort(col)}
       title={title}
-      className={`px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
+      className={`px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${active ? 'text-ockham-teal' : 'text-gray-400'}`}
     >
       <span className={`flex items-center gap-1 ${alignCls}`}>
         {label}
@@ -337,7 +337,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-100">
-            <th className="w-10 px-3 py-2.5 text-center">
+            <th className="w-8 px-2 py-2.5 text-center">
               {modeSelection && (
                 <input
                   ref={checkboxToutRef}
@@ -361,12 +361,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
               title="Relances envoyées au client sur les factures encore ouvertes. N3 : mise en demeure recommandée."
             />
             <ColTh
-              label="Ancienneté" col={COL_ANCIENNETE} {...thProps} align="right"
-              title="Jours depuis la dernière relance sur une facture encore ouverte. Recalculé chaque nuit : une relance envoyée aujourd’hui n’apparaît ici que demain."
+              label="J+" col={COL_ANCIENNETE} {...thProps} align="right"
+              title="Ancienneté de la dernière relance, en jours, sur une facture encore ouverte. Recalculé chaque nuit : une relance envoyée aujourd’hui n’apparaît ici que demain."
             />
             <th
               onClick={() => { setFiltreASuivre(f => !f); setPage(0) }}
-              className={`px-3 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
+              className={`px-2 py-2.5 text-center cursor-pointer select-none hover:text-gray-600 transition-colors ${filtreASuivre ? 'text-ockham-teal' : 'text-gray-400'}`}
               title={filtreASuivre ? 'Voir tous les clients' : 'Filtrer : À Suivre uniquement'}
             >
               <span className="flex items-center justify-center gap-1 text-[10px] font-semibold uppercase tracking-wider">
@@ -387,7 +387,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                 relancePopupPos.current = { top: rect.bottom + 4, left: Math.max(4, rect.right - 215) }
                 setRelancePopupOpen(o => !o)
               }}
-              className={`text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < RELANCE_ETATS_TOUS.size ? 'text-ockham-teal' : 'text-gray-400'}`}
+              className={`text-center px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider cursor-pointer select-none hover:text-gray-600 transition-colors ${filtresRelance.size < RELANCE_ETATS_TOUS.size ? 'text-ockham-teal' : 'text-gray-400'}`}
             >
               <span className="flex items-center justify-center gap-1">
                 Relances
@@ -425,7 +425,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       : estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <td className="px-3 py-3 text-center" onClick={e => { e.stopPropagation(); toggle(c.code_dso) }}>
+                  <td className="px-2 py-3 text-center" onClick={e => { e.stopPropagation(); toggle(c.code_dso) }}>
                     {modeSelection ? (
                       <input
                         type="checkbox"
@@ -437,28 +437,28 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                     )}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     <span className="font-mono text-xs font-bold text-ockham-teal bg-ockham-teal-muted px-2 py-0.5 rounded">{c.code_dso}</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     <span className="text-sm font-semibold text-gray-800 line-clamp-2">{c.nom}</span>
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <span className={`font-mono font-bold text-sm tabular-nums whitespace-nowrap ${soldeNet > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{fmt(soldeNet)}</span>
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-2 py-3 text-center">
                     <span className={`text-sm font-bold tabular-nums ${nbPieces > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{nbPieces}</span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     <RisqueCell score={signalScore} frozen={alerte?.est_gele ?? false} />
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     <NiveauCell level={signalLevel} />
                   </td>
-                  <td className="px-3 py-3 text-right">
+                  <td className="px-2 py-3 text-right">
                     <AncienneteCell level={signalLevel} jours={alerte?.jours_derniere_relance ?? null} />
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-2 py-3 text-center">
                     <button
                       onClick={e => { e.stopPropagation(); c.a_suivre ? setPendingUnfollow(c.code_dso) : onToggleASuivre?.(c.code_dso) }}
                       disabled={!peutModifier || !onToggleASuivre}
@@ -475,7 +475,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       </svg>
                     </button>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     {c.statut_juridique ? (() => {
                       const Icon = STATUT_ICONES[c.statut_juridique!]
                       return (
@@ -488,12 +488,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                       <span className="text-[10px] text-gray-300">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-2 py-3">
                     {c.code_groupement ? (
                       <span className="font-mono text-[11px] bg-gray-50 text-gray-500 px-2 py-0.5 rounded border border-gray-200">{c.code_groupement}</span>
                     ) : <span className="text-[10px] text-gray-300">—</span>}
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-2 py-3 text-center">
                     <div className="flex items-center justify-center gap-1.5">
                       {estOuvert ? (
                         <>

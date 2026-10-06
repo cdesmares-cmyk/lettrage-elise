@@ -95,7 +95,8 @@ export function NiveauCell({ level }: { level: NiveauRelance }) {
 }
 
 /**
- * Colonne « Ancienneté » : depuis combien de jours remonte la dernière relance.
+ * Colonne « J+ » : depuis combien de jours remonte la dernière relance. Même
+ * libellé que la colonne J+ de l'onglet Relances, qui compte la même chose.
  * Un tiret, jamais un zéro, quand il n'y a rien à dater — jamais relancé, ou
  * client gelé hors cycle. Zéro voudrait dire « relancé aujourd'hui ».
  */
