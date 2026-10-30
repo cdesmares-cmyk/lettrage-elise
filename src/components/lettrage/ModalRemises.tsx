@@ -105,11 +105,12 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
       .eq('numero_piece', numero).maybeSingle()
     const row = data as unknown as RowFactureInfo | null
     if (row) {
-      const resteDu = Math.max(0, row.reste_du)
+      // Le solde peut être négatif (avoir ou facture surpayée) : on le pré-remplit tel quel.
+      const resteDu = Math.round(row.reste_du * 100) / 100
       modifierLigne(key, {
         chargement: false,
         info_facture: row as InfoFacture,
-        ...(preserverMontant ? {} : { montant: resteDu > 0 ? String(Math.round(resteDu * 100) / 100) : '' }),
+        ...(preserverMontant ? {} : { montant: Math.abs(resteDu) >= 0.005 ? String(resteDu) : '' }),
       })
     } else {
       modifierLigne(key, { chargement: false, info_facture: null })
@@ -133,9 +134,21 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
     lignesForm.map(l => l.numero_facture.trim()).filter((f, i, arr) => f.length >= 4 && arr.indexOf(f) !== i)
   )
 
+  // Un montant négatif est légitime sur une facture en crédit (avoir ou surpaiement) :
+  // le client déduit l'avoir du chèque ou de la LCR. Sur une facture qui reste due,
+  // c'est une faute de frappe. Seuil 0,005 € : le même que creer_compensation_atomique
+  // (migration 148).
+  function signeInvalide(l: LigneFormRemise): boolean {
+    const m = parseFloat(l.montant)
+    return !!l.info_facture && !isNaN(m) && m < 0 && l.info_facture.reste_du > -0.005
+  }
+  const lignesSigneInvalide = new Set(lignesForm.filter(signeInvalide).map(l => l._key))
+
   const lignesValides = lignesForm.length > 0 && lignesForm.every(l => {
     const m = parseFloat(l.montant)
-    return !!l.numero_facture.trim() && !!l.info_facture && !l.chargement && !!l.montant && !isNaN(m) && m > 0
+    if (!l.numero_facture.trim() || !l.info_facture || l.chargement || !l.montant) return false
+    if (isNaN(m) || Math.abs(m) < 0.005) return false
+    return !signeInvalide(l)
   })
   const peutValider = !!numeroForm.trim() && lignesValides && (typeForm !== 'lcr' || (montantLcr > 0 && lcrValide))
 
@@ -434,6 +447,11 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                     {ligne.info_facture && (
                       <div className="px-4 pb-2 text-[10px] text-emerald-600 font-medium -mt-1">
                         ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client} · reste dû : {fmt(ligne.info_facture.reste_du)}
+                      </div>
+                    )}
+                    {lignesSigneInvalide.has(ligne._key) && (
+                      <div className="px-4 pb-2 text-[10px] text-red-500 font-medium -mt-1">
+                        Montant négatif impossible : cette facture n'est pas en crédit.
                       </div>
                     )}
                     {facturesDoublon.has(ligne.numero_facture.trim()) && (
