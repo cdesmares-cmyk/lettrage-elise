@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, Fragment, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
-import type { Relance, StatutRelance } from '../../hooks/useRelances'
+import type { Relance, StatutRelance, LettrageRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture, StatutFacture } from '../../types/client'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -86,7 +86,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
   const [statutSaving, setStatutSaving]     = useState(false)
   const [contacts, setContacts]             = useState<{ id: string; nom: string; prenom: string | null; email: string; role_contact?: string | null }[]>([])
   const [facturesRelance, setFacturesRelance] = useState<FactureRelance[]>([])
-  const [lettragesRelanceMap, setLettragesRelanceMap] = useState<Map<string, string[]>>(new Map())
+  const [lettragesRelanceMap, setLettragesRelanceMap] = useState<Map<string, LettrageRelance[]>>(new Map())
   const popupRef                            = useRef<HTMLDivElement>(null)
   const [ongletRelance, setOngletRelance]   = useState<'factures' | 'commentaires'>('factures')
 
@@ -145,17 +145,17 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
     if (!ids.length) return
     supabase
       .from('lettrages')
-      .select('numero_facture, date_lettrage')
+      .select('numero_facture, date_lettrage, created_at, montant')
       .in('numero_facture', ids)
       .or('annule.is.null,annule.eq.false')
       .then(({ data }) => {
-        const map = new Map<string, string[]>()
-        for (const row of (data ?? []) as { numero_facture: string; date_lettrage: string }[]) {
+        const map = new Map<string, LettrageRelance[]>()
+        for (const row of (data ?? []) as { numero_facture: string; date_lettrage: string; created_at: string; montant: number }[]) {
           const arr = map.get(row.numero_facture) ?? []
-          arr.push(row.date_lettrage)
+          arr.push({ date_lettrage: row.date_lettrage, saisi_le: row.created_at, montant: row.montant })
           map.set(row.numero_facture, arr)
         }
-        for (const [k, v] of map) map.set(k, v.sort())
+        for (const [k, v] of map) map.set(k, v.sort((a, b) => a.date_lettrage.localeCompare(b.date_lettrage)))
         setLettragesRelanceMap(map)
       })
   }, [relance?.id])

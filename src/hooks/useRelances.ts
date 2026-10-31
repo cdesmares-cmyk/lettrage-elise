@@ -49,21 +49,39 @@ export function joursDepuis(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
+// Un lettrage rattaché à une relance.
+// date_lettrage porte la date BANCAIRE — le jour où l'argent est arrivé sur le
+// compte (migration 071, verrouillé par un trigger). saisi_le porte la date
+// d'enregistrement dans l'outil.
+export interface LettrageRelance {
+  date_lettrage: string
+  saisi_le: string
+  montant: number
+}
+
+// Un lettrage compte comme encaissement de la relance s'il est positif — une
+// écriture négative est une correction, elle augmente la dette — et s'il est
+// postérieur à l'envoi, par sa date bancaire OU par sa date de saisie.
+// Le second cas couvre le paiement reçu juste avant la relance mais lettré
+// après : la date bancaire seule ne le voit jamais.
+export function estEncaissement(l: LettrageRelance, dateEnvoi: string): boolean {
+  return l.montant > 0 && (l.date_lettrage >= dateEnvoi || l.saisi_le.slice(0, 10) >= dateEnvoi)
+}
+
 // Dérive l'état d'affichage d'une relance à partir des données actuelles.
-// Payée : le reste dû a diminué depuis l'envoi (lettrage détecté).
-// Sans suite : aucun paiement et seuil de jours dépassé.
+// Sans suite : aucun encaissement et seuil de jours dépassé.
 export function etatVue(
   r: Relance,
-  lettragesMap: Map<string, string[]>,
+  lettragesMap: Map<string, LettrageRelance[]>,
   seuilSansSuite: number = SEUIL_SANS_SUITE_DEFAUT
 ): EtatVueRelance {
   if (!r.envoyee_le) return 'en_cours'
   const dateEnvoi = r.envoyee_le.slice(0, 10)
   const ids = r.factures_ids ?? []
-  const aLettrage = ids.some(id =>
-    (lettragesMap.get(id) ?? []).some(d => d >= dateEnvoi)
+  const aEncaissement = ids.some(id =>
+    (lettragesMap.get(id) ?? []).some(l => estEncaissement(l, dateEnvoi))
   )
-  if (aLettrage) return 'payee'
+  if (aEncaissement) return 'payee'
   if (joursDepuis(r.envoyee_le) >= seuilSansSuite) return 'sans_suite'
   return 'en_cours'
 }
@@ -120,7 +138,7 @@ export function useRelances() {
   const [chargement, setChargement] = useState(false)
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
   const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
-  const [lettragesMap, setLettragesMap] = useState<Map<string, string[]>>(new Map())
+  const [lettragesMap, setLettragesMap] = useState<Map<string, LettrageRelance[]>>(new Map())
 
   // Compteur de rechargement. L'incrementer relance le chargement des relances.
   // Appele apres un envoi, pour que l'ecran reflete immediatement ce qui vient
@@ -159,7 +177,7 @@ export function useRelances() {
             supabase.from('v_factures_avec_reste_du').select('numero_piece, reste_du, montant_ttc').in('numero_piece', chunk)
           )),
           Promise.all(chunks.map(chunk =>
-            supabase.from('lettrages').select('numero_facture, date_lettrage').in('numero_facture', chunk).or('annule.is.null,annule.eq.false')
+            supabase.from('lettrages').select('numero_facture, date_lettrage, created_at, montant').in('numero_facture', chunk).or('annule.is.null,annule.eq.false')
           )),
         ])
 
@@ -173,15 +191,15 @@ export function useRelances() {
 
         const allLettrages = lettragesResults.flatMap(({ data, error }) => {
           if (error) console.error('[useRelances] lettragesMap chunk:', error)
-          return (data ?? []) as { numero_facture: string; date_lettrage: string }[]
+          return (data ?? []) as { numero_facture: string; date_lettrage: string; created_at: string; montant: number }[]
         })
-        const ltMap = new Map<string, string[]>()
+        const ltMap = new Map<string, LettrageRelance[]>()
         for (const row of allLettrages) {
           const arr = ltMap.get(row.numero_facture) ?? []
-          arr.push(row.date_lettrage)
+          arr.push({ date_lettrage: row.date_lettrage, saisi_le: row.created_at, montant: row.montant })
           ltMap.set(row.numero_facture, arr)
         }
-        for (const [k, v] of ltMap) ltMap.set(k, v.sort())
+        for (const [k, v] of ltMap) ltMap.set(k, v.sort((a, b) => a.date_lettrage.localeCompare(b.date_lettrage)))
         setLettragesMap(ltMap)
         setChargement(false)
       })
@@ -199,10 +217,13 @@ export function useRelances() {
     Promise.all(
       aPatcher.map(r => {
         const dateEnvoi = r.envoyee_le!.slice(0, 10)
+        // On stocke la date BANCAIRE de l'encaissement : elle dit quand l'argent
+        // est réellement arrivé, y compris avant l'envoi de la relance.
         let minDate: string | null = null
         for (const id of r.factures_ids ?? []) {
-          for (const d of lettragesMap.get(id) ?? []) {
-            if (d >= dateEnvoi && (!minDate || d < minDate)) minDate = d
+          for (const l of lettragesMap.get(id) ?? []) {
+            if (!estEncaissement(l, dateEnvoi)) continue
+            if (!minDate || l.date_lettrage < minDate) minDate = l.date_lettrage
           }
         }
         const dateAEcrire = minDate ? new Date(minDate).toISOString() : r.envoyee_le!

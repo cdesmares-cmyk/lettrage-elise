@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { etatVue, SEUIL_SANS_SUITE_DEFAUT } from '../../hooks/useRelances'
-import type { Relance } from '../../hooks/useRelances'
+import type { Relance, LettrageRelance } from '../../hooks/useRelances'
 
 function fmtEuros(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} M€`
@@ -18,7 +18,7 @@ interface Props {
   chargement?: boolean
   seuilSansSuite?: number
   facturesMapRelances: Map<string, { reste_du: number; montant_ttc: number }>
-  lettragesMap: Map<string, string[]>
+  lettragesMap: Map<string, LettrageRelance[]>
 }
 
 export function BarreKpisRelances({ relances, filtreOp, chargement, seuilSansSuite = SEUIL_SANS_SUITE_DEFAUT, facturesMapRelances, lettragesMap }: Props) {
