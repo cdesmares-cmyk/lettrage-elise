@@ -5,17 +5,21 @@
 // contacts vivent déjà. Deux endroits pour éditer, ce serait deux vérités.
 //
 // Mesure du 2026-10-31 qui a motivé ce module : 13,7 M€ d'encours chez Elise
-// Lyon derrière 3675 clients sans aucune adresse, et 1357 contacts sur 2504
-// écartés de la relance automatique pour une majuscule.
-import { useState, useEffect, useCallback } from 'react'
+// Lyon derrière 3675 clients sans aucune adresse.
+//
+// La liste des clients vient d'AppDataContext, déjà chargée au démarrage de
+// l'application : l'écran s'ouvre sans attendre. Seuls les contacts et
+// l'historique des rebonds sont chargés ici, et une seule fois par session.
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { useAppData } from '../contexts/AppDataContext'
 
 // Les cinq rôles que l'écran de saisie propose. Tout le reste vient d'un import
 // et doit être rangé à la main.
 const ROLES_CONNUS = ['comptabilite', 'relance', 'direction', 'terrain', 'autre']
 
 // Même normalisation que la relance automatique : sans casse ni accent.
-// « Relance » et « Comptabilité » sont donc reconnus.
+// « Relance » et « Comptabilité » sont donc reconnus, et n'apparaissent pas.
 function normaliserRole(r: string | null | undefined): string {
   return (r ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }
@@ -27,7 +31,7 @@ export interface ClientInjoignable {
   nb_impayees: number
 }
 
-export type ProblemeContact = 'role_non_reconnu' | 'rebond'
+export type ProblemeContact = 'rebond' | 'role_non_reconnu'
 
 export interface ContactAProbleme {
   id: string
@@ -38,11 +42,11 @@ export interface ContactAProbleme {
   role_contact: string
   encours_client: number
   probleme: ProblemeContact
+  detail: string
 }
 
-interface RowClient  { code_dso: string; nom: string; relance_auto_alerte: boolean }
-interface RowEncours { code_dso: string; encours_total: number; nb_impayees: number }
 interface RowContact { id: string; code_client: string; nom: string; prenom: string | null; email: string; role_contact: string }
+interface RowRebond  { code_client: string; contact_email: string | null; envoye_le: string }
 
 // Supabase plafonne une réponse à 1000 lignes. Sans pagination explicite, la
 // liste serait tronquée en silence — et un écran de diagnostic qui sous-compte
@@ -63,95 +67,130 @@ async function toutCharger<T>(
   return acc
 }
 
+function fmtDate(iso: string) {
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('fr-FR')
+}
+
 export function useNettoyage() {
-  const [chargement, setChargement] = useState(false)
+  const { clients: clientsApp, chargement: chargementApp } = useAppData()
+
+  const [contactsBruts, setContactsBruts] = useState<RowContact[] | null>(null)
+  const [rebonds, setRebonds] = useState<RowRebond[]>([])
+  const [chargementLocal, setChargementLocal] = useState(false)
   const [erreur, setErreur] = useState<string | null>(null)
-  const [clients, setClients] = useState<ClientInjoignable[]>([])
-  const [contacts, setContacts] = useState<ContactAProbleme[]>([])
 
   const charger = useCallback(async () => {
-    setChargement(true)
+    setChargementLocal(true)
     setErreur(null)
     try {
-      const [lignesClients, lignesEncours, lignesContacts] = await Promise.all([
-        toutCharger<RowClient>((de, a) =>
-          supabase.from('clients').select('code_dso, nom, relance_auto_alerte').range(de, a)
-        ),
-        toutCharger<RowEncours>((de, a) =>
-          supabase.from('v_comptes_clients').select('code_dso, encours_total, nb_impayees').range(de, a)
-        ),
+      const [lignesContacts, lignesRebonds] = await Promise.all([
         toutCharger<RowContact>((de, a) =>
           supabase.from('contacts_client')
             .select('id, code_client, nom, prenom, email, role_contact')
             .eq('actif', true).range(de, a)
         ),
+        // Le drapeau relance_auto_alerte se lève à un rebond et se baisse dès
+        // que quelqu'un corrige. L'historique, lui, reste : c'est lui qui dit
+        // qu'une adresse a déjà échoué, même si le drapeau est retombé.
+        toutCharger<RowRebond>((de, a) =>
+          supabase.from('relances_auto_log')
+            .select('code_client, contact_email, envoye_le')
+            .eq('statut', 'bounce').range(de, a)
+        ),
       ])
-
-      const encoursParClient = new Map(lignesEncours.map(e => [e.code_dso, e]))
-      const nomParClient     = new Map(lignesClients.map(c => [c.code_dso, c.nom]))
-
-      // Un client est joignable s'il a au moins un contact actif avec une
-      // adresse. Le rôle n'entre pas en compte ici : une adresse mal rangée
-      // reste utilisable à la main, c'est le sujet de l'autre onglet.
-      const clientsAvecAdresse = new Set(
-        lignesContacts.filter(c => (c.email ?? '').trim() !== '').map(c => c.code_client)
-      )
-
-      const injoignables: ClientInjoignable[] = []
-      for (const c of lignesClients) {
-        if (clientsAvecAdresse.has(c.code_dso)) continue
-        const e = encoursParClient.get(c.code_dso)
-        // Sans encours, il n'y a rien à recouvrer : le client n'a pas à figurer
-        // dans une file de travail.
-        if (!e || e.encours_total <= 0.005) continue
-        injoignables.push({
-          code_dso: c.code_dso,
-          nom: c.nom,
-          encours: e.encours_total,
-          nb_impayees: e.nb_impayees ?? 0,
-        })
-      }
-      injoignables.sort((a, b) => b.encours - a.encours)
-
-      const clientsEnRebond = new Set(
-        lignesClients.filter(c => c.relance_auto_alerte).map(c => c.code_dso)
-      )
-
-      const aProbleme: ContactAProbleme[] = []
-      for (const ct of lignesContacts) {
-        const probleme: ProblemeContact | null =
-          clientsEnRebond.has(ct.code_client)              ? 'rebond'
-          : !ROLES_CONNUS.includes(normaliserRole(ct.role_contact)) ? 'role_non_reconnu'
-          : null
-        if (!probleme) continue
-        aProbleme.push({
-          id: ct.id,
-          code_client: ct.code_client,
-          nom_client: nomParClient.get(ct.code_client) ?? ct.code_client,
-          identite: [ct.prenom, ct.nom].filter(Boolean).join(' ') || '—',
-          email: ct.email,
-          role_contact: ct.role_contact,
-          encours_client: encoursParClient.get(ct.code_client)?.encours_total ?? 0,
-          probleme,
-        })
-      }
-      aProbleme.sort((a, b) => b.encours_client - a.encours_client)
-
-      setClients(injoignables)
-      setContacts(aProbleme)
+      setContactsBruts(lignesContacts)
+      setRebonds(lignesRebonds)
     } catch (err) {
       console.error('[useNettoyage]', err)
       setErreur(err instanceof Error ? err.message : 'Chargement impossible.')
-      setClients([])
-      setContacts([])
+      setContactsBruts([])
+      setRebonds([])
     } finally {
-      setChargement(false)
+      setChargementLocal(false)
     }
   }, [])
 
-  useEffect(() => { charger() }, [charger])
+  // Une seule fois par session : contactsBruts reste en mémoire tant que
+  // l'application tourne, donc revenir sur l'écran est instantané.
+  useEffect(() => { if (contactsBruts === null) charger() }, [contactsBruts, charger])
 
-  const encoursInjoignable = clients.reduce((s, c) => s + c.encours, 0)
+  const clients = useMemo<ClientInjoignable[]>(() => {
+    if (!contactsBruts) return []
+    const avecAdresse = new Set(
+      contactsBruts.filter(c => (c.email ?? '').trim() !== '').map(c => c.code_client)
+    )
+    return clientsApp
+      // Sans encours, il n'y a rien à recouvrer : le client n'a pas à figurer
+      // dans une file de travail.
+      .filter(c => c.encours_total > 0.005 && !avecAdresse.has(c.code_dso))
+      .map(c => ({ code_dso: c.code_dso, nom: c.nom, encours: c.encours_total, nb_impayees: c.nb_impayees }))
+      .sort((a, b) => b.encours - a.encours)
+  }, [clientsApp, contactsBruts])
 
-  return { clients, contacts, chargement, erreur, charger, encoursInjoignable }
+  const contacts = useMemo<ContactAProbleme[]>(() => {
+    if (!contactsBruts) return []
+    const parCode = new Map(clientsApp.map(c => [c.code_dso, c]))
+
+    // Dernier rebond par adresse, et par client quand l'adresse n'est pas tracée.
+    const rebondParEmail = new Map<string, string>()
+    const rebondParClient = new Map<string, string>()
+    for (const r of rebonds) {
+      const mail = (r.contact_email ?? '').trim().toLowerCase()
+      if (mail && (!rebondParEmail.get(mail) || r.envoye_le > rebondParEmail.get(mail)!)) rebondParEmail.set(mail, r.envoye_le)
+      if (!rebondParClient.get(r.code_client) || r.envoye_le > rebondParClient.get(r.code_client)!) rebondParClient.set(r.code_client, r.envoye_le)
+    }
+
+    const out: ContactAProbleme[] = []
+    for (const ct of contactsBruts) {
+      const cl = parCode.get(ct.code_client)
+      const mail = (ct.email ?? '').trim().toLowerCase()
+      const dateRebond = rebondParEmail.get(mail)
+        ?? (cl?.relance_auto_alerte ? rebondParClient.get(ct.code_client) : undefined)
+
+      let probleme: ProblemeContact | null = null
+      let detail = ''
+      if (dateRebond) {
+        probleme = 'rebond'
+        detail = `Rebond le ${fmtDate(dateRebond)}`
+      } else if (cl?.relance_auto_alerte) {
+        probleme = 'rebond'
+        detail = 'Alerte de contact active'
+      } else if (!ROLES_CONNUS.includes(normaliserRole(ct.role_contact))) {
+        probleme = 'role_non_reconnu'
+        detail = `Rôle « ${ct.role_contact || '—'} » non reconnu`
+      }
+      if (!probleme) continue
+
+      out.push({
+        id: ct.id,
+        code_client: ct.code_client,
+        nom_client: cl?.nom ?? ct.code_client,
+        identite: [ct.prenom, ct.nom].filter(Boolean).join(' ') || '—',
+        email: ct.email,
+        role_contact: ct.role_contact,
+        encours_client: cl?.encours_total ?? 0,
+        probleme,
+        detail,
+      })
+    }
+    return out.sort((a, b) => b.encours_client - a.encours_client)
+  }, [clientsApp, contactsBruts, rebonds])
+
+  const encoursInjoignable = useMemo(
+    () => clients.reduce((s, c) => s + c.encours, 0),
+    [clients]
+  )
+
+  const nbContactsActifs = contactsBruts?.length ?? 0
+
+  return {
+    clients,
+    contacts,
+    chargement: chargementApp || chargementLocal || contactsBruts === null,
+    erreur,
+    charger,
+    encoursInjoignable,
+    nbContactsActifs,
+  }
 }

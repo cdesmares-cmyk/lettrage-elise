@@ -10,9 +10,11 @@ import { useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
 import { useNettoyage, type ClientInjoignable, type ContactAProbleme } from '../hooks/useNettoyage'
+import { Pagination } from '../components/Pagination'
 import { IcContacts, IcDownload, IcLoader } from '../components/Icones'
 
-const PAR_PAGE = 50
+// Même pagination que le tableau des comptes clients : 25 par page.
+const PAGE_SIZE = 25
 
 function euros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
@@ -30,20 +32,22 @@ function Kpi({ valeur, libelle, couleur }: { valeur: string; libelle: string; co
 }
 
 function Pastille({ ton, children }: { ton: 'rouge' | 'gris'; children: React.ReactNode }) {
-  const cls = ton === 'rouge'
-    ? 'bg-red-100 text-red-700'
-    : 'bg-slate-100 text-slate-600'
+  const cls = ton === 'rouge' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
   return <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}`}>{children}</span>
 }
 
 export function PageNettoyage() {
   const navigate = useNavigate()
-  const { clients, contacts, chargement, erreur, encoursInjoignable } = useNettoyage()
+  const { clients, contacts, chargement, erreur, encoursInjoignable, nbContactsActifs } = useNettoyage()
   const [onglet, setOnglet] = useState<'clients' | 'contacts'>('clients')
-  const [limite, setLimite] = useState(PAR_PAGE)
+  const [page, setPage] = useState(0)
 
   const liste = onglet === 'clients' ? clients : contacts
-  const visibles = useMemo(() => liste.slice(0, limite), [liste, limite])
+  const nbPages = Math.ceil(liste.length / PAGE_SIZE)
+  const visibles = useMemo(
+    () => liste.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
+    [liste, page]
+  )
 
   // Le clic ouvre le compte client sur l'onglet Contacts. Le point d'entrée
   // existe déjà : PageCompteClient lit ?client= et ?onglet=.
@@ -53,7 +57,9 @@ export function PageNettoyage() {
 
   // L'export reprend exactement la forme que l'import de contacts avale
   // (voir CHAMPS_CONTACTS), plus une colonne encours : sans elle on exporte
-  // des milliers de lignes sans savoir lesquelles valent l'effort.
+  // des milliers de lignes sans savoir lesquelles valent l'effort. Les colonnes
+  // que l'import ne connaît pas sont ignorées — c'est déjà le cas de
+  // nom_client dans l'export « Clients sans contact ».
   function exporter() {
     if (!liste.length) { toast('Rien à exporter', { icon: 'ℹ️' }); return }
     const lignes = onglet === 'clients'
@@ -130,8 +136,10 @@ export function PageNettoyage() {
             ] as const).map(([val, label, n]) => (
               <button
                 key={val}
-                onClick={() => { setOnglet(val); setLimite(PAR_PAGE) }}
-                className={`px-4.5 py-3 text-xs font-bold border-b-2 transition-colors ${
+                // Remise a la page 1 ici plutot que dans un effet : meme motif
+                // que le tableau des comptes clients.
+                onClick={() => { setOnglet(val); setPage(0) }}
+                className={`px-4 py-3 text-xs font-bold border-b-2 transition-colors ${
                   onglet === val
                     ? 'text-ockham-teal-dark border-ockham-teal'
                     : 'text-gray-400 border-transparent hover:text-gray-600'
@@ -151,9 +159,16 @@ export function PageNettoyage() {
             <IcLoader size={14} /> Chargement…
           </div>
         ) : !liste.length ? (
-          <div className="py-16 text-center">
+          <div className="py-14 px-6 text-center">
             <IcContacts size={26} className="text-gray-200 mx-auto mb-3" />
-            <p className="text-sm text-gray-400">Rien à nettoyer ici. C'est le bon résultat.</p>
+            <p className="text-sm text-gray-500 font-medium">Rien à nettoyer ici. C'est le bon résultat.</p>
+            {/* Une liste vide doit dire pourquoi elle est vide, sinon on ne sait
+                pas distinguer « tout va bien » de « l'écran est cassé ». */}
+            <p className="text-[11.5px] text-gray-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
+              {onglet === 'clients'
+                ? <>Chaque client qui a un encours a au moins une adresse active. Il n'y a personne à qui on ne puisse pas écrire.</>
+                : <>Sur {nbContactsActifs} contacts actifs, aucun n'a de rôle inconnu et aucun rebond n'est signalé. Les rôles « Relance » et « Comptabilité », quelle que soit leur orthographe, sont reconnus — ils n'apparaissent donc pas ici.</>}
+            </p>
           </div>
         ) : onglet === 'clients' ? (
           <table className="w-full">
@@ -206,9 +221,7 @@ export function PageNettoyage() {
                   <td className={`${TD} text-xs text-gray-500`}>{c.nom_client}</td>
                   <td className={`${TD} text-right text-sm font-bold tabular-nums text-gray-800`}>{euros(c.encours_client)}</td>
                   <td className={TD}>
-                    {c.probleme === 'rebond'
-                      ? <Pastille ton="rouge">Rebond signalé</Pastille>
-                      : <Pastille ton="gris">Rôle non reconnu</Pastille>}
+                    <Pastille ton={c.probleme === 'rebond' ? 'rouge' : 'gris'}>{c.detail}</Pastille>
                   </td>
                   <td className={`${TD} text-right text-gray-300`}>›</td>
                 </tr>
@@ -217,17 +230,12 @@ export function PageNettoyage() {
           </table>
         )}
 
-        {!chargement && liste.length > limite && (
+        {!chargement && liste.length > 0 && (
           <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/40 flex items-center justify-between">
-            <span className="text-[11px] text-gray-400">
-              {limite} sur {liste.length}. Les premiers portent l'essentiel de l'encours.
+            <span className="text-[11px] text-gray-400 tabular-nums">
+              {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, liste.length)} sur {liste.length}
             </span>
-            <button
-              onClick={() => setLimite(l => l + PAR_PAGE)}
-              className="text-[11px] font-semibold text-gray-500 border border-gray-200 bg-white rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
-            >
-              Voir {PAR_PAGE} de plus
-            </button>
+            <Pagination page={page} total={nbPages} onChange={setPage} />
           </div>
         )}
       </div>
