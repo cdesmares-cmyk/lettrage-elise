@@ -1,4 +1,15 @@
-// Modal de correction de lettrage : délettrage + relettering sans ligne bancaire
+// Modal de correction de lettrage : retrait d'affectation + réaffectation.
+//
+// DETTE CONNUE. La fabrication des ecritures de ce fichier est dupliquee dans
+// lib/correctionLettrage.ts, que le module du compte client utilise. Les deux
+// produisent les memes lignes aujourd'hui ; elles divergeront au premier
+// correctif applique d'un seul cote.
+//
+// Pourquoi la duplication plutot que l'extraction : ce fichier est un chemin
+// d'ecriture comptable en production, sans test automatise. Le CLAUDE.md du
+// projet interdit de refactoriser a l'aveugle dans ces conditions. L'unification
+// se fera quand l'ecriture passera par une RPC avec garde-fous serveur, qui est
+// de toute facon le bon endroit pour cette logique.
 // + onglet Remboursement : déclaration multi-factures en deux temps (déclarer → affecter débit)
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'

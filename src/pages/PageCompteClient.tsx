@@ -14,6 +14,7 @@ import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalCompensation } from '../components/compte-client/ModalCompensation'
+import { ModalCorrectionClient } from '../components/compte-client/ModalCorrectionClient'
 import { ModalHistorique } from '../components/compte-client/ModalHistorique'
 import { ModalExport } from '../components/compte-client/ModalExport'
 import { ModalExportNebuleuse } from '../components/compte-client/ModalExportNebuleuse'
@@ -40,6 +41,7 @@ export function PageCompteClient() {
   const [panneauOngletInitial, setPanneauOngletInitial] = useState<'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'>('infos')
   const [facCommentaireOngletInitial, setFacCommentaireOngletInitial] = useState<'infos' | 'equipe' | 'commentaires'>('infos')
   const [clientRelance, setClientRelance] = useState<CompteClient | null>(null)
+  const [clientCorrection, setClientCorrection] = useState<CompteClient | null>(null)
   const gmailAuth    = useGmailAuth()
   const outlookAuth  = useOutlookAuth()
   const messagerie   = gmailAuth.estConnecte ? gmailAuth : outlookAuth
@@ -423,6 +425,7 @@ export function PageCompteClient() {
           alertesSignal={alertesSignal}
           clientsEnAttente={clientsEnAttente}
           dateCalcul={dateCalculScores}
+          onCorriger={setClientCorrection}
         />
       )}
 
@@ -463,6 +466,7 @@ export function PageCompteClient() {
                 alertesSignal={alertesSignal}
                 clientsEnAttente={clientsEnAttente}
                 dateCalcul={dateCalculScores}
+                onCorriger={setClientCorrection}
               />
             </>
           )}
@@ -533,6 +537,17 @@ export function PageCompteClient() {
           factures={factures.getFactures(clientCompensationDso)}
           onFermer={() => setClientCompensationDso(null)}
           onRefreshFactures={() => factures.rafraichirFacturesClient(clientCompensationDso)}
+        />
+      )}
+
+      {/* Modale Correction d'affectation */}
+      {clientCorrection && (
+        <ModalCorrectionClient
+          codeDso={clientCorrection.code_dso}
+          nomClient={clientCorrection.nom}
+          factures={factures.getFactures(clientCorrection.code_dso)}
+          onFermer={() => setClientCorrection(null)}
+          onRefreshFactures={() => factures.rafraichirFacturesClient(clientCorrection.code_dso)}
         />
       )}
 

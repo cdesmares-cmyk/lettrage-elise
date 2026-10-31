@@ -25,6 +25,7 @@ interface Props {
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
   onCompenser?: (client: CompteClient) => void
+  onCorriger?: (client: CompteClient) => void
   dernieresRelances?: Map<string, string>
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -225,7 +226,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal, clientsEnAttente, dateCalcul }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, onCorriger, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal, clientsEnAttente, dateCalcul }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -626,6 +627,21 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                                 className="w-7 h-7 flex items-center justify-center rounded-md border border-violet-300 text-violet-700 bg-violet-50 hover:bg-violet-100 hover:border-violet-400 transition-all"
                               >
                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                              </button>
+                            )
+                          })()}
+                          {onCorriger && peutModifier && (() => {
+                            const aAffectation = factures.some(f =>
+                              f.montant_ttc - f.reste_du > 0.005 && !f.numero_piece.startsWith('411_')
+                            )
+                            if (!aAffectation) return null
+                            return (
+                              <button
+                                onClick={e => { e.stopPropagation(); onCorriger(c) }}
+                                title="Corriger une affectation de reglement entre factures"
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all"
+                              >
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 2v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8"/></svg>
                               </button>
                             )
                           })()}
