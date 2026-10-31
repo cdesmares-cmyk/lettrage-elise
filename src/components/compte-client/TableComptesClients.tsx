@@ -43,6 +43,52 @@ interface Props {
 
 const PAGE_SIZE = 25
 
+/**
+ * Grille de lecture de la colonne Niveau, au survol d'un « ? ».
+ * Elle existe parce que la distinction N0 / tiret n'est pas devinable : un
+ * zéro ressemble à une absence, alors qu'il désigne précisément un client
+ * qu'il faut relancer et que personne n'a relancé.
+ */
+function AideNiveaux() {
+  const LIGNES: { code: string; cls: string; texte: string }[] = [
+    { code: 'N0',    cls: 'text-[#94A3B8]', texte: 'Échu au-delà du délai d\'alerte, jamais relancé. À relancer.' },
+    { code: 'N1',    cls: 'text-[#0F172A]', texte: 'Une relance envoyée sur les factures encore ouvertes.' },
+    { code: 'N2',    cls: 'text-[#0F172A]', texte: 'Deux relances envoyées.' },
+    { code: 'N3',    cls: 'text-[#B91C1C]', texte: 'Trois relances ou plus. Mise en demeure recommandée.' },
+    { code: 'GEL',   cls: 'text-[#94A3B8]', texte: 'Procédure collective. Hors cycle de relance.' },
+    { code: 'PAUSE', cls: 'text-[#94A3B8]', texte: 'Client mis en attente. Niveau suspendu, pas remis à zéro.' },
+    { code: '—',     cls: 'text-[#CBD5E1]', texte: 'Hors cycle : tout est soldé, ou rien n\'est assez ancien.' },
+  ]
+  return (
+    <div className="relative group ml-1">
+      <button
+        type="button"
+        aria-label="Comment lire la colonne Niveau"
+        className="w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-[9px] font-bold leading-none flex items-center justify-center hover:border-gray-500 hover:text-gray-600 transition-colors cursor-help"
+      >
+        ?
+      </button>
+      <div className="invisible group-hover:visible absolute left-0 top-6 z-30 w-[340px] rounded-lg border border-gray-200 bg-white shadow-xl p-3">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2">
+          Niveau de relance
+        </p>
+        <ul className="space-y-1.5">
+          {LIGNES.map(l => (
+            <li key={l.code} className="flex gap-2 items-baseline">
+              <span className={`font-mono text-[11px] font-semibold w-[42px] shrink-0 ${l.cls}`}>{l.code}</span>
+              <span className="text-[11px] text-gray-600 leading-snug">{l.texte}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="text-[10px] text-gray-400 mt-2.5 pt-2 border-t border-gray-100 leading-snug">
+          Le niveau se calcule sur les factures encore ouvertes. Il redescend à
+          mesure qu'elles sont réglées.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function fmt(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
@@ -348,6 +394,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
               </button>
             )
           })}
+          <AideNiveaux />
         </div>
       )}
       {/* table-fixed : les largeurs ci-dessous font loi, le navigateur ne les
