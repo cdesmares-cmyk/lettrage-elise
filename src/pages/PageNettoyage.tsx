@@ -92,7 +92,7 @@ export function PageNettoyage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Nettoyage</h1>
           <p className="text-sm text-gray-400 mt-1">
-            Contacts — qui je ne peux pas atteindre, et ce que ça représente.
+            Contacts : qui je ne peux pas atteindre, et ce que ça représente.
           </p>
         </div>
         <button
@@ -167,7 +167,7 @@ export function PageNettoyage() {
             <p className="text-[11.5px] text-gray-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
               {onglet === 'clients'
                 ? <>Chaque client qui a un encours a au moins une adresse active. Il n'y a personne à qui on ne puisse pas écrire.</>
-                : <>Sur {nbContactsActifs} contacts actifs, aucun n'a de rôle inconnu et aucun rebond n'est signalé. Les rôles « Relance » et « Comptabilité », quelle que soit leur orthographe, sont reconnus — ils n'apparaissent donc pas ici.</>}
+                : <>Sur {nbContactsActifs} contacts actifs, aucun n'a de rôle inconnu et aucun rebond n'est signalé. Les rôles « Relance » et « Comptabilité », quelle que soit leur orthographe, sont reconnus, ils n'apparaissent donc pas ici.</>}
             </p>
           </div>
         ) : onglet === 'clients' ? (
@@ -213,7 +213,7 @@ export function PageNettoyage() {
                 <tr key={c.id} onClick={() => ouvrirClient(c.code_client)}
                     className="cursor-pointer hover:bg-ockham-teal-muted transition-colors">
                   <td className={TD}>
-                    <div className="text-sm font-semibold text-gray-800">{c.email || '— pas d\'adresse —'}</div>
+                    <div className="text-sm font-semibold text-gray-800">{c.email || 'Pas d\'adresse'}</div>
                     <div className="text-[11px] text-gray-400">
                       {c.identite} · <span className="font-semibold text-ockham-copper">{c.role_contact || '—'}</span>
                     </div>
