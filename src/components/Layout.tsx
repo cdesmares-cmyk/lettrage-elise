@@ -78,6 +78,14 @@ function IcImportExport() {
     </svg>
   )
 }
+function IcNettoyage() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"/>
+      <path d="M18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/>
+    </svg>
+  )
+}
 function IcProcedures() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -97,6 +105,9 @@ const NAV_PRINCIPALE = [
 
 const NAV_OUTILS = [
   { chemin: '/import-export', label: 'Import / Export', icone: <IcImportExport />, commercial: false, externe: true },
+  // L'écran montre la base client entière avec les encours : ni commercial,
+  // ni externe. Même périmètre que Procédures.
+  { chemin: '/nettoyage',     label: 'Nettoyage',       icone: <IcNettoyage />,    commercial: false, externe: false },
 ]
 
 

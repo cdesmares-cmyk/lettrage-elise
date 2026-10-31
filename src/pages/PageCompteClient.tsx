@@ -234,8 +234,13 @@ export function PageCompteClient() {
       setInputRecherche(codeCible)
       comptes.setRecherche(codeCible)
       setClientOptionsDso(cible.code_dso)
+      // Le paramètre n'acceptait que 'commentaires'. Le module Nettoyage
+      // renvoie ici sur 'contacts' ; autant accepter tous les onglets du
+      // panneau plutôt que d'en ajouter un au cas par cas.
       const ongletParam = searchParams.get('onglet')
-      if (ongletParam === 'commentaires') setPanneauOngletInitial('commentaires')
+      if (ongletParam && ['infos', 'contacts', 'relances', 'bodacc', 'commentaires'].includes(ongletParam)) {
+        setPanneauOngletInitial(ongletParam as typeof panneauOngletInitial)
+      }
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, comptes.clients, comptes.chargement])

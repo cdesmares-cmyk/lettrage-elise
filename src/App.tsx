@@ -17,6 +17,7 @@ import { PageLettrage } from './pages/PageLettrage'
 import { PageCompteClient } from './pages/PageCompteClient'
 import { PageTableauDeBord } from './pages/PageTableauDeBord'
 import { PageImportExport } from './pages/PageImportExport'
+import { PageNettoyage } from './pages/PageNettoyage'
 import { PageRelances } from './pages/PageRelances'
 import { PageProcedures } from './pages/PageProcedures'
 import { PageSuperAdmin } from './pages/PageSuperAdmin'
@@ -140,6 +141,7 @@ function AppRoutes() {
         <Route path="/relances" element={<ErrorBoundary><PageRelances /></ErrorBoundary>} />
         <Route path="/procedures" element={<ErrorBoundary><PageProcedures /></ErrorBoundary>} />
         <Route path="/import-export" element={<ErrorBoundary><PageImportExport /></ErrorBoundary>} />
+        <Route path="/nettoyage" element={<ErrorBoundary><PageNettoyage /></ErrorBoundary>} />
         {/* Redirections pour les anciens liens */}
         <Route path="/depot" element={<Navigate to="/import-export" replace />} />
         <Route path="/extraction" element={<Navigate to="/import-export" replace />} />
