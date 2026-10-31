@@ -550,6 +550,8 @@ export function PageCompteClient() {
       {/* Modal Composition Relance (client unique) */}
       <ModalCompositionRelance
         client={clientRelance}
+        niveauClient={clientRelance ? alertesSignal.get(clientRelance.code_dso)?.niveau_relance ?? null : null}
+        joursDerniereRelance={clientRelance ? alertesSignal.get(clientRelance.code_dso)?.jours_derniere_relance ?? null : null}
         onFermer={() => setClientRelance(null)}
         onSent={() => { setClientRelance(null); rechargerRelances() }}
         gmailAuth={messagerie}

@@ -197,6 +197,8 @@ export function DivAlertesScore({ onOuvrirFiche }: Props) {
 
       <ModalCompositionRelance
         client={clientRelance}
+        niveauClient={clientRelance ? alertes.find(a => a.code_client === clientRelance.code_dso)?.niveau_relance ?? null : null}
+        joursDerniereRelance={clientRelance ? alertes.find(a => a.code_client === clientRelance.code_dso)?.jours_derniere_relance ?? null : null}
         onFermer={() => { setClientRelance(null); setAlerteCodeApresRelance(null) }}
         onSent={handleRelanceSent}
         gmailAuth={messagerie}

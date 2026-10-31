@@ -27,9 +27,15 @@ interface Props {
   gmailAuth: GmailAuthProps
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirContacts?: () => void
+  // Niveau de relance du client, calculé sur les factures encore ouvertes.
+  // Affiché pour situer le client, jamais utilisé pour choisir à sa place :
+  // un scénario présélectionné tout seul peut faire partir une mise en
+  // demeure sans que personne l'ait décidé.
+  niveauClient?: number | null
+  joursDerniereRelance?: number | null
 }
 
-export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires, onOuvrirContacts }: Props) {
+export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires, onOuvrirContacts, niveauClient, joursDerniereRelance }: Props) {
   const { utilisateur } = useAuth()
   const { peutModifier } = useRole()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
@@ -445,7 +451,22 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
               {/* 3 — Scénario */}
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <label className="text-[11px] font-bold text-ockham-teal uppercase tracking-wider"><span className="text-ockham-navy/40 mr-1">3 —</span>Scénario</label>
+                    {niveauClient != null && (
+                      <span
+                        title="Niveau calculé sur les factures encore ouvertes. Le choix du scénario reste le vôtre."
+                        className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border whitespace-nowrap ${
+                          niveauClient >= 3 ? 'bg-red-50 text-[#B91C1C] border-red-200'
+                            : niveauClient === 0 ? 'bg-gray-50 text-gray-500 border-gray-200'
+                            : 'bg-ockham-teal-muted text-ockham-teal border-ockham-teal/20'
+                        }`}
+                      >
+                        Client à N{niveauClient}
+                        {joursDerniereRelance != null && ` · ${joursDerniereRelance} j`}
+                      </span>
+                    )}
+                  </div>
                   {peutModifier && (
                     <button
                       onClick={() => setScenariosOuvert(true)}
