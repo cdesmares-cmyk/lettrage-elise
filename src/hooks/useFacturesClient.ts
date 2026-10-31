@@ -39,7 +39,7 @@ export function useFacturesClient() {
     setEnCoursHistorique(true)
     const { data, error } = await supabase
       .from('v_factures_avec_reste_du')
-      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
+      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url')
       .in('code_client', arr)
       .order('date_emission', { ascending: false })
 
@@ -61,7 +61,7 @@ export function useFacturesClient() {
 
     const { data, error } = await supabase
       .from('v_factures_avec_reste_du')
-      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir')
+      .select('numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url')
       .in('code_client', arr)
       .order('date_emission', { ascending: false })
 

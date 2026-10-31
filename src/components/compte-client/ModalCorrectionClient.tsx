@@ -98,6 +98,18 @@ function Colonne({
                     <button onClick={() => basculer(f.numero_piece, valeurDe(f))}
                             className="flex-1 min-w-0 text-left">
                       <span className="text-xs font-mono font-semibold text-gray-800">{f.numero_piece}</span>
+                      {f.axonaut_pdf_url && (
+                        <a
+                          href={f.axonaut_pdf_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title="Ouvrir la facture dans un nouvel onglet"
+                          className="inline-block ml-1.5 align-middle text-gray-300 hover:text-ockham-teal-dark transition-colors"
+                        >
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+                        </a>
+                      )}
                       {exportees.has(f.numero_piece) && (
                         <span className="ml-2 text-[9px] font-bold text-gray-400 border border-gray-200 rounded px-1 py-px">
                           EXPORTÉE

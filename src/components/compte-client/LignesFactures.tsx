@@ -255,6 +255,21 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                         {isAvoir ? 'A' : 'F'}
                       </span>
                     )}
+                    {/* Ouvrir la piece sans passer par le modal de relance, qui
+                        ne montre que les impayees. Une facture soldee n'y entre
+                        jamais, elle etait donc invisible depuis l'application. */}
+                    {f.axonaut_pdf_url && (
+                      <a
+                        href={f.axonaut_pdf_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        title="Ouvrir la facture dans un nouvel onglet"
+                        className="text-gray-300 hover:text-ockham-teal-dark transition-colors leading-none"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+                      </a>
+                    )}
                   </div>
                 </td>
                 {!modeBodacc && <td className="px-3 py-2 text-right font-mono text-gray-700">{fmt(f.montant_ttc)}</td>}
