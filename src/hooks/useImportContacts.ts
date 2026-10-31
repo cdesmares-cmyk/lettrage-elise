@@ -36,6 +36,19 @@ function normaliserEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+// Le rôle arrivait brut du fichier, sans le traitement appliqué à l'email.
+// Une colonne « Relance » dans un classeur Excel devenait un rôle « Relance »
+// en base, que la relance automatique ne reconnaissait pas. Au 2026-10-31,
+// 100 % des contacts importés étaient dans ce cas, aucun contact saisi à la
+// main ne l'était.
+//
+// On normalise sans traduire : « Comptabilité » devient « comptabilite », mais
+// « Service compta » reste « service compta ». Rien n'est perdu, et ce qui
+// n'est pas reconnu reste visible pour être rangé à la main.
+function normaliserRole(role: string): string {
+  return role.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
 export function useImportContacts() {
   const [chargement, setChargement] = useState(false)
   const { utilisateur } = useAuth()
@@ -242,8 +255,10 @@ export function useImportContacts() {
             if (r['email']) r['email'] = String(r['email']).toLowerCase().trim()
             delete r['delete']
             delete r['id_contact']
-            // Valeur par défaut role_contact
-            if (!r['role_contact']) r['role_contact'] = 'autre'
+            // Valeur par défaut role_contact, puis normalisation — même
+            // traitement que l'email juste au-dessus.
+            const role = normaliserRole(String(r['role_contact'] ?? ''))
+            r['role_contact'] = role === '' ? 'autre' : role
             r['import_id'] = importRec!.id
             return r
           })

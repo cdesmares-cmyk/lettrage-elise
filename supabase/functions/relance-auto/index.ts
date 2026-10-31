@@ -169,6 +169,26 @@ function buildHtml(corps: string, factures: FactureLigne[], signature: string | 
 </div>`
 }
 
+// ── Rôle du contact : comparaison tolérante ────────────────────────────────
+//
+// role_contact est du texte libre depuis la migration 040, et l'import écrit la
+// valeur du fichier telle quelle. Mesuré le 2026-10-31 : 1357 contacts sur 2504
+// portaient « Relance » ou « Comptabilité », avec majuscule ou accent. La
+// comparaison stricte les écartait tous — 54 % de la base, et 100 % des
+// contacts issus d'un import. Le robot n'avait presque personne à qui écrire.
+//
+// On compare donc sur une forme normalisée. Le filtre SQL en amont ne sert qu'à
+// borner le volume : c'est ce test-ci qui fait autorité.
+const ROLES_RELANCABLES = ['relance', 'comptabilite']
+
+function normaliserRole(r: string | null | undefined): string {
+  return (r ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
+function estRoleRelancable(r: string | null | undefined): boolean {
+  return ROLES_RELANCABLES.includes(normaliserRole(r))
+}
+
 // ── Envoi Resend Batch (jusqu'à 100 emails par appel) ───────────────────────
 
 interface EmailPayload { from: string; to: string[]; subject: string; html: string }
@@ -289,8 +309,12 @@ Deno.serve(async (req: Request) => {
       const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res, nePasRelancerRes, manuellesRes] = await Promise.all([
         supabase.from('relances_auto_log').select('code_client')
           .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
+        // Filtre large volontairement : il attrape toutes les variantes de casse
+        // et d'accent ('Relance', 'Comptabilité', 'Relances'...). Le tri fin est
+        // fait par estRoleRelancable() plus bas.
         supabase.from('contacts_client').select('code_client, email, role_contact')
-          .eq('organisation_id', orgId).eq('actif', true).in('role_contact', ['relance', 'comptabilite']),
+          .eq('organisation_id', orgId).eq('actif', true)
+          .or('role_contact.ilike.relance%,role_contact.ilike.compta%'),
         // P1 : exclure les pseudo-factures 411 des relances automatiques
         supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
           .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005)
@@ -339,6 +363,7 @@ Deno.serve(async (req: Request) => {
 
       const contactsMap = new Map<string, { email: string; role_contact: string }[]>()
       for (const c of (contactsRes.data ?? [])) {
+        if (!estRoleRelancable(c.role_contact as string)) continue
         const k = c.code_client as string
         if (!contactsMap.has(k)) contactsMap.set(k, [])
         contactsMap.get(k)!.push({ email: c.email as string, role_contact: c.role_contact as string })
@@ -386,8 +411,8 @@ Deno.serve(async (req: Request) => {
         }
 
         const contacts       = contactsMap.get(codeDso) ?? []
-        const relanceC       = contacts.filter(c => c.role_contact === 'relance')
-        const compteC        = contacts.filter(c => c.role_contact === 'comptabilite')
+        const relanceC       = contacts.filter(c => normaliserRole(c.role_contact) === 'relance')
+        const compteC        = contacts.filter(c => normaliserRole(c.role_contact) === 'comptabilite')
         const destinataires  = (relanceC.length ? relanceC : compteC).map(c => c.email).filter(Boolean)
         if (!destinataires.length) {
           decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
