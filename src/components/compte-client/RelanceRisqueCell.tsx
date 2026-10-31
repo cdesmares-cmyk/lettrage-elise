@@ -1,4 +1,8 @@
-export type NiveauRelance = 0 | 1 | 2 | 3 | 'gel'
+// 'hors_cycle' : aucun score calculé pour ce client — tout est soldé, ou rien
+//   n'est échu. Ce n'est pas un niveau 0, c'est l'absence de cycle.
+// 'attente'    : client mis en attente, donc exclu du calcul. Son niveau est
+//   suspendu, pas remis à zéro.
+export type NiveauRelance = 0 | 1 | 2 | 3 | 'gel' | 'hors_cycle' | 'attente'
 
 const BAR_HEIGHTS = [5, 8, 11] as const
 
@@ -8,7 +12,7 @@ function SignalGauge({ level }: { level: NiveauRelance }) {
       {BAR_HEIGHTS.map((h, i) => {
         const x = i * 5
         const y = 11 - h
-        if (level === 'gel') {
+        if (level === 'gel' || level === 'attente') {
           return (
             <rect key={i} x={x + 0.5} y={y + 0.5} width={2} height={h - 1}
               fill="none" stroke="#94A3B8" strokeWidth={1} />
@@ -26,8 +30,11 @@ function LevelCode({ level }: { level: NiveauRelance }) {
   // 36px : juste de quoi aligner "N3 MED", le plus large. Largeur fixe pour que
   // les codes s'alignent verticalement d'une ligne a l'autre dans la colonne.
   const base = 'font-mono text-[11px] w-[36px] shrink-0'
-  if (level === 'gel') return <span className={`${base} text-[#94A3B8]`}>GEL</span>
-  if (level === 0)     return <span className={`${base} text-[#94A3B8]`}>—</span>
+  if (level === 'gel')     return <span className={`${base} text-[#94A3B8]`}>GEL</span>
+  if (level === 'attente') return <span className={`${base} text-[#94A3B8]`}>PAUSE</span>
+  // N0 s'écrit, il ne se devine pas : « en retard, jamais relancé » est une
+  // consigne d'action. C'est l'absence de cycle qui mérite un tiret.
+  if (level === 0)         return <span className={`${base} text-[#94A3B8]`}>N0</span>
   if (level === 3) {
     return (
       <span className={`${base} font-bold text-[#B91C1C]`}>
@@ -78,12 +85,16 @@ export function RisqueCell({ score, frozen }: { score: number | null; frozen: bo
  * gradation du risque, pas ici.
  */
 export function NiveauCell({ level }: { level: NiveauRelance }) {
-  if (level === 0) {
-    return <span className="font-mono text-[11px] text-[#94A3B8]" aria-label="Jamais relancé">—</span>
+  // Hors cycle : rien d'échu, ou tout soldé. Le client n'est pas en début de
+  // cycle, il n'y est pas du tout — un tiret, jamais un N0.
+  if (level === 'hors_cycle') {
+    return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Hors cycle de relance">—</span>
   }
 
   const label = level === 'gel' ? 'Client gelé, hors cycle de relance'
+    : level === 'attente' ? 'Client mis en attente, niveau de relance suspendu'
     : level === 3 ? 'Niveau 3, mise en demeure recommandée'
+    : level === 0 ? 'En retard, jamais relancé sur les factures encore ouvertes'
     : `Niveau ${level}`
 
   return (

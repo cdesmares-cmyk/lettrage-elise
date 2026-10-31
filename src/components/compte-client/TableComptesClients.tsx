@@ -36,6 +36,9 @@ interface Props {
   nbPiecesParClient?: Map<string, number>
   onToggleASuivre?: (codeDso: string) => void
   alertesSignal?: Map<string, AlerteScore>
+  clientsEnAttente?: Set<string>
+  // Date du calcul affiché. undefined = non fourni, le bandeau reste muet.
+  dateCalcul?: string | null
 }
 
 const PAGE_SIZE = 25
@@ -176,7 +179,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onHistorique, onOptions, onRelancer, onCompenser, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal, clientsEnAttente, dateCalcul }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -312,6 +315,15 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
           </button>
         </div>
       )}
+      {dateCalcul !== undefined && dateCalcul !== new Date().toISOString().split('T')[0] && (
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-amber-200 bg-amber-50">
+          <span className="text-xs text-amber-700 font-medium">
+            {dateCalcul
+              ? `Niveaux et scores calculés le ${new Date(dateCalcul).toLocaleDateString('fr-FR')}, pas aujourd'hui.`
+              : "Niveaux et scores jamais calculés. La colonne Niveau est vide — ce n'est pas un N0."}
+          </span>
+        </div>
+      )}
       {alertesSignal && alertesSignal.size > 0 && (
         <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-100 bg-gray-50/50">
           <span className="px-2 text-[10px] font-bold uppercase tracking-wider text-gray-400 border-r border-gray-200 pr-2 mr-1">Niveau</span>
@@ -436,9 +448,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             const soldeNet = c.encours_total - credit
             const nbPieces = nbPiecesParClient?.get(c.code_dso) ?? c.nb_impayees
             const alerte = alertesSignal?.get(c.code_dso)
+            // Pas de ligne de score veut dire deux choses distinctes : le
+            // client est en pause, ou il est hors cycle. Aucune des deux n'est
+            // un N0, qui signifie « en retard et jamais relancé ».
             const signalLevel: NiveauRelance = alerte?.est_gele ? 'gel'
               : alerte ? (alerte.niveau_relance as 0 | 1 | 2 | 3)
-              : 0
+              : clientsEnAttente?.has(c.code_dso) ? 'attente'
+              : 'hors_cycle'
             const signalScore = alerte?.score_risque ?? null
             // Meme source que le filtre : le bouton et le filtre ne peuvent pas
             // se contredire.

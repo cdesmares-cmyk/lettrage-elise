@@ -22,20 +22,52 @@ export function useAlertesScore() {
   const [alertes, setAlertes] = useState<AlerteScore[]>([])
   const [chargement, setChargement] = useState(false)
   const [snoozeJours, setSnoozeJours] = useState(20)
+  // Date du calcul réellement lu. Null = la table est vide.
+  const [dateCalcul, setDateCalcul] = useState<string | null>(null)
+  const [clientsEnAttente, setClientsEnAttente] = useState<Set<string>>(new Set())
 
   const charger = useCallback(async () => {
     if (!profil?.organisation_id) return
     setChargement(true)
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const { data, error } = await supabase
+      // On lit le dernier calcul DISPONIBLE, pas celui du jour courant. Le cron
+      // tourne à 02:00 UTC : filtrer sur aujourd'hui renvoyait zéro ligne entre
+      // minuit et cette heure-là, et toute la colonne Niveau s'affichait comme
+      // si personne n'avait jamais été relancé. Même effet si le cron échoue.
+      const { data: dernier } = await supabase
         .from('alertes_score')
-        .select('id, code_client, nom_client, encours_ttc, retard_max_jours, score_risque, score_fil_du_jour, niveau_relance, jours_derniere_relance, est_gele, date_calcul')
+        .select('date_calcul')
         .eq('organisation_id', profil.organisation_id)
-        .eq('date_calcul', today)
-        .order('score_risque', { ascending: false })
-      if (error) throw error
-      setAlertes((data ?? []) as AlerteScore[])
+        .order('date_calcul', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      const dateDispo = (dernier as { date_calcul: string } | null)?.date_calcul ?? null
+      setDateCalcul(dateDispo)
+
+      if (!dateDispo) {
+        setAlertes([])
+        setClientsEnAttente(new Set())
+      } else {
+        const { data, error } = await supabase
+          .from('alertes_score')
+          .select('id, code_client, nom_client, encours_ttc, retard_max_jours, score_risque, score_fil_du_jour, niveau_relance, jours_derniere_relance, est_gele, date_calcul')
+          .eq('organisation_id', profil.organisation_id)
+          .eq('date_calcul', dateDispo)
+          .order('score_risque', { ascending: false })
+        if (error) throw error
+        setAlertes((data ?? []) as AlerteScore[])
+
+        // Les clients mis en attente sont exclus du calcul des scores. Sans
+        // eux, leur pastille retombait sur « jamais relancé » alors qu'ils
+        // peuvent être à N3. On les marque à part pour les afficher en pause.
+        const today = new Date().toISOString().split('T')[0]
+        const { data: enAttente } = await supabase
+          .from('clients')
+          .select('code_dso')
+          .eq('organisation_id', profil.organisation_id)
+          .gte('alerte_snooze_jusqu_au', today)
+        setClientsEnAttente(new Set(((enAttente ?? []) as { code_dso: string }[]).map(c => c.code_dso)))
+      }
 
       // Récupère le snooze configuré pour l'org
       const { data: org } = await supabase
@@ -73,5 +105,5 @@ export function useAlertesScore() {
     toast.success(`Client mis en attente ${snoozeJours}j.`)
   }
 
-  return { alertes, chargement, charger, prendreEnCharge, snoozeJours }
+  return { alertes, chargement, charger, prendreEnCharge, snoozeJours, dateCalcul, clientsEnAttente }
 }

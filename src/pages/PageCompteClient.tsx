@@ -75,7 +75,7 @@ export function PageCompteClient() {
 
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
-  const { alertes: alertesScore } = useAlertesScore()
+  const { alertes: alertesScore, dateCalcul: dateCalculScores, clientsEnAttente } = useAlertesScore()
 
   // Pré-filtre depuis URL : /compte-client?client=CODE_DSO (ouvert depuis la modale lettrage)
   useEffect(() => {
@@ -416,6 +416,8 @@ export function PageCompteClient() {
           nbPiecesParClient={comptes.nbPiecesParClient}
           onToggleASuivre={comptes.toggleASuivre}
           alertesSignal={alertesSignal}
+          clientsEnAttente={clientsEnAttente}
+          dateCalcul={dateCalculScores}
         />
       )}
 
@@ -454,6 +456,8 @@ export function PageCompteClient() {
                 nbPiecesParClient={comptes.nbPiecesParClient}
                 onToggleASuivre={comptes.toggleASuivre}
                 alertesSignal={alertesSignal}
+                clientsEnAttente={clientsEnAttente}
+                dateCalcul={dateCalculScores}
               />
             </>
           )}
