@@ -16,6 +16,8 @@ interface Props {
   codeDso: string
   nomClient: string
   factures: FactureDetail[]
+  /** Faux tant que les factures reglees du client ne sont pas chargees. */
+  pret: boolean
   onFermer: () => void
   onRefreshFactures: () => void
 }
@@ -124,7 +126,7 @@ function Colonne({
   )
 }
 
-export function ModalCorrectionClient({ codeDso, nomClient, factures, onFermer, onRefreshFactures }: Props) {
+export function ModalCorrectionClient({ codeDso, nomClient, factures, pret, onFermer, onRefreshFactures }: Props) {
   const { utilisateur } = useAuth()
   const [reprises, setReprises] = useState<Selection>(new Map())
   const [affectations, setAffectations] = useState<Selection>(new Map())
@@ -167,7 +169,7 @@ export function ModalCorrectionClient({ codeDso, nomClient, factures, onFermer, 
   const totalAffecte = somme(affectations)
   const ecart        = Math.round((totalRepris - totalAffecte) * 100) / 100
   const equilibre    = Math.abs(ecart) < 0.01
-  const peutValider  = totalRepris > 0.005 && equilibre && !enCours
+  const peutValider  = pret && totalRepris > 0.005 && equilibre && !enCours
 
   async function valider() {
     if (!peutValider) return
@@ -234,6 +236,11 @@ export function ModalCorrectionClient({ codeDso, nomClient, factures, onFermer, 
           </p>
         </div>
 
+        {!pret ? (
+          <div className="flex-1 min-h-0 flex items-center justify-center gap-2 text-sm text-gray-400">
+            <IcLoader size={14} /> Chargement des factures du client…
+          </div>
+        ) : (
         <div className="flex-1 min-h-0 flex divide-x divide-gray-100 mt-2">
           <Colonne
             titre="1 — Reprendre"
@@ -248,6 +255,7 @@ export function ModalCorrectionClient({ codeDso, nomClient, factures, onFermer, 
             valeurDe={f => f.reste_du} libelleMontant="Reste dû :" exportees={exportees}
           />
         </div>
+        )}
 
         <div className={`px-6 py-3 border-t flex items-center justify-between text-sm ${
           totalRepris < 0.005 ? 'bg-gray-50 border-gray-100'

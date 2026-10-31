@@ -425,7 +425,7 @@ export function PageCompteClient() {
           alertesSignal={alertesSignal}
           clientsEnAttente={clientsEnAttente}
           dateCalcul={dateCalculScores}
-          onCorriger={setClientCorrection}
+          onCorriger={c => { setClientCorrection(c); factures.rafraichirFacturesClient(c.code_dso) }}
         />
       )}
 
@@ -466,7 +466,7 @@ export function PageCompteClient() {
                 alertesSignal={alertesSignal}
                 clientsEnAttente={clientsEnAttente}
                 dateCalcul={dateCalculScores}
-                onCorriger={setClientCorrection}
+                onCorriger={c => { setClientCorrection(c); factures.rafraichirFacturesClient(c.code_dso) }}
               />
             </>
           )}
@@ -546,6 +546,7 @@ export function PageCompteClient() {
           codeDso={clientCorrection.code_dso}
           nomClient={clientCorrection.nom}
           factures={factures.getFactures(clientCorrection.code_dso)}
+          pret={factures.estHistoriqueCharge(clientCorrection.code_dso)}
           onFermer={() => setClientCorrection(null)}
           onRefreshFactures={() => factures.rafraichirFacturesClient(clientCorrection.code_dso)}
         />

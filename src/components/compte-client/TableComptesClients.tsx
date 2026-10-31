@@ -631,7 +631,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                             )
                           })()}
                           {onCorriger && peutModifier && (() => {
-                            const aAffectation = factures.some(f =>
+                            // getFactures ne renvoie que les factures ouvertes tant que
+                            // l'historique du client n'a pas ete charge. Or une affectation
+                            // erronee rend justement la facture soldee, donc invisible ici.
+                            // On se fie donc au compteur de la ligne, toujours complet :
+                            // s'il existe une facture reglee, il y a quelque chose a corriger.
+                            const aAffectation = nbReglees > 0 || factures.some(f =>
                               f.montant_ttc - f.reste_du > 0.005 && !f.numero_piece.startsWith('411_')
                             )
                             if (!aAffectation) return null
