@@ -19,6 +19,20 @@ export interface RelanceAuto {
   envoye_le: string
   statut: 'envoye' | 'bounce' | 'erreur'
   resend_id: string | null
+  contact_email: string | null
+  /** Montant de l'ENVOI, recopie sur chaque ligne. Ne jamais sommer. */
+  montant_total: number | null
+}
+
+/** Un envoi du robot, reconstitue depuis les lignes de son journal. */
+export interface EnvoiAuto {
+  cle: string
+  code_client: string
+  envoye_le: string
+  statut: 'envoye' | 'bounce' | 'erreur'
+  contact_email: string | null
+  montant_total: number
+  numeros: string[]
 }
 
 export interface ContactSnapshot {
@@ -186,7 +200,7 @@ export function useRelances() {
         // n'allait que dans un sens, et c'etait le mauvais.
         supabase
           .from('relances_auto_log')
-          .select('code_client, numero_facture, envoye_le, statut, resend_id')
+          .select('code_client, numero_facture, envoye_le, statut, resend_id, contact_email, montant_total')
           .order('envoye_le', { ascending: false })
           .then(({ data: autoData }) => setRelancesAuto((autoData ?? []) as RelanceAuto[]))
 
@@ -263,6 +277,37 @@ export function useRelances() {
     })
   }, [chargement, lettragesMap, seuilSansSuite])
 
+  // Les lignes du journal regroupees en envois.
+  //
+  // La cle est le resend_id : c'est lui qui identifie un email. Une ligne sans
+  // resend_id est un envoi qui a echoue avant de partir ; on la regroupe alors
+  // par client et par horodatage, faute de mieux.
+  //
+  // montant_total est recopie a l'identique sur chaque ligne de l'envoi. Le
+  // sommer multiplierait le montant par le nombre de factures — c'est le piege
+  // de cette table, et la raison d'etre de ce regroupement.
+  const envoisAuto = useMemo<EnvoiAuto[]>(() => {
+    const parEnvoi = new Map<string, EnvoiAuto>()
+    for (const r of relancesAuto) {
+      const cle = r.resend_id ?? `${r.code_client}|${r.envoye_le}`
+      const existant = parEnvoi.get(cle)
+      if (existant) {
+        existant.numeros.push(r.numero_facture)
+        continue
+      }
+      parEnvoi.set(cle, {
+        cle,
+        code_client:   r.code_client,
+        envoye_le:     r.envoye_le,
+        statut:        r.statut,
+        contact_email: r.contact_email,
+        montant_total: r.montant_total ?? 0,
+        numeros:       [r.numero_facture],
+      })
+    }
+    return [...parEnvoi.values()].sort((a, b) => b.envoye_le.localeCompare(a.envoye_le))
+  }, [relancesAuto])
+
   // Date du dernier envoi ABOUTI par client. Un rebond ne compte pas : le
   // client n'a rien recu, le relancer a nouveau n'est pas un doublon.
   const derniereRelanceAutoParClient = useMemo(() => {
@@ -328,5 +373,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, recharger, relancesAuto, derniereRelanceAutoParClient }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, recharger, relancesAuto, envoisAuto, derniereRelanceAutoParClient }
 }

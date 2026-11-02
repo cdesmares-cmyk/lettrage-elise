@@ -7,6 +7,7 @@ import { useLeaderboard } from '../hooks/useLeaderboard'
 import { useCommentairesFactures } from '../hooks/useCommentairesFactures'
 import { BarreKpisRelances } from '../components/relances/BarreKpisRelances'
 import { TableauRelances } from '../components/relances/TableauRelances'
+import { TableRelancesAuto } from '../components/relances/TableRelancesAuto'
 import { LeaderboardEquipe } from '../components/relances/LeaderboardEquipe'
 import { ModalParametresRelances } from '../components/admin/ModalParametresRelances'
 import { useRole } from '../contexts/RoleContext'
@@ -27,19 +28,28 @@ const IcXCircle = () => (
     <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
   </svg>
 )
+const IcRobot = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="8" width="16" height="12" rx="2"/><path d="M12 8V4"/><circle cx="12" cy="3" r="1"/>
+    <line x1="9" y1="13" x2="9" y2="13"/><line x1="15" y1="13" x2="15" y2="13"/><path d="M9 17h6"/>
+  </svg>
+)
 
-function infoStrip(seuil: number): Record<EtatVueRelance, string> {
+type OngletRelances = EtatVueRelance | 'auto'
+
+function infoStrip(seuil: number): Record<OngletRelances, string> {
   return {
     en_cours:   `1 relance affichée par client · seuil sans suite : ${seuil} jours · alerte à J-${seuil - 10}`,
     payee:      'Paiement détecté automatiquement à l\'ouverture · archivage automatique à 60 jours',
     sans_suite: `Aucun retour client depuis ${seuil} jours · archivage automatique à 60 jours`,
+    auto:       'Envois du robot · une ligne par email, pas par facture · le détail des factures est dans l\'infobulle du compteur',
   }
 }
 
 export function PageRelances() {
-  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap } = useRelances()
+  const { relances, chargement, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, envoisAuto } = useRelances()
   const { isCommercial, peutModifier } = useRole()
-  const [ongletActif, setOngletActif] = useState<EtatVueRelance>('en_cours')
+  const [ongletActif, setOngletActif] = useState<OngletRelances>('en_cours')
   const [scenariosOuvert, setScenariosOuvert] = useState(false)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [filtreOp, setFiltreOp] = useState('tous')
@@ -83,10 +93,11 @@ export function PageRelances() {
     }
   }, [relances, lettragesMap, seuilSansSuite])
 
-  const onglets: { id: EtatVueRelance; label: string; icon: React.ReactNode }[] = [
+  const onglets: { id: OngletRelances; label: string; icon: React.ReactNode }[] = [
     { id: 'en_cours',   label: 'En cours',   icon: <IcClock /> },
     { id: 'payee',      label: 'Payées',      icon: <IcCheckCircle /> },
     { id: 'sans_suite', label: 'Sans suite',  icon: <IcXCircle /> },
+    { id: 'auto',       label: 'Auto',        icon: <IcRobot /> },
   ]
 
   return (
@@ -126,7 +137,7 @@ export function PageRelances() {
         <div className="px-5 py-3 border-b border-gray-100">
           <div className="flex bg-white border border-gray-200 rounded-lg p-1 gap-0.5 w-fit">
             {onglets.map(o => {
-              const nb = grouped[o.id].length
+              const nb = o.id === 'auto' ? envoisAuto.length : grouped[o.id].length
               const actif = ongletActif === o.id
               return (
                 <button
@@ -159,6 +170,9 @@ export function PageRelances() {
 
         {/* Tableau filtré par onglet */}
         <div className="p-4">
+          {ongletActif === 'auto' ? (
+            <TableRelancesAuto envois={envoisAuto} chargement={chargement} />
+          ) : (
           <TableauRelances
             relances={grouped[ongletActif]}
             chargement={chargement}
@@ -176,6 +190,7 @@ export function PageRelances() {
             relanceInitialeId={relanceInitialeId}
             ongletInitialModal={ongletInitialModal}
           />
+          )}
         </div>
       </div>
 
