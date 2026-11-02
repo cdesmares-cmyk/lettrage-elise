@@ -91,21 +91,74 @@ async function paginateClients(initial: RowCompteClient[]): Promise<RowCompteCli
   return all
 }
 
-async function paginateFactures(initial: FactureDetail[]): Promise<FactureDetail[]> {
-  let all = initial
-  let offset = PAGE
-  while (all.length === offset) {
-    const { data, error } = await supabase.from('v_factures_avec_reste_du').select(COLS)
+// Chargement des factures ouvertes, page apres page, PAR CURSEUR.
+//
+// POURQUOI PAS range(). range(19000, 19999) devient LIMIT 1000 OFFSET 19000 :
+// Postgres produit 20 000 lignes et en jette 19 000. La page 20 refait le
+// travail des 19 precedentes, et le cout total est quadratique. Mesure du
+// 2026-11-02 sur Elise Lyon : 1 995 ms pour la page 20, 48 pages a charger,
+// 1 176 000 lignes lues pour en servir 47 056. Environ deux minutes de temps
+// base par chargement complet.
+//
+// Le curseur demande « les 1000 suivantes APRES cette facture ». Chaque page
+// coute 1000 lignes, quelle que soit sa position.
+//
+// POURQUOI numero_piece. Un curseur exige une cle UNIQUE : sans elle, deux
+// lignes ex aequo a la frontiere d'une page sont sautees ou servies deux fois,
+// et des factures disparaissent SANS AUCUNE ERREUR. factures porte
+// UNIQUE (organisation_id, numero_piece) depuis la migration 019, et le RLS
+// enferme deja la requete dans une seule organisation : la cle est sure.
+//
+// Index dedie : idx_factures_curseur, migration 185.
+async function chargerFacturesParCurseur(): Promise<FactureDetail[] | null> {
+  const all: FactureDetail[] = []
+  let curseur: string | null = null
+
+  for (;;) {
+    let requete = supabase.from('v_factures_avec_reste_du').select(COLS)
       .or('reste_du.gt.0.005,reste_du.lt.-0.005')
       .neq('numero_piece', '411_ATTENTE')
-      .order('code_client', { ascending: true })
-      .order('date_emission', { ascending: false })
-      .range(offset, offset + PAGE - 1)
-    if (error || !data?.length) break
-    all = [...all, ...(data as unknown as FactureDetail[])]
-    offset += PAGE
+      .order('numero_piece', { ascending: true })
+      .limit(PAGE)
+    if (curseur !== null) requete = requete.gt('numero_piece', curseur)
+
+    const { data, error } = await requete
+    // Echec au milieu de la pagination : on renvoie null et PAS une liste
+    // partielle. L'ancienne version faisait « break » et rendait ce qu'elle
+    // avait : l'application affichait alors un encours amoute sans que rien ne
+    // le signale, ce qui est pire qu'une erreur visible.
+    if (error) return null
+
+    const lot = (data ?? []) as unknown as FactureDetail[]
+    all.push(...lot)
+    if (lot.length < PAGE) break
+    curseur = lot[lot.length - 1].numero_piece
   }
+
   return all
+}
+
+// L'ordre d'affichage d'avant, retabli ici.
+//
+// Le serveur triait par client puis par date decroissante. Le curseur impose
+// son propre ordre (numero_piece), donc le tri revient au navigateur. Trier
+// 47 000 lignes en memoire coute quelques dizaines de millisecondes, sans
+// commune mesure avec ce qu'on economise.
+//
+// Les 68 usages de facturesActives sont des find, filter, map et reduce :
+// aucun ne depend d'une position. Seul l'ordre de listes filtrees affichees
+// telles quelles pouvait changer, et ce tri le preserve.
+//
+// localeCompare('fr') et non la collation Postgres : l'ordre entre deux clients
+// aux noms proches peut donc differer a la marge de celui d'avant. Sans
+// consequence, les listes etant filtrees par client avant affichage — ce qui
+// compte est l'ordre des dates DANS un client, et il est identique.
+function trierFactures(factures: FactureDetail[]): FactureDetail[] {
+  return factures.sort((a, b) => {
+    const parClient = a.code_client.localeCompare(b.code_client, 'fr')
+    if (parClient !== 0) return parClient
+    return (b.date_emission ?? '').localeCompare(a.date_emission ?? '')
+  })
 }
 
 export function FournisseurDonnees({ children }: { children: ReactNode }) {
@@ -158,25 +211,21 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     if (!initialLoadDoneRef.current) setChargement(true)
     setEnRafraichissement(true)
     try {
-      // Page 0 — clients et factures en parallèle
-      const [clientsPage0, page0] = await Promise.all([
+      // Clients et factures en parallèle. Les factures n'ont plus de « page 0 »
+      // a part : le curseur enchaine ses pages lui-meme, et la premiere n'a
+      // rien de particulier.
+      const [clientsPage0, facturesChargees] = await Promise.all([
         supabase.from('v_comptes_clients').select('*').order('nom', { ascending: true }).range(0, PAGE - 1),
-        supabase.from('v_factures_avec_reste_du').select(COLS)
-          .or('reste_du.gt.0.005,reste_du.lt.-0.005')
-          .neq('numero_piece', '411_ATTENTE')
-          .order('code_client', { ascending: true })
-          .order('date_emission', { ascending: false })
-          .range(0, PAGE - 1),
+        chargerFacturesParCurseur(),
       ])
 
       if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
-      if (page0.error) { return }
+      // null = la pagination a echoue en cours de route. On garde l'etat
+      // precedent plutot que d'afficher un encours incomplet.
+      if (facturesChargees === null) { toast.error('Erreur chargement factures'); return }
 
-      // Pagination clients et factures en parallèle
-      const [tousClients, toutes] = await Promise.all([
-        paginateClients((clientsPage0.data as unknown as RowCompteClient[]) ?? []),
-        paginateFactures((page0.data as unknown as FactureDetail[]) ?? []),
-      ])
+      const tousClients = await paginateClients((clientsPage0.data as unknown as RowCompteClient[]) ?? [])
+      const toutes = trierFactures(facturesChargees)
 
       // Mise à jour état — un seul render garanti (batching explicite)
       unstable_batchedUpdates(() => {
@@ -211,8 +260,16 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     }
   }, [session, rafraichir, rechargerScenarios, rechargerMembresOrg])
 
-  // Polling silencieux toutes les 60s + rechargement au retour sur la fenêtre
-  // Focus limité à 1 appel par tranche de 30s pour éviter les doubles rechargements
+  // Polling silencieux toutes les 5 minutes + rechargement au retour sur la
+  // fenêtre, limité à 1 appel par tranche de 2 minutes.
+  //
+  // Règle du scout : les commentaires annonçaient 60s et 30s, le code dit
+  // 300_000 et 120_000 depuis un relèvement non documenté. Corrigé en passant.
+  //
+  // C'est ce rechargement qui multiplie tout le reste : il relit L'INTEGRALITE
+  // des factures ouvertes, pas un delta. Reduire son coût unitaire était
+  // l'objet de la pagination par curseur ; réduire sa FREQUENCE est un choix
+  // de produit — la fraîcheur des données — et n'est pas tranché ici.
   useEffect(() => {
     if (!session) return
     const timer = setInterval(() => { rafraichir() }, 300_000)
