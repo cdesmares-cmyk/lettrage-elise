@@ -44,6 +44,33 @@ interface Props {
 
 const PAGE_SIZE = 25
 
+function joursDepuis(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+}
+
+/**
+ * Ancienneté de la dernière relance, en jours.
+ *
+ * Deux sources, on garde la plus récente. alertes_score.jours_derniere_relance
+ * est recalculé une fois par nuit et ne compte que les relances MANUELLES
+ * portant sur les factures encore ouvertes. dernieresRelances est en direct et
+ * fusionne manuel et automatique.
+ *
+ * Résultat observé avant ce correctif : un client relancé par le robot le matin
+ * même affichait 88 jours. Prendre le minimum ne peut pas se tromper dans ce
+ * sens — une relance qui a eu lieu a eu lieu — et la colonne cesse d'attendre
+ * le cron de la nuit pour dire la vérité.
+ */
+function ancienneteRelance(
+  joursCalcules: number | null,
+  derniereConnue: string | undefined,
+): number | null {
+  const joursVivants = derniereConnue ? joursDepuis(derniereConnue) : null
+  if (joursCalcules === null) return joursVivants
+  if (joursVivants === null) return joursCalcules
+  return Math.min(joursCalcules, joursVivants)
+}
+
 /**
  * Grille de lecture de la colonne Niveau, au survol d'un « ? ».
  * Elle existe parce que la distinction N0 / tiret n'est pas devinable : un
@@ -322,7 +349,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
     if (!triAlerte) return (c as unknown as Record<string, unknown>)[sortCol]
     const a = alertesSignal?.get(c.code_dso)
     if (!a || a.est_gele) return null
-    return sortCol === COL_NIVEAU ? a.niveau_relance : a.jours_derniere_relance
+    if (sortCol === COL_NIVEAU) return a.niveau_relance
+    return ancienneteRelance(a.jours_derniere_relance, dernieresRelances?.get(c.code_dso))
   }
   const clientsTries = sortRows(clientsFiltres, valeurTri, sortDir, triAlerte)
   const nbPages = Math.ceil(clientsTries.length / PAGE_SIZE)
@@ -554,7 +582,13 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                     <NiveauCell level={signalLevel} />
                   </td>
                   <td className="px-2 py-3 text-right">
-                    <AncienneteCell level={signalLevel} jours={alerte?.jours_derniere_relance ?? null} />
+                    <AncienneteCell
+                      level={signalLevel}
+                      jours={ancienneteRelance(
+                        alerte?.jours_derniere_relance ?? null,
+                        dernieresRelances?.get(c.code_dso),
+                      )}
+                    />
                   </td>
                   <td className="px-2 py-3 text-center">
                     <button

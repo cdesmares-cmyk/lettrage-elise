@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { EnvoiAuto } from '../../hooks/useRelances'
+import { ModalEnvoiAuto } from './ModalEnvoiAuto'
 
 interface Props {
   envois: EnvoiAuto[]
@@ -41,6 +42,7 @@ export function TableRelancesAuto({ envois, chargement, recherche = '' }: Props)
   const { clients } = useAppData()
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const [page, setPage] = useState(0)
+  const [ouvert, setOuvert] = useState<EnvoiAuto | null>(null)
 
   const filtres = useMemo(() => {
     const q = recherche.trim().toLowerCase()
@@ -87,7 +89,8 @@ export function TableRelancesAuto({ envois, chargement, recherche = '' }: Props)
         </thead>
         <tbody>
           {visibles.map(e => (
-            <tr key={e.cle} className="hover:bg-gray-50/60 transition-colors">
+            <tr key={e.cle} onClick={() => setOuvert(e)}
+                className="cursor-pointer hover:bg-ockham-teal-muted transition-colors">
               <td className={TD}>
                 <div className="text-sm font-semibold text-gray-800">
                   {clientsMap.get(e.code_client) ?? e.code_client}
@@ -125,6 +128,12 @@ export function TableRelancesAuto({ envois, chargement, recherche = '' }: Props)
           </button>
         )}
       </div>
+
+      <ModalEnvoiAuto
+        envoi={ouvert}
+        nomClient={ouvert ? (clientsMap.get(ouvert.code_client) ?? ouvert.code_client) : ""}
+        onFermer={() => setOuvert(null)}
+      />
     </>
   )
 }
