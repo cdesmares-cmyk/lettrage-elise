@@ -64,6 +64,10 @@ export interface ResultatValidation {
   // Valeurs de la colonne Commercial qu'aucun utilisateur ne permet d'identifier,
   // avec le nombre de lignes concernées. Affiché avant l'écriture.
   commerciaux_non_reconnus?: { valeur: string; nb: number }[]
+  // Valeurs de la colonne Rôle hors de la liste fermée de l'application, avec
+  // le nombre de lignes concernées. Affiché avant l'écriture : elles seront
+  // enregistrées en « autre », rien ne doit se perdre en silence.
+  roles_non_reconnus?: { valeur: string; nb: number }[]
 }
 
 // Résultat final après insertion en base

@@ -164,6 +164,34 @@ export function EtapeValidation({
         </div>
       )}
 
+      {/* Bannière rôles non reconnus (import_contacts) */}
+      {(resultat.roles_non_reconnus?.length ?? 0) > 0 && (
+        <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-sm text-amber-800">
+          <span className="flex-shrink-0">⚠️</span>
+          <div>
+            <strong>
+              {resultat.roles_non_reconnus!.length} valeur
+              {resultat.roles_non_reconnus!.length > 1 ? 's' : ''} de la colonne Rôle
+              non reconnue{resultat.roles_non_reconnus!.length > 1 ? 's' : ''}
+            </strong>
+            {' '}— ces contacts seront enregistrés en <strong>« autre »</strong>. Aucune ligne n'est rejetée.
+            <div className="mt-1.5 font-mono text-[11px] leading-relaxed">
+              {resultat.roles_non_reconnus!.slice(0, 8).map(r => (
+                <div key={r.valeur}>« {r.valeur} » — {r.nb} ligne{r.nb > 1 ? 's' : ''}</div>
+              ))}
+              {resultat.roles_non_reconnus!.length > 8 && (
+                <div>… et {resultat.roles_non_reconnus!.length - 8} autre(s)</div>
+              )}
+            </div>
+            <div className="mt-1.5 text-[12px]">
+              Rôles acceptés : <strong>comptabilite</strong>, <strong>relance</strong>,
+              {' '}<strong>direction</strong>, <strong>terrain</strong>, <strong>autre</strong>.
+              La casse et les accents n'ont pas d'importance.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bannière sur-paiement (import_lettrage uniquement) */}
       {estLettrage && (resultat.nb_avertissements ?? 0) > 0 && (
         <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-3 text-sm text-amber-800">

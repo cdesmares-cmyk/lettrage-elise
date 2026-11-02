@@ -36,6 +36,15 @@ function normaliserEmail(email: string): string {
   return email.trim().toLowerCase()
 }
 
+// Les cinq rôles que l'application connaît — ceux de l'écran de saisie.
+//
+// Le champ est du texte libre en base depuis la migration 040, « pour permettre
+// des rôles personnalisés ». Mais rien n'a jamais été construit pour les
+// exploiter : l'écran n'en propose pas, le badge du panneau Contacts retombe
+// sur « Autre » quand il ne reconnaît pas, et la relance automatique n'en lit
+// que deux. Dans les faits, c'est une énumération. L'import s'aligne dessus.
+export const ROLES_CONNUS = ['comptabilite', 'relance', 'direction', 'terrain', 'autre'] as const
+
 // Le rôle arrivait brut du fichier, sans le traitement appliqué à l'email.
 // Une colonne « Relance » dans un classeur Excel devenait un rôle « Relance »
 // en base, que la relance automatique ne reconnaissait pas. Au 2026-10-31,
@@ -196,9 +205,25 @@ export function useImportContacts() {
       return { donnees: l, statut: 'nouveau' as const, cle_pivot: email }
     })
 
+    // Valeurs de rôle hors liste, comptées avant l'écriture. On conserve
+    // l'orthographe du fichier : c'est elle qu'il faut corriger à la source.
+    const roleParValeur = new Map<string, number>()
+    const colRole = mapping.find(m => m.champ_cible === 'role_contact')?.colonne_source
+    if (colRole) {
+      for (const l of lignesValides) {
+        const brut = (l[colRole] ?? '').trim()
+        if (!brut) continue
+        if ((ROLES_CONNUS as readonly string[]).includes(normaliserRole(brut))) continue
+        roleParValeur.set(brut, (roleParValeur.get(brut) ?? 0) + 1)
+      }
+    }
+
     return {
       lignes_a_inserer: lignesAInserer,
       apercu,
+      roles_non_reconnus: [...roleParValeur.entries()]
+        .map(([valeur, nb]) => ({ valeur, nb }))
+        .sort((a, b) => b.nb - a.nb),
       nb_total: lignesValides.length,
       nb_nouvelles: aNouveaux.length,
       nb_doublons: aMettreAJour.length,
@@ -255,10 +280,13 @@ export function useImportContacts() {
             if (r['email']) r['email'] = String(r['email']).toLowerCase().trim()
             delete r['delete']
             delete r['id_contact']
-            // Valeur par défaut role_contact, puis normalisation — même
-            // traitement que l'email juste au-dessus.
+            // Normalisation puis rangement dans la liste fermée. Une valeur
+            // hors liste devient « autre », comme une valeur vide : on ne
+            // rejette jamais la ligne pour une étiquette mal écrite, le contact
+            // vaut bien plus que son rôle. Ce qui a été rangé est signalé à
+            // l'écran de validation, avant l'écriture.
             const role = normaliserRole(String(r['role_contact'] ?? ''))
-            r['role_contact'] = role === '' ? 'autre' : role
+            r['role_contact'] = (ROLES_CONNUS as readonly string[]).includes(role) ? role : 'autre'
             r['import_id'] = importRec!.id
             return r
           })
