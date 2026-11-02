@@ -8,6 +8,19 @@ export type EtatVueRelance = 'en_cours' | 'payee' | 'sans_suite'
 
 export const SEUIL_SANS_SUITE_DEFAUT = 30
 
+// Une ligne de relances_auto_log : le journal du robot.
+//
+// ATTENTION au comptage. Cette table porte UNE LIGNE PAR FACTURE, pas une par
+// email. Un envoi couvrant deux factures laisse deux lignes partageant le meme
+// resend_id. Compter les lignes revient a compter double.
+export interface RelanceAuto {
+  code_client: string
+  numero_facture: string
+  envoye_le: string
+  statut: 'envoye' | 'bounce' | 'erreur'
+  resend_id: string | null
+}
+
 export interface ContactSnapshot {
   id: string
   nom: string
@@ -139,6 +152,7 @@ export function useRelances() {
   const [seuilSansSuite, setSeuilSansSuite] = useState(SEUIL_SANS_SUITE_DEFAUT)
   const [facturesMapRelances, setFacturesMapRelances] = useState<Map<string, { reste_du: number; montant_ttc: number }>>(new Map())
   const [lettragesMap, setLettragesMap] = useState<Map<string, LettrageRelance[]>>(new Map())
+  const [relancesAuto, setRelancesAuto] = useState<RelanceAuto[]>([])
 
   // Compteur de rechargement. L'incrementer relance le chargement des relances.
   // Appele apres un envoi, pour que l'ecran reflete immediatement ce qui vient
@@ -164,6 +178,17 @@ export function useRelances() {
       .then(async ({ data }) => {
         const relancesData = (data ?? []) as Relance[]
         setRelances(relancesData)
+
+        // Le journal du robot. L'interface l'ignorait entierement : un client
+        // relance automatiquement affichait « jamais relance », et le bouton
+        // « Relance aujourd'hui » ne se colorait pas. Le robot, lui, lit les
+        // deux tables depuis toujours pour sa deduplication — l'ignorance
+        // n'allait que dans un sens, et c'etait le mauvais.
+        supabase
+          .from('relances_auto_log')
+          .select('code_client, numero_facture, envoye_le, statut, resend_id')
+          .order('envoye_le', { ascending: false })
+          .then(({ data: autoData }) => setRelancesAuto((autoData ?? []) as RelanceAuto[]))
 
         const ids = [...new Set(relancesData.flatMap(r => r.factures_ids ?? []))]
         if (!ids.length) { setChargement(false); return }
@@ -238,6 +263,18 @@ export function useRelances() {
     })
   }, [chargement, lettragesMap, seuilSansSuite])
 
+  // Date du dernier envoi ABOUTI par client. Un rebond ne compte pas : le
+  // client n'a rien recu, le relancer a nouveau n'est pas un doublon.
+  const derniereRelanceAutoParClient = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const r of relancesAuto) {
+      if (r.statut !== 'envoye') continue
+      const actuelle = map.get(r.code_client)
+      if (!actuelle || r.envoye_le > actuelle) map.set(r.code_client, r.envoye_le)
+    }
+    return map
+  }, [relancesAuto])
+
   const kpis = useMemo<KpisRelance>(() => {
     const debut = debutMois()
     const cesMois = relances.filter(r => r.envoyee_le && new Date(r.envoyee_le) >= debut)
@@ -291,5 +328,5 @@ export function useRelances() {
     return true
   }
 
-  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, recharger }
+  return { relances, chargement, kpis, mettreAJourStatut, mettreAJourNote, archiver, seuilSansSuite, facturesMapRelances, lettragesMap, recharger, relancesAuto, derniereRelanceAutoParClient }
 }

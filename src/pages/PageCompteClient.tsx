@@ -137,7 +137,7 @@ export function PageCompteClient() {
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
-  const { relances, recharger: rechargerRelances } = useRelances()
+  const { relances, recharger: rechargerRelances, derniereRelanceAutoParClient } = useRelances()
   const dernieresRelances = useMemo(() => {
     const map = new Map<string, string>()
     for (const r of relances) {
@@ -148,8 +148,16 @@ export function PageCompteClient() {
       const actuelle = map.get(r.code_client)
       if (!actuelle || r.envoyee_le > actuelle) map.set(r.code_client, r.envoyee_le)
     }
+    // Les envois du robot comptent autant : c'est le client qui recoit l'email,
+    // peu importe qui l'a declenche. Sans cette fusion, un client relance
+    // automatiquement le matin restait affiche « a relancer », et un operateur
+    // pouvait lui ecrire une seconde fois dans la journee.
+    for (const [code, envoyeLe] of derniereRelanceAutoParClient) {
+      const actuelle = map.get(code)
+      if (!actuelle || envoyeLe > actuelle) map.set(code, envoyeLe)
+    }
     return map
-  }, [relances])
+  }, [relances, derniereRelanceAutoParClient])
 
   useEffect(() => { chargerTous() }, [])
 
