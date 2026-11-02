@@ -260,19 +260,42 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     }
   }, [session, rafraichir, rechargerScenarios, rechargerMembresOrg])
 
-  // Polling silencieux toutes les 5 minutes + rechargement au retour sur la
+  // Polling silencieux toutes les 15 minutes + rechargement au retour sur la
   // fenêtre, limité à 1 appel par tranche de 2 minutes.
   //
-  // Règle du scout : les commentaires annonçaient 60s et 30s, le code dit
-  // 300_000 et 120_000 depuis un relèvement non documenté. Corrigé en passant.
+  // HISTORIQUE DES RELEVEMENTS. 60s a l'origine, puis 300s le 2026-07-29 face a
+  // un depassement d'EGRESS Supabase (voir CHANTIER_EGRESS_FACTURES.md, phase
+  // 0), puis 900s le 2026-11-02. Les commentaires annoncaient encore 60s alors
+  // que le code disait 300_000 : corrige en meme temps.
   //
-  // C'est ce rechargement qui multiplie tout le reste : il relit L'INTEGRALITE
-  // des factures ouvertes, pas un delta. Reduire son coût unitaire était
-  // l'objet de la pagination par curseur ; réduire sa FREQUENCE est un choix
-  // de produit — la fraîcheur des données — et n'est pas tranché ici.
+  // POURQUOI CE RECHARGEMENT COUTE CHER. Il relit L'INTEGRALITE des factures
+  // ouvertes, pas un delta. Trois leviers, deux tires :
+  //   - Le cout par ligne : traite, index partiels 184 et 185.
+  //   - Le cout par page : traite, pagination par curseur.
+  //   - La FREQUENCE : c'est ce reglage, et c'est un choix de produit, pas une
+  //     optimisation technique. Passer a 15 minutes divise par trois le nombre
+  //     de rechargements.
+  //
+  // CE QUE 15 MINUTES COUTE. Une modification faite dans une AUTRE session met
+  // jusqu'a 15 minutes a apparaitre. L'evenement focus ci-dessous rattrape le
+  // cas courant : quelqu'un qui revient sur Ockham apres etre alle ailleurs
+  // declenche une mise a jour, au plus une fois toutes les 2 minutes.
+  //
+  // CE QUI N'EST PAS RATTRAPE, et c'est le vrai defaut a connaitre : deux
+  // operateurs travaillant EN MEME TEMPS sur le meme client, sans changer
+  // d'onglet. Le second voit l'etat d'il y a quinze minutes. Pour revenir en
+  // arriere, remettre 300_000 : un seul nombre, aucun effet de bord.
+  //
+  // RESTE A FAIRE, phase 1 du chantier EGRESS : ne plus recharger les factures
+  // du tout, une fois au login. Bloque par un defaut mesure le 2026-11-02 — la
+  // compensation et la correction de lettrage appellent
+  // rafraichirFacturesClient(), qui n'ecrit que dans l'etat local du hook
+  // useFacturesClient et PAS dans facturesActives. Sans le rechargement
+  // periodique, le tableau de bord garderait l'ancien reste_du apres une
+  // compensation. A corriger AVANT de supprimer ce timer.
   useEffect(() => {
     if (!session) return
-    const timer = setInterval(() => { rafraichir() }, 300_000)
+    const timer = setInterval(() => { rafraichir() }, 900_000)
     const onFocus = () => {
       if (Date.now() - lastFetchAtRef.current < 120_000) return
       rafraichir()

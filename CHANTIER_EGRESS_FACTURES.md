@@ -58,9 +58,23 @@ Avec 10 nouveaux clients multi-tenant, chacun avec leur historique, le volume de
 
 ## Plan de migration en 4 phases
 
-### Phase 0 — Réduction du polling *(FAIT — 2026-07-29)*
+### Phase 0 — Réduction du polling *(FAIT — 2026-07-29, étendu le 2026-11-02)*
 Timer 60s → 300s. Focus cooldown 30s → 120s.  
 **Gain : ~75% EGRESS. Donne ~3-4 mois de marge.**
+
+**Relèvement du 2026-11-02 : timer 300s → 900s.** Trois fois moins de
+rechargements. Le focus cooldown reste à 120s, c'est lui qui rattrape le cas
+courant du retour sur l'onglet.
+
+**Défaut mesuré le 2026-11-02, qui bloque la phase 1.** L'affirmation « les
+mises à jour locales optimistes couvrent 100% des mutations utilisateur » est
+fausse pour deux chemins : la compensation et la correction de lettrage
+appellent `rafraichirFacturesClient()`, qui écrit dans l'état local de
+`useFacturesClient` et **pas** dans `facturesActives`. Le rechargement
+périodique masque aujourd'hui ce défaut. Le supprimer sans le corriger
+laisserait le tableau de bord sur l'ancien `reste_du` après une compensation.
+**À traiter dans le périmètre de la phase 1**, ce qui la fait passer de 1h à
+2h-2h30, test compris.
 
 ---
 
@@ -143,7 +157,7 @@ Cohérence entre les données relances et les données facturation. Si une relan
 
 | Phase | Statut | Complexité | Gain EGRESS | Avant client n°2 |
 |---|---|---|---|---|
-| 0 — Polling réduit | ✅ Fait | — | ~75% | Fait |
+| 0 — Polling réduit | ✅ Fait (300s, puis 900s le 02/11) | — | ~75% +10% | Fait |
 | 1 — Stop re-poll factures | ⏳ À faire | 1h | +15% | **Oui** |
 | 2 — KPIs en SQL | ⏳ À faire | 2-3h | mineur | **Oui** |
 | 3 — On-demand par client | ⏳ À faire | 1 session | fondamental | **Oui** |
