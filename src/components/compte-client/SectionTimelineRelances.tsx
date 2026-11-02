@@ -18,9 +18,25 @@ interface LogAuto {
   resend_id: string | null
 }
 
+/** Un echange qui a eu lieu hors d'Ockham : un appel, ou un mail parti
+ *  d'une boite personnelle. Table echanges_clients, migration 182. */
+interface Echange {
+  id: string
+  canal: 'appel' | 'mail'
+  echange_le: string
+  contact_libre: string | null
+  commentaire: string | null
+  retour_client: string | null
+  operateur: string | null
+  contact: { prenom: string | null; nom: string } | null
+}
+
+// date est porte par les trois variantes : c'est la cle de tri commune, et
+// sans elle chaque ajout de source rallonge le ternaire du sort.
 type Entree =
-  | { type: 'manuelle'; relance: Relance; montant: number }
-  | { type: 'auto'; groupe: LogAuto[]; montant: number; date: string }
+  | { type: 'manuelle'; date: string; relance: Relance; montant: number }
+  | { type: 'auto'; date: string; groupe: LogAuto[]; montant: number }
+  | { type: 'echange'; date: string; echange: Echange }
 
 interface SauvegarderComData {
   numero_piece: string; contact: string; date_contact: string
@@ -36,13 +52,117 @@ function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
 
-interface Props { codeClient: string }
+/** Libelle du contact : la fiche si elle est cochee, sinon la saisie libre,
+ *  sinon rien — les trois cas sont permis par la migration 182. */
+function libelleContact(e: Echange): string | null {
+  if (e.contact) return e.contact.prenom ? `${e.contact.prenom} ${e.contact.nom}` : e.contact.nom
+  return e.contact_libre?.trim() || null
+}
 
-export function SectionTimelineRelances({ codeClient }: Props) {
+const STYLE_CANAL: Record<Echange['canal'], { label: string; badge: string; bordure: string }> = {
+  appel: {
+    label:   'Appel',
+    badge:   'bg-ockham-copper/10 text-ockham-copper border-ockham-copper/30',
+    bordure: 'border-ockham-copper/30',
+  },
+  mail: {
+    label:   'Mail',
+    badge:   'bg-ockham-teal/10 text-ockham-teal-dark border-ockham-teal/30',
+    bordure: 'border-ockham-teal/30',
+  },
+}
+
+interface PropsLigneEchange {
+  echange: Echange
+  isPremiere: boolean
+  onRetour: (id: string, retour: string) => Promise<boolean>
+}
+
+function LigneEchange({ echange: e, isPremiere, onRetour }: PropsLigneEchange) {
+  const [deplie, setDeplie] = useState(false)
+  const [retour, setRetour] = useState(e.retour_client ?? '')
+  const [enCours, setEnCours] = useState(false)
+  const st = STYLE_CANAL[e.canal]
+
+  const contact = libelleContact(e)
+  // Pas de montant a afficher : un appel ne porte pas de perimetre de factures.
+  // La colonne centrale sert donc au contact, puis au commentaire.
+  const resume = contact ?? e.commentaire?.trim() ?? 'Sans detail'
+
+  async function enregistrer() {
+    setEnCours(true)
+    await onRetour(e.id, retour)
+    setEnCours(false)
+  }
+
+  return (
+    <div className={`rounded-lg border ${isPremiere ? st.bordure : 'border-gray-200'}`}>
+      <button
+        onClick={() => setDeplie(d => !d)}
+        className="w-full text-left flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
+      >
+        <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${isPremiere ? 'text-ockham-navy' : 'text-gray-500'}`}>
+          {fmt(e.echange_le)}
+        </span>
+        <span className="text-[11px] font-semibold flex-1 truncate text-gray-700">{resume}</span>
+        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${st.badge}`}>
+          {st.label}
+        </span>
+        <span className="text-[10px] font-bold w-5 text-center flex-shrink-0 text-gray-400">
+          {e.operateur ?? '?'}
+        </span>
+        <svg
+          className={`w-3 h-3 flex-shrink-0 text-gray-300 transition-transform ${deplie ? 'rotate-90' : ''}`}
+          viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+        >
+          <path d="M4.5 2.5l4 3.5-4 3.5" />
+        </svg>
+      </button>
+
+      {deplie && (
+        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-gray-100">
+          {contact && e.commentaire && (
+            <p className="text-[11px] text-gray-600 whitespace-pre-wrap">{e.commentaire}</p>
+          )}
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Retour du client</p>
+            <textarea
+              value={retour}
+              onChange={ev => setRetour(ev.target.value)}
+              rows={2}
+              placeholder="Ce que le client a répondu"
+              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] outline-none focus:border-ockham-teal resize-none"
+            />
+            {retour !== (e.retour_client ?? '') && (
+              <button
+                onClick={enregistrer}
+                disabled={enCours}
+                className="mt-1.5 text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors"
+              >
+                {enCours ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface Props {
+  codeClient: string
+  /** Incremente par le parent apres l'enregistrement d'un echange : c'est le
+   *  signal de rechargement. Le formulaire vit au-dessus de ce composant,
+   *  l'historique en dessous, et les deux doivent rester d'accord. */
+  rafraichir?: number
+}
+
+export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
   const { facturesActives } = useAppData()
   const { profil } = useAuth()
   const [relances, setRelances]   = useState<Relance[]>([])
   const [logsAuto, setLogsAuto]   = useState<LogAuto[]>([])
+  const [echanges, setEchanges]   = useState<Echange[]>([])
   const [initOp, setInitOp]       = useState<Map<string, string>>(new Map())
   const [commentaires, setCommentaires] = useState<Map<string, CommentaireFacture>>(new Map())
   const [chargement, setChargement] = useState(true)
@@ -67,11 +187,18 @@ export function SectionTimelineRelances({ codeClient }: Props) {
         .eq('code_client', codeClient)
         .order('envoye_le', { ascending: false })
         .limit(100),
+      supabase
+        .from('echanges_clients')
+        .select('id,canal,echange_le,contact_libre,commentaire,retour_client,operateur,contact:contacts_client(prenom,nom)')
+        .eq('code_client', codeClient)
+        .order('echange_le', { ascending: false })
+        .limit(50),
       supabase.from('utilisateurs').select('id,initiales'),
-    ]).then(([{ data: r }, { data: a }, { data: u }]) => {
+    ]).then(([{ data: r }, { data: a }, { data: e }, { data: u }]) => {
       if (!actif) return
       setRelances((r ?? []) as Relance[])
       setLogsAuto((a ?? []) as LogAuto[])
+      setEchanges((e ?? []) as unknown as Echange[])
       const map = new Map<string, string>()
       for (const usr of (u ?? []) as { id: string; initiales: string | null }[]) {
         if (usr.initiales) map.set(usr.id, usr.initiales)
@@ -80,7 +207,7 @@ export function SectionTimelineRelances({ codeClient }: Props) {
       setChargement(false)
     })
     return () => { actif = false }
-  }, [codeClient])
+  }, [codeClient, rafraichir])
 
   // Commentaires des factures de la relance ouverte
   useEffect(() => {
@@ -110,15 +237,19 @@ export function SectionTimelineRelances({ codeClient }: Props) {
   }, {})
 
   const timeline: Entree[] = [
-    ...relances.map(r => ({ type: 'manuelle' as const, relance: r, montant: montantR(r) })),
-    ...Object.values(groupesAuto).map(g => ({
-      type: 'auto' as const, groupe: g, montant: g[0].montant_total ?? 0, date: g[0].envoye_le,
+    ...relances.map(r => ({
+      type: 'manuelle' as const, date: r.envoyee_le ?? '', relance: r, montant: montantR(r),
     })),
-  ].sort((a, b) => {
-    const da = a.type === 'manuelle' ? (a.relance.envoyee_le ?? '') : a.date
-    const db = b.type === 'manuelle' ? (b.relance.envoyee_le ?? '') : b.date
-    return db.localeCompare(da)
-  })
+    ...Object.values(groupesAuto).map(g => ({
+      type: 'auto' as const, date: g[0].envoye_le, groupe: g, montant: g[0].montant_total ?? 0,
+    })),
+    ...echanges.map(e => ({ type: 'echange' as const, date: e.echange_le, echange: e })),
+  ]
+    // Tri sur le JOUR seul. echange_le est une date, envoyee_le un horodatage :
+    // compares en entier, '2026-11-02' passerait toujours apres
+    // '2026-11-02T09:00:00Z' parce que la chaine est plus courte, et un appel
+    // du matin se retrouverait sous la relance de l'apres-midi.
+    .sort((a, b) => b.date.slice(0, 10).localeCompare(a.date.slice(0, 10)))
 
   const visible = tout ? timeline : timeline.slice(0, LIMITE)
   const hasMore = timeline.length > LIMITE
@@ -177,6 +308,19 @@ export function SectionTimelineRelances({ codeClient }: Props) {
     return !error
   }
 
+  // Le retour du client arrive apres coup : on raccroche au telephone sans
+  // savoir ce qui sera paye. La ligne reste donc modifiable.
+  async function majRetour(id: string, retour: string): Promise<boolean> {
+    const valeur = retour.trim() || null
+    const { error } = await supabase
+      .from('echanges_clients')
+      .update({ retour_client: valeur } as never)
+      .eq('id', id)
+    if (error) return false
+    setEchanges(prev => prev.map(e => e.id === id ? { ...e, retour_client: valeur } : e))
+    return true
+  }
+
   if (chargement) {
     return (
       <div className="space-y-1.5 pt-3 border-t border-gray-100">
@@ -188,7 +332,7 @@ export function SectionTimelineRelances({ codeClient }: Props) {
   if (timeline.length === 0) {
     return (
       <p className="text-xs text-gray-400 italic pt-3 border-t border-gray-100">
-        Aucune relance envoyée pour ce client.
+        Aucun contact client enregistré.
       </p>
     )
   }
@@ -201,7 +345,7 @@ export function SectionTimelineRelances({ codeClient }: Props) {
 
           if (entree.type === 'manuelle') {
             const r   = entree.relance
-            const date = r.envoyee_le ? fmt(r.envoyee_le) : '—'
+            const date = entree.date ? fmt(entree.date) : '—'
             const op   = initOp.get(r.operateur_id) ?? '?'
 
             return (
@@ -235,6 +379,17 @@ export function SectionTimelineRelances({ codeClient }: Props) {
                   <path d="M4.5 2.5l4 3.5-4 3.5" />
                 </svg>
               </button>
+            )
+          }
+
+          if (entree.type === 'echange') {
+            return (
+              <LigneEchange
+                key={entree.echange.id}
+                echange={entree.echange}
+                isPremiere={isPremiere}
+                onRetour={majRetour}
+              />
             )
           }
 

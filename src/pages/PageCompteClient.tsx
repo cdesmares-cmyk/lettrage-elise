@@ -12,6 +12,7 @@ import { TableComptesClients } from '../components/compte-client/TableComptesCli
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
+import { useDerniersEchanges } from '../hooks/useDerniersEchanges'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalCompensation } from '../components/compte-client/ModalCompensation'
 import { ModalCorrectionClient } from '../components/compte-client/ModalCorrectionClient'
@@ -138,6 +139,7 @@ export function PageCompteClient() {
   const factures = useFacturesClient()
   const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
   const { relances, recharger: rechargerRelances, derniereRelanceAutoParClient } = useRelances()
+  const { derniersEchangesParClient, rechargerEchanges } = useDerniersEchanges()
   const dernieresRelances = useMemo(() => {
     const map = new Map<string, string>()
     for (const r of relances) {
@@ -156,8 +158,18 @@ export function PageCompteClient() {
       const actuelle = map.get(code)
       if (!actuelle || envoyeLe > actuelle) map.set(code, envoyeLe)
     }
+    // Les echanges hors Ockham comptent aussi : un appel passe hier est un
+    // contact client, meme si rien n'est parti de l'outil. Arrete avec Clement
+    // le 2026-11-02. Sans cette fusion, l'ecran affiche « jamais relance » pour
+    // un client qu'un collegue a eu au telephone la veille, et on le relance
+    // une seconde fois. Le NIVEAU, lui, ne bouge pas : il se calcule en SQL et
+    // ne lit pas cette table.
+    for (const [code, echangeLe] of derniersEchangesParClient) {
+      const actuelle = map.get(code)
+      if (!actuelle || echangeLe > actuelle) map.set(code, echangeLe)
+    }
     return map
-  }, [relances, derniereRelanceAutoParClient])
+  }, [relances, derniereRelanceAutoParClient, derniersEchangesParClient])
 
   useEffect(() => { chargerTous() }, [])
 
@@ -535,6 +547,7 @@ export function PageCompteClient() {
         onFermer={() => { setClientOptionsDso(null); setPanneauOngletInitial('infos') }}
         ongletInitial={panneauOngletInitial}
         onSauvegarder={comptes.sauvegarderOptions}
+        onEchangeEnregistre={rechargerEchanges}
       />
 
       {/* Modale Compensation unifiée */}

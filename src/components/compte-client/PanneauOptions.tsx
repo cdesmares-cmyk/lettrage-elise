@@ -4,6 +4,7 @@ import type { CompteClient, StatutJuridique } from '../../types/client'
 import { useRefValeurs, normaliserValeurRef } from '../../hooks/useRefValeurs'
 import { SectionContacts } from './SectionContacts'
 import { SectionTimelineRelances } from './SectionTimelineRelances'
+import { FormEchangeClient } from './FormEchangeClient'
 import { CommentairesFil } from '../commentaires/CommentairesFil'
 import { RecapCompteClient } from './RecapCompteClient'
 import { supabase } from '../../lib/supabase'
@@ -62,6 +63,9 @@ interface Props {
     siret: string | null
     note_client?: string | null
   }) => Promise<boolean>
+  /** Appele apres l'enregistrement d'un echange hors Ockham, pour que le J+
+   *  et le bouton Relancer de la liste se mettent a jour sans rechargement. */
+  onEchangeEnregistre?: () => void
 }
 
 const IcXCircle    = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
@@ -138,7 +142,10 @@ function SelectRef({
   )
 }
 
-export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder }: Props) {
+export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder, onEchangeEnregistre }: Props) {
+  // Compteur de rechargement de l'historique. Le formulaire est au-dessus du
+  // titre, la timeline en dessous : il faut un signal pour les relier.
+  const [tickEchanges, setTickEchanges] = useState(0)
   const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
@@ -478,7 +485,16 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
                   </div>
                 </div>
               )}
-              {/* Historique unifié — relances manuelles + automatiques */}
+              {/* Echanges hors Ockham : un appel, ou un mail parti d'une
+                  boite personnelle. Compte comme un contact client. */}
+              {peutModifier && (
+                <FormEchangeClient
+                  codeClient={client.code_dso}
+                  onEnregistre={() => { setTickEchanges(t => t + 1); onEchangeEnregistre?.() }}
+                />
+              )}
+
+              {/* Historique unifié — relances manuelles, automatiques, échanges */}
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Historique des relances</p>
                 {client.relance_auto_alerte && peutModifier && (
@@ -493,7 +509,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder 
                   </button>
                 )}
               </div>
-              <SectionTimelineRelances codeClient={client.code_dso} />
+              <SectionTimelineRelances codeClient={client.code_dso} rafraichir={tickEchanges} />
             </div>
           )}
 
