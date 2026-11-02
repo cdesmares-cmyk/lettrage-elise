@@ -9,12 +9,18 @@
 import { useMemo, useState } from 'react'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { EnvoiAuto } from '../../hooks/useRelances'
+import type { CommentaireFacture } from '../../types/client'
 import { ModalEnvoiAuto } from './ModalEnvoiAuto'
 
 interface Props {
   envois: EnvoiAuto[]
   chargement: boolean
   recherche?: string
+  commentaires: Map<string, CommentaireFacture>
+  onSauvegarderCommentaire: (data: {
+    numero_piece: string; contact: string; date_contact: string
+    commentaire: string; operateur: string; ne_pas_relancer?: boolean
+  }) => Promise<boolean>
 }
 
 function euros(n: number) {
@@ -38,7 +44,7 @@ function BadgeStatut({ statut }: { statut: EnvoiAuto['statut'] }) {
 
 const PAGE_SIZE = 25
 
-export function TableRelancesAuto({ envois, chargement, recherche = '' }: Props) {
+export function TableRelancesAuto({ envois, chargement, recherche = '', commentaires, onSauvegarderCommentaire }: Props) {
   const { clients } = useAppData()
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const [page, setPage] = useState(0)
@@ -132,6 +138,8 @@ export function TableRelancesAuto({ envois, chargement, recherche = '' }: Props)
       <ModalEnvoiAuto
         envoi={ouvert}
         nomClient={ouvert ? (clientsMap.get(ouvert.code_client) ?? ouvert.code_client) : ""}
+        commentaires={commentaires}
+        onSauvegarderCommentaire={onSauvegarderCommentaire}
         onFermer={() => setOuvert(null)}
       />
     </>

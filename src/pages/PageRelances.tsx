@@ -171,7 +171,8 @@ export function PageRelances() {
         {/* Tableau filtré par onglet */}
         <div className="p-4">
           {ongletActif === 'auto' ? (
-            <TableRelancesAuto envois={envoisAuto} chargement={chargement} />
+            <TableRelancesAuto envois={envoisAuto} chargement={chargement}
+                               commentaires={commentaires} onSauvegarderCommentaire={sauvegarder} />
           ) : (
           <TableauRelances
             relances={grouped[ongletActif]}

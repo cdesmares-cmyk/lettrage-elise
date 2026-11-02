@@ -1,21 +1,40 @@
 // Détail d'un envoi du robot.
 //
-// Même grammaire visuelle que le modal des relances manuelles — en-tête navy,
-// code client, date d'envoi, montant, badge J+, puis destinataire et tableau
-// des factures. Un opérateur ne doit pas réapprendre à lire un écran parce que
-// l'email vient d'une machine.
+// Même architecture que le modal des relances manuelles : en-tête navy,
+// destinataires, puis le tableau des factures avec ses six colonnes. Un
+// opérateur ne doit pas réapprendre à lire un écran parce que l'email vient
+// d'une machine.
 //
-// Ce qu'il n'a pas, et ne peut pas avoir : note de suivi, changement de statut,
-// archivage. Un envoi automatique n'est pas une ligne de la table relances, il
-// n'a rien sur quoi écrire.
-import { useState, useEffect } from 'react'
+// Statut, Exclure et Commentaire fonctionnent ici comme ailleurs : ces trois
+// colonnes agissent sur la FACTURE, indexées par numero_piece, pas sur la
+// relance. Elles n'ont aucune raison d'être absentes d'un envoi automatique.
+//
+// Ce que ce modal n'a pas : la note de suivi et le bouton Archiver. Ces
+// deux-là écrivent sur une ligne de la table relances, qu'un envoi du robot
+// ne possède pas. Les afficher reviendrait à proposer un bouton qui échoue.
+import { useState, useEffect, Fragment } from 'react'
+import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import { useAppData } from '../../contexts/AppDataContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { IcLoader } from '../Icones'
 import type { EnvoiAuto } from '../../hooks/useRelances'
+import type { CommentaireFacture, StatutFacture } from '../../types/client'
+
+interface SauvegarderComData {
+  numero_piece: string
+  contact: string
+  date_contact: string
+  commentaire: string
+  operateur: string
+  ne_pas_relancer?: boolean
+}
 
 interface Props {
   envoi: EnvoiAuto | null
   nomClient: string
+  commentaires: Map<string, CommentaireFacture>
+  onSauvegarderCommentaire: (data: SauvegarderComData) => Promise<boolean>
   onFermer: () => void
 }
 
@@ -23,6 +42,7 @@ interface FactureLigne {
   numero_piece: string
   montant_ttc: number
   reste_du: number
+  statut_facture: StatutFacture | null
 }
 
 function euros(n: number) {
@@ -33,51 +53,90 @@ function joursDepuis(iso: string): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
-export function ModalEnvoiAuto({ envoi, nomClient, onFermer }: Props) {
-  // Indexé par clé d'envoi : l'effet n'écrit qu'au retour des requêtes, jamais
-  // pendant le rendu. Et rouvrir un envoi déjà consulté est instantané.
-  const [cache, setCache] = useState<Map<string, { corps: string | null; factures: FactureLigne[] }>>(new Map())
+const STATUTS: { val: StatutFacture | null; label: string }[] = [
+  { val: 'litige',      label: 'Litige' },
+  { val: 'provisionne', label: 'Provisionné' },
+  { val: null,          label: 'Effacer' },
+]
+
+function BadgeStatutFacture({ statut, onOuvrir }: { statut: StatutFacture | null; onOuvrir: () => void }) {
+  const cls = statut === 'litige'
+    ? 'bg-red-100 text-red-700 border-red-200'
+    : statut === 'provisionne'
+      ? 'bg-orange-100 text-orange-700 border-orange-200'
+      : 'border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600'
+  const label = statut === 'litige' ? 'Litige' : statut === 'provisionne' ? 'Provisionné' : 'Statut'
+  return (
+    <button onClick={onOuvrir}
+            className={`cursor-pointer inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${cls}`}>
+      {label}
+    </button>
+  )
+}
+
+export function ModalEnvoiAuto({ envoi, nomClient, commentaires, onSauvegarderCommentaire, onFermer }: Props) {
+  const { mettreAJourStatutLocal } = useAppData()
+  const { utilisateur } = useAuth()
+  const operateur = utilisateur?.email?.split('@')[0] ?? ''
+
+  const [cache, setCache] = useState<Map<string, FactureLigne[]>>(new Map())
+  const [statutsFac, setStatutsFac] = useState<Map<string, StatutFacture | null>>(new Map())
+  const [nePasRelancer, setNePasRelancer] = useState<Map<string, boolean>>(new Map())
+  const [comOuvertes, setComOuvertes] = useState<Set<string>>(new Set())
+  const [textes, setTextes] = useState<Map<string, string>>(new Map())
+  const [popupStatut, setPopupStatut] = useState<string | null>(null)
 
   const cle = envoi?.cle ?? null
 
+  // Factures relues maintenant, pas figées à l'envoi : voir le reste dû du jour
+  // est tout l'intérêt, il dit si le client a réglé depuis.
   useEffect(() => {
     if (!envoi || cache.has(envoi.cle)) return
-    const filtreLog = envoi.cle.includes('|')
-      ? supabase.from('relances_auto_log').select('corps_html')
-          .eq('code_client', envoi.code_client).eq('envoye_le', envoi.envoye_le).limit(1)
-      : supabase.from('relances_auto_log').select('corps_html').eq('resend_id', envoi.cle).limit(1)
-
-    Promise.all([
-      filtreLog,
-      // Les factures sont relues maintenant, pas figées à l'envoi : voir le
-      // reste dû du jour est tout l'intérêt — il dit si le client a payé depuis.
-      supabase.from('v_factures_avec_reste_du')
-        .select('numero_piece, montant_ttc, reste_du')
-        .in('numero_piece', envoi.numeros),
-    ]).then(([{ data: logData }, { data: facData }]) => {
-      const row = (logData ?? [])[0] as { corps_html: string | null } | undefined
-      setCache(prev => new Map(prev).set(envoi.cle, {
-        corps: row?.corps_html ?? null,
-        factures: ((facData ?? []) as FactureLigne[]),
-      }))
-    })
+    supabase
+      .from('v_factures_avec_reste_du')
+      .select('numero_piece, montant_ttc, reste_du, statut_facture')
+      .in('numero_piece', envoi.numeros)
+      .then(({ data }) => {
+        setCache(prev => new Map(prev).set(envoi.cle, (data ?? []) as FactureLigne[]))
+      })
   }, [cle, envoi, cache])
 
   if (!envoi) return null
 
-  const donnees    = cache.get(envoi.cle)
-  const chargement = !donnees
+  const factures   = cache.get(envoi.cle)
+  const chargement = !factures
   const jours      = joursDepuis(envoi.envoye_le)
   const enRetard   = jours >= 10
 
-  const statutLabel = envoi.statut === 'envoye' ? 'Envoyé'
-    : envoi.statut === 'bounce' ? 'Rebond, le client n\'a rien reçu'
-    : 'Erreur à l\'envoi'
-  const statutStyle = envoi.statut === 'envoye' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-    : envoi.statut === 'bounce' ? 'bg-red-50 text-red-700 border-red-200'
-    : 'bg-amber-50 text-amber-700 border-amber-200'
+  async function changerStatut(numeroPiece: string, statut: StatutFacture | null) {
+    setStatutsFac(prev => new Map(prev).set(numeroPiece, statut))
+    mettreAJourStatutLocal(numeroPiece, statut)
+    setPopupStatut(null)
+    await supabase.from('factures').update({ statut_facture: statut } as never).eq('numero_piece', numeroPiece)
+    toast.success(statut === 'litige' ? 'Facture passée en litige'
+      : statut === 'provisionne' ? 'Facture provisionnée' : 'Statut effacé')
+  }
 
-  const TH = 'text-[10px] font-bold uppercase tracking-wider text-gray-400 px-3 py-2 text-left whitespace-nowrap'
+  async function basculerExclure(numeroPiece: string, valeur: boolean) {
+    setNePasRelancer(prev => new Map(prev).set(numeroPiece, valeur))
+    await onSauvegarderCommentaire({
+      numero_piece: numeroPiece, contact: '', date_contact: '',
+      commentaire: textes.get(numeroPiece) ?? commentaires.get(numeroPiece)?.commentaire ?? '',
+      operateur, ne_pas_relancer: valeur,
+    })
+    toast.success(valeur ? 'Facture exclue des prochaines relances' : 'Facture réintégrée aux relances')
+  }
+
+  async function enregistrerCommentaire(numeroPiece: string) {
+    await onSauvegarderCommentaire({
+      numero_piece: numeroPiece, contact: '', date_contact: '',
+      commentaire: textes.get(numeroPiece) ?? '',
+      operateur, ne_pas_relancer: nePasRelancer.get(numeroPiece) ?? false,
+    })
+    toast.success('Commentaire enregistré')
+  }
+
+  const TH = 'text-[10px] font-bold text-gray-500 uppercase tracking-wider py-3'
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -114,81 +173,136 @@ export function ModalEnvoiAuto({ envoi, nomClient, onFermer }: Props) {
         <div className="flex-1 min-h-0 overflow-y-auto">
 
           <div className="px-6 pt-4">
-            <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider mb-2">Destinataire</p>
+            <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider mb-2">Destinataires</p>
             <div className="inline-flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
               <span className={`w-1.5 h-1.5 rounded-full ${envoi.statut === 'envoye' ? 'bg-emerald-500' : 'bg-red-500'}`} />
               <span className="text-sm text-gray-700">{envoi.contact_email ?? '—'}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statutStyle}`}>{statutLabel}</span>
+              {envoi.statut !== 'envoye' && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
+                  {envoi.statut === 'bounce' ? 'Rebond' : 'Erreur'}
+                </span>
+              )}
             </div>
-            {/* Le journal ne conserve que la première adresse de l'envoi. S'il y
-                en avait d'autres en copie, elles ne sont pas tracées. */}
+            {/* Le journal ne conserve que la première adresse de l'envoi. */}
             <p className="text-[10px] text-gray-400 mt-1.5">
-              Seule la première adresse de l'envoi est conservée par le journal.
+              Le journal du robot ne conserve que la première adresse. Les copies éventuelles ne sont pas tracées.
             </p>
           </div>
 
-          <div className="px-6 pt-5">
-            <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider mb-2">
-              Factures relancées · {envoi.numeros.length}
-            </p>
-            <div className="border border-gray-200 rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50/60 border-b border-gray-100">
-                    <th className={TH}>N° Facture</th>
-                    <th className={`${TH} text-right`}>Montant TTC</th>
-                    <th className={`${TH} text-right`}>Reste dû</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {envoi.numeros.map(n => {
-                    const f = donnees?.factures.find(x => x.numero_piece === n)
-                    const solde = f ? f.reste_du <= 0.005 : false
+          <div className="px-1 pt-5 pb-2">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-gray-100">
+                  <th className={`${TH} text-left px-5`}>N° Facture</th>
+                  <th className={`${TH} text-right px-3`}>Montant TTC</th>
+                  <th className={`${TH} text-right px-3`}>Reste dû</th>
+                  <th className={`${TH} text-left px-3`}>Statut</th>
+                  <th className={`${TH} text-left px-3`}>Exclure</th>
+                  <th className={`${TH} text-center px-3`}>Commentaire</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chargement && (
+                  <tr><td colSpan={6} className="px-5 py-5 text-xs text-gray-400 italic">
+                    <span className="inline-flex items-center gap-2"><IcLoader size={12} /> Chargement…</span>
+                  </td></tr>
+                )}
+                {envoi.numeros.map(n => {
+                  const f = factures?.find(x => x.numero_piece === n)
+                  if (!f && !chargement) {
                     return (
-                      <tr key={n} className="border-b border-slate-50 last:border-0">
-                        <td className="px-3 py-2.5 font-mono text-xs font-semibold text-ockham-teal-dark">{n}</td>
-                        <td className="px-3 py-2.5 text-right text-xs tabular-nums text-gray-600">
-                          {f ? euros(f.montant_ttc) : chargement ? '…' : '—'}
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          {!f ? <span className="text-xs text-gray-400">{chargement ? '…' : '—'}</span>
-                            : solde
-                              ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Payée</span>
-                              : <span className="text-xs font-semibold tabular-nums text-red-600">{euros(f.reste_du)}</span>}
-                        </td>
+                      <tr key={n} className="[&>td]:border-b [&>td]:border-gray-50">
+                        <td className="px-5 py-2.5 font-mono text-[12px] font-bold text-ockham-teal-dark">{n}</td>
+                        <td colSpan={5} className="px-3 py-2.5 text-[11px] text-gray-400 italic">Facture introuvable</td>
                       </tr>
                     )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1.5">
+                  }
+                  if (!f) return null
+                  const statut  = statutsFac.get(n) ?? f.statut_facture
+                  const exclue  = nePasRelancer.get(n) ?? commentaires.get(n)?.ne_pas_relancer ?? false
+                  const comOpen = comOuvertes.has(n)
+                  const hasCom  = (commentaires.get(n)?.commentaire ?? '').trim().length > 0
+                  const solde   = f.reste_du <= 0.005
+                  return (
+                    <Fragment key={n}>
+                      <tr className="[&>td]:border-b [&>td]:border-gray-50 hover:bg-gray-50/60 transition-colors">
+                        <td className="px-5 py-2.5">
+                          <span className="font-mono text-[12px] font-bold text-ockham-teal-dark">{n}</span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right tabular-nums text-gray-600">{euros(f.montant_ttc)}</td>
+                        <td className="px-3 py-2.5 text-right">
+                          {solde
+                            ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Payée</span>
+                            : <span className="font-semibold tabular-nums text-red-600">{euros(f.reste_du)}</span>}
+                        </td>
+                        <td className="px-3 py-2.5 relative">
+                          <BadgeStatutFacture statut={statut} onOuvrir={() => setPopupStatut(popupStatut === n ? null : n)} />
+                          {popupStatut === n && (
+                            <div className="absolute z-30 top-9 left-3 bg-white border border-gray-200 rounded-lg shadow-xl p-1 min-w-[130px]">
+                              {STATUTS.map(s => (
+                                <button key={s.label} onClick={() => changerStatut(n, s.val)}
+                                        className="block w-full text-left text-[11.5px] px-2.5 py-1.5 rounded hover:bg-ockham-teal-muted hover:text-ockham-teal-dark text-gray-600">
+                                  {s.label}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <input type="checkbox" checked={exclue}
+                                 onChange={e => basculerExclure(n, e.target.checked)}
+                                 title="Exclure cette facture des prochaines relances"
+                                 className="accent-ockham-teal cursor-pointer" />
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <button onClick={() => setComOuvertes(prev => {
+                                    const s = new Set(prev)
+                                    if (s.has(n)) s.delete(n); else s.add(n)
+                                    return s
+                                  })}
+                                  className={`text-[10px] font-semibold px-2 py-1 rounded border transition-colors ${
+                                    hasCom ? 'bg-ockham-teal-muted text-ockham-teal-dark border-ockham-teal/30'
+                                           : 'border-gray-200 text-gray-400 hover:border-gray-300'
+                                  }`}>
+                            Commentaire
+                          </button>
+                        </td>
+                      </tr>
+                      {comOpen && (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-3 bg-gray-50/60 border-b border-gray-50">
+                            <textarea
+                              value={textes.get(n) ?? commentaires.get(n)?.commentaire ?? ''}
+                              onChange={e => setTextes(prev => new Map(prev).set(n, e.target.value))}
+                              placeholder="Saisir un commentaire…"
+                              rows={2}
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs outline-none focus:border-ockham-teal resize-none"
+                            />
+                            <div className="flex justify-end mt-2">
+                              <button onClick={() => enregistrerCommentaire(n)}
+                                      className="text-[11px] font-semibold bg-ockham-teal text-white px-3 py-1.5 rounded-lg hover:bg-ockham-teal-dark transition-colors">
+                                Enregistrer
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            <p className="text-[10px] text-gray-400 px-5 mt-1.5">
               Reste dû du jour, pas celui de l'envoi : il dit si le client a réglé depuis.
             </p>
           </div>
-
-          <div className="px-6 py-5">
-            <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider mb-2">
-              Message reçu par le client
-            </p>
-            {chargement ? (
-              <div className="flex items-center gap-2 py-10 justify-center text-sm text-gray-400">
-                <IcLoader size={14} /> Chargement…
-              </div>
-            ) : donnees?.corps ? (
-              // Le HTML vient de notre propre fonction d'envoi, pas d'une saisie
-              // utilisateur : il est construit par buildHtml dans relance-auto.
-              <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/40"
-                   dangerouslySetInnerHTML={{ __html: donnees.corps }} />
-            ) : (
-              <p className="text-xs text-gray-400 py-8 text-center">
-                Le corps du message n'a pas été conservé pour cet envoi.
-              </p>
-            )}
-          </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
+        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
+          <p className="text-[10px] text-gray-400 max-w-md leading-snug">
+            Pas de note de suivi ni d'archivage : un envoi automatique n'est pas une ligne
+            de la table des relances, il n'a rien sur quoi écrire.
+          </p>
           <button onClick={onFermer}
                   className="text-sm font-medium text-gray-500 border border-gray-200 hover:border-gray-300 px-5 py-2 rounded-lg transition-colors">
             Fermer
