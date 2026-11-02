@@ -8,6 +8,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from '../relances/ModalDetailRelance'
+import { ZoneTexteAuto } from './ZoneTexteAuto'
+import { IcTelephone, IcEnveloppe } from '../Icones'
 
 interface LogAuto {
   id: string
@@ -24,11 +26,16 @@ interface Echange {
   id: string
   canal: 'appel' | 'mail'
   echange_le: string
+  contact_nom: string | null
+  contact_prenom: string | null
+  contact_telephone: string | null
+  contact_email: string | null
+  /** Historique (migration 182), avant la separation en quatre champs. Lu en
+   *  repli pour les lignes deja saisies, plus jamais alimente. */
   contact_libre: string | null
   commentaire: string | null
   retour_client: string | null
   operateur: string | null
-  contact: { prenom: string | null; nom: string } | null
 }
 
 // date est porte par les trois variantes : c'est la cle de tri commune, et
@@ -52,51 +59,55 @@ function fmtEuros(n: number) {
   return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 }
 
-/** Libelle du contact : la fiche si elle est cochee, sinon la saisie libre,
- *  sinon rien — les trois cas sont permis par la migration 182. */
-function libelleContact(e: Echange): string | null {
-  if (e.contact) return e.contact.prenom ? `${e.contact.prenom} ${e.contact.nom}` : e.contact.nom
-  return e.contact_libre?.trim() || null
+const STYLE_CANAL: Record<Echange['canal'], { label: string; Icone: typeof IcTelephone }> = {
+  appel: { label: 'Appel client', Icone: IcTelephone },
+  mail:  { label: 'Mail client',  Icone: IcEnveloppe },
 }
 
-const STYLE_CANAL: Record<Echange['canal'], { label: string; badge: string; bordure: string }> = {
-  appel: {
-    label:   'Appel',
-    badge:   'bg-ockham-copper/10 text-ockham-copper border-ockham-copper/30',
-    bordure: 'border-ockham-copper/30',
-  },
-  mail: {
-    label:   'Mail',
-    badge:   'bg-ockham-teal/10 text-ockham-teal-dark border-ockham-teal/30',
-    bordure: 'border-ockham-teal/30',
-  },
+/** Les quatre champs du contact, dans l'ordre de saisie. Seuls ceux qui sont
+ *  remplis s'affichent : la migration 183 les veut tous facultatifs, et une
+ *  grille de quatre lignes vides ne dit rien a personne. */
+function champsContact(e: Echange): { label: string; valeur: string }[] {
+  const paires = [
+    { label: 'Nom',       valeur: e.contact_nom },
+    { label: 'Prénom',    valeur: e.contact_prenom },
+    { label: 'Téléphone', valeur: e.contact_telephone },
+    { label: 'Mail',      valeur: e.contact_email },
+  ]
+  const remplis = paires.filter(p => p.valeur?.trim()).map(p => ({ label: p.label, valeur: p.valeur!.trim() }))
+  // Repli pour les lignes d'avant la 183, qui n'ont que contact_libre.
+  if (remplis.length === 0 && e.contact_libre?.trim()) {
+    return [{ label: 'Contact', valeur: e.contact_libre.trim() }]
+  }
+  return remplis
 }
 
 interface PropsLigneEchange {
   echange: Echange
   isPremiere: boolean
-  onRetour: (id: string, retour: string) => Promise<boolean>
+  onEnregistrer: (id: string, commentaire: string, retour: string) => Promise<boolean>
 }
 
-function LigneEchange({ echange: e, isPremiere, onRetour }: PropsLigneEchange) {
+function LigneEchange({ echange: e, isPremiere, onEnregistrer }: PropsLigneEchange) {
   const [deplie, setDeplie] = useState(false)
+  const [commentaire, setCommentaire] = useState(e.commentaire ?? '')
   const [retour, setRetour] = useState(e.retour_client ?? '')
   const [enCours, setEnCours] = useState(false)
-  const st = STYLE_CANAL[e.canal]
+  const { label, Icone } = STYLE_CANAL[e.canal]
 
-  const contact = libelleContact(e)
-  // Pas de montant a afficher : un appel ne porte pas de perimetre de factures.
-  // La colonne centrale sert donc au contact, puis au commentaire.
-  const resume = contact ?? e.commentaire?.trim() ?? 'Sans detail'
+  const contact = champsContact(e)
+  const modifie = commentaire !== (e.commentaire ?? '') || retour !== (e.retour_client ?? '')
 
   async function enregistrer() {
     setEnCours(true)
-    await onRetour(e.id, retour)
+    await onEnregistrer(e.id, commentaire, retour)
     setEnCours(false)
   }
 
   return (
-    <div className={`rounded-lg border ${isPremiere ? st.bordure : 'border-gray-200'}`}>
+    <div className={`rounded-lg border ${isPremiere ? 'border-ockham-navy/25' : 'border-gray-200'}`}>
+      {/* Replie : le canal, pas le contact. Le nom tronque au milieu d'un
+          numero de telephone ne disait ni qui c'etait ni ce qui s'etait dit. */}
       <button
         onClick={() => setDeplie(d => !d)}
         className="w-full text-left flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50 rounded-lg transition-colors"
@@ -104,9 +115,9 @@ function LigneEchange({ echange: e, isPremiere, onRetour }: PropsLigneEchange) {
         <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${isPremiere ? 'text-ockham-navy' : 'text-gray-500'}`}>
           {fmt(e.echange_le)}
         </span>
-        <span className="text-[11px] font-semibold flex-1 truncate text-gray-700">{resume}</span>
-        <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${st.badge}`}>
-          {st.label}
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold flex-1 truncate text-gray-700">
+          <Icone size={12} className="flex-shrink-0 text-gray-400" />
+          {label}
         </span>
         <span className="text-[10px] font-bold w-5 text-center flex-shrink-0 text-gray-400">
           {e.operateur ?? '?'}
@@ -120,29 +131,40 @@ function LigneEchange({ echange: e, isPremiere, onRetour }: PropsLigneEchange) {
       </button>
 
       {deplie && (
-        <div className="px-3 pb-3 pt-1 space-y-2 border-t border-gray-100">
-          {contact && e.commentaire && (
-            <p className="text-[11px] text-gray-600 whitespace-pre-wrap">{e.commentaire}</p>
+        <div className="px-3 pb-3 pt-2 space-y-2.5 border-t border-gray-100">
+          {contact.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Contact</p>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                {contact.map(c => (
+                  <div key={c.label} className="min-w-0">
+                    <span className="block text-[9px] text-gray-400">{c.label}</span>
+                    <span className="block text-[11px] font-semibold text-gray-700 truncate">{c.valeur}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
+
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Commentaire</p>
+            <ZoneTexteAuto value={commentaire} onChange={setCommentaire} placeholder="Ce qui a été dit" />
+          </div>
+
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Retour du client</p>
-            <textarea
-              value={retour}
-              onChange={ev => setRetour(ev.target.value)}
-              rows={2}
-              placeholder="Ce que le client a répondu"
-              className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] outline-none focus:border-ockham-teal resize-none"
-            />
-            {retour !== (e.retour_client ?? '') && (
-              <button
-                onClick={enregistrer}
-                disabled={enCours}
-                className="mt-1.5 text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors"
-              >
-                {enCours ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            )}
+            <ZoneTexteAuto value={retour} onChange={setRetour} placeholder="Ce que le client a répondu" />
           </div>
+
+          {modifie && (
+            <button
+              onClick={enregistrer}
+              disabled={enCours}
+              className="text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
+            >
+              {enCours ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -189,7 +211,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
         .limit(100),
       supabase
         .from('echanges_clients')
-        .select('id,canal,echange_le,contact_libre,commentaire,retour_client,operateur,contact:contacts_client(prenom,nom)')
+        .select('id,canal,echange_le,contact_nom,contact_prenom,contact_telephone,contact_email,contact_libre,commentaire,retour_client,operateur')
         .eq('code_client', codeClient)
         .order('echange_le', { ascending: false })
         .limit(50),
@@ -198,7 +220,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
       if (!actif) return
       setRelances((r ?? []) as Relance[])
       setLogsAuto((a ?? []) as LogAuto[])
-      setEchanges((e ?? []) as unknown as Echange[])
+      setEchanges((e ?? []) as Echange[])
       const map = new Map<string, string>()
       for (const usr of (u ?? []) as { id: string; initiales: string | null }[]) {
         if (usr.initiales) map.set(usr.id, usr.initiales)
@@ -309,15 +331,16 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
   }
 
   // Le retour du client arrive apres coup : on raccroche au telephone sans
-  // savoir ce qui sera paye. La ligne reste donc modifiable.
-  async function majRetour(id: string, retour: string): Promise<boolean> {
-    const valeur = retour.trim() || null
-    const { error } = await supabase
-      .from('echanges_clients')
-      .update({ retour_client: valeur } as never)
-      .eq('id', id)
+  // savoir ce qui sera paye. Le commentaire aussi se corrige, on note vite
+  // pendant l'appel. Les deux restent modifiables.
+  async function majEchange(id: string, commentaire: string, retour: string): Promise<boolean> {
+    const maj = {
+      commentaire:   commentaire.trim() || null,
+      retour_client: retour.trim() || null,
+    }
+    const { error } = await supabase.from('echanges_clients').update(maj as never).eq('id', id)
     if (error) return false
-    setEchanges(prev => prev.map(e => e.id === id ? { ...e, retour_client: valeur } : e))
+    setEchanges(prev => prev.map(e => e.id === id ? { ...e, ...maj } : e))
     return true
   }
 
@@ -388,7 +411,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
                 key={entree.echange.id}
                 echange={entree.echange}
                 isPremiere={isPremiere}
-                onRetour={majRetour}
+                onEnregistrer={majEchange}
               />
             )
           }

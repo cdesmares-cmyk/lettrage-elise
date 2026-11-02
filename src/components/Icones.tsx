@@ -21,6 +21,12 @@ function Svg({ size = 15, className = '', color, children }: SvgProps & { childr
 export function IcSearch(p: SvgProps) {
   return <Svg {...p}><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L19 19"/></Svg>
 }
+export function IcTelephone(p: SvgProps) {
+  return <Svg {...p}><path d="M21 16.5v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 011.1 3.7 2 2 0 013.1 1.5h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.7a2 2 0 01-.5 2.1L7.1 9.2a16 16 0 006 6l1.2-1.2a2 2 0 012.1-.5c.9.3 1.8.5 2.7.6a2 2 0 011.7 2z"/></Svg>
+}
+export function IcEnveloppe(p: SvgProps) {
+  return <Svg {...p}><rect x="2.5" y="4.5" width="19" height="15" rx="2"/><polyline points="3 6 12 13 21 6"/></Svg>
+}
 export function IcClock(p: SvgProps) {
   return <Svg {...p}><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></Svg>
 }
