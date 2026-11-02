@@ -1,0 +1,145 @@
+-- Migration 185 : index pour la pagination par curseur
+--
+-- A LIRE AVEC LA MIGRATION 184, qui a traite la moitie du probleme.
+--
+-- OU ON EN EST. L'index 184 a supprime le gaspillage par ligne : plus de filtre
+-- sur reste_du evalue ligne a ligne, plus de tri. Mesure du 2026-11-02 sur
+-- Elise Lyon, page 20 :
+--
+--   Index Scan using idx_factures_ouvertes_tri   rows=20000
+--     Buffers: shared hit=19649
+--   Limit                                        rows=1000
+--   Execution Time: 1995 ms
+--
+-- 19 649 blocs pour 20 000 lignes, soit UN bloc par ligne : chaque ligne
+-- touchee est desormais une ligne utile. On ne fera pas mieux de ce cote.
+--
+-- CE QUI RESTE. L'index lit 20 000 lignes pour en servir 1 000. C'est l'OFFSET,
+-- et aucun index ne le corrige : la page 20 refait le travail des 19
+-- precedentes. Elise Lyon charge 48 pages, donc 1 176 000 lignes lues pour en
+-- servir 47 056. Vingt-cinq fois trop, et environ deux minutes de temps base
+-- par chargement complet.
+--
+-- CE QUE FAIT CELUI-CI. Il sert la pagination par curseur : au lieu de
+-- « donne-moi les lignes 19 000 a 20 000 », l'application demande « donne-moi
+-- les 1 000 suivantes apres cette facture ». Chaque page coute alors 1 000
+-- lignes, quelle que soit sa position.
+--
+-- POURQUOI numero_piece COMME CURSEUR. Une pagination par curseur exige une
+-- cle de tri UNIQUE : sans elle, deux lignes ex aequo a la frontiere d'une page
+-- sont sautees ou servies deux fois, et des factures disparaissent en silence.
+-- factures porte UNIQUE (organisation_id, numero_piece) depuis la migration
+-- 019, ligne 315. Le couple (organisation_id, numero_piece) est donc une cle
+-- sure, et c'est exactement cet index.
+--
+-- POURQUOI PAS L'INDEX UNIQUE EXISTANT. Il couvre bien (organisation_id,
+-- numero_piece), mais il contient TOUTES les factures. Parcouru avec un filtre
+-- sur reste_du, il ramenerait le gaspillage que la 184 vient de supprimer :
+-- deux tiers des lignes lues puis jetees. Le predicat partiel est tout
+-- l'interet.
+--
+-- POURQUOI LE TRI PART DANS LE NAVIGATEUR. L'application affichait les factures
+-- triees par client puis par date decroissante. Ce tri est conserve, mais fait
+-- en JavaScript apres assemblage des pages. Deux raisons :
+--   - Un curseur sur (code_client ASC, date_emission DESC, numero_piece) exige
+--     un predicat a trois branches imbriquees, illisible et fragile. Sur un
+--     chemin ou une erreur fait disparaitre des factures sans rien dire, la
+--     simplicite est une mesure de securite.
+--   - Les 68 usages de facturesActives sont tous des find, filter, map ou
+--     reduce : aucun ne depend d'une position. Seul l'ordre d'affichage de
+--     listes filtrees pouvait changer, et le tri JavaScript le preserve.
+--
+-- CE QUE CET INDEX NE FAIT PAS. Il ne reduit pas le NOMBRE de rechargements.
+-- L'application recharge l'integralite des factures toutes les 5 minutes et a
+-- chaque retour sur la fenetre (AppDataContext.tsx). C'est le multiplicateur
+-- de tout ce qui precede, et c'est un sujet de produit — la fraicheur des
+-- donnees — pas un sujet d'index. A traiter separement.
+--
+-- 184 RESTE-T-IL UTILE ? Oui pour les requetes qui trient par client, mais le
+-- chargement central ne le fera plus. A verifier dans quelques jours :
+--
+--   SELECT indexrelname, idx_scan
+--   FROM   pg_stat_user_indexes
+--   WHERE  relname = 'factures' AND indexrelname LIKE 'idx_factures_ouvertes%';
+--
+-- Si idx_factures_ouvertes_tri ne bouge plus, il coute des ecritures pour rien
+-- et se supprime.
+--
+-- COUT. Environ 2,4 Mo, comme son jumeau. Et la meme contrepartie : reste_du
+-- change a chaque lettrage, donc des lignes entrent et sortent de l'index en
+-- permanence, ce qui ajoute du travail a chaque ecriture, imports compris.
+--
+-- RETOUR ARRIERE : DROP INDEX CONCURRENTLY IF EXISTS idx_factures_curseur;
+-- A ne faire qu'apres avoir remis l'ancienne pagination en production, sinon
+-- le chargement reprend le gaspillage que la 184 avait supprime.
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_factures_curseur
+  ON factures (organisation_id, numero_piece)
+  WHERE (reste_du > 0.005 OR reste_du < -0.005)
+    AND numero_piece <> '411_ATTENTE';
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  MODE D'EMPLOI
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- A EXECUTER SEUL, comme la 184 : CREATE INDEX CONCURRENTLY ne peut pas
+-- tourner dans une transaction. Puis, sans quoi le planificateur travaille a
+-- l'aveugle sur le nouveau perimetre :
+--
+--    ANALYZE factures;
+--
+--
+-- 1. VERIFIER QUE L'INDEX EST VALIDE. Un CREATE CONCURRENTLY interrompu laisse
+--    un index invalide : inutilise en lecture, et pourtant maintenu a chaque
+--    ecriture. indisvalid DOIT etre a true.
+--
+--    SELECT c.relname, i.indisvalid,
+--           pg_size_pretty(pg_relation_size(c.oid)) AS taille
+--    FROM   pg_class c
+--    JOIN   pg_index i ON i.indexrelid = c.oid
+--    WHERE  c.relname = 'idx_factures_curseur';
+--
+--
+-- 2. MESURER. La requete telle que l'application la posera desormais : pas
+--    d'OFFSET, un curseur. organisation_id explicite parce que le RLS ne
+--    s'applique pas dans l'editeur. Ici Elise Lyon, la plus chargee.
+--
+--    EXPLAIN (ANALYZE, BUFFERS)
+--    SELECT numero_piece, code_client, nom_client, date_emission, date_echeance,
+--           montant_ht, montant_ttc, reste_du, statut_facture, est_avoir,
+--           axonaut_pdf_url
+--    FROM   factures
+--    WHERE  organisation_id = '58c9d33f-14ad-4516-b0fa-71d4b2739124'
+--      AND  (reste_du > 0.005 OR reste_du < -0.005)
+--      AND  numero_piece <> '411_ATTENTE'
+--      AND  numero_piece > 'F2025'          -- le curseur, une valeur au hasard
+--    ORDER  BY numero_piece ASC
+--    LIMIT  1000;
+--
+--    ATTENDU : « Index Scan using idx_factures_curseur », rows=1000 et non
+--    rows=20000, et quelques centaines de blocs au lieu de 19 649. Surtout :
+--    ce cout doit etre le MEME quelle que soit la valeur du curseur. C'est tout
+--    l'objet de la manoeuvre, et c'est ce qu'il faut verifier en changeant la
+--    valeur deux ou trois fois.
+--
+--
+-- 3. LE CONTROLE QUI COMPTE VRAIMENT : AUCUNE FACTURE PERDUE. Une pagination
+--    par curseur qui derape ne plante pas, elle escamote des lignes. Le total
+--    par organisation doit etre identique a celui mesure avant la bascule.
+--
+--    SELECT o.nom, count(*) AS factures_ouvertes
+--    FROM   factures f
+--    JOIN   organisations o ON o.id = f.organisation_id
+--    WHERE  (f.reste_du > 0.005 OR f.reste_du < -0.005)
+--      AND  f.numero_piece <> '411_ATTENTE'
+--    GROUP  BY o.nom
+--    ORDER  BY factures_ouvertes DESC;
+--
+--    Releve du 2026-11-02, avant bascule :
+--      Elise Lyon 47 056 · OCKHAM Demo 4 945 · SAS TBZ 2 711 · SAS MELEZE 2 452
+--      SAS Odoo 6 · Ockham Desmares 6
+--
+--    Et dans l'application, le nombre de factures affiche a l'ecran doit etre
+--    le meme qu'avant. C'est ce controle-la qui valide la bascule, pas le
+--    gain de temps.
