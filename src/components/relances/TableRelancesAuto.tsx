@@ -7,6 +7,7 @@
 // Une ligne = un email, pas une facture. Le journal du robot porte une ligne
 // par facture ; le regroupement se fait dans useRelances, sur le resend_id.
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAppData } from '../../contexts/AppDataContext'
 import type { EnvoiAuto } from '../../hooks/useRelances'
 import type { CommentaireFacture } from '../../types/client'
@@ -27,13 +28,6 @@ function euros(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
 }
 
-function dateHeure(iso: string) {
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
-    + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
 function BadgeStatut({ statut }: { statut: EnvoiAuto['statut'] }) {
   const style = statut === 'envoye' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
     : statut === 'bounce'           ? 'bg-red-50 text-red-700 border-red-200'
@@ -45,6 +39,7 @@ function BadgeStatut({ statut }: { statut: EnvoiAuto['statut'] }) {
 const PAGE_SIZE = 25
 
 export function TableRelancesAuto({ envois, chargement, recherche = '', commentaires, onSauvegarderCommentaire }: Props) {
+  const navigate = useNavigate()
   const { clients } = useAppData()
   const clientsMap = useMemo(() => new Map(clients.map(c => [c.code_dso, c.nom])), [clients])
   const [page, setPage] = useState(0)
@@ -85,11 +80,10 @@ export function TableRelancesAuto({ envois, chargement, recherche = '', commenta
       <table className="w-full">
         <thead>
           <tr className="bg-gray-50/60 border-b border-gray-100">
+            <th className={TH}>Code</th>
             <th className={TH}>Client</th>
-            <th className={TH}>Envoyé le</th>
-            <th className={TH}>Destinataire</th>
-            <th className={`${TH} text-right`}>Factures</th>
-            <th className={`${TH} text-right`}>Montant</th>
+            <th className={`${TH} text-right`}>Nb factures</th>
+            <th className={`${TH} text-right`}>Montant relance</th>
             <th className={TH}>Statut</th>
           </tr>
         </thead>
@@ -97,16 +91,21 @@ export function TableRelancesAuto({ envois, chargement, recherche = '', commenta
           {visibles.map(e => (
             <tr key={e.cle} onClick={() => setOuvert(e)}
                 className="cursor-pointer hover:bg-ockham-teal-muted transition-colors">
+              {/* Le code mene au compte client, la ligne ouvre l'envoi : deux
+                  destinations distinctes, donc on arrete la propagation. */}
+              <td className={TD} onClick={ev => ev.stopPropagation()}>
+                <button
+                  onClick={() => navigate(`/compte-client?client=${encodeURIComponent(e.code_client)}`)}
+                  className="font-mono text-xs text-ockham-teal hover:text-ockham-teal-dark hover:underline transition-colors"
+                >
+                  {e.code_client}
+                </button>
+              </td>
               <td className={TD}>
-                <div className="text-sm font-semibold text-gray-800">
+                <span className="text-sm font-semibold text-gray-800">
                   {clientsMap.get(e.code_client) ?? e.code_client}
-                </div>
-                <div className="text-[11px] text-gray-400 tabular-nums">{e.code_client}</div>
+                </span>
               </td>
-              <td className={`${TD} text-xs text-gray-500 tabular-nums whitespace-nowrap`}>
-                {dateHeure(e.envoye_le)}
-              </td>
-              <td className={`${TD} text-xs text-gray-500`}>{e.contact_email ?? '—'}</td>
               <td className={`${TD} text-right`}>
                 <span className="text-xs tabular-nums text-gray-500" title={e.numeros.join(', ')}>
                   {e.numeros.length}

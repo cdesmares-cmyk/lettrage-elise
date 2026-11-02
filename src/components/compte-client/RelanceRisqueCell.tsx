@@ -111,13 +111,35 @@ export function NiveauCell({ level }: { level: NiveauRelance }) {
  * Un tiret, jamais un zéro, quand il n'y a rien à dater — jamais relancé, ou
  * client gelé hors cycle. Zéro voudrait dire « relancé aujourd'hui ».
  */
+/** Ensemble vide : aucune relance, ni manuelle ni automatique. */
+function IcAucuneRelance() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <path d="M17.5 3.5A9 9 0 0 0 3.5 17.5"/>
+      <path d="M6.5 20.5A9 9 0 0 0 20.5 6.5"/>
+      <line x1="21" y1="3" x2="3" y2="21"/>
+    </svg>
+  )
+}
+
 export function AncienneteCell({ level, jours }: { level: NiveauRelance; jours: number | null }) {
   // Le niveau 0 ne force plus le tiret. « N0 » veut dire jamais relance SUR LES
   // FACTURES ENCORE OUVERTES ; le client a pu etre contacte hier sur une autre
   // facture, ou par le robot. La date, elle, compte la derniere relance tout
   // court — c est sa raison d etre.
-  if (level === 'gel' || level === 'hors_cycle' || level === 'attente' || jours === null) {
-    return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Aucune relance à dater">—</span>
+  // Jamais relancé : un ensemble vide, pas un tiret. Le tiret dit « pas de
+  // valeur » ; ici on sait, et la réponse est « rien ».
+  if (jours === null) {
+    return (
+      <span className="text-[#CBD5E1] inline-flex" title="Jamais relancé" aria-label="Jamais relancé">
+        <IcAucuneRelance />
+      </span>
+    )
+  }
+  // Gel, hors cycle, attente : le niveau lui-même est suspendu, dater n'a pas
+  // de sens même si une date existe.
+  if (level === 'gel' || level === 'hors_cycle' || level === 'attente') {
+    return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Hors cycle, aucune relance à dater">—</span>
   }
   return (
     <span

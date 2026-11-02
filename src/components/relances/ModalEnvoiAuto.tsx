@@ -174,14 +174,21 @@ export function ModalEnvoiAuto({ envoi, nomClient, commentaires, onSauvegarderCo
 
           <div className="px-6 pt-4">
             <p className="text-[11px] font-bold text-ockham-navy/60 uppercase tracking-wider mb-2">Destinataires</p>
-            <div className="inline-flex items-center gap-2 border border-gray-200 rounded-lg px-3 py-2">
-              <span className={`w-1.5 h-1.5 rounded-full ${envoi.statut === 'envoye' ? 'bg-emerald-500' : 'bg-red-500'}`} />
-              <span className="text-sm text-gray-700">{envoi.contact_email ?? '—'}</span>
-              {envoi.statut !== 'envoye' && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
-                  {envoi.statut === 'bounce' ? 'Rebond' : 'Erreur'}
+            {/* Meme cadre que le modal des relances manuelles. */}
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-ockham-teal/25 bg-ockham-teal-muted/60">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${envoi.statut === 'envoye' ? 'bg-ockham-teal' : 'bg-red-500'}`} />
+                <span className="text-[12px] font-semibold text-ockham-navy leading-none">Relance Auto</span>
+                <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white border border-gray-200 text-gray-500 flex-shrink-0">
+                  Relance
                 </span>
-              )}
+                <span className="text-[11px] text-gray-400 font-mono">{envoi.contact_email ?? '—'}</span>
+                {envoi.statut !== 'envoye' && (
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 flex-shrink-0">
+                    {envoi.statut === 'bounce' ? 'Rebond' : 'Erreur'}
+                  </span>
+                )}
+              </div>
             </div>
             {/* Le journal ne conserve que la première adresse de l'envoi. */}
             <p className="text-[10px] text-gray-400 mt-1.5">
