@@ -1,0 +1,152 @@
+-- Migration 184 : index partiel sur les factures ouvertes
+--
+-- POURQUOI. Le prechargement des factures au demarrage de l'application est la
+-- requete la plus couteuse de la base, et de tres loin. Mesure du 2026-11-02,
+-- sur des compteurs courant depuis le 6 mai :
+--
+--   206 929 appels · 1 977 ms de moyenne · 409 053 421 ms cumules (113 heures)
+--   15 983 062 535 blocs lus en cache
+--
+-- La deuxieme requete du classement totalise 1 149 362 ms. Celle-ci coute 356
+-- fois plus. Tout le reste est du bruit a cote, y compris le recalcul nocturne
+-- des scores.
+--
+-- CE QUE DIT LE PLAN D'EXECUTION. Pour une seule page de 1000 lignes :
+--
+--   Limit                     actual time=6421..6455  rows=1000
+--     Buffers: shared hit=54130
+--     -> Incremental Sort      rows=20000
+--       -> Index Scan using idx_factures_code_client
+--            Filter: (numero_piece <> '411_ATTENTE' AND (reste_du > 0.005 OR ...))
+--            Rows Removed by Filter: 41888
+--
+-- Deux problemes, un seul traite ici.
+--
+--   1. LE FILTRE N'EST PAS INDEXE. idx_factures_code_client ne sert qu'a
+--      obtenir l'ordre de tri. Postgres doit aller lire chaque ligne candidate
+--      dans la table pour y evaluer reste_du, puis en jeter 41 888 sur 61 917 :
+--      deux tiers du travail sont perdus. Et comme ces acces suivent l'ordre
+--      code_client et non l'ordre physique des lignes, les memes blocs sont
+--      relus en boucle. D'ou 54 130 blocs touches sur une table qui en compte
+--      12 400 : chaque bloc est visite plus de quatre fois.
+--
+--   2. LA PAGINATION PAR OFFSET. Le plan produit 20 000 lignes pour n'en
+--      garder que 1 000. La page 20 refait le travail des 19 precedentes, et
+--      le cout total du chargement est quadratique. Cet index N'Y CHANGE RIEN.
+--      Le correctif est une pagination par curseur dans AppDataContext.tsx, et
+--      c'est une modification du chargement central de l'application : elle ne
+--      se fait pas dans la foulee d'un index, mais apres mesure.
+--
+-- CE QUE CET INDEX FAIT. Il devient le perimetre exact de la requete : seules
+-- les factures ouvertes y figurent, deja classees par client et par date. Plus
+-- aucune ligne n'est lue pour etre jetee, et le tri disparait.
+--
+-- POURQUOI numero_piece EST DANS LE PREDICAT et non en colonne. Un filtre sur
+-- une colonne absente de l'index oblige Postgres a aller chercher la ligne dans
+-- la table pour l'evaluer, ce qui annulerait une bonne part du gain. En le
+-- mettant dans le predicat, l'exclusion est faite une fois pour toutes a la
+-- construction. Contrepartie : si l'application cesse un jour d'exclure
+-- 411_ATTENTE, ou exclut autre chose, l'index ne correspondra plus a la
+-- requete et sera ignore en silence. A verifier si ce filtre change.
+--
+-- POURQUOI organisation_id EN TETE. Le RLS ajoute toujours
+-- organisation_id = get_my_organisation_id(). Avec cette colonne en premiere
+-- position et une valeur constante, l'index fournit directement l'ordre
+-- (code_client, date_emission DESC) attendu par la requete.
+--
+--   CONSEQUENCE POUR LA MESURE : dans l'editeur SQL vous etes postgres, le RLS
+--   ne s'applique pas, et sans filtre sur organisation_id cet index ne peut pas
+--   fournir l'ordre de tri. Un EXPLAIN sans ce filtre ne montrera donc AUCUNE
+--   amelioration, et ce ne sera pas la faute de l'index. Voir le mode d'emploi
+--   plus bas : la requete de controle porte un organisation_id explicite.
+--
+-- CE QUE CA COUTE. Quelques megaoctets. Et surtout : reste_du est maintenu par
+-- le declencheur sync_reste_du (migration 008) et change a chaque lettrage. Des
+-- lignes entrent et sortent donc de cet index en permanence, ce qui ajoute du
+-- travail a chaque ecriture, imports compris. Le gain en lecture est sans
+-- commune mesure, mais ce n'est pas gratuit.
+--
+-- CE QUE CA NE CHANGE PAS. Aucun resultat, aucun comportement, aucune donnee.
+-- Un index ne modifie que la facon dont Postgres atteint les lignes.
+--
+-- RETOUR ARRIERE, immediat et sans risque :
+--   DROP INDEX CONCURRENTLY IF EXISTS idx_factures_ouvertes_tri;
+
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_factures_ouvertes_tri
+  ON factures (organisation_id, code_client, date_emission DESC)
+  WHERE (reste_du > 0.005 OR reste_du < -0.005)
+    AND numero_piece <> '411_ATTENTE';
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+--  MODE D'EMPLOI
+-- ═══════════════════════════════════════════════════════════════════════════
+--
+-- A EXECUTER SEUL. CREATE INDEX CONCURRENTLY ne peut pas tourner dans une
+-- transaction. Collez la commande seule dans l'editeur, sans rien d'autre.
+-- CONCURRENTLY ne pose pas de verrou : l'application continue de tourner
+-- pendant la construction, qui prend de quelques secondes a quelques dizaines
+-- de secondes sur 178 080 lignes.
+--
+-- SI L'EDITEUR REFUSE avec « CREATE INDEX CONCURRENTLY cannot run inside a
+-- transaction block », repliez-vous sur la version non concurrente :
+--
+--    CREATE INDEX IF NOT EXISTS idx_factures_ouvertes_tri
+--      ON factures (organisation_id, code_client, date_emission DESC)
+--      WHERE (reste_du > 0.005 OR reste_du < -0.005)
+--        AND numero_piece <> '411_ATTENTE';
+--
+--    Celle-ci VERROUILLE LES ECRITURES sur factures le temps de la
+--    construction. Quelques secondes, mais a faire hors des heures d'import.
+--
+--
+-- 1. VERIFIER QUE L'INDEX EXISTE ET EST VALIDE. Un CREATE CONCURRENTLY
+--    interrompu laisse un index invalide, que Postgres n'utilise pas et qui
+--    continue pourtant d'etre maintenu a chaque ecriture : le pire des deux
+--    mondes. indisvalid DOIT etre a true.
+--
+--    SELECT c.relname, i.indisvalid,
+--           pg_size_pretty(pg_relation_size(c.oid)) AS taille
+--    FROM   pg_class c
+--    JOIN   pg_index i ON i.indexrelid = c.oid
+--    WHERE  c.relname = 'idx_factures_ouvertes_tri';
+--
+--    Si indisvalid est false : DROP INDEX, puis recommencer.
+--
+--
+-- 2. MESURER. La requete de l'application, avec un organisation_id explicite
+--    pour remplacer le RLS absent dans l'editeur. Ici SAS MELEZE.
+--
+--    EXPLAIN (ANALYZE, BUFFERS)
+--    SELECT numero_piece, code_client, nom_client, date_emission, date_echeance,
+--           montant_ht, montant_ttc, reste_du, statut_facture, est_avoir,
+--           axonaut_pdf_url
+--    FROM   factures
+--    WHERE  organisation_id = '9b615f21-c205-4449-b765-b6ca5d964b59'
+--      AND  (reste_du > 0.005 OR reste_du < -0.005)
+--      AND  numero_piece <> '411_ATTENTE'
+--    ORDER  BY code_client ASC, date_emission DESC
+--    LIMIT  1000 OFFSET 19000;
+--
+--    ATTENDU : « Index Scan using idx_factures_ouvertes_tri », sans ligne
+--    Filter, sans Rows Removed by Filter, et sans etape de tri. Le nombre de
+--    blocs (Buffers: shared hit) doit s'effondrer.
+--
+--    Si l'organisation choisie a moins de 20 000 factures ouvertes, l'OFFSET
+--    de 19 000 renvoie peu ou pas de lignes : baissez-le, ou prenez
+--    l'organisation la plus chargee (requete 3).
+--
+--
+-- 3. DIMENSIONNER. Le comptage fait en postgres additionne TOUTES les
+--    organisations, ce que l'application ne fait jamais : le RLS la limite a
+--    une seule. Le nombre de pages reellement chargees par session se lit ici.
+--
+--    SELECT o.nom,
+--           count(*)                        AS factures_ouvertes,
+--           ceil(count(*) / 1000.0)::int    AS pages_de_1000
+--    FROM   factures f
+--    JOIN   organisations o ON o.id = f.organisation_id
+--    WHERE  (f.reste_du > 0.005 OR f.reste_du < -0.005)
+--      AND  f.numero_piece <> '411_ATTENTE'
+--    GROUP  BY o.nom
+--    ORDER  BY factures_ouvertes DESC;
