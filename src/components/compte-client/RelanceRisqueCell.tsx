@@ -112,7 +112,11 @@ export function NiveauCell({ level }: { level: NiveauRelance }) {
  * client gelé hors cycle. Zéro voudrait dire « relancé aujourd'hui ».
  */
 export function AncienneteCell({ level, jours }: { level: NiveauRelance; jours: number | null }) {
-  if (level === 0 || level === 'gel' || jours === null) {
+  // Le niveau 0 ne force plus le tiret. « N0 » veut dire jamais relance SUR LES
+  // FACTURES ENCORE OUVERTES ; le client a pu etre contacte hier sur une autre
+  // facture, ou par le robot. La date, elle, compte la derniere relance tout
+  // court — c est sa raison d etre.
+  if (level === 'gel' || level === 'hors_cycle' || level === 'attente' || jours === null) {
     return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Aucune relance à dater">—</span>
   }
   return (
