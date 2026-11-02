@@ -509,7 +509,11 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
                   </button>
                 )}
               </div>
-              <SectionTimelineRelances codeClient={client.code_dso} rafraichir={tickEchanges} />
+              <SectionTimelineRelances
+                codeClient={client.code_dso}
+                rafraichir={tickEchanges}
+                onEchangeSupprime={onEchangeEnregistre}
+              />
             </div>
           )}
 

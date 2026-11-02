@@ -2,6 +2,7 @@
 // Limite 5 items visibles, bouton "X relances plus anciennes" pour tout voir.
 // Clic sur une relance manuelle → ouvre ModalDetailRelance (identique à l'onglet Relances).
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
@@ -86,9 +87,13 @@ interface PropsLigneEchange {
   echange: Echange
   isPremiere: boolean
   onEnregistrer: (id: string, commentaire: string, retour: string) => Promise<boolean>
+  onSupprimer: (id: string) => Promise<void>
 }
 
-function LigneEchange({ echange: e, isPremiere, onEnregistrer }: PropsLigneEchange) {
+function LigneEchange({ echange: e, isPremiere, onEnregistrer, onSupprimer }: PropsLigneEchange) {
+  // Confirmation en deux temps plutot qu'un window.confirm : la boite native
+  // est hors charte, et elle ne dit pas ce que la suppression entraine.
+  const [confirme, setConfirme] = useState(false)
   const [deplie, setDeplie] = useState(false)
   const [commentaire, setCommentaire] = useState(e.commentaire ?? '')
   const [retour, setRetour] = useState(e.retour_client ?? '')
@@ -156,15 +161,42 @@ function LigneEchange({ echange: e, isPremiere, onEnregistrer }: PropsLigneEchan
             <ZoneTexteAuto value={retour} onChange={setRetour} placeholder="Ce que le client a répondu" />
           </div>
 
-          {modifie && (
-            <button
-              onClick={enregistrer}
-              disabled={enCours}
-              className="text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
-            >
-              {enCours ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-          )}
+          <div className="flex items-center justify-between gap-2 pt-0.5">
+            {modifie ? (
+              <button
+                onClick={enregistrer}
+                disabled={enCours}
+                className="text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                {enCours ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            ) : <span />}
+
+            {confirme ? (
+              <span className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-500">Retirer cette trace ?</span>
+                <button
+                  onClick={() => { setConfirme(false); onSupprimer(e.id) }}
+                  className="text-[10px] font-bold text-red-600 border border-red-200 bg-red-50 px-2.5 py-1 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+                >
+                  Confirmer
+                </button>
+                <button
+                  onClick={() => setConfirme(false)}
+                  className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer"
+                >
+                  Annuler
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirme(true)}
+                className="text-[10px] font-semibold text-gray-400 hover:text-red-600 transition-colors cursor-pointer"
+              >
+                Supprimer
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -173,15 +205,21 @@ function LigneEchange({ echange: e, isPremiere, onEnregistrer }: PropsLigneEchan
 
 interface Props {
   codeClient: string
+  /** Appele apres la suppression d'un echange, pour que le J+ global et le
+   *  bouton Relancer de la liste cessent d'en tenir compte. */
+  onEchangeSupprime?: () => void
   /** Incremente par le parent apres l'enregistrement d'un echange : c'est le
    *  signal de rechargement. Le formulaire vit au-dessus de ce composant,
    *  l'historique en dessous, et les deux doivent rester d'accord. */
   rafraichir?: number
 }
 
-export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
+export function SectionTimelineRelances({ codeClient, rafraichir = 0, onEchangeSupprime }: Props) {
   const { facturesActives } = useAppData()
-  const { profil } = useAuth()
+  const { profil, utilisateur } = useAuth()
+  // Rechargement declenche depuis l'interieur du composant, en plus de celui
+  // que le parent commande avec rafraichir.
+  const [rechargement, setRechargement] = useState(0)
   const [relances, setRelances]   = useState<Relance[]>([])
   const [logsAuto, setLogsAuto]   = useState<LogAuto[]>([])
   const [echanges, setEchanges]   = useState<Echange[]>([])
@@ -213,6 +251,9 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
         .from('echanges_clients')
         .select('id,canal,echange_le,contact_nom,contact_prenom,contact_telephone,contact_email,contact_libre,commentaire,retour_client,operateur')
         .eq('code_client', codeClient)
+        // Les echanges supprimes par un operateur sortent de l'historique.
+        // Rien n'est efface en base, migration 186.
+        .eq('archivee', false)
         .order('echange_le', { ascending: false })
         .limit(50),
       supabase.from('utilisateurs').select('id,initiales'),
@@ -229,7 +270,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
       setChargement(false)
     })
     return () => { actif = false }
-  }, [codeClient, rafraichir])
+  }, [codeClient, rafraichir, rechargement])
 
   // Commentaires des factures de la relance ouverte
   useEffect(() => {
@@ -344,6 +385,34 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
     return true
   }
 
+  // « Supprimer » cote interface, archivage en base. Un echange est la trace
+  // qu'un contact client a eu lieu : on ne l'efface pas, on cesse d'en tenir
+  // compte. Migration 186.
+  //
+  // Le retrait de la liste locale est fait AVANT la reponse du serveur pour que
+  // la ligne disparaisse tout de suite. En cas d'echec on recharge, ce qui la
+  // fait revenir : l'operateur voit que ca n'a pas marche.
+  async function supprimerEchange(id: string): Promise<void> {
+    setEchanges(prev => prev.filter(e => e.id !== id))
+    const { error } = await supabase
+      .from('echanges_clients')
+      .update({
+        archivee:     true,
+        archivee_le:  new Date().toISOString(),
+        archivee_par: utilisateur?.id ?? null,
+      } as never)
+      .eq('id', id)
+    if (error) {
+      toast.error('La suppression a échoué.')
+      setRechargement(n => n + 1)
+      return
+    }
+    toast.success('Échange supprimé')
+    // Le J+ global vit dans un autre hook : il faut le prevenir, sinon le
+    // client reste affiche « relance » alors que la trace vient de partir.
+    onEchangeSupprime?.()
+  }
+
   if (chargement) {
     return (
       <div className="space-y-1.5 pt-3 border-t border-gray-100">
@@ -412,6 +481,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0 }: Props) {
                 echange={entree.echange}
                 isPremiere={isPremiere}
                 onEnregistrer={majEchange}
+                onSupprimer={supprimerEchange}
               />
             )
           }

@@ -358,6 +358,11 @@ Deno.serve(async (req: Request) => {
         // 2026-11-02.
         supabase.from('echanges_clients').select('code_client')
           .eq('organisation_id', orgId)
+          // Un echange supprime par un operateur ne compte plus. Sans ce
+          // filtre, un appel enregistre par erreur bloquerait la relance
+          // automatique de ce client pendant toute la fenetre, et le bouton
+          // Supprimer de l'interface serait un mensonge. Migration 186.
+          .eq('archivee', false)
           .gte('echange_le', seuilDedupDate),
       ])
 

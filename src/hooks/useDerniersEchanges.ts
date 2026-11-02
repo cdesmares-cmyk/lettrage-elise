@@ -26,6 +26,10 @@ export function useDerniersEchanges() {
     supabase
       .from('echanges_clients')
       .select('code_client,echange_le')
+      // Un echange supprime ne compte plus comme un contact client : sinon le
+      // bouton Supprimer ne tiendrait pas sa promesse, le client resterait
+      // affiche « relance ». Migration 186.
+      .eq('archivee', false)
       .order('echange_le', { ascending: false })
       .limit(LIMITE)
       .then(({ data }) => {
