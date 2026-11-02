@@ -306,7 +306,12 @@ Deno.serve(async (req: Request) => {
 
       // 4. Chargement batch : dédup + contacts + factures + avoirs + crédits 411 en 5 requêtes
       const seuilDedup = new Date(Date.now() - delaiRerelance * 86_400_000).toISOString()
-      const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res, nePasRelancerRes, manuellesRes] = await Promise.all([
+      // echanges_clients.echange_le est une colonne date, pas un horodatage.
+      // Postgres sait convertir une chaîne ISO complète, mais on ne fait pas
+      // reposer une exclusion d'envoi sur un cast implicite : on compare une
+      // date à une date.
+      const seuilDedupDate = seuilDedup.slice(0, 10)
+      const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res, nePasRelancerRes, manuellesRes, echangesRes] = await Promise.all([
         supabase.from('relances_auto_log').select('code_client')
           .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
         // Filtre large volontairement : il attrape toutes les variantes de casse
@@ -340,13 +345,36 @@ Deno.serve(async (req: Request) => {
           .neq('statut', 'brouillon')
           .not('envoyee_le', 'is', null)
           .gte('envoyee_le', seuilDedup),
+        // Échanges tracés HORS d'Ockham : un appel, ou un mail parti d'une
+        // boîte personnelle (table echanges_clients, migrations 182 et 183).
+        // Sans cette lecture, un client qu'un opérateur a eu au téléphone hier
+        // recevait quand même la relance automatique le lendemain matin.
+        // L'écran le montrait pourtant en vert : le robot contredisait
+        // l'interface, et c'est l'opérateur qui passait pour avoir mal fait.
+        //
+        // Les deux canaux comptent, appel comme mail. Même fenêtre que les
+        // relances : deux fenêtres différentes, ce serait deux règles à
+        // expliquer aux équipes et à maintenir. Arrêté avec Clément le
+        // 2026-11-02.
+        supabase.from('echanges_clients').select('code_client')
+          .eq('organisation_id', orgId)
+          .gte('echange_le', seuilDedupDate),
       ])
 
-      // Un client est écarté s'il a été relancé récemment, par le robot OU par
-      // un opérateur. Les deux comptent : c'est le client qui reçoit l'email,
-      // peu importe qui l'a déclenché.
+      // Un client est écarté s'il a eu un contact récent, quelle qu'en soit la
+      // forme : relance du robot, relance d'un opérateur, ou échange tracé hors
+      // de l'outil. Les trois comptent, parce que c'est le client qui a été
+      // contacté et que lui ne fait pas la différence.
+      //
+      // Ce qui n'entre PAS ici : le niveau de relance. Il mesure l'escalade sur
+      // des factures impayées, pas l'activité, et il se calcule en SQL sans
+      // jamais lire echanges_clients.
       const dedupSet = new Set((dedupRes.data ?? []).map((r: { code_client: string }) => r.code_client))
       for (const r of (manuellesRes.data ?? [])) dedupSet.add((r as { code_client: string }).code_client)
+      const echangesSet = new Set(
+        (echangesRes.data ?? []).map((r: { code_client: string }) => r.code_client)
+      )
+      for (const code of echangesSet) dedupSet.add(code)
 
       // Un opérateur a dit « ne pas relancer cette facture ». C'est une décision
       // humaine, elle prime sur toute règle automatique.
@@ -405,8 +433,14 @@ Deno.serve(async (req: Request) => {
         const delaiEcheanceClient = (client.delai_echeance_jours as number | null) ?? delaiEcheanceOrg
 
         if (dedupSet.has(codeDso)) {
-          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
-            detail: `deja relance dans les ${delaiRerelance} derniers jours (robot ou operateur)` })
+          // Le motif distingue l'échange des deux autres cas : « déjà relancé »
+          // serait faux pour un appel, et la personne qui relit le journal pour
+          // comprendre une non-relance a besoin de savoir laquelle des trois
+          // sources l'a écarté.
+          const motif = echangesSet.has(codeDso)
+            ? `contact client trace hors Ockham dans les ${delaiRerelance} derniers jours (appel ou mail)`
+            : `deja relance dans les ${delaiRerelance} derniers jours (robot ou operateur)`
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte', detail: motif })
           nbSkip++; nbSkipOrg++; continue
         }
 
