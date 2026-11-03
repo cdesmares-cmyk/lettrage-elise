@@ -13,9 +13,9 @@ import { TableComptesClients } from '../components/compte-client/TableComptesCli
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
-import { BarreFiltrePilotage } from '../components/compte-client/BarreFiltrePilotage'
+import { BoutonFiltrePilotage, CompteurFiltrePilotage, PanneauFiltrePilotage } from '../components/compte-client/BarreFiltrePilotage'
 import { useFiltrePilotage } from '../hooks/useFiltrePilotage'
-import { clientCorrespond, codesAvecFactureDansPlage, CLES_FILTRE } from '../lib/pilotageRelances'
+import { clientCorrespond, codesAvecFactureDansPlage, nbCriteresActifs, CLES_FILTRE } from '../lib/pilotageRelances'
 import { useDerniersEchanges } from '../hooks/useDerniersEchanges'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalCompensation } from '../components/compte-client/ModalCompensation'
@@ -56,6 +56,7 @@ export function PageCompteClient() {
   const [exportOuvert, setExportOuvert] = useState(false)
   const [exportNebOuvert, setExportNebOuvert] = useState(false)
   const [modeSelection, setModeSelection] = useState(false)
+  const [filtreOuvert, setFiltreOuvert] = useState(false)
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
   const [exportSelectionEnCours, setExportSelectionEnCours] = useState(false)
@@ -350,17 +351,6 @@ export function PageCompteClient() {
       {/* KPIs */}
       <BarreKpis kpis={kpisVueFiltree} chargement={comptes.chargement} rafraichissement={comptes.enRafraichissement} />
 
-      {(vue === 'clients' || vue === 'factures') && (
-        <BarreFiltrePilotage
-          filtre={filtre}
-          setFiltre={setFiltre}
-          reinitialiser={reinitialiserFiltre}
-          nbClients={totauxFiltre.nbClients}
-          nbFactures={totauxFiltre.nbFactures}
-          encours={totauxFiltre.encours}
-        />
-      )}
-
       {/* Toolbar : toggle vue + recherche */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="flex bg-white border border-gray-200 rounded-lg p-1 gap-0.5">
@@ -436,7 +426,38 @@ export function PageCompteClient() {
           </button>
         )}
 
+        {(vue === 'clients' || vue === 'factures') && (
+          <BoutonFiltrePilotage
+            filtre={filtre}
+            ouvert={filtreOuvert}
+            onBasculer={() => setFiltreOuvert(o => !o)}
+          />
+        )}
+
+        {/* Le compteur n'apparait que si un critere est pose : sans filtre, il
+            repeterait les KPI du haut de page. */}
+        {(vue === 'clients' || vue === 'factures') && nbCriteresActifs(filtre) > 0 && (
+          <CompteurFiltrePilotage
+            nbClients={totauxFiltre.nbClients}
+            nbFactures={totauxFiltre.nbFactures}
+            encours={totauxFiltre.encours}
+          />
+        )}
+
+        {(vue === 'clients' || vue === 'factures') && nbCriteresActifs(filtre) > 0 && (
+          <button
+            onClick={reinitialiserFiltre}
+            className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer"
+          >
+            Réinitialiser
+          </button>
+        )}
+
       </div>
+
+      {filtreOuvert && (vue === 'clients' || vue === 'factures') && (
+        <PanneauFiltrePilotage filtre={filtre} setFiltre={setFiltre} />
+      )}
 
       {/* Bandeau sélection */}
       {modeSelection && vue === 'clients' && (
