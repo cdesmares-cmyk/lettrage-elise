@@ -94,11 +94,16 @@ function isoDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function computeEncaissements(
-  raw: { date_operation: string; montant: number; montant_autres: number }[],
-  periode: PeriodeEncaissement
-): PointEncaissement[] {
-  type Bucket = { label: string; start: string; end: string }
+interface Bucket { label: string; start: string; end: string }
+
+/**
+ * Les tranches de temps d'un graphique de periode.
+ *
+ * Partagee par les encaissements et leur decomposition par anciennete : deux
+ * graphiques affiches l'un sous l'autre doivent avoir exactement les memes
+ * barres, aux memes dates, avec les memes libelles.
+ */
+function construireBuckets(periode: PeriodeEncaissement): Bucket[] {
   const buckets: Bucket[] = []
   const now = TODAY
 
@@ -135,7 +140,14 @@ function computeEncaissements(
     }
   }
 
-  return buckets.map(b => {
+  return buckets
+}
+
+function computeEncaissements(
+  raw: { date_operation: string; montant: number; montant_autres: number }[],
+  periode: PeriodeEncaissement
+): PointEncaissement[] {
+  return construireBuckets(periode).map(b => {
     const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     return {
       label:  b.label,
@@ -144,6 +156,47 @@ function computeEncaissements(
       // publiques, remboursements. Le ?? 0 protege le cas ou la fonction SQL
       // n'a pas encore ete mise a jour en base.
       autres: slice.reduce((s, l) => s + (l.montant_autres ?? 0), 0),
+    }
+  })
+}
+
+/** Une journee d'encaissements, decomposee par anciennete de la facture payee. */
+export interface JourEncaissementAge {
+  date_operation: string
+  non_echue: number
+  j1_30: number
+  j31_60: number
+  j61_90: number
+  j90_plus: number
+}
+
+/** Un point du graphique : les cinq tranches sur une periode. */
+export interface PointEncaissementAge {
+  label: string
+  nonEchue: number
+  j1_30: number
+  j31_60: number
+  j61_90: number
+  j90_plus: number
+}
+
+function computeEncaissementsParAge(
+  raw: JourEncaissementAge[],
+  periode: PeriodeEncaissement
+): PointEncaissementAge[] {
+  return construireBuckets(periode).map(b => {
+    const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
+    const somme = (cle: keyof Omit<JourEncaissementAge, 'date_operation'>) =>
+      // Number() et non la valeur brute : Postgres renvoie les numeric sous
+      // forme de chaines via PostgREST, et une addition de chaines concatene.
+      slice.reduce((s, l) => s + Number(l[cle] ?? 0), 0)
+    return {
+      label:    b.label,
+      nonEchue: somme('non_echue'),
+      j1_30:    somme('j1_30'),
+      j31_60:   somme('j31_60'),
+      j61_90:   somme('j61_90'),
+      j90_plus: somme('j90_plus'),
     }
   })
 }
@@ -217,6 +270,7 @@ export function useDashboard() {
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
+  const [encaissementsAgeRaw, setEncaissementsAgeRaw] = useState<JourEncaissementAge[]>([])
   const [activiteRelancesRaw, setActiviteRelancesRaw] = useState<JourActiviteRelance[]>([])
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [filtreOperateur, setFiltreOperateur] = useState<string>('')
@@ -231,6 +285,18 @@ export function useDashboard() {
         if (data) setEncaissementsRaw(data as { date_operation: string; montant: number; montant_autres: number }[])
         setChargement(false)
       })
+  }, [])
+
+  // Encaissements decomposes par anciennete de la facture payee, meme source
+  // et meme perimetre que ci-dessus : la somme des cinq tranches egale le
+  // montant client. Migration 187.
+  //
+  // Le tableau reste vide tant que la migration n'est pas executee : le
+  // graphique ne s'affiche alors pas, plutot que d'afficher des barres a zero.
+  useEffect(() => {
+    const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
+    supabase.rpc('get_encaissements_par_anciennete' as never, { p_date_debut: il24Mois.toISOString().slice(0, 10) } as never)
+      .then(({ data }) => { if (data) setEncaissementsAgeRaw(data as JourEncaissementAge[]) })
   }, [])
 
   // Activité recouvrement : données journalières sur 2 ans — agrégation période côté client
@@ -425,6 +491,9 @@ export function useDashboard() {
   const topFactures = useMemo(() => computeTopFactures(facsAnalyse, topNbFactures), [facsAnalyse, topNbFactures])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsAnalyse), [facsAnalyse])
   const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
+  // Le meme selecteur de periode pilote les deux graphiques : ils se lisent
+  // l'un sous l'autre, ils doivent bouger ensemble.
+  const pointsEncaissementAge = useMemo(() => computeEncaissementsParAge(encaissementsAgeRaw, periodeEncaissement), [encaissementsAgeRaw, periodeEncaissement])
   // On ne propose que les operateurs qui ont REELLEMENT relance : une liste de
   // tous les membres afficherait des noms sans aucune donnee derriere.
   // Un operateur parti de l'organisation disparait de la liste, mais ses
@@ -465,6 +534,7 @@ export function useDashboard() {
     portefeuilles, filtrePortefeuille, setFiltrePortefeuille,
     resumePortefeuille, couvertureRelance,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
+    pointsEncaissementAge,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
     encoursCourant, chargement,

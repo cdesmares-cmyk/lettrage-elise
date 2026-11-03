@@ -3,6 +3,7 @@ import { BlocKpis } from '../components/tableau-de-bord/BlocKpis'
 import { BlocAnalyse } from '../components/tableau-de-bord/BlocAnalyse'
 import { BlocEncaissements } from '../components/tableau-de-bord/BlocEncaissements'
 import { BlocActiviteRelances } from '../components/tableau-de-bord/BlocActiviteRelances'
+import { BlocEncaissementsParAge } from '../components/tableau-de-bord/BlocEncaissementsParAge'
 import { BlocPersonnalise } from '../components/tableau-de-bord/BlocPersonnalise'
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,13 @@ export function PageTableauDeBord() {
       <div className="space-y-2">
         <SectionLabel>Évolution des encaissements</SectionLabel>
         <BlocEncaissements {...data} />
+      </div>
+
+      {/* Ancienneté des encaissements — même source, même sélecteur de période
+          que le bloc ci-dessus, décomposé par âge de la facture au paiement.
+          Ne s'affiche pas tant que la migration 187 n'est pas exécutée. */}
+      <div className="space-y-2">
+        <BlocEncaissementsParAge {...data} />
       </div>
 
       {/* Activité recouvrement */}
