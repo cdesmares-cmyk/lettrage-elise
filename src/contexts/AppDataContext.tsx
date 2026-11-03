@@ -77,14 +77,22 @@ const AppDataContext = createContext<AppDataContextType | null>(null)
 const COLS = 'numero_piece,code_client,nom_client,date_emission,date_echeance,montant_ht,montant_ttc,reste_du,statut_paiement,statut_facture,est_avoir,axonaut_pdf_url'
 const PAGE = 1000
 
-async function paginateClients(initial: RowCompteClient[]): Promise<RowCompteClient[]> {
+async function paginateClients(initial: RowCompteClient[]): Promise<RowCompteClient[] | null> {
   let all = initial
   let offset = PAGE
   while (all.length === offset) {
     const { data, error } = await supabase.from('v_comptes_clients').select('*')
       .order('nom', { ascending: true })
       .range(offset, offset + PAGE - 1)
-    if (error || !data?.length) break
+    // Echec au milieu de la pagination : on renvoie null et PAS une liste
+    // partielle. Rendre ce qui a ete collecte afficherait un portefeuille
+    // ampute sans que rien ne le signale — meme defaut que paginateFactures
+    // avait avant correction.
+    if (error) {
+      console.error('[AppData] pagination clients, offset ' + offset + ' :', error)
+      return null
+    }
+    if (!data?.length) break
     all = [...all, ...(data as unknown as RowCompteClient[])]
     offset += PAGE
   }
@@ -219,12 +227,20 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
         chargerFacturesParCurseur(),
       ])
 
-      if (clientsPage0.error) { toast.error('Erreur chargement clients'); return }
+      if (clientsPage0.error) {
+        // L'erreur etait jetee sans etre lue : le toast apparaissait « de temps en
+        // temps » et rien ne permettait de savoir pourquoi. Elle part maintenant
+        // dans la console, et son message dans le toast.
+        console.error('[AppData] chargement clients page 0 :', clientsPage0.error)
+        toast.error(`Erreur chargement clients : ${clientsPage0.error.message}`)
+        return
+      }
       // null = la pagination a echoue en cours de route. On garde l'etat
       // precedent plutot que d'afficher un encours incomplet.
       if (facturesChargees === null) { toast.error('Erreur chargement factures'); return }
 
       const tousClients = await paginateClients((clientsPage0.data as unknown as RowCompteClient[]) ?? [])
+      if (tousClients === null) { toast.error('Erreur chargement clients'); return }
       const toutes = trierFactures(facturesChargees)
 
       // Mise à jour état — un seul render garanti (batching explicite)

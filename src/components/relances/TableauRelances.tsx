@@ -8,6 +8,10 @@ import { useAppData } from '../../contexts/AppDataContext'
 import type { StatsOperateur } from '../../hooks/useLeaderboard'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from './ModalDetailRelance'
+import { Pagination } from '../Pagination'
+
+// Cinquante lignes par page, comme les trois autres onglets du module.
+const PAGE_SIZE = 50
 
 // Calculé dynamiquement dans le composant via le prop seuilSansSuite
 
@@ -70,6 +74,16 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
   const [tri, setTri] = useState<ColSort>('envoyee_le')
   const [triAsc, setTriAsc] = useState(false)
   const [alertesSeulement, setAlertesSeulement] = useState(false)
+  // La page est stockee AVEC le perimetre auquel elle appartient. Des que le
+  // perimetre change — onglet, recherche, filtre operateur, tri — la page
+  // derivee repart a zero d'elle-meme.
+  //
+  // POURQUOI PAS UN useEffect QUI REMET setPage(0). Parce que c'est un
+  // rattrapage apres coup : React rend une premiere fois avec l'ancienne page
+  // sur la nouvelle liste, puis corrige. Ici il n'y a rien a corriger, la
+  // bonne valeur est calculee du premier coup. Et ca evite un setState dans un
+  // effet, que le linter refuse a juste titre.
+  const [pagination, setPagination] = useState({ perimetre: '', page: 0 })
 
   useEffect(() => {
     if (!relanceInitialeId || relanceInitialeId === relanceInitialeTraiteeRef.current) return
@@ -142,9 +156,26 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
     return triAsc ? cmp : -cmp
   }), [filtrees, tri, triAsc, clientsMap, onglet])
 
+  // Ce qui definit le perimetre affiche. Un rafraichissement des donnees n'en
+  // fait PAS partie : rester page 7 apres un rechargement automatique est le
+  // comportement attendu.
+  const perimetre = [onglet, recherche, filtreOp, alertesSeulement, tri, triAsc].join('|')
+  const pageDemandee = pagination.perimetre === perimetre ? pagination.page : 0
+  const setPage = (p: number) => setPagination({ perimetre, page: p })
+
+  const nbPages = Math.max(1, Math.ceil(affichees.length / PAGE_SIZE))
+  // Filet de securite : si la liste a retreci au point que la page demandee
+  // n'existe plus, on affiche la derniere plutot qu'un tableau vide que rien
+  // n'explique. Borne et non remise a zero : l'utilisateur reste la ou il
+  // regardait.
+  const page = Math.min(pageDemandee, nbPages - 1)
+  const visibles = affichees.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
   function toggleTri(col: ColSort) {
     if (tri === col) setTriAsc(v => !v)
     else { setTri(col); setTriAsc(false) }
+    // Pas de setPage ici : le tri fait partie du perimetre, la page repart
+    // seule.
   }
   function fleche(col: ColSort) {
     if (tri !== col) return <span className="text-gray-300 ml-0.5 text-[9px]">↕</span>
@@ -228,7 +259,7 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
             </tr>
           </thead>
           <tbody>
-            {affichees.map(r => {
+            {visibles.map(r => {
               const jours = r.envoyee_le ? joursDepuis(r.envoyee_le) : null
               const alerte = estEnAlerte(r, seuilSansSuite)
               const restant = jours !== null ? seuilSansSuite - jours : null
@@ -327,6 +358,8 @@ export function TableauRelances({ relances, chargement, onglet, onMajStatut, onA
           </tbody>
         </table>
       )}
+
+      <Pagination page={page} total={nbPages} onChange={setPage} />
 
       <ModalDetailRelance
         relance={relanceOuverte}

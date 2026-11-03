@@ -12,6 +12,7 @@ import { useAppData } from '../../contexts/AppDataContext'
 import type { EnvoiAuto } from '../../hooks/useRelances'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalEnvoiAuto } from './ModalEnvoiAuto'
+import { Pagination } from '../Pagination'
 
 interface Props {
   envois: EnvoiAuto[]
@@ -36,7 +37,7 @@ function BadgeStatut({ statut }: { statut: EnvoiAuto['statut'] }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${style}`}>{label}</span>
 }
 
-const PAGE_SIZE = 25
+const PAGE_SIZE = 50
 
 export function TableRelancesAuto({ envois, chargement, recherche = '', commentaires, onSauvegarderCommentaire }: Props) {
   const navigate = useNavigate()
@@ -56,7 +57,8 @@ export function TableRelancesAuto({ envois, chargement, recherche = '', commenta
     )
   }, [envois, recherche, clientsMap])
 
-  const visibles = filtres.slice(0, (page + 1) * PAGE_SIZE)
+  const nbPages  = Math.max(1, Math.ceil(filtres.length / PAGE_SIZE))
+  const visibles = filtres.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
   const TH = 'text-[10px] font-bold uppercase tracking-wider text-gray-400 px-4 py-2.5 text-left whitespace-nowrap'
   const TD = 'px-4 py-3 border-b border-slate-50'
 
@@ -120,19 +122,13 @@ export function TableRelancesAuto({ envois, chargement, recherche = '', commenta
         </tbody>
       </table>
 
-      <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/40 flex items-center justify-between">
+      <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/40">
         <span className="text-[11px] text-gray-400 tabular-nums">
-          {visibles.length} sur {filtres.length} envoi{filtres.length > 1 ? 's' : ''}
+          {filtres.length} envoi{filtres.length > 1 ? 's' : ''}
         </span>
-        {visibles.length < filtres.length && (
-          <button
-            onClick={() => setPage(p => p + 1)}
-            className="text-[11px] font-semibold text-gray-500 border border-gray-200 bg-white rounded-md px-3 py-1.5 hover:bg-gray-50 transition-colors"
-          >
-            Voir {PAGE_SIZE} de plus
-          </button>
-        )}
       </div>
+
+      <Pagination page={page} total={nbPages} onChange={setPage} />
 
       <ModalEnvoiAuto
         envoi={ouvert}
