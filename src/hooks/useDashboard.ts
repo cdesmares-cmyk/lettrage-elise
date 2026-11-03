@@ -103,14 +103,53 @@ interface Bucket { label: string; start: string; end: string }
  * graphiques affiches l'un sous l'autre doivent avoir exactement les memes
  * barres, aux memes dates, avec les memes libelles.
  */
-function construireBuckets(periode: PeriodeEncaissement): Bucket[] {
+function estWeekend(d: Date): boolean {
+  const j = d.getDay()
+  return j === 0 || j === 6
+}
+
+/** Le jour ouvre qui precede d, strictement. */
+function jourOuvrePrecedent(d: Date): Date {
+  const p = new Date(d)
+  do { p.setDate(p.getDate() - 1) } while (estWeekend(p))
+  return p
+}
+
+function construireBuckets(periode: PeriodeEncaissement, joursOuvresSeuls = false): Bucket[] {
   const buckets: Bucket[] = []
   const now = TODAY
 
   if (periode === 'jour') {
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: isoDate(d), end: isoDate(d) })
+    if (joursOuvresSeuls) {
+      // Les sept derniers jours OUVRES. Sans ca, deux barres sur sept sont
+      // systematiquement vides : aucune operation bancaire le week-end.
+      //
+      // RIEN N'EST PERDU, et c'est le point delicat. Chaque barre couvre depuis
+      // le lendemain du jour ouvre precedent : le lundi porte donc samedi,
+      // dimanche et lundi. Se contenter de masquer samedi et dimanche ferait
+      // disparaitre du graphique tout encaissement date d'un week-end — les
+      // dates de valeur bancaires en produisent — et le total ne tomberait plus
+      // juste.
+      const ouvres: Date[] = []
+      const curseur = new Date(now)
+      while (ouvres.length < 7) {
+        if (!estWeekend(curseur)) ouvres.push(new Date(curseur))
+        curseur.setDate(curseur.getDate() - 1)
+      }
+      for (const jour of ouvres.reverse()) {
+        const debut = jourOuvrePrecedent(jour)
+        debut.setDate(debut.getDate() + 1)
+        buckets.push({
+          label: jour.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+          start: isoDate(debut),
+          end:   isoDate(jour),
+        })
+      }
+    } else {
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now); d.setDate(d.getDate() - i)
+        buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: isoDate(d), end: isoDate(d) })
+      }
     }
   } else if (periode === 'semaine') {
     for (let i = 11; i >= 0; i--) {
@@ -145,9 +184,10 @@ function construireBuckets(periode: PeriodeEncaissement): Bucket[] {
 
 function computeEncaissements(
   raw: { date_operation: string; montant: number; montant_autres: number }[],
-  periode: PeriodeEncaissement
+  periode: PeriodeEncaissement,
+  joursOuvresSeuls: boolean
 ): PointEncaissement[] {
-  return construireBuckets(periode).map(b => {
+  return construireBuckets(periode, joursOuvresSeuls).map(b => {
     const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     return {
       label:  b.label,
@@ -182,9 +222,10 @@ export interface PointEncaissementAge {
 
 function computeEncaissementsParAge(
   raw: JourEncaissementAge[],
-  periode: PeriodeEncaissement
+  periode: PeriodeEncaissement,
+  joursOuvresSeuls: boolean
 ): PointEncaissementAge[] {
-  return construireBuckets(periode).map(b => {
+  return construireBuckets(periode, joursOuvresSeuls).map(b => {
     const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     const somme = (cle: keyof Omit<JourEncaissementAge, 'date_operation'>) =>
       // Number() et non la valeur brute : Postgres renvoie les numeric sous
@@ -268,6 +309,10 @@ export function useDashboard() {
   const [topNbClients, setTopNbClients] = useState<TopNb>(10)
   const [topNbFactures, setTopNbFactures] = useState<TopNb>(10)
   const [periodeEncaissement, setPeriodeEncaissement] = useState<PeriodeEncaissement>('semaine')
+  // Actif par defaut : deux barres vides sur sept, c'est une vue a 71 % utile.
+  // N'a d'effet qu'en vue « 7 jours » — sur les autres periodes, les week-ends
+  // sont DANS les tranches et les exclure ferait perdre des encaissements.
+  const [joursOuvresSeuls, setJoursOuvresSeuls] = useState(true)
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
   const [encaissementsAgeRaw, setEncaissementsAgeRaw] = useState<JourEncaissementAge[]>([])
@@ -490,10 +535,10 @@ export function useDashboard() {
   const topClients = useMemo(() => computeTopClients(facsAnalyse, topNbClients), [facsAnalyse, topNbClients])
   const topFactures = useMemo(() => computeTopFactures(facsAnalyse, topNbFactures), [facsAnalyse, topNbFactures])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsAnalyse), [facsAnalyse])
-  const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement), [encaissementsRaw, periodeEncaissement])
+  const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement, joursOuvresSeuls), [encaissementsRaw, periodeEncaissement, joursOuvresSeuls])
   // Le meme selecteur de periode pilote les deux graphiques : ils se lisent
   // l'un sous l'autre, ils doivent bouger ensemble.
-  const pointsEncaissementAge = useMemo(() => computeEncaissementsParAge(encaissementsAgeRaw, periodeEncaissement), [encaissementsAgeRaw, periodeEncaissement])
+  const pointsEncaissementAge = useMemo(() => computeEncaissementsParAge(encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls), [encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls])
   // On ne propose que les operateurs qui ont REELLEMENT relance : une liste de
   // tous les membres afficherait des noms sans aucune donnee derriere.
   // Un operateur parti de l'organisation disparait de la liste, mais ses
@@ -534,7 +579,7 @@ export function useDashboard() {
     portefeuilles, filtrePortefeuille, setFiltrePortefeuille,
     resumePortefeuille, couvertureRelance,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
-    pointsEncaissementAge,
+    pointsEncaissementAge, joursOuvresSeuls, setJoursOuvresSeuls,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
     encoursCourant, chargement,

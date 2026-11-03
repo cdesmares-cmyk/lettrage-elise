@@ -43,6 +43,7 @@ function TooltipCustom({ active, payload, label }: { active?: boolean; payload?:
 
 export function BlocEncaissements({
   pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
+  joursOuvresSeuls, setJoursOuvresSeuls,
 }: Props) {
   const totalClients = pointsEncaissement.reduce((s, p) => s + p.client, 0)
   const totalAutres  = pointsEncaissement.reduce((s, p) => s + p.autres, 0)
@@ -71,7 +72,26 @@ export function BlocEncaissements({
             </>
           )}
         </div>
-        <div className="flex gap-1">
+        <div className="flex items-center gap-2">
+          {/* N'apparait qu'en vue « 7 jours » : c'est la seule ou les week-ends
+              font des barres vides. Sur les autres periodes ils sont DANS les
+              tranches, et les retirer ferait perdre des encaissements. */}
+          {periodeEncaissement === 'jour' && (
+            <button
+              onClick={() => setJoursOuvresSeuls(!joursOuvresSeuls)}
+              title={joursOuvresSeuls
+                ? 'Les encaissements datés du week-end sont rattachés au lundi suivant'
+                : 'Afficher les sept derniers jours ouvrés'}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+                joursOuvresSeuls
+                  ? 'border-ockham-teal bg-ockham-teal-muted text-ockham-teal-dark'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              Jours ouvrés
+            </button>
+          )}
+          <div className="flex gap-1">
           {PERIODES.map(p => (
             <button
               key={p.val}
@@ -85,6 +105,7 @@ export function BlocEncaissements({
               {p.label}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
