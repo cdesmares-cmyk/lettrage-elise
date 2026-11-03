@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { IcDownload, IcSearch, IcNetwork, IcUser, IcFileText, IcEdit, IcLoader } from '../components/Icones'
 import { useSearchParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { useComptesClients } from '../hooks/useComptesClients'
 import { useAppData } from '../contexts/AppDataContext'
 import { useRelances } from '../hooks/useRelances'
@@ -12,6 +13,9 @@ import { TableComptesClients } from '../components/compte-client/TableComptesCli
 import { TableNebuleuse } from '../components/compte-client/TableNebuleuse'
 import { TableFacturesFlat } from '../components/compte-client/TableFacturesFlat'
 import { PanneauOptions } from '../components/compte-client/PanneauOptions'
+import { BarreFiltrePilotage } from '../components/compte-client/BarreFiltrePilotage'
+import { useFiltrePilotage } from '../hooks/useFiltrePilotage'
+import { clientCorrespond, codesAvecFactureDansPlage, CLES_FILTRE } from '../lib/pilotageRelances'
 import { useDerniersEchanges } from '../hooks/useDerniersEchanges'
 import { PanneauCommentaireFacture } from '../components/compte-client/PanneauCommentaireFacture'
 import { ModalCompensation } from '../components/compte-client/ModalCompensation'
@@ -55,8 +59,8 @@ export function PageCompteClient() {
   const [selection, setSelection] = useState<Set<string>>(new Set())
   const [relanceMasseOuverte, setRelanceMasseOuverte] = useState(false)
   const [exportSelectionEnCours, setExportSelectionEnCours] = useState(false)
-  const [factureDateDebut, setFactureDateDebut] = useState('')
-  const [factureDateFin, setFactureDateFin] = useState('')
+  // Les dates vivent dans le filtre de pilotage, pour n'avoir qu'un seul
+  // selecteur de plage sur l'ecran. Voir useFiltrePilotage plus bas.
 
   const [inputRecherche, setInputRecherche] = useState('')
   const [rechercheEnAttente, setRechercheEnAttente] = useState(false)
@@ -79,6 +83,10 @@ export function PageCompteClient() {
   const { facturesActives } = useAppData()
   const comptes = useComptesClients()
   const { alertes: alertesScore, dateCalcul: dateCalculScores, clientsEnAttente } = useAlertesScore()
+  const { profil } = useAuth()
+  const { filtre, setFiltre, reinitialiser: reinitialiserFiltre } = useFiltrePilotage(profil?.organisation_id)
+  const factureDateDebut = filtre.dateEmissionDebut
+  const factureDateFin   = filtre.dateEmissionFin
 
   // Pré-filtre depuis URL : /compte-client?client=CODE_DSO (ouvert depuis la modale lettrage)
   useEffect(() => {
@@ -109,7 +117,7 @@ export function PageCompteClient() {
     if (!utilisateurs.find(u => u.id === filtreCommercial)) setFiltreCommercial('')
   }, [utilisateurs, filtreCommercial])
 
-  const clientsFiltres = useMemo(() => {
+  const clientsParCommercial = useMemo(() => {
     if (!filtreCommercial) return comptes.clients
     const u = utilisateurs.find(x => x.id === filtreCommercial)
     if (!u) return comptes.clients
@@ -170,6 +178,36 @@ export function PageCompteClient() {
     }
     return map
   }, [relances, derniereRelanceAutoParClient, derniersEchangesParClient])
+
+  // Les clients ayant une facture ouverte dans la plage de dates. Calcule une
+  // fois par changement de plage : une traversee des factures coute quelques
+  // millisecondes, la refaire a chaque frappe se verrait.
+  const codesDansPlage = useMemo(
+    () => codesAvecFactureDansPlage(facturesActives, filtre.dateEmissionDebut, filtre.dateEmissionFin),
+    [facturesActives, filtre.dateEmissionDebut, filtre.dateEmissionFin]
+  )
+
+  // Le filtre de pilotage s'applique APRES le filtre commercial : les deux se
+  // cumulent, « mes clients, en N2, pas rappeles depuis 30 jours ».
+  //
+  // Tout est en memoire, donc c'est une traversee de tableau sur quelques
+  // milliers de clients : aucun appel reseau, aucune latence perceptible.
+  const clientsFiltres = useMemo(() => {
+    const ctx = {
+      alertes: alertesSignal,
+      dernieresRelances,
+      clientsEnAttente: clientsEnAttente ?? new Set<string>(),
+      codesDansPlage,
+    }
+    return clientsParCommercial.filter(c => clientCorrespond(c, filtre, ctx))
+  }, [clientsParCommercial, filtre, alertesSignal, dernieresRelances, clientsEnAttente, codesDansPlage])
+
+  // L'objectif : ce que le pool cible represente.
+  const totauxFiltre = useMemo(() => ({
+    nbClients:  clientsFiltres.length,
+    nbFactures: clientsFiltres.reduce((s, c) => s + (c.nb_impayees ?? 0), 0),
+    encours:    clientsFiltres.reduce((s, c) => s + (c.encours_total ?? 0), 0),
+  }), [clientsFiltres])
 
   useEffect(() => { chargerTous() }, [])
 
@@ -246,6 +284,20 @@ export function PageCompteClient() {
     return n.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
   }
 
+  // Vide les parametres de navigation (?client=, ?onglet=, ?facture=) en
+  // GARDANT ceux du filtre. Un setSearchParams({}) effacerait la liste de
+  // travail en cours des qu'on ouvre un client depuis une notification.
+  const viderParamsSaufFiltre = useCallback(() => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams()
+      for (const k of CLES_FILTRE) {
+        const v = prev.get(k)
+        if (v !== null) p.set(k, v)
+      }
+      return p
+    }, { replace: true })
+  }, [setSearchParams])
+
   // Ouverture automatique de la fiche client depuis un lien email ou notification (?client=CODE&onglet=commentaires)
   useEffect(() => {
     const codeCible = searchParams.get('client')
@@ -263,9 +315,9 @@ export function PageCompteClient() {
       if (ongletParam && ['infos', 'contacts', 'relances', 'bodacc', 'commentaires'].includes(ongletParam)) {
         setPanneauOngletInitial(ongletParam as typeof panneauOngletInitial)
       }
-      setSearchParams({}, { replace: true })
+      viderParamsSaufFiltre()
     }
-  }, [searchParams, comptes.clients, comptes.chargement])
+  }, [searchParams, comptes.clients, comptes.chargement, viderParamsSaufFiltre])
 
   // Ouverture automatique du panneau facture depuis une notification (?facture=PIECE_NUMBER)
   useEffect(() => {
@@ -275,9 +327,9 @@ export function PageCompteClient() {
     if (fac) {
       setFacCommentaire(fac)
       setFacCommentaireOngletInitial('commentaires')
-      setSearchParams({}, { replace: true })
+      viderParamsSaufFiltre()
     }
-  }, [searchParams, facturesActives])
+  }, [searchParams, facturesActives, viderParamsSaufFiltre])
 
   return (
     <div>
@@ -297,6 +349,17 @@ export function PageCompteClient() {
 
       {/* KPIs */}
       <BarreKpis kpis={kpisVueFiltree} chargement={comptes.chargement} rafraichissement={comptes.enRafraichissement} />
+
+      {(vue === 'clients' || vue === 'factures') && (
+        <BarreFiltrePilotage
+          filtre={filtre}
+          setFiltre={setFiltre}
+          reinitialiser={reinitialiserFiltre}
+          nbClients={totauxFiltre.nbClients}
+          nbFactures={totauxFiltre.nbFactures}
+          encours={totauxFiltre.encours}
+        />
+      )}
 
       {/* Toolbar : toggle vue + recherche */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -522,10 +585,10 @@ export function PageCompteClient() {
           derniereRelanceParClient={dernieresRelances}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
-          dateDebut={factureDateDebut}
-          dateFin={factureDateFin}
-          onDateDebutChange={setFactureDateDebut}
-          onDateFinChange={setFactureDateFin}
+          dateDebut={filtre.dateEmissionDebut}
+          dateFin={filtre.dateEmissionFin}
+          onDateDebutChange={(v: string) => setFiltre(f => ({ ...f, dateEmissionDebut: v }))}
+          onDateFinChange={(v: string) => setFiltre(f => ({ ...f, dateEmissionFin: v }))}
           recherche={comptes.recherche}
         />
       )}
