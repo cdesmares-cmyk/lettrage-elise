@@ -24,11 +24,26 @@ function normaliserRole(r: string | null | undefined): string {
   return (r ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
 }
 
+/**
+ * Un client dont la fiche est incomplete. Trois manques, de gravites
+ * differentes, et c'est pour ca qu'ils ne portent pas la meme couleur :
+ *
+ *   sansContact    BLOQUANT. Aucune adresse e-mail : ni relance manuelle ni
+ *                  robot ne peuvent l'atteindre. L'argent est hors de portee.
+ *   sansSiret      Pas de veille BODACC possible. Une procedure collective
+ *                  passerait inapercue, et on continuerait a relancer un client
+ *                  en liquidation.
+ *   sansCommercial Personne ne porte le dossier, et le client echappe au filtre
+ *                  par commercial du compte client.
+ */
 export interface ClientInjoignable {
   code_dso: string
   nom: string
   encours: number
   nb_impayees: number
+  sansContact: boolean
+  sansSiret: boolean
+  sansCommercial: boolean
 }
 
 export type ProblemeContact = 'rebond' | 'role_non_reconnu'
@@ -122,9 +137,23 @@ export function useNettoyage() {
     )
     return clientsApp
       // Sans encours, il n'y a rien à recouvrer : le client n'a pas à figurer
-      // dans une file de travail.
-      .filter(c => c.encours_total > 0.005 && !avecAdresse.has(c.code_dso))
-      .map(c => ({ code_dso: c.code_dso, nom: c.nom, encours: c.encours_total, nb_impayees: c.nb_impayees }))
+      // dans une file de travail. Cette borne vaut pour les trois manques.
+      .filter(c => c.encours_total > 0.005)
+      .map(c => ({
+        code_dso:       c.code_dso,
+        nom:            c.nom,
+        encours:        c.encours_total,
+        nb_impayees:    c.nb_impayees,
+        sansContact:    !avecAdresse.has(c.code_dso),
+        sansSiret:      (c.siret ?? '').trim() === '',
+        // commercial_id est la reference fiable ; commercial est un libelle
+        // texte hérité des imports. Un client n'est rattaché que si l'un des
+        // deux est renseigné.
+        sansCommercial: !c.commercial_id && (c.commercial ?? '').trim() === '',
+      }))
+      // Un client dont la fiche est complète n'a rien à faire dans un module
+      // qui s'appelle Nettoyage.
+      .filter(c => c.sansContact || c.sansSiret || c.sansCommercial)
       .sort((a, b) => b.encours - a.encours)
   }, [clientsApp, contactsBruts])
 
@@ -178,7 +207,9 @@ export function useNettoyage() {
   }, [clientsApp, contactsBruts, rebonds])
 
   const encoursInjoignable = useMemo(
-    () => clients.reduce((s, c) => s + c.encours, 0),
+    // sansContact UNIQUEMENT : ce chiffre dit l'argent qu'on ne peut pas aller
+    // chercher. Un SIRET manquant est une lacune, pas une impossibilite.
+    () => clients.filter(c => c.sansContact).reduce((s, c) => s + c.encours, 0),
     [clients]
   )
 

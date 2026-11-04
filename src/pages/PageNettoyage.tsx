@@ -31,9 +31,17 @@ function Kpi({ valeur, libelle, couleur }: { valeur: string; libelle: string; co
   )
 }
 
-function Pastille({ ton, children }: { ton: 'rouge' | 'gris'; children: React.ReactNode }) {
-  const cls = ton === 'rouge' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'
-  return <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${cls}`}>{children}</span>
+// Trois tons pour trois gravites. Si tout etait rouge, le rouge ne voudrait
+// plus rien dire : « aucun contact » empeche de recouvrer, un SIRET manquant
+// est une lacune a combler quand on a le temps.
+const TONS = {
+  rouge: 'bg-red-100 text-red-700',
+  ambre: 'bg-amber-100 text-amber-700',
+  gris:  'bg-slate-100 text-slate-600',
+} as const
+
+function Pastille({ ton, children }: { ton: keyof typeof TONS; children: React.ReactNode }) {
+  return <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${TONS[ton]}`}>{children}</span>
 }
 
 export function PageNettoyage() {
@@ -67,6 +75,9 @@ export function PageNettoyage() {
           id_contact: '', code_client: c.code_dso, nom_client: c.nom,
           encours: Math.round(c.encours * 100) / 100,
           nom: '', prenom: '', email: '', telephone: '', role_contact: '', delete: '',
+          manque_contact:    c.sansContact    ? 'oui' : '',
+          manque_siret:      c.sansSiret      ? 'oui' : '',
+          manque_commercial: c.sansCommercial ? 'oui' : '',
         }))
       : (liste as ContactAProbleme[]).map(c => ({
           id_contact: c.id, code_client: c.code_client, nom_client: c.nom_client,
@@ -166,7 +177,7 @@ export function PageNettoyage() {
                 pas distinguer « tout va bien » de « l'écran est cassé ». */}
             <p className="text-[11.5px] text-gray-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
               {onglet === 'clients'
-                ? <>Chaque client qui a un encours a au moins une adresse active. Il n'y a personne à qui on ne puisse pas écrire.</>
+                ? <>Chaque client qui a un encours a une adresse active, un SIRET et un commercial. Il n'y a rien à compléter.</>
                 : <>Sur {nbContactsActifs} contacts actifs, aucun n'a de rôle inconnu et aucun rebond n'est signalé. Les rôles « Relance » et « Comptabilité », quelle que soit leur orthographe, sont reconnus, ils n'apparaissent donc pas ici.</>}
             </p>
           </div>
@@ -191,7 +202,13 @@ export function PageNettoyage() {
                   </td>
                   <td className={`${TD} text-right text-sm font-bold tabular-nums text-gray-800`}>{euros(c.encours)}</td>
                   <td className={`${TD} text-right text-xs tabular-nums text-gray-400`}>{c.nb_impayees}</td>
-                  <td className={TD}><Pastille ton="rouge">Aucun contact</Pastille></td>
+                  <td className={TD}>
+                    <span className="flex flex-wrap gap-1">
+                      {c.sansContact    && <Pastille ton="rouge">Aucun contact</Pastille>}
+                      {c.sansSiret      && <Pastille ton="ambre">SIRET manquant</Pastille>}
+                      {c.sansCommercial && <Pastille ton="gris">Commercial manquant</Pastille>}
+                    </span>
+                  </td>
                   <td className={`${TD} text-right text-gray-300`}>›</td>
                 </tr>
               ))}
@@ -241,6 +258,9 @@ export function PageNettoyage() {
       </div>
 
       <p className="text-[11px] text-gray-400 mt-4 leading-relaxed max-w-3xl">
+        L'onglet Clients liste les fiches incomplètes : sans contact joignable, sans SIRET, ou sans
+        commercial rattaché. Seuls les clients qui ont un encours y figurent — sans créance, il n'y a
+        rien à recouvrer et donc rien à compléter.
         Cet écran ne modifie rien. Un clic ouvre le compte client sur l'onglet Contacts, là où
         la correction se fait. Pour traiter en masse, exportez la liste : le fichier a la forme
         que l'import de contacts attend, colonne <span className="font-mono">encours</span> en plus
