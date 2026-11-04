@@ -12,6 +12,8 @@ import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useRappelClient } from '../../hooks/useRappelClient'
 import { ModalRappelClient } from './ModalRappelClient'
+import { useMarqueurCommentaire } from '../../hooks/useMarqueurCommentaire'
+import { IcBulle } from '../Icones'
 
 type EtatSync = 'idle' | 'loading' | 'ok' | 'alerte' | 'erreur'
 type Onglet   = 'infos' | 'contacts' | 'relances' | 'bodacc' | 'commentaires'
@@ -146,6 +148,9 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
   // Compteur de rechargement de l'historique. Le formulaire est au-dessus du
   // titre, la timeline en dessous : il faut un signal pour les relier.
   const [tickEchanges, setTickEchanges] = useState(0)
+  // Le dernier contact porte-t-il du texte ? Recalcule a chaque saisie
+  // d'echange, sinon la pastille mentirait jusqu'a la reouverture du panneau.
+  const aCommentaireRecent = useMarqueurCommentaire(client?.code_dso ?? null, tickEchanges)
   const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
@@ -391,8 +396,23 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
                 }`}
               >
                 {LABELS_ONGLETS[o]}
-                {o === 'relances' && client.relance_auto_alerte && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-ockham-navy" />
+                {o === 'relances' && (aCommentaireRecent || client.relance_auto_alerte) && (
+                  <span className="absolute -top-1.5 -right-1.5 flex items-center gap-0.5">
+                    {aCommentaireRecent && (
+                      <span
+                        title="Le dernier contact porte un commentaire ou un retour client"
+                        className="w-4 h-4 rounded-full bg-ockham-teal border-2 border-ockham-navy flex items-center justify-center text-white"
+                      >
+                        <IcBulle size={8} />
+                      </span>
+                    )}
+                    {client.relance_auto_alerte && (
+                      <span
+                        title="Un envoi automatique a rebondi"
+                        className="w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-ockham-navy"
+                      />
+                    )}
+                  </span>
                 )}
               </button>
             ))}
@@ -512,7 +532,9 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
               <SectionTimelineRelances
                 codeClient={client.code_dso}
                 rafraichir={tickEchanges}
-                onEchangeSupprime={onEchangeEnregistre}
+                // Meme signal que l enregistrement : supprimer un echange peut
+                // eteindre la pastille de l onglet, elle doit etre recalculee.
+                onEchangeSupprime={() => { setTickEchanges(t => t + 1); onEchangeEnregistre?.() }}
               />
             </div>
           )}

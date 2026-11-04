@@ -114,6 +114,14 @@ export function IcCheck(p: SvgProps) {
 export function IcLoader(p: SvgProps) {
   return <Svg {...p} className={`animate-spin ${p.className ?? ''}`}><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></Svg>
 }
+// Bulle de dialogue : « quelqu'un a ecrit quelque chose ici ».
+// Volontairement distincte de IcInfo, qui sert deja dans l'application a
+// annoncer une explication du systeme (historique de paiement, encarts d'aide).
+// Si la meme icone disait tantot « aide » tantot « commentaire », les deux sens
+// s'abimeraient.
+export function IcBulle(p: SvgProps) {
+  return <Svg {...p}><path d="M21 11.5a8.4 8.4 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.4 8.4 0 01-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.4 8.4 0 013.8-.9h.5a8.5 8.5 0 018 8v.5z"/></Svg>
+}
 export function IcInfo(p: SvgProps) {
   return <Svg {...p}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></Svg>
 }

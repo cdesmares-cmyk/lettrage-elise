@@ -10,7 +10,7 @@ import type { Relance, StatutRelance } from '../../hooks/useRelances'
 import type { CommentaireFacture } from '../../types/client'
 import { ModalDetailRelance } from '../relances/ModalDetailRelance'
 import { ZoneTexteAuto } from './ZoneTexteAuto'
-import { IcTelephone, IcEnveloppe } from '../Icones'
+import { IcTelephone, IcEnveloppe, IcBulle } from '../Icones'
 
 interface LogAuto {
   id: string
@@ -83,6 +83,23 @@ function champsContact(e: Echange): { label: string; valeur: string }[] {
   return remplis
 }
 
+/** « Cette ligne porte du texte. » Rien de plus.
+ *
+ *  Le TYPE de la ligne est deja dit par sa capsule — Manuel, Auto, Interne,
+ *  Appel, Mail — donc cette pastille n'a pas a le repeter. Discrete a dessein :
+ *  elle peut apparaitre sur beaucoup de lignes a la fois et ne doit pas
+ *  concurrencer les capsules.
+ *
+ *  Une ligne Auto n'en portera jamais : relances_auto_log n'a aucun champ de
+ *  commentaire. Ca se lit « rien n'a ete note », pas « rien ne s'est passe ». */
+function PastilleTexte({ titre }: { titre: string }) {
+  return (
+    <span title={titre} className="flex-shrink-0 text-gray-400">
+      <IcBulle size={11} />
+    </span>
+  )
+}
+
 interface PropsLigneEchange {
   echange: Echange
   isPremiere: boolean
@@ -124,6 +141,9 @@ function LigneEchange({ echange: e, isPremiere, onEnregistrer, onSupprimer }: Pr
           <Icone size={12} className="flex-shrink-0 text-gray-400" />
           {label}
         </span>
+        {(e.commentaire?.trim() || e.retour_client?.trim()) && (
+          <PastilleTexte titre={e.retour_client?.trim() ? 'Retour client noté' : 'Commentaire noté'} />
+        )}
         <span className="text-[10px] font-bold w-5 text-center flex-shrink-0 text-gray-400">
           {e.operateur ?? '?'}
         </span>
@@ -476,6 +496,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0, onEchangeS
                     ? 'bg-ockham-teal/10 text-ockham-teal-dark border-ockham-teal/30'
                     : 'bg-slate-50 text-slate-500 border-slate-200'
                 }`}>{estInterne ? 'Interne' : 'Manuel'}</span>
+                {r.note?.trim() && <PastilleTexte titre="Note de suivi" />}
                 <span className={`text-[10px] font-bold w-5 text-center flex-shrink-0 ${
                   estInterne ? 'text-blue-400' : isPremiere ? 'text-ockham-teal' : 'text-gray-400'
                 }`}>
