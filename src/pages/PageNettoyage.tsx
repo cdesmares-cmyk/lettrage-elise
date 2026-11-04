@@ -44,13 +44,51 @@ function Pastille({ ton, children }: { ton: keyof typeof TONS; children: React.R
   return <span className={`text-[10.5px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${TONS[ton]}`}>{children}</span>
 }
 
+type CleManque = 'contact' | 'siret' | 'commercial'
+
+/** Les trois manques, dans l'ordre de gravite. Source unique pour les capsules
+ *  du tableau ET les boutons de filtre. */
+const MANQUES: { cle: CleManque; label: string; ton: keyof typeof TONS; test: (c: ClientInjoignable) => boolean }[] = [
+  { cle: 'contact',    label: 'Aucun contact',       ton: 'rouge', test: c => c.sansContact },
+  { cle: 'siret',      label: 'SIRET manquant',      ton: 'ambre', test: c => c.sansSiret },
+  { cle: 'commercial', label: 'Commercial manquant', ton: 'gris',  test: c => c.sansCommercial },
+]
+
 export function PageNettoyage() {
   const navigate = useNavigate()
   const { clients, contacts, chargement, erreur, encoursInjoignable, nbContactsActifs } = useNettoyage()
   const [onglet, setOnglet] = useState<'clients' | 'contacts'>('clients')
   const [page, setPage] = useState(0)
+  // Vide = tout afficher. Plusieurs manques coches se lisent en OU : « SIRET ou
+  // commercial » donne les fiches ayant au moins l'un des deux a completer.
+  const [manques, setManques] = useState<CleManque[]>([])
 
-  const liste = onglet === 'clients' ? clients : contacts
+  // Les compteurs par categorie, calcules sur la liste ENTIERE : un bouton doit
+  // annoncer ce qu'il va donner, pas ce qui reste apres les autres filtres.
+  const comptes = useMemo(() => {
+    const m = {} as Record<CleManque, number>
+    for (const { cle, test } of MANQUES) m[cle] = clients.filter(test).length
+    return m
+  }, [clients])
+
+  const clientsFiltres = useMemo(() => {
+    if (!manques.length) return clients
+    const tests = MANQUES.filter(m => manques.includes(m.cle)).map(m => m.test)
+    return clients.filter(c => tests.some(t => t(c)))
+  }, [clients, manques])
+
+  function basculerManque(cle: CleManque) {
+    setManques(prev => prev.includes(cle) ? prev.filter(k => k !== cle) : [...prev, cle])
+    // Remise a la page 1 dans le gestionnaire plutot que dans un effet : meme
+    // motif que le changement d'onglet juste en dessous.
+    setPage(0)
+  }
+
+  // liste porte le resultat filtre : la pagination, le compteur et SURTOUT
+  // l'export suivent ce qui est affiche. Exporter la liste entiere alors qu'un
+  // filtre est pose serait le meilleur moyen de retraiter des lignes deja
+  // traitees.
+  const liste = onglet === 'clients' ? clientsFiltres : contacts
   const nbPages = Math.ceil(liste.length / PAGE_SIZE)
   const visibles = useMemo(
     () => liste.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE),
@@ -165,6 +203,41 @@ export function PageNettoyage() {
           </span>
         </div>
 
+        {onglet === 'clients' && !chargement && (
+          <div className="flex items-center gap-2 flex-wrap px-4 py-3 border-b border-gray-100 bg-gray-50/40">
+            {MANQUES.map(m => {
+              const actif = manques.includes(m.cle)
+              return (
+                <button
+                  key={m.cle}
+                  onClick={() => basculerManque(m.cle)}
+                  className={`text-[11px] font-bold px-2.5 py-1 rounded-full border transition-colors cursor-pointer ${
+                    actif
+                      ? 'border-ockham-teal bg-ockham-teal text-white'
+                      : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {m.label}
+                  <span className={`ml-1.5 tabular-nums font-medium ${actif ? 'opacity-70' : 'opacity-50'}`}>
+                    {comptes[m.cle]}
+                  </span>
+                </button>
+              )
+            })}
+            {manques.length > 0 && (
+              <button
+                onClick={() => { setManques([]); setPage(0) }}
+                className="text-[11px] text-gray-400 hover:text-gray-600 cursor-pointer ml-1"
+              >
+                Tout afficher
+              </button>
+            )}
+            <span className="ml-auto text-[11px] text-gray-400 tabular-nums">
+              {liste.length} fiche{liste.length > 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+
         {chargement ? (
           <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-400">
             <IcLoader size={14} /> Chargement…
@@ -176,7 +249,9 @@ export function PageNettoyage() {
             {/* Une liste vide doit dire pourquoi elle est vide, sinon on ne sait
                 pas distinguer « tout va bien » de « l'écran est cassé ». */}
             <p className="text-[11.5px] text-gray-400 mt-2.5 max-w-xl mx-auto leading-relaxed">
-              {onglet === 'clients'
+              {onglet === 'clients' && manques.length > 0
+                ? <>Aucune fiche ne correspond à ce filtre. Les autres catégories ont peut-être des lignes : retirez le filtre pour les voir.</>
+                : onglet === 'clients'
                 ? <>Chaque client qui a un encours a une adresse active, un SIRET et un commercial. Il n'y a rien à compléter.</>
                 : <>Sur {nbContactsActifs} contacts actifs, aucun n'a de rôle inconnu et aucun rebond n'est signalé. Les rôles « Relance » et « Comptabilité », quelle que soit leur orthographe, sont reconnus, ils n'apparaissent donc pas ici.</>}
             </p>
@@ -204,9 +279,9 @@ export function PageNettoyage() {
                   <td className={`${TD} text-right text-xs tabular-nums text-gray-400`}>{c.nb_impayees}</td>
                   <td className={TD}>
                     <span className="flex flex-wrap gap-1">
-                      {c.sansContact    && <Pastille ton="rouge">Aucun contact</Pastille>}
-                      {c.sansSiret      && <Pastille ton="ambre">SIRET manquant</Pastille>}
-                      {c.sansCommercial && <Pastille ton="gris">Commercial manquant</Pastille>}
+                      {MANQUES.filter(m => m.test(c)).map(m => (
+                        <Pastille key={m.cle} ton={m.ton}>{m.label}</Pastille>
+                      ))}
                     </span>
                   </td>
                   <td className={`${TD} text-right text-gray-300`}>›</td>
