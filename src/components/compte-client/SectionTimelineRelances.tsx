@@ -235,7 +235,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0, onEchangeS
     Promise.all([
       supabase
         .from('relances')
-        .select('id,code_client,operateur_id,contacts_ids,contacts_snapshot,factures_ids,objet,statut,points_attribues,cree_le,envoyee_le,mis_a_jour_le,archivee,note,note_operateur,note_archivee_le,date_rappel')
+        .select('id,code_client,operateur_id,type,contacts_ids,contacts_snapshot,factures_ids,objet,statut,points_attribues,cree_le,envoyee_le,mis_a_jour_le,archivee,note,note_operateur,note_archivee_le,date_rappel')
         .eq('code_client', codeClient)
         .eq('archivee', false)
         .not('envoyee_le', 'is', null)
@@ -439,33 +439,54 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0, onEchangeS
             const r   = entree.relance
             const date = entree.date ? fmt(entree.date) : '—'
             const op   = initOp.get(r.operateur_id) ?? '?'
+            // Une relance interne notifie un commercial, elle ne part PAS chez
+            // le client. L'afficher comme une relance est trompeur : on croit
+            // avoir relance quelqu'un qui n'a rien recu.
+            const estInterne = r.type === 'interne'
+
+            // L'interne l'emporte sur la mise en avant de la plus recente. La
+            // nature de l'entree compte plus que son rang, et la colonne de
+            // date dit deja qu'elle est la derniere.
+            const cadre = estInterne
+              ? 'border-blue-200 bg-blue-50/50 hover:bg-blue-50'
+              : isPremiere
+              ? 'border-ockham-teal/40 bg-ockham-teal-muted/50 hover:bg-ockham-teal-muted'
+              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
 
             return (
               <button
                 key={r.id}
                 onClick={() => setOuvert(r)}
-                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors group cursor-pointer ${
-                  isPremiere
-                    ? 'border-ockham-teal/40 bg-ockham-teal-muted/50 hover:bg-ockham-teal-muted'
-                    : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                }`}
+                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors group cursor-pointer ${cadre}`}
               >
-                <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${isPremiere ? 'text-ockham-teal-dark' : 'text-gray-500'}`}>
+                <span className={`text-[11px] font-medium w-[52px] flex-shrink-0 tabular-nums ${
+                  estInterne ? 'text-blue-500' : isPremiere ? 'text-ockham-teal-dark' : 'text-gray-500'
+                }`}>
                   {date}
                 </span>
-                <span className={`text-[11px] font-bold flex-1 tabular-nums ${isPremiere ? 'text-ockham-navy' : 'text-gray-700'}`}>
+                <span className={`text-[11px] font-bold flex-1 tabular-nums ${
+                  estInterne ? 'text-blue-600' : isPremiere ? 'text-ockham-navy' : 'text-gray-700'
+                }`}>
                   {fmtEuros(entree.montant)}
                 </span>
                 <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${
-                  isPremiere
+                  estInterne
+                    ? 'bg-blue-50 text-blue-500 border-blue-200'
+                    : isPremiere
                     ? 'bg-ockham-teal/10 text-ockham-teal-dark border-ockham-teal/30'
                     : 'bg-slate-50 text-slate-500 border-slate-200'
-                }`}>Manuel</span>
-                <span className={`text-[10px] font-bold w-5 text-center flex-shrink-0 ${isPremiere ? 'text-ockham-teal' : 'text-gray-400'}`}>
+                }`}>{estInterne ? 'Interne' : 'Manuel'}</span>
+                <span className={`text-[10px] font-bold w-5 text-center flex-shrink-0 ${
+                  estInterne ? 'text-blue-400' : isPremiere ? 'text-ockham-teal' : 'text-gray-400'
+                }`}>
                   {op}
                 </span>
                 <svg
-                  className={`w-3 h-3 flex-shrink-0 transition-colors ${isPremiere ? 'text-ockham-teal/60 group-hover:text-ockham-teal' : 'text-gray-300 group-hover:text-gray-400'}`}
+                  className={`w-3 h-3 flex-shrink-0 transition-colors ${
+                    estInterne ? 'text-blue-300 group-hover:text-blue-400'
+                    : isPremiere ? 'text-ockham-teal/60 group-hover:text-ockham-teal'
+                    : 'text-gray-300 group-hover:text-gray-400'
+                  }`}
                   viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
                 >
                   <path d="M4.5 2.5l4 3.5-4 3.5" />
@@ -507,7 +528,7 @@ export function SectionTimelineRelances({ codeClient, rafraichir = 0, onEchangeS
                 {fmtEuros(entree.montant)}
               </span>
               <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border flex-shrink-0 ${
-                bounce ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-blue-50 text-blue-500 border-blue-200'
+                bounce ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-violet-50 text-violet-500 border-violet-200'
               }`}>Auto</span>
               <span className="w-5 flex-shrink-0" />
               <span className="w-3 flex-shrink-0" />
