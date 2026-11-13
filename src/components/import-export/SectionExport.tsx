@@ -24,7 +24,7 @@ async function fetchAll<T>(
   return acc
 }
 
-type TypeExport = 'factures' | 'lettrage' | 'contacts' | 'clients' | 'relances'
+type TypeExport = 'factures' | 'lettrage' | 'contacts' | 'clients' | 'relances' | 'releves'
 
 const OPTIONS: {
   type: TypeExport
@@ -60,6 +60,13 @@ const OPTIONS: {
     titre: 'Comptes clients',
     description: 'Tous les clients avec leurs paramètres (relance auto, commercial, plateforme…), prêts à être modifiés et ré-importés.',
     info: 'Export instantané — même format que l\'import clients.',
+  },
+  {
+    type: 'releves',
+    icone: <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>,
+    titre: 'Relevés bancaires',
+    description: 'Toutes les lignes bancaires importées sur une période, avec leur statut de lettrage — pour comparer avec le relevé de la banque.',
+    info: 'Export de contrôle. TOUTES les lignes sont exportées, lettrées ou non : c\'est ce qui permet de reperer celles qui manquent en base.',
   },
   {
     type: 'relances',
@@ -184,6 +191,51 @@ function fmtDate(iso: string | null): string {
   return `${d}/${m}/${y}`
 }
 
+interface RowReleve {
+  id_operation: string
+  date_operation: string
+  libelle: string | null
+  detail: string | null
+  infos_complementaires: string | null
+  debit: number | null
+  credit: number | null
+  montant_lettre: number | null
+  restant: number | null
+  statut_lettrage: string | null
+  derniere_date_lettrage: string | null
+}
+
+const LIBELLE_STATUT: Record<string, string> = {
+  lettre:         'Lettré',
+  partiel:        'Partiel',
+  non_lettre:     'Non lettré',
+  en_attente_411: 'En attente 411',
+  debit:          'Débit',
+}
+
+function exporterRelevesXlsx(lignes: RowReleve[], dateDebut: string, dateFin: string) {
+  const sheet = XLSX.utils.json_to_sheet(lignes.map(l => ({
+    date_operation:  l.date_operation,
+    numero_operation: l.id_operation,
+    libelle:         l.libelle ?? '',
+    detail:          l.detail ?? '',
+    infos:           l.infos_complementaires ?? '',
+    debit:           l.debit  ?? 0,
+    credit:          l.credit ?? 0,
+    montant_lettre:  l.montant_lettre ?? 0,
+    restant:         l.restant ?? 0,
+    statut:          LIBELLE_STATUT[l.statut_lettrage ?? ''] ?? (l.statut_lettrage ?? ''),
+    dernier_lettrage: l.derniere_date_lettrage ?? '',
+  })))
+  sheet['!cols'] = [
+    { wch: 14 }, { wch: 26 }, { wch: 40 }, { wch: 30 }, { wch: 24 },
+    { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }, { wch: 14 },
+  ]
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, sheet, 'Relevés bancaires')
+  XLSX.writeFile(wb, `releves_bancaires_${dateDebut}_${dateFin}.xlsx`)
+}
+
 function exporterFacturesXlsx(factures: RowFacture[]) {
   const lignes = factures.map(f => ({
     'numero_piece':  f.numero_piece,
@@ -302,6 +354,46 @@ export function SectionExport() {
     }
   }
 
+  // Export de CONTROLE : toutes les lignes bancaires d'une periode, lettrees
+  // ou non. L'objectif est de comparer avec le releve de la banque et de
+  // reperer ce qui manque en base — filtrer sur les lignes lettrees cacherait
+  // precisement les anomalies qu'on cherche.
+  //
+  // La vue porte deja le statut de lettrage et le montant affecte : rien a
+  // recalculer ici, et l'export dit la meme chose que l'ecran de lettrage.
+  async function handleExportReleves() {
+    if (!dateDebut || !dateFin) { toast.error('Veuillez sélectionner une période'); return }
+    setChargement(true)
+    try {
+      // Pagination par lots : une periode large peut depasser la limite par
+      // defaut de PostgREST, et un export silencieusement tronque serait pire
+      // qu'une erreur — on croirait la banque en ecart.
+      const LOT = 1000
+      const lignes: RowReleve[] = []
+      for (let debut = 0; ; debut += LOT) {
+        const { data, error } = await supabase
+          .from('v_lignes_bancaires_avec_statut')
+          .select('id_operation, date_operation, libelle, detail, infos_complementaires, debit, credit, montant_lettre, restant, statut_lettrage, derniere_date_lettrage')
+          .gte('date_operation', dateDebut)
+          .lte('date_operation', dateFin)
+          .order('date_operation', { ascending: true })
+          .range(debut, debut + LOT - 1)
+        if (error) throw error
+        const lot = (data ?? []) as unknown as RowReleve[]
+        lignes.push(...lot)
+        if (lot.length < LOT) break
+      }
+
+      if (!lignes.length) { toast('Aucune ligne bancaire sur cette période', { icon: 'ℹ️' }); return }
+      exporterRelevesXlsx(lignes, dateDebut, dateFin)
+      toast.success(`${lignes.length} ligne${lignes.length > 1 ? 's' : ''} exportée${lignes.length > 1 ? 's' : ''}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de l\'export.')
+    } finally {
+      setChargement(false)
+    }
+  }
+
   async function handleExportRelances() {
     setChargement(true)
     try {
@@ -323,7 +415,7 @@ export function SectionExport() {
 
       // Batch contacts pour relances manuelles
       const allContactIds = [...new Set(manuelles.flatMap(r => r.contacts_ids ?? []))]
-      let contactEmailMap: Record<string, string> = {}
+      const contactEmailMap: Record<string, string> = {}
       if (allContactIds.length > 0) {
         const { data: contactsRaw } = await supabase.from('contacts_client').select('id, email').in('id', allContactIds)
         for (const c of (contactsRaw ?? []) as RowContact[]) contactEmailMap[c.id] = c.email
@@ -558,6 +650,35 @@ export function SectionExport() {
               >
                 {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
               </button>
+            </div>
+          </div>
+        )}
+
+        {type === 'releves' && (
+          <div className="border border-gray-200 rounded-xl p-5">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Plage de dates</p>
+            <div className="flex items-end gap-3 flex-wrap">
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Du</label>
+                <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors" />
+              </div>
+              <div>
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide block mb-1">Au</label>
+                <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-ockham-teal bg-white transition-colors" />
+              </div>
+              <button onClick={handleExportReleves} disabled={chargement || !dateDebut || !dateFin}
+                className="flex items-center gap-2 text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 px-4 py-2 rounded-lg transition-colors disabled:opacity-40 whitespace-nowrap">
+                {chargement ? '⟳ Export…' : <><IcDownload size={13} className="inline-block mr-1.5" />Exporter .xlsx</>}
+              </button>
+            </div>
+            <div className="border-t border-gray-100 pt-3 mt-4 text-[11px] text-gray-500">
+              <p className="font-semibold text-gray-600 mb-1">Colonnes exportées</p>
+              <p>Date opération · N° opération · Libellé · Détail · Infos · Débit · Crédit · Montant lettré · Restant · Statut · Dernier lettrage</p>
+              <p className="mt-2">
+                La date filtrée est la <span className="font-semibold text-gray-600">date d'opération bancaire</span>, celle du relevé — pas la date de saisie dans Ockham.
+              </p>
             </div>
           </div>
         )}
