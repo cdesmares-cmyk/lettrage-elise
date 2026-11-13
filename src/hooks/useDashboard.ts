@@ -243,9 +243,10 @@ function construireBuckets(periode: PeriodeEncaissement, joursOuvresSeuls = fals
 function computeEncaissements(
   raw: { date_operation: string; montant: number; montant_autres: number }[],
   periode: PeriodeEncaissement,
-  joursOuvresSeuls: boolean
+  joursOuvresSeuls: boolean,
+  decalage: number,
 ): PointEncaissement[] {
-  return construireBuckets(periode, joursOuvresSeuls).map(b => {
+  return construireBuckets(periode, joursOuvresSeuls, decalage).map(b => {
     const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     return {
       label:  b.label,
@@ -281,9 +282,10 @@ export interface PointEncaissementAge {
 function computeEncaissementsParAge(
   raw: JourEncaissementAge[],
   periode: PeriodeEncaissement,
-  joursOuvresSeuls: boolean
+  joursOuvresSeuls: boolean,
+  decalage: number,
 ): PointEncaissementAge[] {
-  return construireBuckets(periode, joursOuvresSeuls).map(b => {
+  return construireBuckets(periode, joursOuvresSeuls, decalage).map(b => {
     const slice = raw.filter(l => l.date_operation >= b.start && l.date_operation <= b.end)
     const somme = (cle: keyof Omit<JourEncaissementAge, 'date_operation'>) =>
       // Number() et non la valeur brute : Postgres renvoie les numeric sous
@@ -377,6 +379,12 @@ export function useDashboard() {
   // N'a d'effet qu'en vue « 7 jours » — sur les autres periodes, les week-ends
   // sont DANS les tranches et les exclure ferait perdre des encaissements.
   const [joursOuvresSeuls, setJoursOuvresSeuls] = useState(true)
+  // Stocke AVEC sa periode, comme pour l'activite : changer de periode remet la
+  // fenetre sur aujourd'hui, puisque « 30 crans » exprimes en jours n'ont aucun
+  // sens en vue annuelle.
+  const [decalageEnc, setDecalageEnc] = useState<{ periode: PeriodeEncaissement; crans: number }>(
+    { periode: 'semaine', crans: 0 }
+  )
   const [seuilAnciennete, setSeuilAnciennete] = useState<SeuilAnciennete>(18)
   const [encaissementsRaw, setEncaissementsRaw] = useState<{ date_operation: string; montant: number; montant_autres: number }[]>([])
   const [encaissementsAgeRaw, setEncaissementsAgeRaw] = useState<JourEncaissementAge[]>([])
@@ -618,10 +626,25 @@ export function useDashboard() {
   const topClients = useMemo(() => computeTopClients(facsAnalyse, topNbClients), [facsAnalyse, topNbClients])
   const topFactures = useMemo(() => computeTopFactures(facsAnalyse, topNbFactures), [facsAnalyse, topNbFactures])
   const balanceAgee = useMemo(() => computeBalanceAgee(facsAnalyse), [facsAnalyse])
-  const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement, joursOuvresSeuls), [encaissementsRaw, periodeEncaissement, joursOuvresSeuls])
+  const decalageEncaissement = decalageEnc.periode === periodeEncaissement ? decalageEnc.crans : 0
+
+  function reculerEncaissement() {
+    setDecalageEnc({
+      periode: periodeEncaissement,
+      crans: Math.min(decalageEncaissement + 1, DECALAGE_MAX[periodeEncaissement]),
+    })
+  }
+  function avancerEncaissement() {
+    setDecalageEnc({ periode: periodeEncaissement, crans: Math.max(decalageEncaissement - 1, 0) })
+  }
+  function revenirAAujourdhuiEncaissement() {
+    setDecalageEnc({ periode: periodeEncaissement, crans: 0 })
+  }
+
+  const pointsEncaissement   = useMemo(() => computeEncaissements(encaissementsRaw, periodeEncaissement, joursOuvresSeuls, decalageEncaissement), [encaissementsRaw, periodeEncaissement, joursOuvresSeuls, decalageEncaissement])
   // Le meme selecteur de periode pilote les deux graphiques : ils se lisent
   // l'un sous l'autre, ils doivent bouger ensemble.
-  const pointsEncaissementAge = useMemo(() => computeEncaissementsParAge(encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls), [encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls])
+  const pointsEncaissementAge = useMemo(() => computeEncaissementsParAge(encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls, decalageEncaissement), [encaissementsAgeRaw, periodeEncaissement, joursOuvresSeuls, decalageEncaissement])
   // On ne propose que les operateurs qui ont REELLEMENT relance : une liste de
   // tous les membres afficherait des noms sans aucune donnee derriere.
   // Un operateur parti de l'organisation disparait de la liste, mais ses
@@ -704,6 +727,9 @@ export function useDashboard() {
     resumePortefeuille, couvertureRelance,
     pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
     pointsEncaissementAge, joursOuvresSeuls, setJoursOuvresSeuls,
+    decalageEncaissement, reculerEncaissement, avancerEncaissement,
+    revenirAAujourdhuiEncaissement,
+    decalageMaxEncaissement: DECALAGE_MAX[periodeEncaissement],
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
     pointsActiviteRecouvrement, activiteSurQuatreCanaux,

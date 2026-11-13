@@ -1,5 +1,6 @@
 import { ComposedChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { useDashboard, PeriodeEncaissement } from '../../hooks/useDashboard'
+import { NavigationPeriode, BadgeHistorique } from './NavigationPeriode'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -44,6 +45,8 @@ function TooltipCustom({ active, payload, label }: { active?: boolean; payload?:
 export function BlocEncaissements({
   pointsEncaissement, periodeEncaissement, setPeriodeEncaissement,
   joursOuvresSeuls, setJoursOuvresSeuls,
+  decalageEncaissement, reculerEncaissement, avancerEncaissement,
+  revenirAAujourdhuiEncaissement, decalageMaxEncaissement,
 }: Props) {
   const totalClients = pointsEncaissement.reduce((s, p) => s + p.client, 0)
   const totalAutres  = pointsEncaissement.reduce((s, p) => s + p.autres, 0)
@@ -73,6 +76,20 @@ export function BlocEncaissements({
           )}
         </div>
         <div className="flex items-center gap-2">
+          {decalageEncaissement > 0 && (
+            <BadgeHistorique onRetour={revenirAAujourdhuiEncaissement} />
+          )}
+
+          {/* Les fleches pilotent LES DEUX graphiques d'encaissements, qui
+              partagent deja le selecteur de periode : ils se lisent l'un sous
+              l'autre, ils doivent montrer la meme fenetre. */}
+          <NavigationPeriode
+            decalage={decalageEncaissement}
+            decalageMax={decalageMaxEncaissement}
+            onReculer={reculerEncaissement}
+            onAvancer={avancerEncaissement}
+          />
+
           {/* N'apparait qu'en vue « 7 jours » : c'est la seule ou les week-ends
               font des barres vides. Sur les autres periodes ils sont DANS les
               tranches, et les retirer ferait perdre des encaissements. */}

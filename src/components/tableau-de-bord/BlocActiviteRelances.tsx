@@ -1,5 +1,6 @@
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { useDashboard, PeriodeEncaissement, CanalRecouvrement } from '../../hooks/useDashboard'
+import { NavigationPeriode, BadgeHistorique } from './NavigationPeriode'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -125,15 +126,7 @@ export function BlocActiviteRelances({
               · <span className="font-semibold text-gray-600">{fmtNb(totalActions)}</span> action{totalActions > 1 ? 's' : ''}
             </span>
           )}
-          {decalage > 0 && (
-            <button
-              onClick={revenirAAujourdhui}
-              title="Revenir à la période en cours"
-              className="inline-flex items-center gap-1 text-[10px] font-bold text-ockham-copper bg-ockham-copper/10 border border-ockham-copper/30 px-2 py-0.5 rounded-full hover:bg-ockham-copper/20 transition-colors cursor-pointer"
-            >
-              Historique · revenir à aujourd'hui
-            </button>
-          )}
+          {decalage > 0 && <BadgeHistorique onRetour={revenirAAujourdhui} />}
         </div>
         <div className="flex items-center gap-2">
           {/* Filtre operateur. Affiche seulement s'il y a plus d'une personne
@@ -181,33 +174,12 @@ export function BlocActiviteRelances({
             </button>
           )}
 
-          {/* Navigation dans le passe. Un cran = une unite de la periode
-              affichee : un jour en vue « 7 jours », un mois en vue « 12 mois ».
-              Borne a gauche par DECALAGE_MAX, qui correspond aux 24 mois
-              charges : au-dela les barres seraient vides et on croirait a une
-              panne plutot qu'a une absence de donnees. */}
-          <div className="flex items-center gap-0.5">
-            <button
-              onClick={reculer}
-              disabled={decalage >= decalageMax}
-              title="Période précédente"
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </button>
-            <button
-              onClick={avancer}
-              disabled={decalage === 0}
-              title="Période suivante"
-              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
+          <NavigationPeriode
+            decalage={decalage}
+            decalageMax={decalageMax}
+            onReculer={reculer}
+            onAvancer={avancer}
+          />
 
         <div className="flex gap-1">
           {PERIODES.map(p => (

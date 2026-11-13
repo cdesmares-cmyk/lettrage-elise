@@ -21,6 +21,7 @@
 // trompeuse.
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import type { useDashboard } from '../../hooks/useDashboard'
+import { BadgeHistorique } from './NavigationPeriode'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -72,7 +73,9 @@ function TooltipAge({ active, payload, label }: {
   )
 }
 
-export function BlocEncaissementsParAge({ pointsEncaissementAge }: Props) {
+export function BlocEncaissementsParAge({
+  pointsEncaissementAge, decalageEncaissement, revenirAAujourdhuiEncaissement,
+}: Props) {
   const totaux = TRANCHES.map(t =>
     pointsEncaissementAge.reduce((s, p) => s + p[t.cle], 0)
   )
@@ -100,6 +103,9 @@ export function BlocEncaissementsParAge({ pointsEncaissementAge }: Props) {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          {decalageEncaissement > 0 && (
+            <BadgeHistorique onRetour={revenirAAujourdhuiEncaissement} />
+          )}
           {TRANCHES.map((t, i) => (
             <span key={t.cle} className="flex items-center gap-1.5 text-[10px] text-gray-500">
               <span className="w-2 h-2 rounded-sm shrink-0" style={{ background: t.couleur }} />
