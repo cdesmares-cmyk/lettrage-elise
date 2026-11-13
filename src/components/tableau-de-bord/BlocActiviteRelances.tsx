@@ -83,6 +83,7 @@ export function BlocActiviteRelances({
   pointsActiviteRecouvrement, activiteSurQuatreCanaux,
   canauxMasques, setCanauxMasques,
   decalage, reculer, avancer, revenirAAujourdhui, decalageMax,
+  joursOuvresActivite, setJoursOuvresActivite,
 }: Props) {
   // Tant que la migration 188 n'est pas executee, on retombe sur l'ancienne
   // source en la projetant sur la meme forme : un seul canal rempli, les trois
@@ -156,6 +157,28 @@ export function BlocActiviteRelances({
               </select>
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
             </div>
+          )}
+
+          {/* N'apparait qu'en vue « 7 jours » : c'est la seule ou les week-ends
+              font des barres vides. Sur les autres periodes ils sont DANS les
+              tranches, et les retirer ferait perdre des actions.
+              Reglage propre a ce graphique : il a son propre selecteur de
+              periode, un interrupteur partage avec les encaissements agirait
+              a distance sans qu'on comprenne pourquoi. */}
+          {periodeActiviteRelances === 'jour' && (
+            <button
+              onClick={() => setJoursOuvresActivite(!joursOuvresActivite)}
+              title={joursOuvresActivite
+                ? 'Les actions du week-end sont rattachées au lundi suivant'
+                : 'Afficher les sept derniers jours ouvrés'}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded border transition-colors cursor-pointer ${
+                joursOuvresActivite
+                  ? 'border-ockham-teal bg-ockham-teal-muted text-ockham-teal-dark'
+                  : 'border-gray-200 bg-white text-gray-500 hover:border-gray-300'
+              }`}
+            >
+              Jours ouvrés
+            </button>
           )}
 
           {/* Navigation dans le passe. Un cran = une unite de la periode

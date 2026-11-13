@@ -313,8 +313,9 @@ function computeActiviteRecouvrement(
   // sur des donnees deja chargees : aucun aller-retour reseau.
   canauxMasques: CanalRecouvrement[],
   decalage: number,
+  joursOuvresSeuls: boolean,
 ): PointActiviteRecouvrement[] {
-  return construireBuckets(periode, false, decalage).map(b => {
+  return construireBuckets(periode, joursOuvresSeuls, decalage).map(b => {
     const lignes = raw.filter(l => {
       if (l.date_operation < b.start || l.date_operation > b.end) return false
       if (canauxMasques.includes(l.canal)) return false
@@ -342,11 +343,12 @@ function computeActiviteRelances(
   periode: PeriodeEncaissement,
   // Chaine vide = tous les operateurs. Le filtrage se fait ici, sur des donnees
   // deja chargees : changer d'operateur ne declenche aucune requete.
-  operateurId: string
+  operateurId: string,
+  joursOuvresSeuls: boolean,
 ): PointActiviteRelance[] {
   // Meme decoupage du temps que les deux graphiques d encaissements : trois
   // graphiques sur la meme page doivent avoir les memes barres aux memes dates.
-  const buckets = construireBuckets(periode)
+  const buckets = construireBuckets(periode, joursOuvresSeuls)
 
   const lignes = operateurId ? raw.filter(l => l.operateur_id === operateurId) : raw
 
@@ -382,6 +384,9 @@ export function useDashboard() {
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [filtreOperateur, setFiltreOperateur] = useState<string>('')
   const [canauxMasques, setCanauxMasques] = useState<CanalRecouvrement[]>([])
+  // Actif par defaut, comme sur les encaissements : deux barres vides sur sept
+  // font une vue utile a 71 %. N'a d'effet qu'en vue « 7 jours ».
+  const [joursOuvresActivite, setJoursOuvresActivite] = useState(true)
   // Crans vers le passe. 0 = la fenetre se termine aujourd'hui.
   const [decalageActivite, setDecalageActivite] = useState<{ periode: PeriodeEncaissement; crans: number }>(
     { periode: 'mois', crans: 0 }
@@ -641,8 +646,8 @@ export function useDashboard() {
   }, [activiteRecouvrementRaw, activiteRelancesRaw, membresOrg])
 
   const pointsActiviteRelances = useMemo(
-    () => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances, filtreOperateur),
-    [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur]
+    () => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances, filtreOperateur, joursOuvresActivite),
+    [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur, joursOuvresActivite]
   )
 
   // Le decalage est stocke AVEC la periode a laquelle il se rapporte. Changer
@@ -653,8 +658,8 @@ export function useDashboard() {
   const decalage = decalageActivite.periode === periodeActiviteRelances ? decalageActivite.crans : 0
 
   const pointsActiviteRecouvrement = useMemo(
-    () => computeActiviteRecouvrement(activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage),
-    [activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage]
+    () => computeActiviteRecouvrement(activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage, joursOuvresActivite),
+    [activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage, joursOuvresActivite]
   )
 
   function reculer() {
@@ -705,6 +710,7 @@ export function useDashboard() {
     canauxMasques, setCanauxMasques,
     decalage, reculer, avancer, revenirAAujourdhui,
     decalageMax: DECALAGE_MAX[periodeActiviteRelances],
+    joursOuvresActivite, setJoursOuvresActivite,
     encoursCourant, chargement,
     creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,
