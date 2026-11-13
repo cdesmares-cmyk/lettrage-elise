@@ -236,6 +236,14 @@ export function BlocActiviteRelances({
         </div>
       )}
 
+      {/* select-none evite de selectionner les etiquettes du SVG en cliquant,
+          ce qui n'a aucune utilite sur un graphique.
+          A NE PAS CONFONDRE avec le « bandeau noir au clic » que le commit
+          4d52206 annonce avoir corrige : il ne l'a PAS ete. select-none etait
+          un diagnostic par deduction, et il etait faux — le bandeau est
+          toujours la au 2026-11-13. Cause reelle non identifiee, sujet
+          abandonne a la demande de Clement. Si quelqu'un le reprend : ce n'est
+          pas de la selection de texte. */}
       <div className="p-5 select-none">
         {!hasData ? (
           <div className="flex items-center justify-center h-48 text-xs text-gray-400">
