@@ -142,9 +142,40 @@ function jourOuvrePrecedent(d: Date): Date {
   return p
 }
 
-function construireBuckets(periode: PeriodeEncaissement, joursOuvresSeuls = false): Bucket[] {
+/**
+ * Combien de crans en arriere on peut aller sans sortir des donnees chargees.
+ *
+ * Les RPC ramenent 24 mois. Au-dela, les barres seraient vides et on croirait
+ * a une panne plutot qu'a une absence de donnees. Chaque periode a donc sa
+ * propre borne, exprimee dans son unite.
+ */
+export const DECALAGE_MAX: Record<PeriodeEncaissement, number> = {
+  jour:      720,
+  semaine:   100,
+  mois:       23,
+  trimestre:   7,
+  annee:       1,
+}
+
+/**
+ * @param decalage nombre de crans vers le passe, dans l'unite de la periode.
+ *        0 = la fenetre se termine aujourd'hui. En vue « 7 jours », 3 recule
+ *        de trois jours ; en vue « 12 mois », de trois mois.
+ */
+function construireBuckets(periode: PeriodeEncaissement, joursOuvresSeuls = false, decalage = 0): Bucket[] {
   const buckets: Bucket[] = []
-  const now = TODAY
+
+  // On decale la date de REFERENCE, et toute la construction qui suit en
+  // decoule. Decaler chaque tranche une par une aurait demande de toucher les
+  // cinq branches, et l'une aurait fini par diverger.
+  const now = new Date(TODAY)
+  if (decalage > 0) {
+    if      (periode === 'jour')      now.setDate(now.getDate() - decalage)
+    else if (periode === 'semaine')   now.setDate(now.getDate() - decalage * 7)
+    else if (periode === 'mois')      now.setMonth(now.getMonth() - decalage)
+    else if (periode === 'trimestre') now.setMonth(now.getMonth() - decalage * 3)
+    else                              now.setFullYear(now.getFullYear() - decalage)
+  }
 
   if (periode === 'jour') {
     if (joursOuvresSeuls) {
@@ -281,8 +312,9 @@ function computeActiviteRecouvrement(
   // Canaux masques par les boutons de categorie. Filtrage cote navigateur,
   // sur des donnees deja chargees : aucun aller-retour reseau.
   canauxMasques: CanalRecouvrement[],
+  decalage: number,
 ): PointActiviteRecouvrement[] {
-  return construireBuckets(periode).map(b => {
+  return construireBuckets(periode, false, decalage).map(b => {
     const lignes = raw.filter(l => {
       if (l.date_operation < b.start || l.date_operation > b.end) return false
       if (canauxMasques.includes(l.canal)) return false
@@ -350,6 +382,10 @@ export function useDashboard() {
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [filtreOperateur, setFiltreOperateur] = useState<string>('')
   const [canauxMasques, setCanauxMasques] = useState<CanalRecouvrement[]>([])
+  // Crans vers le passe. 0 = la fenetre se termine aujourd'hui.
+  const [decalageActivite, setDecalageActivite] = useState<{ periode: PeriodeEncaissement; crans: number }>(
+    { periode: 'mois', crans: 0 }
+  )
   const [activiteRecouvrementRaw, setActiviteRecouvrementRaw] = useState<JourActiviteRecouvrement[]>([])
   const [chargement, setChargement] = useState(true)
 
@@ -609,10 +645,30 @@ export function useDashboard() {
     [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur]
   )
 
+  // Le decalage est stocke AVEC la periode a laquelle il se rapporte. Changer
+  // de periode le remet donc a zero tout seul : « 30 crans » exprimes en jours
+  // n'ont aucun sens une fois passe en vue annuelle. Derive plutot que remis a
+  // zero dans un effet, qui aurait affiche une fenetre absurde le temps d'un
+  // rendu avant de se corriger.
+  const decalage = decalageActivite.periode === periodeActiviteRelances ? decalageActivite.crans : 0
+
   const pointsActiviteRecouvrement = useMemo(
-    () => computeActiviteRecouvrement(activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques),
-    [activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques]
+    () => computeActiviteRecouvrement(activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage),
+    [activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques, decalage]
   )
+
+  function reculer() {
+    setDecalageActivite({
+      periode: periodeActiviteRelances,
+      crans: Math.min(decalage + 1, DECALAGE_MAX[periodeActiviteRelances]),
+    })
+  }
+  function avancer() {
+    setDecalageActivite({ periode: periodeActiviteRelances, crans: Math.max(decalage - 1, 0) })
+  }
+  function revenirAAujourdhui() {
+    setDecalageActivite({ periode: periodeActiviteRelances, crans: 0 })
+  }
 
   // Tant que la migration 188 n'est pas passee, la source a quatre canaux est
   // vide : le graphique doit retomber sur l'ancienne plutot que d'afficher une
@@ -647,6 +703,8 @@ export function useDashboard() {
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
     pointsActiviteRecouvrement, activiteSurQuatreCanaux,
     canauxMasques, setCanauxMasques,
+    decalage, reculer, avancer, revenirAAujourdhui,
+    decalageMax: DECALAGE_MAX[periodeActiviteRelances],
     encoursCourant, chargement,
     creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,

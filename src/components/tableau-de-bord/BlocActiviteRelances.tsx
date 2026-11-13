@@ -82,6 +82,7 @@ export function BlocActiviteRelances({
   operateursActivite, filtreOperateur, setFiltreOperateur,
   pointsActiviteRecouvrement, activiteSurQuatreCanaux,
   canauxMasques, setCanauxMasques,
+  decalage, reculer, avancer, revenirAAujourdhui, decalageMax,
 }: Props) {
   // Tant que la migration 188 n'est pas executee, on retombe sur l'ancienne
   // source en la projetant sur la meme forme : un seul canal rempli, les trois
@@ -123,6 +124,15 @@ export function BlocActiviteRelances({
               · <span className="font-semibold text-gray-600">{fmtNb(totalActions)}</span> action{totalActions > 1 ? 's' : ''}
             </span>
           )}
+          {decalage > 0 && (
+            <button
+              onClick={revenirAAujourdhui}
+              title="Revenir à la période en cours"
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-ockham-copper bg-ockham-copper/10 border border-ockham-copper/30 px-2 py-0.5 rounded-full hover:bg-ockham-copper/20 transition-colors cursor-pointer"
+            >
+              Historique · revenir à aujourd'hui
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Filtre operateur. Affiche seulement s'il y a plus d'une personne
@@ -147,6 +157,34 @@ export function BlocActiviteRelances({
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
             </div>
           )}
+
+          {/* Navigation dans le passe. Un cran = une unite de la periode
+              affichee : un jour en vue « 7 jours », un mois en vue « 12 mois ».
+              Borne a gauche par DECALAGE_MAX, qui correspond aux 24 mois
+              charges : au-dela les barres seraient vides et on croirait a une
+              panne plutot qu'a une absence de donnees. */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={reculer}
+              disabled={decalage >= decalageMax}
+              title="Période précédente"
+              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button
+              onClick={avancer}
+              disabled={decalage === 0}
+              title="Période suivante"
+              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
 
         <div className="flex gap-1">
           {PERIODES.map(p => (
@@ -203,7 +241,7 @@ export function BlocActiviteRelances({
         </div>
       )}
 
-      <div className="p-5">
+      <div className="p-5 select-none">
         {!hasData ? (
           <div className="flex items-center justify-center h-48 text-xs text-gray-400">
             Aucune relance envoyée sur la période
