@@ -1,5 +1,5 @@
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import type { useDashboard, PeriodeEncaissement } from '../../hooks/useDashboard'
+import type { useDashboard, PeriodeEncaissement, CanalRecouvrement } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
 
@@ -8,6 +8,20 @@ const _fmtEuro = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maxi
 function fmtK(n: number)    { return n >= 1000 ? _fmtK.format(n / 1000) + 'k€' : _fmtK.format(n) + '€' }
 function fmtEuro(n: number) { return _fmtEuro.format(n) + ' €' }
 function fmtNb(n: number)   { return _fmtK.format(n) }
+
+// Teal et navy pour ce qui passe PAR Ockham, deux gris pour ce qui se fait
+// dehors. Lu comme ca, le graphique mesure aussi l'adoption de l'outil : si le
+// gris domine, l'outil ne capte pas le travail reel.
+//
+// Le navy est la couleur de structure de la charte, et il tranche franchement
+// avec l'ardoise de l'appel. Deux gris moyens voisins dans un empilement
+// seraient indistinguables.
+const CANAUX: { cle: CanalRecouvrement; label: string; couleur: string }[] = [
+  { cle: 'manuel', label: 'Manuel', couleur: '#4CC5BB' },
+  { cle: 'auto',   label: 'Auto',   couleur: '#0E1A2B' },
+  { cle: 'appel',  label: 'Appel',  couleur: '#64748B' },
+  { cle: 'mail',   label: 'Mail',   couleur: '#CBD5E1' },
+]
 
 const PERIODES: { val: PeriodeEncaissement; label: string }[] = [
   { val: 'jour',      label: '7 jours'    },
@@ -23,28 +37,39 @@ function TooltipActivite({ active, payload, label }: {
   label?: string
 }) {
   if (!active || !payload?.length) return null
-  const relances = payload.find(p => p.name === 'Relances envoyées')
-  const montant  = payload.find(p => p.name === 'Montant relancé')
+  const montant = payload.find(p => p.name === 'Montant relancé')
+  // Du haut de la pile vers le bas, pour suivre l'ordre visuel des barres.
+  const actions = payload.filter(p => p.name !== 'Montant relancé' && p.value > 0).reverse()
+  const total   = actions.reduce((s, p) => s + p.value, 0)
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2.5 text-xs min-w-[190px]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2.5 text-xs min-w-[200px]">
       <p className="font-semibold text-gray-600 mb-2">{label}</p>
       <div className="space-y-1.5">
-        {montant && (
-          <div className="flex items-center justify-between gap-4">
+        {actions.map(p => (
+          <div key={p.name} className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-[2px] rounded-full flex-shrink-0" style={{ background: montant.color }} />
-              <span className="text-gray-400">{montant.name}</span>
+              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0 border border-gray-200" style={{ background: p.color }} />
+              <span className="text-gray-400">{p.name}</span>
             </div>
-            <span className="font-mono font-semibold text-gray-800 tabular-nums">{fmtEuro(montant.value)}</span>
+            <span className="font-semibold text-gray-700 tabular-nums">{fmtNb(p.value)}</span>
+          </div>
+        ))}
+        {actions.length > 1 && (
+          <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-gray-100">
+            <span className="text-gray-400">Total actions</span>
+            <span className="font-bold text-gray-800 tabular-nums">{fmtNb(total)}</span>
           </div>
         )}
-        {relances && (
-          <div className="flex items-center justify-between gap-4">
+        {montant && montant.value > 0 && (
+          <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-gray-100">
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: relances.color }} />
-              <span className="text-gray-400">{relances.name}</span>
+              <span className="w-2.5 h-[2px] rounded-full flex-shrink-0" style={{ background: montant.color }} />
+              {/* Le libelle dit d'ou vient le montant : appel et mail n'en
+                  portent pas, et sans cette precision on lirait la courbe
+                  comme couvrant les quatre barres. */}
+              <span className="text-gray-400">Montant relancé <span className="text-gray-300">(manuel + auto)</span></span>
             </div>
-            <span className="font-semibold text-gray-700 tabular-nums">{fmtNb(relances.value)}</span>
+            <span className="font-mono font-semibold text-gray-800 tabular-nums">{fmtEuro(montant.value)}</span>
           </div>
         )}
       </div>
@@ -55,13 +80,35 @@ function TooltipActivite({ active, payload, label }: {
 export function BlocActiviteRelances({
   pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
   operateursActivite, filtreOperateur, setFiltreOperateur,
+  pointsActiviteRecouvrement, activiteSurQuatreCanaux,
+  canauxMasques, setCanauxMasques,
 }: Props) {
-  if (!pointsActiviteRelances.length) return null
+  // Tant que la migration 188 n'est pas executee, on retombe sur l'ancienne
+  // source en la projetant sur la meme forme : un seul canal rempli, les trois
+  // autres a zero. Un seul chemin de rendu, aucune bascule a maintenir.
+  const points = activiteSurQuatreCanaux
+    ? pointsActiviteRecouvrement
+    : pointsActiviteRelances.map(p => ({
+        label: p.label, manuel: p.nb_relances, auto: 0, appel: 0, mail: 0, montant: p.montant,
+      }))
 
-  const hasData = pointsActiviteRelances.some(p => p.nb_relances > 0)
+  if (!points.length) return null
 
-  const totalRelances = pointsActiviteRelances.reduce((s, p) => s + p.nb_relances, 0)
-  const totalMontant  = pointsActiviteRelances.reduce((s, p) => s + p.montant, 0)
+  const totalParCanal = Object.fromEntries(
+    CANAUX.map(c => [c.cle, points.reduce((s, p) => s + p[c.cle], 0)])
+  ) as Record<CanalRecouvrement, number>
+
+  const totalActions = CANAUX.reduce((s, c) => s + totalParCanal[c.cle], 0)
+  const totalMontant = points.reduce((s, p) => s + p.montant, 0)
+  const hasData      = totalActions > 0
+
+  function basculerCanal(cle: CanalRecouvrement) {
+    setCanauxMasques(
+      canauxMasques.includes(cle)
+        ? canauxMasques.filter(c => c !== cle)
+        : [...canauxMasques, cle]
+    )
+  }
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
@@ -71,9 +118,9 @@ export function BlocActiviteRelances({
           {totalMontant > 0 && (
             <span className="text-[11px] font-mono font-bold text-gray-600">{fmtEuro(totalMontant)}</span>
           )}
-          {totalRelances > 0 && (
+          {totalActions > 0 && (
             <span className="text-[11px] text-gray-400">
-              · <span className="font-semibold text-gray-600">{fmtNb(totalRelances)}</span> relances
+              · <span className="font-semibold text-gray-600">{fmtNb(totalActions)}</span> action{totalActions > 1 ? 's' : ''}
             </span>
           )}
         </div>
@@ -119,6 +166,43 @@ export function BlocActiviteRelances({
         </div>
       </div>
 
+      {/* La legende EST le filtre : cliquer sur un canal le masque. Deux
+          commandes pour une seule intention, ce serait une de trop. */}
+      {activiteSurQuatreCanaux && (
+        <div className="px-5 py-2.5 border-b border-gray-100 bg-gray-50/40 flex items-center gap-3 flex-wrap">
+          {CANAUX.map(c => {
+            const masque = canauxMasques.includes(c.cle)
+            return (
+              <button
+                key={c.cle}
+                onClick={() => basculerCanal(c.cle)}
+                title={masque ? `Afficher ${c.label}` : `Masquer ${c.label}`}
+                className={`flex items-center gap-1.5 text-[10px] font-semibold transition-opacity cursor-pointer ${
+                  masque ? 'opacity-35' : 'opacity-100'
+                }`}
+              >
+                <span
+                  className="w-2.5 h-2.5 rounded-sm shrink-0 border border-gray-300"
+                  style={{ background: masque ? 'transparent' : c.couleur }}
+                />
+                <span className="text-gray-500">{c.label}</span>
+                <span className="font-mono font-semibold text-gray-700 tabular-nums">
+                  {fmtNb(totalParCanal[c.cle])}
+                </span>
+              </button>
+            )
+          })}
+          {canauxMasques.length > 0 && (
+            <button
+              onClick={() => setCanauxMasques([])}
+              className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer ml-1"
+            >
+              Tout afficher
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="p-5">
         {!hasData ? (
           <div className="flex items-center justify-center h-48 text-xs text-gray-400">
@@ -126,7 +210,7 @@ export function BlocActiviteRelances({
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={260}>
-            <ComposedChart data={pointsActiviteRelances} margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
+            <ComposedChart data={points} margin={{ top: 4, right: 48, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
               {/* Axe gauche — nb relances */}
@@ -150,14 +234,20 @@ export function BlocActiviteRelances({
                 width={48}
               />
               <Tooltip content={<TooltipActivite />} cursor={{ fill: '#f9fafb' }} />
-              <Bar
-                yAxisId="left"
-                dataKey="nb_relances"
-                name="Relances envoyées"
-                fill="#4CC5BB"
-                radius={[3, 3, 0, 0]}
-                maxBarSize={36}
-              />
+              {/* Pas de coins arrondis sur un empilement : avec des canaux
+                  masquables, la barre du haut change, et l'arrondi se
+                  retrouverait au milieu de la pile. */}
+              {CANAUX.filter(c => !canauxMasques.includes(c.cle)).map(c => (
+                <Bar
+                  key={c.cle}
+                  yAxisId="left"
+                  dataKey={c.cle}
+                  name={c.label}
+                  stackId="canaux"
+                  fill={c.couleur}
+                  maxBarSize={36}
+                />
+              ))}
               <Line
                 yAxisId="right"
                 dataKey="montant"

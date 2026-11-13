@@ -20,6 +20,33 @@ export interface CouvertureRelance {
 }
 export interface JourActiviteRelance { date_operation: string; operateur_id: string | null; nb_relances: number; montant: number }
 export interface PointActiviteRelance { label: string; nb_relances: number; montant: number }
+
+/** Les quatre canaux de l'activite de recouvrement. Migration 188. */
+export type CanalRecouvrement = 'manuel' | 'auto' | 'appel' | 'mail'
+
+export interface JourActiviteRecouvrement {
+  date_operation: string
+  /** NULL sur les envois du robot : personne ne les a declenches. */
+  operateur_id: string | null
+  canal: CanalRecouvrement
+  nb: number
+  montant: number
+}
+
+/** Un point du graphique : les quatre canaux empiles, plus la courbe. */
+export interface PointActiviteRecouvrement {
+  label: string
+  manuel: number
+  auto: number
+  appel: number
+  mail: number
+  /** manuel + auto. Appel et mail ne portent aucun perimetre de factures. */
+  montant: number
+}
+
+/** Valeur speciale du filtre operateur : isoler les envois du robot, qui n'ont
+ *  pas d'operateur. « Relance Auto » a l'ecran, et pas « Robot ». */
+export const FILTRE_AUTO = '__auto__'
 export interface TopFacture {
   numero: string; nomClient: string; montant: number
   dateEcheance: string | null; joursRetard: number
@@ -242,6 +269,42 @@ function computeEncaissementsParAge(
   })
 }
 
+function computeActiviteRecouvrement(
+  raw: JourActiviteRecouvrement[],
+  periode: PeriodeEncaissement,
+  // Chaine vide = tous les canaux et tous les operateurs. FILTRE_AUTO isole
+  // les envois du robot. Sinon, un identifiant d'utilisateur.
+  //
+  // Filtrer sur une personne exclut mecaniquement la barre Auto, dont
+  // operateur_id est NULL. C'est voulu : le robot n'est pas quelqu'un.
+  operateurId: string,
+  // Canaux masques par les boutons de categorie. Filtrage cote navigateur,
+  // sur des donnees deja chargees : aucun aller-retour reseau.
+  canauxMasques: CanalRecouvrement[],
+): PointActiviteRecouvrement[] {
+  return construireBuckets(periode).map(b => {
+    const lignes = raw.filter(l => {
+      if (l.date_operation < b.start || l.date_operation > b.end) return false
+      if (canauxMasques.includes(l.canal)) return false
+      if (operateurId === FILTRE_AUTO) return l.canal === 'auto'
+      if (operateurId) return l.operateur_id === operateurId
+      return true
+    })
+    const nb = (canal: CanalRecouvrement) =>
+      lignes.filter(l => l.canal === canal).reduce((s, l) => s + Number(l.nb ?? 0), 0)
+    return {
+      label:   b.label,
+      manuel:  nb('manuel'),
+      auto:    nb('auto'),
+      appel:   nb('appel'),
+      mail:    nb('mail'),
+      // Number() : PostgREST renvoie les numeric en chaines de caracteres, et
+      // une addition de chaines concatene au lieu d'additionner.
+      montant: lignes.reduce((s, l) => s + Number(l.montant ?? 0), 0),
+    }
+  })
+}
+
 function computeActiviteRelances(
   raw: JourActiviteRelance[],
   periode: PeriodeEncaissement,
@@ -249,42 +312,9 @@ function computeActiviteRelances(
   // deja chargees : changer d'operateur ne declenche aucune requete.
   operateurId: string
 ): PointActiviteRelance[] {
-  type Bucket = { label: string; start: string; end: string }
-  const buckets: Bucket[] = []
-  const now = TODAY
-
-  if (periode === 'jour') {
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now); d.setDate(d.getDate() - i)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit' }), start: isoDate(d), end: isoDate(d) })
-    }
-  } else if (periode === 'semaine') {
-    for (let i = 11; i >= 0; i--) {
-      const end = new Date(now); end.setDate(end.getDate() - i * 7)
-      const start = new Date(end); start.setDate(start.getDate() - 6)
-      buckets.push({ label: `S ${start.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}`, start: isoDate(start), end: isoDate(end) })
-    }
-  } else if (periode === 'mois') {
-    for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const endD = new Date(now.getFullYear(), now.getMonth() - i + 1, 0)
-      buckets.push({ label: d.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }), start: isoDate(d), end: isoDate(endD) })
-    }
-  } else if (periode === 'trimestre') {
-    const cQ = Math.floor(now.getMonth() / 3)
-    for (let i = 3; i >= 0; i--) {
-      let qIdx = cQ - i; let yr = now.getFullYear()
-      while (qIdx < 0) { qIdx += 4; yr-- }
-      const startD = new Date(yr, qIdx * 3, 1)
-      const endD = new Date(yr, qIdx * 3 + 3, 0)
-      buckets.push({ label: `T${qIdx + 1} ${yr}`, start: isoDate(startD), end: isoDate(endD) })
-    }
-  } else {
-    for (let i = 1; i >= 0; i--) {
-      const yr = now.getFullYear() - i
-      buckets.push({ label: String(yr), start: `${yr}-01-01`, end: `${yr}-12-31` })
-    }
-  }
+  // Meme decoupage du temps que les deux graphiques d encaissements : trois
+  // graphiques sur la meme page doivent avoir les memes barres aux memes dates.
+  const buckets = construireBuckets(periode)
 
   const lignes = operateurId ? raw.filter(l => l.operateur_id === operateurId) : raw
 
@@ -319,6 +349,8 @@ export function useDashboard() {
   const [activiteRelancesRaw, setActiviteRelancesRaw] = useState<JourActiviteRelance[]>([])
   const [periodeActiviteRelances, setPeriodeActiviteRelances] = useState<PeriodeEncaissement>('mois')
   const [filtreOperateur, setFiltreOperateur] = useState<string>('')
+  const [canauxMasques, setCanauxMasques] = useState<CanalRecouvrement[]>([])
+  const [activiteRecouvrementRaw, setActiviteRecouvrementRaw] = useState<JourActiviteRecouvrement[]>([])
   const [chargement, setChargement] = useState(true)
 
   // Encaissements clients agrégés par jour sur 24 mois via RPC
@@ -330,6 +362,16 @@ export function useDashboard() {
         if (data) setEncaissementsRaw(data as { date_operation: string; montant: number; montant_autres: number }[])
         setChargement(false)
       })
+  }, [])
+
+  // Activite de recouvrement sur ses quatre canaux. Migration 188.
+  //
+  // Le tableau reste vide tant que la migration n'est pas executee : le
+  // graphique retombe alors sur l'ancienne source, qui n'a pas bouge.
+  useEffect(() => {
+    const il24Mois = new Date(TODAY); il24Mois.setFullYear(il24Mois.getFullYear() - 2)
+    supabase.rpc('get_activite_recouvrement' as never, { p_date_debut: il24Mois.toISOString().slice(0, 10) } as never)
+      .then(({ data }) => { if (data) setActiviteRecouvrementRaw(data as JourActiviteRecouvrement[]) })
   }, [])
 
   // Encaissements decomposes par anciennete de la facture payee, meme source
@@ -544,17 +586,38 @@ export function useDashboard() {
   // Un operateur parti de l'organisation disparait de la liste, mais ses
   // relances restent comptees dans "Tous les operateurs".
   const operateursActivite = useMemo(() => {
-    const ids = new Set(activiteRelancesRaw.map(l => l.operateur_id).filter(Boolean))
-    return membresOrg
+    // La liste se construit sur la source a QUATRE canaux : un operateur qui
+    // n'a passe que des appels doit apparaitre, meme sans relance manuelle.
+    const source = activiteRecouvrementRaw.length
+      ? activiteRecouvrementRaw.map(l => l.operateur_id)
+      : activiteRelancesRaw.map(l => l.operateur_id)
+    const ids = new Set(source.filter(Boolean))
+    const personnes = membresOrg
       .filter(m => ids.has(m.id))
       .map(m => ({ id: m.id, label: m.prenom ? `${m.prenom} ${m.nom}` : m.nom }))
       .sort((a, b) => a.label.localeCompare(b.label, 'fr'))
-  }, [activiteRelancesRaw, membresOrg])
+    // Le robot n'a pas d'operateur : sans cette entree, aucun moyen d'isoler
+    // ce qu'il a envoye.
+    const aDesEnvoisAuto = activiteRecouvrementRaw.some(l => l.canal === 'auto')
+    return aDesEnvoisAuto
+      ? [...personnes, { id: FILTRE_AUTO, label: 'Relance Auto' }]
+      : personnes
+  }, [activiteRecouvrementRaw, activiteRelancesRaw, membresOrg])
 
   const pointsActiviteRelances = useMemo(
     () => computeActiviteRelances(activiteRelancesRaw, periodeActiviteRelances, filtreOperateur),
     [activiteRelancesRaw, periodeActiviteRelances, filtreOperateur]
   )
+
+  const pointsActiviteRecouvrement = useMemo(
+    () => computeActiviteRecouvrement(activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques),
+    [activiteRecouvrementRaw, periodeActiviteRelances, filtreOperateur, canauxMasques]
+  )
+
+  // Tant que la migration 188 n'est pas passee, la source a quatre canaux est
+  // vide : le graphique doit retomber sur l'ancienne plutot que d'afficher une
+  // page blanche.
+  const activiteSurQuatreCanaux = activiteRecouvrementRaw.length > 0
 
   // Y a-t-il de l'activite, toutes periodes et tous operateurs confondus ?
   // Sert a decider de l'affichage du bloc. Il ne faut surtout pas se baser sur
@@ -582,6 +645,8 @@ export function useDashboard() {
     pointsEncaissementAge, joursOuvresSeuls, setJoursOuvresSeuls,
     pointsActiviteRelances, periodeActiviteRelances, setPeriodeActiviteRelances,
     operateursActivite, filtreOperateur, setFiltreOperateur, aDesRelances,
+    pointsActiviteRecouvrement, activiteSurQuatreCanaux,
+    canauxMasques, setCanauxMasques,
     encoursCourant, chargement,
     creancesClients, nbClientsDebiteurs, dsoPeriode, ca12Mois,
     factures, clients,
