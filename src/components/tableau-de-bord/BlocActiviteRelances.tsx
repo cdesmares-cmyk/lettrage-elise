@@ -1,4 +1,7 @@
+import { useRef, useState } from 'react'
+import toast from 'react-hot-toast'
 import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { copierGraphiqueEnPng } from '../../lib/copierGraphique'
 import type { useDashboard, PeriodeEncaissement, CanalRecouvrement } from '../../hooks/useDashboard'
 
 type Props = ReturnType<typeof useDashboard>
@@ -84,6 +87,13 @@ export function BlocActiviteRelances({
   canauxMasques, setCanauxMasques,
   decalage, reculer, avancer, revenirAAujourdhui, decalageMax,
 }: Props) {
+  // Les hooks d'abord, AVANT tout retour anticipe : leur ordre doit etre
+  // identique a chaque rendu. Places plus bas, apres le « return null » qui
+  // suit, ils cassaient le composant des que le graphique passait de « avec
+  // donnees » a « sans donnees ».
+  const refGraphique = useRef<HTMLDivElement>(null)
+  const [copieEnCours, setCopieEnCours] = useState(false)
+
   // Tant que la migration 188 n'est pas executee, on retombe sur l'ancienne
   // source en la projetant sur la meme forme : un seul canal rempli, les trois
   // autres a zero. Un seul chemin de rendu, aucune bascule a maintenir.
@@ -102,6 +112,23 @@ export function BlocActiviteRelances({
   const totalActions = CANAUX.reduce((s, c) => s + totalParCanal[c.cle], 0)
   const totalMontant = points.reduce((s, p) => s + p.montant, 0)
   const hasData      = totalActions > 0
+
+  // PNG et non HTML : Outlook et Gmail degradent le SVG en ligne, Word
+  // l'importe de facon inconstante. Le PNG se colle partout.
+  async function copier() {
+    if (!refGraphique.current) return
+    setCopieEnCours(true)
+    try {
+      const ou = await copierGraphiqueEnPng(refGraphique.current, 'activite-recouvrement')
+      toast.success(ou === 'presse-papier'
+        ? 'Graphique copié — collez-le avec Ctrl+V'
+        : 'Presse-papier indisponible : image téléchargée')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Copie impossible.')
+    } finally {
+      setCopieEnCours(false)
+    }
+  }
 
   function basculerCanal(cle: CanalRecouvrement) {
     setCanauxMasques(
@@ -156,6 +183,23 @@ export function BlocActiviteRelances({
               </select>
               <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none text-[9px]">▾</span>
             </div>
+          )}
+
+          {/* Copie en image. Dans l'en-tete et non au clic sur le graphique :
+              cliquer un graphique veut dire « explorer », pas « copier », et une
+              copie declenchee par accident est deroutante. */}
+          {hasData && (
+            <button
+              onClick={copier}
+              disabled={copieEnCours}
+              title="Copier le graphique en image, pour un mail ou un document"
+              className="w-6 h-6 flex items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-ockham-teal hover:text-ockham-teal disabled:opacity-40 transition-colors cursor-pointer"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="12" height="12" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+              </svg>
+            </button>
           )}
 
           {/* Navigation dans le passe. Un cran = une unite de la periode
@@ -241,7 +285,7 @@ export function BlocActiviteRelances({
         </div>
       )}
 
-      <div className="p-5 select-none">
+      <div className="p-5 select-none" ref={refGraphique}>
         {!hasData ? (
           <div className="flex items-center justify-center h-48 text-xs text-gray-400">
             Aucune relance envoyée sur la période
