@@ -18,6 +18,14 @@ function Svg({ size = 15, className = '', color, children }: SvgProps & { childr
   )
 }
 
+// Chèque : rectangle, deux lignes de texte, un paraphe.
+export function IcCheque(p: SvgProps) {
+  return <Svg {...p}><rect x="2" y="5.5" width="20" height="13" rx="2"/><path d="M5.5 10h7"/><path d="M5.5 13.5h4"/><path d="M13.8 14.6c.75-1.5 1.5-1.5 2.25 0s1.5 1.5 2.25 0"/></Svg>
+}
+// LCR : un effet de commerce, c'est-à-dire un document qui porte une échéance.
+export function IcLcr(p: SvgProps) {
+  return <Svg {...p}><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9.5h18"/><path d="M7.5 2.5v4"/><path d="M16.5 2.5v4"/><path d="M7 13h5"/><path d="M7 16h3"/></Svg>
+}
 export function IcSearch(p: SvgProps) {
   return <Svg {...p}><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L19 19"/></Svg>
 }

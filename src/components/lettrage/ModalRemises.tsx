@@ -1,10 +1,10 @@
 // Modal de gestion des remises Chèque / LCR (Sprint 4)
 import { useState, useEffect, useRef } from 'react'
-import { IcBuilding, IcEdit, IcCheck, IcLoader, IcWarning, IcX } from '../Icones'
+import { IcBuilding, IcEdit, IcCheck, IcLoader, IcWarning, IcX, IcCheque, IcLcr } from '../Icones'
 import { supabase } from '../../lib/supabase'
 import { useRemises } from '../../hooks/useRemises'
 import type { RemiseSuccessData } from '../../hooks/useRemises'
-import type { Remise, LigneFormRemise, TypeRemise } from '../../types/remise'
+import type { Remise, RemiseFacture, LigneFormRemise, TypeRemise, ClasseLigneRemise } from '../../types/remise'
 import type { InfoFacture } from '../../types/lettrage'
 import { NumeroPiece } from '../NumeroPiece'
 
@@ -26,10 +26,29 @@ function BadgeType({ type }: { type: TypeRemise }) {
 
 interface RowFactureInfo { reste_du: number; code_client: string; nom_client: string | null; statut_paiement: string }
 
+// Le libellé d'une ligne 471 n'a pas de colonne dédiée : il vit dans le
+// commentaire, sous la forme « Remise CHQ n°X — libellé ». On découpe sur le
+// PREMIER séparateur et on garde tout le reste, pour qu'un libellé contenant
+// lui-même un tiret cadratin ne soit pas tronqué à la réouverture.
+const SEP_LIBELLE = ' — '
+function libelleDepuisCommentaire(commentaire: string | null): string {
+  if (!commentaire) return ''
+  const i = commentaire.indexOf(SEP_LIBELLE)
+  return i === -1 ? '' : commentaire.slice(i + SEP_LIBELLE.length)
+}
+
+// Une ligne 471 n'a pas de numéro de pièce à copier : on affiche sa nature.
+function RefLigne({ ligne }: { ligne: RemiseFacture }) {
+  if (ligne.numero_facture) {
+    return <NumeroPiece numero={ligne.numero_facture} className="font-mono text-xs font-semibold text-ockham-teal" />
+  }
+  return <span className="text-xs font-semibold text-slate-600">Autres · 471</span>
+}
+
 let _k = 200
 function cle() { return String(++_k) }
-function nouvelleLigne(): LigneFormRemise {
-  return { _key: cle(), numero_facture: '', montant: '', info_facture: null, chargement: false }
+function nouvelleLigne(classe: ClasseLigneRemise = 'facture'): LigneFormRemise {
+  return { _key: cle(), classe, numero_facture: '', libelle: '', montant: '', info_facture: null, chargement: false }
 }
 
 export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
@@ -62,13 +81,16 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
       setTypeForm(remise.type)
       setNumeroForm(remise.numero)
       setMontantLcrForm(remise.montant_total != null ? String(remise.montant_total) : '')
-      const lignesInit = remise.lignes.length > 0
-        ? remise.lignes.map(l => ({ _key: cle(), numero_facture: l.numero_facture, montant: String(l.montant), info_facture: null, chargement: false }))
+      // numero_facture null ⇒ ligne 471 : on restaure sa classe et son libellé.
+      const lignesInit: LigneFormRemise[] = remise.lignes.length > 0
+        ? remise.lignes.map(l => l.numero_facture === null
+            ? { _key: cle(), classe: 'autres' as const, numero_facture: '', libelle: libelleDepuisCommentaire(l.commentaire), montant: String(l.montant), info_facture: null, chargement: false }
+            : { _key: cle(), classe: 'facture' as const, numero_facture: l.numero_facture, libelle: '', montant: String(l.montant), info_facture: null, chargement: false })
         : [nouvelleLigne()]
       setLignesForm(lignesInit)
       // Déclencher le lookup pour afficher le nom client sans écraser le montant
       setTimeout(() => {
-        lignesInit.forEach(l => { if (l.numero_facture.length >= 4) chercherFacture(l._key, l.numero_facture, true) })
+        lignesInit.forEach(l => { if (l.classe === 'facture' && l.numero_facture.length >= 4) chercherFacture(l._key, l.numero_facture, true) })
       }, 50)
     } else {
       setRemiseEnEdition(null)
@@ -94,6 +116,12 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
     setLignesForm(prev => prev.length > 1 ? prev.filter(l => l._key !== key) : prev)
   }
   function ajouterLigne() { setLignesForm(prev => [...prev, nouvelleLigne()]) }
+
+  // Changer de classe remet la ligne à zéro : garder un numéro de facture sur
+  // une ligne 471 (ou l'inverse) ne produirait qu'une saisie incohérente.
+  function changerClasse(key: string, classe: ClasseLigneRemise) {
+    modifierLigne(key, { classe, numero_facture: '', libelle: '', montant: '', info_facture: null, chargement: false })
+  }
 
   // preserverMontant = true en mode édition : ne pas écraser le montant déjà saisi
   async function chercherFacture(key: string, numero: string, preserverMontant = false) {
@@ -131,7 +159,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
 
   // info_facture requise : garantit que code_client est toujours renseigné avant l'insert
   const facturesDoublon = new Set(
-    lignesForm.map(l => l.numero_facture.trim()).filter((f, i, arr) => f.length >= 4 && arr.indexOf(f) !== i)
+    lignesForm
+      .filter(l => l.classe === 'facture')
+      .map(l => l.numero_facture.trim())
+      .filter((f, i, arr) => f.length >= 4 && arr.indexOf(f) !== i)
   )
 
   // Un montant négatif est légitime sur une facture en crédit (avoir ou surpaiement) :
@@ -144,10 +175,18 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
   }
   const lignesSigneInvalide = new Set(lignesForm.filter(signeInvalide).map(l => l._key))
 
+  // Le libellé est obligatoire sur une ligne 471. C'est sa seule identification :
+  // il n'y a ni numéro de pièce, ni client, et c'est lui qui remonte dans la
+  // colonne Commentaire de l'export comptable.
+  const lignesLibelleManquant = new Set(
+    lignesForm.filter(l => l.classe === 'autres' && !l.libelle.trim()).map(l => l._key)
+  )
+
   const lignesValides = lignesForm.length > 0 && lignesForm.every(l => {
     const m = parseFloat(l.montant)
-    if (!l.numero_facture.trim() || !l.info_facture || l.chargement || !l.montant) return false
-    if (isNaN(m) || Math.abs(m) < 0.005) return false
+    if (!l.montant || isNaN(m) || Math.abs(m) < 0.005) return false
+    if (l.classe === 'autres') return !!l.libelle.trim()
+    if (!l.numero_facture.trim() || !l.info_facture || l.chargement) return false
     return !signeInvalide(l)
   })
   const peutValider = !!numeroForm.trim() && lignesValides && (typeForm !== 'lcr' || (montantLcr > 0 && lcrValide))
@@ -222,7 +261,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                 </span>
               )}
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">Pré-lettrage des factures avant encaissement</p>
+            <p className="text-xs text-gray-400 mt-0.5">Pré-lettrage avant encaissement — factures client ou compte d'attente 471</p>
           </div>
           <button onClick={onFermer}
             className="w-7 h-7 rounded-full border border-gray-200 bg-gray-50 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-gray-400 flex items-center justify-center transition-colors">
@@ -275,7 +314,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                             <div className="flex items-center gap-3">
                               <BadgeType type={remise.type} />
                               <span className="font-mono text-sm font-semibold text-gray-800">{remise.numero}</span>
-                              <span className="text-xs text-gray-400">{remise.lignes.length} facture{remise.lignes.length > 1 ? 's' : ''}</span>
+                              <span className="text-xs text-gray-400">{remise.lignes.length} ligne{remise.lignes.length > 1 ? 's' : ''}</span>
                             </div>
                             <div className="flex items-center gap-4">
                               <span className="font-mono font-bold text-sm text-gray-800 tabular-nums">{fmt(total)}</span>
@@ -285,14 +324,16 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                           {isOpen && (
                             <div className="border-t border-gray-200 bg-white">
                               <div className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">N° Facture</span>
-                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Client</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Référence</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Client / Libellé</span>
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide text-right">Montant</span>
                               </div>
                               {remise.lignes.map(l => (
                                 <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                  <NumeroPiece numero={l.numero_facture} className="font-mono text-xs font-semibold text-ockham-teal" />
-                                  <span className="text-xs text-gray-500 truncate">{l.code_client}</span>
+                                  <RefLigne ligne={l} />
+                                  <span className="text-xs text-gray-500 truncate">
+                                    {l.numero_facture === null ? libelleDepuisCommentaire(l.commentaire) : l.code_client}
+                                  </span>
                                   <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                                 </div>
                               ))}
@@ -346,8 +387,10 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                           <div className="border-t border-gray-100 bg-white">
                             {remise.lignes.map(l => (
                               <div key={l.id} className="grid grid-cols-[130px_1fr_100px] gap-2 px-4 py-2 border-b border-gray-50 last:border-0">
-                                <NumeroPiece numero={l.numero_facture} className="font-mono text-xs font-semibold text-ockham-teal" />
-                                <span className="text-xs text-gray-500">{l.code_client}</span>
+                                <RefLigne ligne={l} />
+                                <span className="text-xs text-gray-500 truncate">
+                                  {l.numero_facture === null ? libelleDepuisCommentaire(l.commentaire) : l.code_client}
+                                </span>
                                 <span className="font-mono text-xs text-right tabular-nums">{fmt(l.montant)}</span>
                               </div>
                             ))}
@@ -393,8 +436,8 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                       <button key={t} onClick={() => setTypeForm(t)}
                         className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${typeForm === t ? 'bg-white shadow text-gray-800' : 'text-gray-400 hover:text-gray-600'}`}>
                         {t === 'cheque'
-                          ? <span className="flex items-center justify-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" /> Chèque</span>
-                          : <span className="flex items-center justify-center gap-1.5"><span className="inline-block w-2 h-2 rounded-full bg-sky-400 flex-shrink-0" /> LCR</span>
+                          ? <span className="flex items-center justify-center gap-1.5"><IcCheque size={13} className="flex-shrink-0" /> Chèque</span>
+                          : <span className="flex items-center justify-center gap-1.5"><IcLcr size={13} className="flex-shrink-0" /> LCR</span>
                         }
                       </button>
                     ))}
@@ -419,23 +462,35 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                 </div>
               )}
 
-              {/* Lignes factures */}
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Factures à rattacher</p>
+              {/* Lignes de la remise : factures client ou encaissements 471 */}
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Lignes à rattacher</p>
               <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
-                <div className="grid grid-cols-[1fr_90px_24px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">N° Facture</span>
+                <div className="grid grid-cols-[104px_1fr_90px_24px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Type</span>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">N° facture / Libellé</span>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide text-right">Montant</span>
                   <span />
                 </div>
                 {lignesForm.map(ligne => (
                   <div key={ligne._key} className="border-b border-gray-100 last:border-0">
-                    <div className="grid grid-cols-[1fr_90px_24px] gap-2 px-4 py-2 items-center">
-                      <div className="relative">
-                        <input type="text" value={ligne.numero_facture} onChange={e => handleNumeroChange(ligne._key, e.target.value)}
-                          placeholder="N° facture…"
-                          className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5" />
-                        {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={10} /></span>}
-                      </div>
+                    <div className="grid grid-cols-[104px_1fr_90px_24px] gap-2 px-4 py-2 items-center">
+                      <select value={ligne.classe} onChange={e => changerClasse(ligne._key, e.target.value as ClasseLigneRemise)}
+                        className="w-full border border-gray-200 rounded-md px-1.5 py-1.5 text-xs bg-white outline-none focus:border-ockham-teal cursor-pointer">
+                        <option value="facture">Facture</option>
+                        <option value="autres">Autres (471)</option>
+                      </select>
+                      {ligne.classe === 'autres' ? (
+                        <input type="text" value={ligne.libelle} onChange={e => modifierLigne(ligne._key, { libelle: e.target.value })}
+                          placeholder="Ex : remboursement trop-payé fournisseur X"
+                          className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs outline-none focus:border-ockham-teal" />
+                      ) : (
+                        <div className="relative">
+                          <input type="text" value={ligne.numero_facture} onChange={e => handleNumeroChange(ligne._key, e.target.value)}
+                            placeholder="N° facture…"
+                            className="w-full border border-gray-200 rounded-md px-2.5 py-1.5 text-xs font-mono outline-none focus:border-ockham-teal pr-5" />
+                          {ligne.chargement && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-ockham-teal"><IcLoader size={10} /></span>}
+                        </div>
+                      )}
                       <input type="text" value={ligne.montant} onChange={e => modifierLigne(ligne._key, { montant: e.target.value })}
                         placeholder="0,00"
                         className="border border-gray-200 rounded-md px-2 py-1.5 text-xs text-right font-mono outline-none focus:border-ockham-teal" />
@@ -444,30 +499,47 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                         <IcX size={11} />
                       </button>
                     </div>
-                    {ligne.info_facture && (
-                      <div className="px-4 pb-2 text-[10px] text-emerald-600 font-medium -mt-1">
-                        ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client} · reste dû : {fmt(ligne.info_facture.reste_du)}
-                      </div>
-                    )}
-                    {lignesSigneInvalide.has(ligne._key) && (
-                      <div className="px-4 pb-2 text-[10px] text-red-500 font-medium -mt-1">
-                        Montant négatif impossible : cette facture n'est pas en crédit.
-                      </div>
-                    )}
-                    {facturesDoublon.has(ligne.numero_facture.trim()) && (
-                      <div className="px-4 pb-2 text-[10px] text-amber-600 font-medium -mt-1">
-                        ⚠ Déjà dans la remise, paiement partiel ?
-                      </div>
-                    )}
-                    {!ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
-                      <div className="px-4 pb-2 text-[10px] text-red-400 -mt-1">Facture introuvable</div>
+                    {ligne.classe === 'autres' ? (
+                      <>
+                        {lignesLibelleManquant.has(ligne._key) && (
+                          <div className="px-4 pb-2 text-[10px] text-red-400 -mt-1">
+                            Libellé obligatoire : c'est la seule identification de cette ligne dans l'export.
+                          </div>
+                        )}
+                        {!!ligne.libelle.trim() && (
+                          <div className="px-4 pb-2 text-[10px] text-slate-500 font-medium -mt-1">
+                            Compte d'attente 471 — aucune facture client mouvementée.
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {ligne.info_facture && (
+                          <div className="px-4 pb-2 text-[10px] text-emerald-600 font-medium -mt-1">
+                            ✓ {ligne.info_facture.nom_client ?? ligne.info_facture.code_client} · reste dû : {fmt(ligne.info_facture.reste_du)}
+                          </div>
+                        )}
+                        {lignesSigneInvalide.has(ligne._key) && (
+                          <div className="px-4 pb-2 text-[10px] text-red-500 font-medium -mt-1">
+                            Montant négatif impossible : cette facture n'est pas en crédit.
+                          </div>
+                        )}
+                        {facturesDoublon.has(ligne.numero_facture.trim()) && (
+                          <div className="px-4 pb-2 text-[10px] text-amber-600 font-medium -mt-1">
+                            ⚠ Déjà dans la remise, paiement partiel ?
+                          </div>
+                        )}
+                        {!ligne.info_facture && !ligne.chargement && ligne.numero_facture.length >= 4 && (
+                          <div className="px-4 pb-2 text-[10px] text-red-400 -mt-1">Facture introuvable</div>
+                        )}
+                      </>
                     )}
                   </div>
                 ))}
               </div>
               <button onClick={ajouterLigne}
                 className="flex items-center gap-1.5 w-full border border-dashed border-gray-200 hover:border-ockham-teal/40 hover:text-ockham-teal text-gray-400 text-xs font-medium py-2 rounded-lg transition-all mb-4">
-                <span className="mx-auto">+ Ajouter une facture</span>
+                <span className="mx-auto">+ Ajouter une ligne</span>
               </button>
 
               {/* Totaux */}

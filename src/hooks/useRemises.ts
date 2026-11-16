@@ -22,8 +22,25 @@ interface RowRemise {
   operateur: string | null; created_at: string
 }
 interface RowLettrage {
-  id: string; remise_id: string; numero_facture: string
-  code_client: string; montant: number
+  id: string; remise_id: string; numero_facture: string | null
+  code_client: string; montant: number; commentaire: string | null
+}
+
+/**
+ * Traduit une ligne de formulaire en ligne JSON pour les RPC.
+ *
+ * Une ligne 471 n'a pas de facture : code_client vaut 'AUTRES', le numéro est
+ * ignoré côté SQL, et le libellé part dans « libelle » où la fonction le
+ * concatène au commentaire de remise.
+ */
+function ligneVersJson(l: LigneFormRemise) {
+  const autres = l.classe === 'autres'
+  return {
+    numero_facture: autres ? '' : l.numero_facture.trim(),
+    code_client:    autres ? 'AUTRES' : (l.info_facture?.code_client ?? ''),
+    montant:        Math.round(parseFloat(l.montant) * 100) / 100,
+    libelle:        autres ? l.libelle.trim() : '',
+  }
 }
 
 export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => void) {
@@ -45,7 +62,7 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
       const ids = rows.map(r => r.id)
       const { data: ld } = await supabase
         .from('lettrages')
-        .select('id, remise_id, numero_facture, code_client, montant')
+        .select('id, remise_id, numero_facture, code_client, montant, commentaire')
         .in('remise_id', ids)
       const lettrages = (ld as unknown as RowLettrage[]) ?? []
 
@@ -53,7 +70,7 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
         ...r,
         lignes: lettrages
           .filter(l => l.remise_id === r.id)
-          .map(l => ({ id: l.id, numero_facture: l.numero_facture, code_client: l.code_client, montant: l.montant })),
+          .map(l => ({ id: l.id, numero_facture: l.numero_facture, code_client: l.code_client, montant: l.montant, commentaire: l.commentaire })),
       })))
     } catch (err) {
       console.error('[useRemises]', err)
@@ -71,11 +88,7 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   ) {
     setChargement(true)
     try {
-      const lignesJson = lignes.map(l => ({
-        numero_facture: l.numero_facture.trim(),
-        code_client: l.info_facture?.code_client ?? '',
-        montant: Math.round(parseFloat(l.montant) * 100) / 100,
-      }))
+      const lignesJson = lignes.map(ligneVersJson)
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: remiseId, error } = await (supabase.rpc as any)('creer_remise_atomique', {
@@ -95,11 +108,23 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
         cree_par: utilisateur?.id ?? null,
         operateur: utilisateur?.email?.split('@')[0] ?? null,
         created_at: new Date().toISOString(),
-        lignes: lignesJson.map(i => ({ id: '', numero_facture: i.numero_facture, code_client: i.code_client, montant: i.montant })),
+        lignes: lignesJson.map(i => ({
+          id: '',
+          numero_facture: i.code_client === 'AUTRES' ? null : i.numero_facture,
+          code_client: i.code_client,
+          montant: i.montant,
+          commentaire: null,
+        })),
       }
       setRemises(prev => [newRemise, ...prev])
       toast.success(`Remise ${type === 'cheque' ? 'CHQ' : 'LCR'} n°${numero} créée.`)
-      onSuccessCallback?.({ numerosLettres: lignesJson.map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })) })
+      // Les lignes 471 sont écartées : elles ne correspondent à aucune facture,
+      // donc rien à surligner dans la table de lettrage.
+      onSuccessCallback?.({
+        numerosLettres: lignesJson
+          .filter(i => i.code_client !== 'AUTRES')
+          .map(i => ({ numeroPiece: i.numero_facture, montant: i.montant })),
+      })
     } catch (err) {
       console.error('[useRemises]', err)
       toast.error(errMsg(err, 'Erreur lors de la création.'))
@@ -119,11 +144,7 @@ export function useRemises(onSuccessCallback?: (data?: RemiseSuccessData) => voi
   ) {
     setChargement(true)
     try {
-      const lignesJson = lignes.map(l => ({
-        numero_facture: l.numero_facture.trim(),
-        code_client: l.info_facture?.code_client ?? '',
-        montant: Math.round(parseFloat(l.montant) * 100) / 100,
-      }))
+      const lignesJson = lignes.map(ligneVersJson)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.rpc as any)('modifier_remise_atomique', {
         p_remise_id:     remiseId,

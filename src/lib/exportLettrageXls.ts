@@ -317,40 +317,47 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   styleHeaderRow(ws2, 9)
 
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
-  const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number }>()
+  const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number; totalAutres: number }>()
 
   for (const lb of lignes) {
     if (!lb.credit) continue
     const date = lb.date_operation
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0 })
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0, totalAutres: 0 })
     jourMap.get(date)!.totalCredit += lb.credit
   }
 
   for (const l of lettrages) {
-    if (l.code_client === 'AUTRES') continue
     const date = ligneInfoMap.get(l.id_ligne_bancaire)?.date_operation
     if (!date) continue
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0 })
-    jourMap.get(date)!.totalLettreRealise += l.montant
+    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0, totalAutres: 0 })
+    // Les encaissements affectés au compte d'attente 471 sont suivis à part.
+    // Ils n'ont mouvementé aucun compte client, donc ils n'ont rien à faire
+    // dans le total lettré ; mais ils expliquent une partie de l'écart. Sans
+    // cette colonne, un écart parfaitement légitime — un remboursement
+    // fournisseur, par exemple — ressemble à une erreur de lettrage, et
+    // quelqu'un part chercher un problème qui n'existe pas.
+    if (l.code_client === 'AUTRES') jourMap.get(date)!.totalAutres += l.montant
+    else                            jourMap.get(date)!.totalLettreRealise += l.montant
   }
 
   const aoa3: (string | number)[][] = [
-    ['Date', 'Total Crédit', 'Total Lettré', 'Delta'],
+    ['Date', 'Total Crédit', 'Total Lettré', 'dont Autres (471)', 'Delta'],
   ]
-  for (const [date, { totalCredit, totalLettreRealise }] of [...jourMap.entries()].sort()) {
+  for (const [date, { totalCredit, totalLettreRealise, totalAutres }] of [...jourMap.entries()].sort()) {
     const totalLettre = round2(totalCredit - totalLettreRealise)
     const delta = round2(totalCredit - totalLettre)
-    aoa3.push([fmtDate(date), round2(totalCredit), totalLettre, delta])
+    aoa3.push([fmtDate(date), round2(totalCredit), totalLettre, round2(totalAutres), delta])
   }
   const grandCredit = round2([...jourMap.values()].reduce((s, v) => s + v.totalCredit, 0))
   const grandLettreRealise = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettreRealise, 0))
+  const grandAutres = round2([...jourMap.values()].reduce((s, v) => s + v.totalAutres, 0))
   const grandLettre = round2(grandCredit - grandLettreRealise)
   const grandDelta = round2(grandCredit - grandLettre)
-  aoa3.push(['TOTAL', grandCredit, grandLettre, grandDelta])
+  aoa3.push(['TOTAL', grandCredit, grandLettre, grandAutres, grandDelta])
 
   const ws3 = XLSX.utils.aoa_to_sheet(aoa3)
-  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 14 }]
-  styleHeaderRow(ws3, 4)
+  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 14 }]
+  styleHeaderRow(ws3, 5)
 
   XLSX.utils.book_append_sheet(wb, ws1, 'Affectation')
   XLSX.utils.book_append_sheet(wb, ws2, 'Lignes bancaires')
