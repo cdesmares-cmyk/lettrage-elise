@@ -185,6 +185,48 @@ function normaliserRole(r: string | null | undefined): string {
   return (r ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
 }
 
+/**
+ * Lit TOUTES les lignes d'une requete, par lots de 1000.
+ *
+ * POURQUOI. Aucune des requetes en masse de cette fonction n'avait de limite
+ * ni de pagination : elles dependaient du plafond de lignes de l'API, qui
+ * coupe EN SILENCE au-dela. Mesure du 2026-11-16 sur SAS MELEZE :
+ *
+ *   factures ouvertes  3 021 lignes
+ *   contacts relance   2 547 lignes
+ *
+ * Le robot n'en voyait donc qu'une fraction, et concluait de bonne foi
+ * « aucune facture echue » ou « aucun contact actif » pour des clients qui
+ * avaient les deux. Constate sur MONTBLANC FRANCE : une facture de 264,50 €
+ * echue depuis le 19 octobre, invisible pour le robot.
+ *
+ * L'ORDRE EST OBLIGATOIRE, et c'est le piege de la pagination. Sans ORDER BY,
+ * Postgres renvoie les lignes dans un ordre arbitraire : deux lots successifs
+ * peuvent se chevaucher ou laisser un trou. Paginer sans trier, c'est remplacer
+ * une troncature par une perte aleatoire — pire, parce qu'elle serait
+ * intermittente.
+ *
+ * UNE ERREUR INTERROMPT TOUT, volontairement. Le code precedent ne lisait que
+ * « data » et jetait « error » : une requete en echec donnait un tableau vide, et
+ * le robot continuait comme si l'organisation n'avait ni facture ni contact.
+ * Mieux vaut un echec visible qu'une campagne silencieusement vide.
+ */
+// deno-lint-ignore no-explicit-any
+async function lireTout<T>(construire: () => any, colonneOrdre: string): Promise<{ data: T[] }> {
+  const LOT = 1000
+  const out: T[] = []
+  for (let debut = 0; ; debut += LOT) {
+    const { data, error } = await construire()
+      .order(colonneOrdre, { ascending: true })
+      .range(debut, debut + LOT - 1)
+    if (error) throw new Error(`lecture ${colonneOrdre} : ${error.message ?? error}`)
+    const lot = (data ?? []) as T[]
+    out.push(...lot)
+    if (lot.length < LOT) break
+  }
+  return { data: out }
+}
+
 function estRoleRelancable(r: string | null | undefined): boolean {
   return ROLES_RELANCABLES.includes(normaliserRole(r))
 }
@@ -312,39 +354,39 @@ Deno.serve(async (req: Request) => {
       // date à une date.
       const seuilDedupDate = seuilDedup.slice(0, 10)
       const [dedupRes, contactsRes, facturesRes, avoirsRes, credits411Res, nePasRelancerRes, manuellesRes, echangesRes] = await Promise.all([
-        supabase.from('relances_auto_log').select('code_client')
-          .eq('organisation_id', orgId).gte('envoye_le', seuilDedup),
+        lireTout(() => supabase.from('relances_auto_log').select('code_client, id')
+          .eq('organisation_id', orgId).gte('envoye_le', seuilDedup), 'id'),
         // Filtre large volontairement : il attrape toutes les variantes de casse
         // et d'accent ('Relance', 'Comptabilité', 'Relances'...). Le tri fin est
         // fait par estRoleRelancable() plus bas.
-        supabase.from('contacts_client').select('code_client, email, role_contact')
+        lireTout(() => supabase.from('contacts_client').select('code_client, email, role_contact, id')
           .eq('organisation_id', orgId).eq('actif', true)
-          .or('role_contact.ilike.relance%,role_contact.ilike.compta%'),
+          .or('role_contact.ilike.relance%,role_contact.ilike.compta%'), 'id'),
         // P1 : exclure les pseudo-factures 411 des relances automatiques
-        supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
+        lireTout(() => supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission, axonaut_pdf_url')
           .eq('organisation_id', orgId).eq('est_avoir', false).gt('reste_du', 0.005)
-          .not('numero_piece', 'like', '411_%'),
-        supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission')
-          .eq('organisation_id', orgId).eq('est_avoir', true).neq('reste_du', 0),
+          .not('numero_piece', 'like', '411_%'), 'numero_piece'),
+        lireTout(() => supabase.from('factures').select('code_client, numero_piece, montant_ttc, reste_du, date_echeance, date_emission')
+          .eq('organisation_id', orgId).eq('est_avoir', true).neq('reste_du', 0), 'numero_piece'),
         // P3 : crédits 411 non dispatchés pour bloquer la relance si dette couverte
-        supabase.from('factures').select('code_client, reste_du')
-          .eq('organisation_id', orgId).like('numero_piece', '411_%').lt('reste_du', -0.005),
+        lireTout(() => supabase.from('factures').select('code_client, reste_du, numero_piece')
+          .eq('organisation_id', orgId).like('numero_piece', '411_%').lt('reste_du', -0.005), 'numero_piece'),
         // Factures qu'un opérateur a explicitement sorties du circuit de relance
         // (litige, plan de règlement, avoir en cours). Le drapeau vit sur le
         // commentaire de facture depuis la migration 023, et n'était lu que par
         // le navigateur : le robot relançait quand même.
-        supabase.from('commentaires_factures').select('numero_piece')
-          .eq('organisation_id', orgId).eq('ne_pas_relancer', true),
+        lireTout(() => supabase.from('commentaires_factures').select('numero_piece')
+          .eq('organisation_id', orgId).eq('ne_pas_relancer', true), 'numero_piece'),
         // Relances MANUELLES récentes. La déduplication ne regardait que
         // relances_auto_log : un client relancé à la main la veille recevait
         // quand même la relance automatique le lendemain. Même fenêtre que la
         // déduplication automatique, et relances externes seulement — une
         // notification interne à un commercial n'est pas un contact client.
-        supabase.from('relances').select('code_client')
+        lireTout(() => supabase.from('relances').select('code_client, id')
           .eq('organisation_id', orgId).eq('type', 'externe')
           .neq('statut', 'brouillon')
           .not('envoyee_le', 'is', null)
-          .gte('envoyee_le', seuilDedup),
+          .gte('envoyee_le', seuilDedup), 'id'),
         // Échanges tracés HORS d'Ockham : un appel, ou un mail parti d'une
         // boîte personnelle (table echanges_clients, migrations 182 et 183).
         // Sans cette lecture, un client qu'un opérateur a eu au téléphone hier
@@ -356,14 +398,14 @@ Deno.serve(async (req: Request) => {
         // relances : deux fenêtres différentes, ce serait deux règles à
         // expliquer aux équipes et à maintenir. Arrêté avec Clément le
         // 2026-11-02.
-        supabase.from('echanges_clients').select('code_client')
+        lireTout(() => supabase.from('echanges_clients').select('code_client, id')
           .eq('organisation_id', orgId)
           // Un echange supprime par un operateur ne compte plus. Sans ce
           // filtre, un appel enregistre par erreur bloquerait la relance
           // automatique de ce client pendant toute la fenetre, et le bouton
           // Supprimer de l'interface serait un mensonge. Migration 186.
           .eq('archivee', false)
-          .gte('echange_le', seuilDedupDate),
+          .gte('echange_le', seuilDedupDate), 'id'),
       ])
 
       // Un client est écarté s'il a eu un contact récent, quelle qu'en soit la
