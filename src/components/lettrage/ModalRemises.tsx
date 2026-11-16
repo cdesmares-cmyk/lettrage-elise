@@ -7,6 +7,7 @@ import type { RemiseSuccessData } from '../../hooks/useRemises'
 import type { Remise, RemiseFacture, LigneFormRemise, TypeRemise, ClasseLigneRemise } from '../../types/remise'
 import type { InfoFacture } from '../../types/lettrage'
 import { NumeroPiece } from '../NumeroPiece'
+import { libelleDepuisCommentaire } from '../../lib/remises'
 
 interface Props {
   ouvert: boolean
@@ -25,17 +26,6 @@ function BadgeType({ type }: { type: TypeRemise }) {
 }
 
 interface RowFactureInfo { reste_du: number; code_client: string; nom_client: string | null; statut_paiement: string }
-
-// Le libellé d'une ligne 471 n'a pas de colonne dédiée : il vit dans le
-// commentaire, sous la forme « Remise CHQ n°X — libellé ». On découpe sur le
-// PREMIER séparateur et on garde tout le reste, pour qu'un libellé contenant
-// lui-même un tiret cadratin ne soit pas tronqué à la réouverture.
-const SEP_LIBELLE = ' — '
-function libelleDepuisCommentaire(commentaire: string | null): string {
-  if (!commentaire) return ''
-  const i = commentaire.indexOf(SEP_LIBELLE)
-  return i === -1 ? '' : commentaire.slice(i + SEP_LIBELLE.length)
-}
 
 // Une ligne 471 n'a pas de numéro de pièce à copier : on affiche sa nature.
 function RefLigne({ ligne }: { ligne: RemiseFacture }) {
@@ -465,7 +455,7 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
               {/* Lignes de la remise : factures client ou encaissements 471 */}
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide mb-2">Lignes à rattacher</p>
               <div className="border border-gray-200 rounded-xl overflow-hidden mb-3">
-                <div className="grid grid-cols-[104px_1fr_90px_24px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
+                <div className="grid grid-cols-[124px_1fr_90px_24px] gap-2 px-4 py-2 bg-gray-50 border-b border-gray-200">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Type</span>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">N° facture / Libellé</span>
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide text-right">Montant</span>
@@ -473,9 +463,9 @@ export function ModalRemises({ ouvert, onFermer, onSuccess }: Props) {
                 </div>
                 {lignesForm.map(ligne => (
                   <div key={ligne._key} className="border-b border-gray-100 last:border-0">
-                    <div className="grid grid-cols-[104px_1fr_90px_24px] gap-2 px-4 py-2 items-center">
+                    <div className="grid grid-cols-[124px_1fr_90px_24px] gap-2 px-4 py-2 items-center">
                       <select value={ligne.classe} onChange={e => changerClasse(ligne._key, e.target.value as ClasseLigneRemise)}
-                        className="w-full border border-gray-200 rounded-md px-1.5 py-1.5 text-xs bg-white outline-none focus:border-ockham-teal cursor-pointer">
+                        className="w-full border border-gray-200 rounded-full px-3 py-1.5 text-xs bg-white outline-none focus:border-ockham-teal cursor-pointer">
                         <option value="facture">Facture</option>
                         <option value="autres">Autres (471)</option>
                       </select>

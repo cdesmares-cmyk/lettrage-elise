@@ -5,6 +5,7 @@ import type { useLettrageForm } from '../../hooks/useLettrageForm'
 import type { ClasseLettrage } from '../../types/lettrage'
 import type { Remise } from '../../types/remise'
 import type { CompteClient } from '../../types/client'
+import { libelleDepuisCommentaire } from '../../lib/remises'
 
 type Props = ReturnType<typeof useLettrageForm> & {
   onOuvrirCorrection: () => void
@@ -245,9 +246,14 @@ export function PanneauLettrage(props: Props) {
                         </div>
                         <div className="text-[10px] text-gray-500 mb-2 space-y-0.5">
                           {r.lignes.map(l => (
-                            <div key={l.id} className="flex justify-between">
-                              <span className="font-mono">{l.numero_facture}</span>
-                              <span>{fmt(l.montant)}</span>
+                            <div key={l.id} className="flex justify-between gap-3">
+                              {/* Une ligne 471 n'a pas de numéro de pièce : sans
+                                  ce branchement, elle s'affichait vide, avec un
+                                  montant orphelin en face. */}
+                              {l.numero_facture
+                                ? <span className="font-mono">{l.numero_facture}</span>
+                                : <span className="truncate">Autres · {libelleDepuisCommentaire(l.commentaire) || '471'}</span>}
+                              <span className="flex-shrink-0">{fmt(l.montant)}</span>
                             </div>
                           ))}
                         </div>
@@ -257,7 +263,11 @@ export function PanneauLettrage(props: Props) {
                           </p>
                         )}
                         {enConfirm ? (() => {
-                          const nums = r.lignes.map(l => l.numero_facture)
+                          // Les lignes 471 sont écartées du contrôle : elles ont
+                          // toutes un numéro null, donc deux d'entre elles se
+                          // confondaient en un seul doublon et déclenchaient une
+                          // alerte « factures en double » parfaitement fausse.
+                          const nums = r.lignes.map(l => l.numero_facture).filter((n): n is string => !!n)
                           const aDoublons = new Set(nums).size < nums.length
                           return (
                           <div className="bg-white border border-amber-200 rounded-md px-3 py-2.5 space-y-2">
