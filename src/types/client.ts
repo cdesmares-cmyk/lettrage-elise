@@ -22,6 +22,12 @@ export interface CompteClient {
   relance_auto_alerte: boolean
   note_client: string | null
   a_suivre: boolean
+  /** STOP : aucune relance possible depuis Ockham. Decision humaine, a
+   *  distinguer du gel, qui est calcule et seulement consultatif. */
+  relance_bloquee: boolean
+  relance_bloquee_motif: string | null
+  relance_bloquee_le: string | null
+  relance_bloquee_par: string | null
 }
 
 export interface RefValeur {

@@ -2,7 +2,7 @@
 //   n'est échu. Ce n'est pas un niveau 0, c'est l'absence de cycle.
 // 'attente'    : client mis en attente, donc exclu du calcul. Son niveau est
 //   suspendu, pas remis à zéro.
-export type NiveauRelance = 0 | 1 | 2 | 3 | 'gel' | 'hors_cycle' | 'attente'
+export type NiveauRelance = 0 | 1 | 2 | 3 | 'gel' | 'hors_cycle' | 'attente' | 'stop'
 
 const BAR_HEIGHTS = [5, 8, 11] as const
 
@@ -30,6 +30,7 @@ function LevelCode({ level }: { level: NiveauRelance }) {
   // 36px : juste de quoi aligner "N3 MED", le plus large. Largeur fixe pour que
   // les codes s'alignent verticalement d'une ligne a l'autre dans la colonne.
   const base = 'font-mono text-[11px] w-[36px] shrink-0'
+  if (level === 'stop')    return <span className={`${base} font-bold text-[#334155]`}>STOP</span>
   if (level === 'gel')     return <span className={`${base} text-[#94A3B8]`}>GEL</span>
   if (level === 'attente') return <span className={`${base} text-[#94A3B8]`}>PAUSE</span>
   // N0 s'écrit, il ne se devine pas : « en retard, jamais relancé » est une
@@ -91,7 +92,8 @@ export function NiveauCell({ level }: { level: NiveauRelance }) {
     return <span className="font-mono text-[11px] text-[#CBD5E1]" aria-label="Hors cycle de relance">—</span>
   }
 
-  const label = level === 'gel' ? 'Client gelé, hors cycle de relance'
+  const label = level === 'stop' ? 'Relances suspendues : aucune relance possible depuis Ockham'
+    : level === 'gel' ? 'Client gelé, hors cycle de relance'
     : level === 'attente' ? 'Client mis en attente, niveau de relance suspendu'
     : level === 3 ? 'Niveau 3, mise en demeure recommandée'
     : level === 0 ? 'En retard, jamais relancé sur les factures encore ouvertes'

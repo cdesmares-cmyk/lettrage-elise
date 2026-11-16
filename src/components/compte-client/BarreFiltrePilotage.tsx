@@ -238,6 +238,35 @@ export function BarreFiltrePilotage({
             </div>
           </div>
 
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+              Comptes suspendus
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([
+                ['tous',      'Tous'],
+                ['seulement', 'Seulement les suspendus'],
+                ['exclure',   'Les exclure'],
+              ] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => majChamp('suspendus', val)}
+                  className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-colors cursor-pointer ${
+                    filtre.suspendus === val
+                      ? 'border-slate-600 bg-slate-600 text-white'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5 leading-snug">
+              Un compte suspendu reste compté dans tous les indicateurs : seules ses relances sont
+              bloquées.
+            </p>
+          </div>
+
           <div className="flex items-center justify-between pt-1 border-t border-gray-100">
             <label className="inline-flex items-center gap-2 cursor-pointer">
               <input

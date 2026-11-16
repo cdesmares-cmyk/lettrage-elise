@@ -18,6 +18,10 @@ interface RowCompteClient {
   relance_auto_alerte: boolean | null
   note_client: string | null
   a_suivre: boolean | null
+  relance_bloquee: boolean | null
+  relance_bloquee_motif: string | null
+  relance_bloquee_le: string | null
+  relance_bloquee_par: string | null
 }
 
 interface OptsClientLocal {
@@ -251,6 +255,10 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
           note_risque: r.score_risque ?? 0,
           relance_auto_alerte: r.relance_auto_alerte ?? false,
           a_suivre: r.a_suivre ?? false,
+          relance_bloquee: r.relance_bloquee ?? false,
+          relance_bloquee_motif: r.relance_bloquee_motif ?? null,
+          relance_bloquee_le: r.relance_bloquee_le ?? null,
+          relance_bloquee_par: r.relance_bloquee_par ?? null,
         })))
         setFacturesActives(toutes)
       })

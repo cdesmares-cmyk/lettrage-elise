@@ -8,6 +8,8 @@ import { FormEchangeClient } from './FormEchangeClient'
 import { CommentairesFil } from '../commentaires/CommentairesFil'
 import { RecapCompteClient } from './RecapCompteClient'
 import { supabase } from '../../lib/supabase'
+import toast from 'react-hot-toast'
+import { useAuth } from '../../contexts/AuthContext'
 import { useRole } from '../../contexts/RoleContext'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useRappelClient } from '../../hooks/useRappelClient'
@@ -151,6 +153,11 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
   // Le dernier contact porte-t-il du texte ? Recalcule a chaque saisie
   // d'echange, sinon la pastille mentirait jusqu'a la reouverture du panneau.
   const aCommentaireRecent = useMarqueurCommentaire(client?.code_dso ?? null, tickEchanges)
+  // Suspension des relances. Le formulaire ne s'ouvre qu'a la demande : un
+  // champ de motif affiche en permanence suggererait que l'action est banale.
+  const [formSuspension, setFormSuspension] = useState(false)
+  const [motifSuspension, setMotifSuspension] = useState('')
+  const [suspensionEnCours, setSuspensionEnCours] = useState(false)
   const [commerciauxData, setCommerciauxData] = useState<{ id: string; nom: string; prenom: string }[]>([])
   const { valeurs: plateformes, ajouter: ajouterPlateforme } = useRefValeurs('plateforme')
 
@@ -161,6 +168,7 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
 
   useEffect(() => { chargerCommerciaux() }, [chargerCommerciaux])
   const { peutModifier } = useRole()
+  const { utilisateur } = useAuth()
   const { mettreAJourClientLocal } = useAppData()
 
   const [statut, setStatut]           = useState<StatutJuridique | ''>('')
@@ -279,6 +287,52 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
   }, [noteClient])
 
   if (!client) return null
+
+  // Le motif est OBLIGATOIRE. Un compte suspendu sans explication est
+  // inexploitable une fois son auteur parti : personne n'osera le reactiver
+  // sans savoir pourquoi il a ete bloque. C'est l'inverse du choix fait pour
+  // les echanges hors Ockham, ou l'absence de detail reste utile.
+  async function suspendreRelances() {
+    if (!client || !motifSuspension.trim()) return
+    setSuspensionEnCours(true)
+    try {
+      const maj = {
+        relance_bloquee:       true,
+        relance_bloquee_motif: motifSuspension.trim(),
+        relance_bloquee_le:    new Date().toISOString(),
+        relance_bloquee_par:   utilisateur?.id ?? null,
+      }
+      const { error } = await supabase.from('clients').update(maj as never).eq('code_dso', client.code_dso)
+      if (error) throw error
+      mettreAJourClientLocal(client.code_dso, maj as never)
+      setFormSuspension(false)
+      setMotifSuspension('')
+      toast.success('Relances suspendues pour ce compte')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la suspension.')
+    } finally {
+      setSuspensionEnCours(false)
+    }
+  }
+
+  // La levee ne demande pas de motif : reprendre les relances est le
+  // comportement normal, c'est l'arret qui doit se justifier. Le motif
+  // d'origine est conserve en base pour la trace.
+  async function leverSuspension() {
+    if (!client) return
+    setSuspensionEnCours(true)
+    try {
+      const maj = { relance_bloquee: false }
+      const { error } = await supabase.from('clients').update(maj as never).eq('code_dso', client.code_dso)
+      if (error) throw error
+      mettreAJourClientLocal(client.code_dso, maj as never)
+      toast.success('Relances réactivées')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur lors de la réactivation.')
+    } finally {
+      setSuspensionEnCours(false)
+    }
+  }
 
   function fermerEtReset() { setOnglet('infos'); onFermer() }
 
@@ -505,6 +559,85 @@ export function PanneauOptions({ client, onFermer, ongletInitial, onSauvegarder,
                   </div>
                 </div>
               )}
+              {/* Suspension des relances. En tete de l'onglet parce que c'est
+                  l'information qui conditionne tout le reste : inutile de lire
+                  l'historique si plus aucune relance ne peut partir. */}
+              {client.relance_bloquee ? (
+                <div className="border border-slate-300 bg-slate-50 rounded-xl p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <circle cx="12" cy="12" r="9" /><line x1="7" y1="17" x2="17" y2="7" />
+                      </svg>
+                      Relances suspendues
+                    </span>
+                    {peutModifier && (
+                      <button
+                        onClick={leverSuspension}
+                        disabled={suspensionEnCours}
+                        className="text-[10px] font-bold text-ockham-teal border border-ockham-teal/30 px-2.5 py-1 rounded-lg hover:bg-ockham-teal/5 disabled:opacity-40 transition-colors cursor-pointer"
+                      >
+                        Réactiver
+                      </button>
+                    )}
+                  </div>
+                  {client.relance_bloquee_motif && (
+                    <p className="text-[11px] text-slate-600 whitespace-pre-wrap">{client.relance_bloquee_motif}</p>
+                  )}
+                  {client.relance_bloquee_le && (
+                    <p className="text-[10px] text-slate-400">
+                      Depuis le {new Date(client.relance_bloquee_le).toLocaleDateString('fr-FR')}
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-400 leading-snug border-t border-slate-200 pt-2">
+                    Aucune relance ne peut partir : ni manuelle, ni en masse, ni automatique.
+                    Les appels et mails hors Ockham restent possibles.
+                  </p>
+                </div>
+              ) : peutModifier && (
+                formSuspension ? (
+                  <div className="border border-slate-300 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-bold text-slate-700">Suspendre les relances</p>
+                      <button
+                        onClick={() => { setFormSuspension(false); setMotifSuspension('') }}
+                        className="text-[10px] text-gray-400 hover:text-gray-600 cursor-pointer"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                    <textarea
+                      value={motifSuspension}
+                      onChange={e => setMotifSuspension(e.target.value)}
+                      rows={3}
+                      placeholder="Motif — litige, plan de règlement, dossier chez l'avocat…"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-[11px] outline-none focus:border-ockham-teal resize-y"
+                    />
+                    <button
+                      onClick={suspendreRelances}
+                      disabled={suspensionEnCours || !motifSuspension.trim()}
+                      className="w-full text-[11px] font-bold text-white bg-slate-700 hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed py-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                      {suspensionEnCours ? 'Enregistrement…' : 'Suspendre les relances'}
+                    </button>
+                    <p className="text-[10px] text-gray-400 leading-snug">
+                      Le motif est obligatoire : sans lui, personne ne saura pourquoi ce compte a été
+                      bloqué, ni s'il peut être réactivé.
+                    </p>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setFormSuspension(true)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 border border-slate-200 bg-white px-3 py-1.5 rounded-lg hover:border-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="9" /><line x1="7" y1="17" x2="17" y2="7" />
+                    </svg>
+                    Ne pas relancer ce compte
+                  </button>
+                )
+              )}
+
               {/* Echanges hors Ockham : un appel, ou un mail parti d'une
                   boite personnelle. Compte comme un contact client. */}
               {peutModifier && (

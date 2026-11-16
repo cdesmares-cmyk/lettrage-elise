@@ -289,7 +289,7 @@ Deno.serve(async (req: Request) => {
       // 3. Clients éligibles
       const { data: clients } = await supabase
         .from('clients')
-        .select('code_dso, nom, delai_echeance_jours')
+        .select('code_dso, nom, delai_echeance_jours, relance_bloquee')
         .eq('organisation_id', orgId)
         .eq('relance_auto_active', true)
         .eq('relance_auto_alerte', false)
@@ -436,6 +436,16 @@ Deno.serve(async (req: Request) => {
         const codeDso             = client.code_dso as string
         const nomClient           = client.nom as string
         const delaiEcheanceClient = (client.delai_echeance_jours as number | null) ?? delaiEcheanceOrg
+
+        // STOP : relances suspendues par decision humaine. Verifie AVANT la
+        // deduplication, parce que c'est un motif plus fort — et parce que le
+        // journal doit dire « suspendu » et non « deja relance recemment »,
+        // sinon on chercherait longtemps pourquoi ce client ne part jamais.
+        if (client.relance_bloquee === true) {
+          decisions.push({ org: orgNom, client: codeDso, nom: nomClient, decision: 'ecarte',
+            detail: 'relances suspendues sur ce compte (STOP)' })
+          nbSkip++; nbSkipOrg++; continue
+        }
 
         if (dedupSet.has(codeDso)) {
           // Le motif distingue l'échange des deux autres cas : « déjà relancé »

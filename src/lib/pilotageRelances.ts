@@ -60,6 +60,17 @@ export interface FiltrePilotage {
   dateEmissionDebut: string
   dateEmissionFin: string
   exclureGelesEtAttente: boolean
+  /**
+   * Comptes dont les relances sont suspendues.
+   *
+   *   'tous'      ils sont la, comme le reste. C'est le defaut, et c'est
+   *               l'arbitrage de Clement : suspendre la relance n'est pas
+   *               sortir le client du perimetre, ses chiffres restent comptes.
+   *   'seulement' pour passer la population en revue. Sans ca, on creerait un
+   *               cimetiere de creances oubliees.
+   *   'exclure'   pour construire une liste de travail propre.
+   */
+  suspendus: 'tous' | 'seulement' | 'exclure'
 }
 
 export const FILTRE_VIDE: FiltrePilotage = {
@@ -71,6 +82,7 @@ export const FILTRE_VIDE: FiltrePilotage = {
   dateEmissionDebut: '',
   dateEmissionFin: '',
   exclureGelesEtAttente: false,
+  suspendus: 'tous',
 }
 
 function nombreOuNull(v: string): number | null {
@@ -90,6 +102,7 @@ export function nbCriteresActifs(f: FiltrePilotage): number {
   if (nombreOuNull(f.encoursMin) !== null) n++
   if (f.dateEmissionDebut || f.dateEmissionFin) n++
   if (f.exclureGelesEtAttente) n++
+  if (f.suspendus !== 'tous') n++
   return n
 }
 
@@ -139,6 +152,9 @@ export function clientCorrespond(
 ): boolean {
   const alerte = ctx.alertes.get(c.code_dso)
 
+  if (f.suspendus === 'seulement' && !c.relance_bloquee) return false
+  if (f.suspendus === 'exclure'   &&  c.relance_bloquee) return false
+
   if (f.exclureGelesEtAttente) {
     if (alerte?.est_gele) return false
     if (ctx.clientsEnAttente.has(c.code_dso)) return false
@@ -187,7 +203,7 @@ export function clientCorrespond(
 // collegue ouvre la meme liste de travail. C'est un gain de pilotage qu'un
 // filtre garde en memoire n'apporte pas.
 
-const CLES = ['niv', 'jam', 'jrel', 'nbf', 'enc', 'de', 'df', 'exg'] as const
+const CLES = ['niv', 'jam', 'jrel', 'nbf', 'enc', 'de', 'df', 'exg', 'susp'] as const
 
 /** Les cles du filtre, pour les preserver quand un autre code vide l'URL. */
 export const CLES_FILTRE: readonly string[] = CLES
@@ -202,6 +218,7 @@ export function filtreVersParams(f: FiltrePilotage): Record<string, string> {
   if (f.dateEmissionDebut) p.de = f.dateEmissionDebut
   if (f.dateEmissionFin) p.df = f.dateEmissionFin
   if (f.exclureGelesEtAttente) p.exg = '1'
+  if (f.suspendus !== 'tous') p.susp = f.suspendus
   return p
 }
 
@@ -221,5 +238,8 @@ export function filtreDepuisParams(get: (k: string) => string | null): FiltrePil
     dateEmissionDebut:       get('de') ?? '',
     dateEmissionFin:         get('df') ?? '',
     exclureGelesEtAttente:   get('exg') === '1',
+    suspendus:               get('susp') === 'seulement' ? 'seulement'
+                             : get('susp') === 'exclure' ? 'exclure'
+                             : 'tous',
   }
 }

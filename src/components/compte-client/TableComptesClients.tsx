@@ -506,7 +506,8 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
             // Pas de ligne de score veut dire deux choses distinctes : le
             // client est en pause, ou il est hors cycle. Aucune des deux n'est
             // un N0, qui signifie « en retard et jamais relancé ».
-            const signalLevel: NiveauRelance = alerte?.est_gele ? 'gel'
+            const signalLevel: NiveauRelance = c.relance_bloquee ? 'stop'
+              : alerte?.est_gele ? 'gel'
               : alerte ? (alerte.niveau_relance as 0 | 1 | 2 | 3)
               : clientsEnAttente?.has(c.code_dso) ? 'attente'
               : 'hors_cycle'
@@ -524,18 +525,25 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                   // différemment à chaque ligne et l'œil ne suit plus.
                   className={`h-16 cursor-pointer transition-colors border-b border-gray-50 ${
                     modeSelection
-                      ? estSelectionne ? 'bg-ockham-teal-muted' : 'hover:bg-gray-50'
-                      : estOuvert ? 'bg-ockham-teal-muted border-b-0' : 'hover:bg-gray-50'
+                      ? estSelectionne ? 'bg-ockham-teal-muted' : c.relance_bloquee ? 'bg-slate-100/70 hover:bg-slate-100' : 'hover:bg-gray-50'
+                      : estOuvert ? 'bg-ockham-teal-muted border-b-0' : c.relance_bloquee ? 'bg-slate-100/70 hover:bg-slate-100' : 'hover:bg-gray-50'
                   }`}
                 >
                   <td className="px-2 py-3 text-center" onClick={e => { e.stopPropagation(); toggle(c.code_dso) }}>
                     {modeSelection ? (
-                      <input
-                        type="checkbox"
-                        checked={estSelectionne}
-                        onChange={() => onToggleSelection?.(c.code_dso)}
-                        className="accent-ockham-teal w-4 h-4 rounded cursor-pointer"
-                      />
+                      c.relance_bloquee ? (
+                        <span title="Relances suspendues : ce compte ne peut pas être relancé">
+                          <input type="checkbox" checked={false} disabled readOnly
+                            className="w-4 h-4 rounded opacity-30 cursor-not-allowed" />
+                        </span>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={estSelectionne}
+                          onChange={() => onToggleSelection?.(c.code_dso)}
+                          className="accent-ockham-teal w-4 h-4 rounded cursor-pointer"
+                        />
+                      )
                     ) : (
                       <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] transition-transform ${estOuvert ? 'bg-ockham-teal text-white rotate-90' : 'bg-gray-100 text-gray-500'}`}>▶</span>
                     )}
@@ -610,6 +618,12 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                         <>
                           {/* Mode déroulé : icônes SVG compactes */}
                           {peutModifier && (() => {
+                            if (c.relance_bloquee) return (
+                              <button disabled title={`Relances suspendues${c.relance_bloquee_motif ? ' — ' + c.relance_bloquee_motif : ''}`}
+                                className="w-7 h-7 flex items-center justify-center rounded-md border border-slate-300 text-slate-400 bg-slate-100 cursor-not-allowed">
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9"/><line x1="7" y1="17" x2="17" y2="7"/></svg>
+                              </button>
+                            )
                             if (c.nb_impayees === 0) return (
                               <button disabled title="Aucune facture impayée"
                                 className="w-7 h-7 flex items-center justify-center rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed">
@@ -688,6 +702,14 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                         <>
                           {/* Mode replié : boutons texte Relancer + Options uniquement */}
                           {peutModifier && (() => {
+                            if (c.relance_bloquee) return (
+                              <button disabled
+                                className="text-[10px] font-semibold px-2.5 py-1 rounded-md border border-slate-300 text-slate-400 bg-slate-100 cursor-not-allowed"
+                                title={`Relances suspendues${c.relance_bloquee_motif ? ' — ' + c.relance_bloquee_motif : ''}`}
+                              >
+                                Suspendu
+                              </button>
+                            )
                             if (c.nb_impayees === 0) return (
                               <button disabled
                                 className="text-[10px] font-semibold px-2.5 py-1 rounded-md border border-gray-200 text-gray-300 bg-gray-50 cursor-not-allowed"
