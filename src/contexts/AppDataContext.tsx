@@ -62,6 +62,7 @@ interface AppDataContextType {
   enRafraichissement: boolean
   rafraichir: () => Promise<void>
   mettreAJourStatutLocal: (numeroPiece: string, statut: StatutFacture | null) => void
+  mettreAJourStatutsLocaux: (numerosPiece: string[], statut: StatutFacture | null) => void
   mettreAJourClientLocal: (codeDso: string, opts: OptsClientLocal) => void
   // Mise à jour optimiste après lettrage : réduit reste_du sans recharger tout le dataset
   mettreAJourResteDuLocal: (lettres: { numeroPiece: string; montant: number }[]) => void
@@ -357,6 +358,20 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
     ))
   }
 
+  /**
+   * Même chose pour plusieurs factures, en UN SEUL setState.
+   *
+   * Appeler la version unitaire en boucle sur quarante factures déclencherait
+   * quarante rendus successifs de toute la liste. L'écran se fige le temps que
+   * ça passe, et l'utilisateur croit que son clic n'a rien fait.
+   */
+  function mettreAJourStatutsLocaux(numerosPiece: string[], statut: StatutFacture | null) {
+    const cibles = new Set(numerosPiece)
+    setFacturesActives(prev => prev.map(f =>
+      cibles.has(f.numero_piece) ? { ...f, statut_facture: statut } : f
+    ))
+  }
+
   function mettreAJourClientLocal(codeDso: string, opts: OptsClientLocal) {
     setClients(prev => prev.map(c =>
       c.code_dso === codeDso ? { ...c, ...opts } : c
@@ -400,7 +415,7 @@ export function FournisseurDonnees({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppDataContext.Provider value={{ clients, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourStatutLocal, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios, membresOrg, rechargerMembresOrg }}>
+    <AppDataContext.Provider value={{ clients, facturesActives, chargement, enRafraichissement, rafraichir, mettreAJourStatutLocal, mettreAJourStatutsLocaux, mettreAJourClientLocal, mettreAJourResteDuLocal, supprimerFactureLocale, moisMaxBrut, ca12Mois, ca12MoisPrec, scenarios, rechargerScenarios, membresOrg, rechargerMembresOrg }}>
       {children}
     </AppDataContext.Provider>
   )

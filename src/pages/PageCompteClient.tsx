@@ -496,6 +496,7 @@ export function PageCompteClient() {
           onChargerHistorique={code => factures.chargerToutesFactures(code)}
           estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
           onHistorique={setFacHistorique}
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
@@ -541,6 +542,7 @@ export function PageCompteClient() {
                 onChargerHistorique={code => factures.chargerToutesFactures(code)}
                 estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
                 onStatutChange={factures.mettreAJourStatut}
+                onStatutsChange={factures.mettreAJourStatuts}
                 onHistorique={setFacHistorique}
                 onOptions={c => setClientOptionsDso(c.code_dso)}
                 onRelancer={setClientRelance}
@@ -569,6 +571,7 @@ export function PageCompteClient() {
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
           onHistorique={setFacHistorique}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -583,6 +586,7 @@ export function PageCompteClient() {
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
           onRelancer={codeClient => {
             const c = comptes.clients.find(x => x.code_dso === codeClient)
             if (c) setClientRelance(c)

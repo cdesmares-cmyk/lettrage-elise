@@ -28,6 +28,7 @@ interface Props {
   estChargement: (codes: string[]) => boolean
   onExpand: (codes: string[]) => void
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
+  onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
   onHistorique?: (fac: FactureDetail) => void
   onRelancer?: (codeClient: string) => void
   derniereRelanceParClient?: Map<string, string>
@@ -40,7 +41,7 @@ interface Props {
   recherche?: string
 }
 
-export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
+export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onStatutsChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
   const codes = clients.map(c => c.code_dso)
   const [page, setPage] = useState(0)
 
@@ -267,6 +268,7 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         factures={facturesPage}
         chargement={chargement}
         onStatutChange={onStatutChange}
+        onStatutsChange={onStatutsChange}
         onHistorique={onHistorique}
         onRelancer={onRelancer}
         derniereRelanceParClient={derniereRelanceParClient}

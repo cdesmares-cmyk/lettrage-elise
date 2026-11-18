@@ -4,12 +4,20 @@ import type { FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique 
 import { useRole } from '../../contexts/RoleContext'
 import { IcFileText, IcInfo } from '../Icones'
 import { BadgeStatutFacture, OptionsStatutFacture } from '../BadgeStatutFacture'
+import { STATUTS_FACTURE, libelleStatut } from '../../lib/statutsFacture'
 import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   factures: FactureDetail[]
   chargement: boolean
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
+  /**
+   * Quand fourni, active la sélection multiple et sa barre d'action.
+   *
+   * Absent sur les écrans de consultation : la case à cocher n'y apparaît même
+   * pas, plutôt qu'un bouton grisé qui laisse croire à une permission.
+   */
+  onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
   onHistorique?: (fac: FactureDetail) => void
   onRelancer?: (codeClient: string) => void
   derniereRelanceParClient?: Map<string, string>
@@ -94,9 +102,13 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onStatutsChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  // Statut en attente de confirmation, au-delà du seuil. 'rien' = pas de demande.
+  const [confirmation, setConfirmation] = useState<StatutFacture | null | 'rien'>('rien')
+  const [application, setApplication] = useState(false)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [bodaccPopupOpen, setBodaccPopupOpen] = useState(false)
   const bodaccPopupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -153,11 +165,68 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
 
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
 
+  // Une facture soldée n'a plus de statut à poser, une ligne de compte 411_ n'en
+  // a jamais eu : ni l'une ni l'autre n'est sélectionnable.
+  const estSelectionnable = (f: FactureDetail) =>
+    Math.abs(f.reste_du) > 0.005 && !f.numero_piece.startsWith('411_')
+
+  const selectionActive = !!onStatutsChange && peutModifier
+  const selectionnables = selectionActive ? facturesTries.filter(estSelectionnable) : []
+  const numerosSelectionnes = selectionnables.filter(f => selection.has(f.numero_piece))
+  const nbSelection = numerosSelectionnes.length
+  const montantSelection = numerosSelectionnes.reduce((s, f) => s + f.reste_du, 0)
+  const toutCoche = selectionnables.length > 0 && nbSelection === selectionnables.length
+
+  function basculerLigne(numero: string) {
+    setSelection(prev => {
+      const s = new Set(prev)
+      if (s.has(numero)) s.delete(numero)
+      else s.add(numero)
+      return s
+    })
+    setConfirmation('rien')
+  }
+
+  function basculerTout() {
+    setSelection(toutCoche ? new Set() : new Set(selectionnables.map(f => f.numero_piece)))
+    setConfirmation('rien')
+  }
+
+  // Au-delà de ce nombre, on demande confirmation. Un « tout cocher » suivi d'un
+  // clic peut repeindre un compte entier : c'est réversible, mais ça ne doit pas
+  // arriver par surprise.
+  const SEUIL_CONFIRMATION = 10
+
+  function demander(statut: StatutFacture | null) {
+    if (nbSelection > SEUIL_CONFIRMATION) setConfirmation(statut)
+    else appliquer(statut)
+  }
+
+  async function appliquer(statut: StatutFacture | null) {
+    if (!onStatutsChange || !nbSelection) return
+    setApplication(true)
+    const ok = await onStatutsChange(numerosSelectionnes.map(f => f.numero_piece), statut)
+    setApplication(false)
+    setConfirmation('rien')
+    if (ok) setSelection(new Set())
+  }
+
   return (
     <>
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-white border-b border-gray-200">
+            {selectionActive && (
+              <th className="px-3 py-2 w-8">
+                <input
+                  type="checkbox"
+                  checked={toutCoche}
+                  onChange={basculerTout}
+                  title="Tout sélectionner — uniquement les factures affichées"
+                  className="accent-ockham-teal w-3.5 h-3.5 cursor-pointer align-middle"
+                />
+              </th>
+            )}
             {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
             {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
             {compact
@@ -222,6 +291,20 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70 border-gray-50'
                   : 'bg-white hover:bg-slate-50 border-gray-50'
               }`}>
+                {selectionActive && (
+                  <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                    {estSelectionnable(f) ? (
+                      <input
+                        type="checkbox"
+                        checked={selection.has(f.numero_piece)}
+                        onChange={() => basculerLigne(f.numero_piece)}
+                        className="accent-ockham-teal w-3.5 h-3.5 cursor-pointer align-middle"
+                      />
+                    ) : (
+                      <span className="inline-block w-3.5" />
+                    )}
+                  </td>
+                )}
                 {!compact && (
                   <td className="px-3 py-2">
                     <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>
@@ -335,6 +418,68 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
           })}
         </tbody>
       </table>
+
+      {/* Barre d'action de masse — n'existe que s'il y a une sélection */}
+      {selectionActive && nbSelection > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-ockham-navy text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 text-xs">
+          <div className="flex items-baseline gap-2 pr-2 border-r border-white/15">
+            <span className="font-bold">{nbSelection} facture{nbSelection > 1 ? 's' : ''}</span>
+            <span className="text-slate-400 font-mono tabular-nums">{fmt(montantSelection)}</span>
+          </div>
+
+          {confirmation !== 'rien' ? (
+            <>
+              <span className="text-amber-200">
+                {confirmation === null
+                  ? `Retirer le statut de ${nbSelection} factures ?`
+                  : `Passer ${nbSelection} factures en « ${libelleStatut(confirmation)} » ?`}
+              </span>
+              <button
+                onClick={() => appliquer(confirmation)}
+                disabled={application}
+                className="font-semibold px-3 py-1.5 rounded-lg bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                {application ? 'En cours…' : 'Oui, appliquer'}
+              </button>
+              <button
+                onClick={() => setConfirmation('rien')}
+                className="font-medium px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Non
+              </button>
+            </>
+          ) : (
+            <>
+              {STATUTS_FACTURE.map(s => (
+                <button
+                  key={s.valeur}
+                  onClick={() => demander(s.valeur)}
+                  disabled={application}
+                  className="inline-flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  <s.Icone size={12} className="flex-shrink-0" />
+                  {s.libelle}
+                </button>
+              ))}
+              {/* Sans ce bouton, on pourrait marquer en masse mais pas démarquer :
+                  corriger une erreur de masse se ferait une facture à la fois. */}
+              <button
+                onClick={() => demander(null)}
+                disabled={application}
+                className="font-medium px-3 py-1.5 rounded-lg border border-white/20 text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                Retirer le statut
+              </button>
+              <button
+                onClick={() => setSelection(new Set())}
+                className="text-slate-400 hover:text-white transition-colors pl-2 border-l border-white/15 cursor-pointer"
+              >
+                Annuler
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Popup statut facture */}
       {popupOpen && (
