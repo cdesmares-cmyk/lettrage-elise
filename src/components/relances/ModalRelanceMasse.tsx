@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -173,8 +173,28 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const peutEnvoyer    = !progression.enCours && !progression.termine && avecContact.length > 0
                          && scenarioCourant?.type === 'externe'
 
+/**
+ * Fenetre de securite avant le premier envoi de la sequence.
+ *
+ * Le pendant des 10 secondes d'annulation de la relance unitaire : tant
+ * qu'elle court, aucun email n'est parti et la sequence entiere peut etre
+ * abandonnee sans consequence.
+ */
+const DELAI_DEMARRAGE_S = 10
+
+  const arretDemande = useRef(false)
+  const [arretAffiche, setArretAffiche] = useState(false)
+  const [compteARebours, setCompteARebours] = useState(0)
+
+  function demanderArret() {
+    arretDemande.current = true
+    setArretAffiche(true)
+  }
+
   async function handleEnvoyer() {
     if (!utilisateur || !peutEnvoyer) return
+    arretDemande.current = false
+    setArretAffiche(false)
     // Verrou de dernier recours. L'interface ne propose plus que de l'externe,
     // mais ce test ne dépend pas de l'interface : si un scénario interne
     // revenait un jour dans la liste, l'envoi s'arrêterait quand même ici.
@@ -186,9 +206,29 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
     const cibles = etats.filter(e => e.contacts.some(c => c.email))
     setProgression({ enCours: true, current: 0, total: cibles.length, resultats: [], termine: false })
 
+    // FENÊTRE DE SÉCURITÉ AVANT LE PREMIER ENVOI.
+    //
+    // Sans elle, le premier email part dans la seconde : le bouton d'arrêt
+    // existe mais n'a aucune chance d'être atteint à temps. Ces dix secondes
+    // sont le pendant de l'annulation de la relance unitaire — rien n'est
+    // parti tant qu'elles courent, et la séquence entière peut être abandonnée
+    // sans conséquence.
+    for (let reste = DELAI_DEMARRAGE_S; reste > 0 && !arretDemande.current; reste--) {
+      setCompteARebours(reste)
+      await sleep(1000)
+    }
+    setCompteARebours(0)
+    if (arretDemande.current) {
+      setProgression(prev => ({ ...prev, enCours: false, termine: false }))
+      toast("Séquence annulée — aucun email n'est parti.", { icon: '↩' })
+      return
+    }
+
     const resultats: Resultat[] = []
 
+    let arrete = false
     for (const e of cibles) {
+      if (arretDemande.current) { arrete = true; break }
       const contactsEmail = e.contacts.filter(c => c.email)
       // Le perimetre affiche dans la liste, pas un second calcul.
       const perimetre = perimetres.get(e.client.code_dso)
@@ -248,14 +288,22 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       setProgression(prev => ({ ...prev, current: prev.current + 1, resultats: [...prev.resultats, r] }))
 
       // Délai 2-5 secondes entre chaque envoi (sauf après le dernier)
-      if (e !== cibles[cibles.length - 1]) {
+      if (e !== cibles[cibles.length - 1] && !arretDemande.current) {
         await sleep(2000 + Math.random() * 3000)
       }
     }
 
     const nbSucces = resultats.filter(r => r.succes).length
     setProgression(prev => ({ ...prev, enCours: false, termine: true }))
-    toast.success(`${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''} · +${nbSucces * 10} pts`)
+    if (arrete) {
+      const restants = cibles.length - resultats.length
+      toast(
+        `Séquence arrêtée · ${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''}, ${restants} non envoyée${restants > 1 ? 's' : ''}.`,
+        { icon: '⏹', duration: 6000 },
+      )
+    } else {
+      toast.success(`${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''} · +${nbSucces * 10} pts`)
+    }
     onFini()
   }
 
@@ -274,7 +322,16 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
               style={{ width: `${progression.total > 0 ? (progression.current / progression.total) * 100 : 0}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
+            <button
+              onClick={demanderArret}
+              disabled={arretAffiche}
+              className="text-[10px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-40 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+            >
+              {arretAffiche ? 'Arrêt…' : '⏹ Arrêter'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -549,12 +606,22 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                   </button>
                 )}
                 <button
-                  onClick={handleEnvoyer}
-                  disabled={!peutEnvoyer}
-                  className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+                  onClick={progression.enCours ? demanderArret : handleEnvoyer}
+                  disabled={progression.enCours ? arretAffiche : !peutEnvoyer}
+                  className={`flex-[2] flex items-center justify-center gap-2 disabled:opacity-40 text-sm font-semibold py-2.5 rounded-lg transition-colors ${
+                    progression.enCours
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-ockham-teal hover:bg-ockham-teal-dark text-white'
+                  }`}
                 >
-                  {progression.enCours
-                    ? `Envoi en cours… ${progression.current}/${progression.total}`
+                  {compteARebours > 0
+                    ? `⏹ Annuler · démarrage dans ${compteARebours} s`
+                    : progression.enCours
+                    ? (arretAffiche
+                        // L'envoi en cours va jusqu'au bout : on n'interrompt
+                        // pas un email à moitié parti.
+                        ? `Arrêt après l'envoi en cours… ${progression.current}/${progression.total}`
+                        : `⏹ Arrêter la séquence · ${progression.current}/${progression.total}`)
                     : estConnecte
                       ? `✉ Envoyer ${avecContact.length} email${avecContact.length > 1 ? 's' : ''} via ${nomProvider}`
                       : `✉ Enregistrer ${avecContact.length} relance${avecContact.length > 1 ? 's' : ''}`}

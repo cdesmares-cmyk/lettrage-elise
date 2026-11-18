@@ -30,6 +30,7 @@ import { useOutlookAuth } from '../hooks/useOutlookAuth'
 import { useAlertesScore } from '../hooks/useAlertesScore'
 import toast from 'react-hot-toast'
 import { exporterXls } from '../lib/exportXls'
+import { ancienneteRelance } from '../lib/pilotageRelances'
 import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
 
@@ -669,7 +670,12 @@ export function PageCompteClient() {
       <ModalCompositionRelance
         client={clientRelance}
         niveauClient={clientRelance ? alertesSignal.get(clientRelance.code_dso)?.niveau_relance ?? null : null}
-        joursDerniereRelance={clientRelance ? alertesSignal.get(clientRelance.code_dso)?.jours_derniere_relance ?? null : null}
+        joursDerniereRelance={clientRelance
+          ? ancienneteRelance(
+              alertesSignal.get(clientRelance.code_dso)?.jours_derniere_relance ?? null,
+              dernieresRelances.get(clientRelance.code_dso),
+            )
+          : null}
         onFermer={() => setClientRelance(null)}
         onSent={() => { setClientRelance(null); rechargerRelances() }}
         gmailAuth={messagerie}
