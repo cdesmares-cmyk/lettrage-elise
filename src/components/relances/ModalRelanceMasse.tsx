@@ -173,8 +173,18 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const peutEnvoyer    = !progression.enCours && !progression.termine && avecContact.length > 0
                          && scenarioCourant?.type === 'externe'
 
+/**
+ * Fenetre de securite avant le premier envoi de la sequence.
+ *
+ * Le pendant des 10 secondes d'annulation de la relance unitaire : tant
+ * qu'elle court, aucun email n'est parti et la sequence entiere peut etre
+ * abandonnee sans consequence.
+ */
+const DELAI_DEMARRAGE_S = 10
+
   const arretDemande = useRef(false)
   const [arretAffiche, setArretAffiche] = useState(false)
+  const [compteARebours, setCompteARebours] = useState(0)
 
   function demanderArret() {
     arretDemande.current = true
@@ -195,6 +205,24 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
     const signature = estConnecte ? await recupererSignature() : null
     const cibles = etats.filter(e => e.contacts.some(c => c.email))
     setProgression({ enCours: true, current: 0, total: cibles.length, resultats: [], termine: false })
+
+    // FENÊTRE DE SÉCURITÉ AVANT LE PREMIER ENVOI.
+    //
+    // Sans elle, le premier email part dans la seconde : le bouton d'arrêt
+    // existe mais n'a aucune chance d'être atteint à temps. Ces dix secondes
+    // sont le pendant de l'annulation de la relance unitaire — rien n'est
+    // parti tant qu'elles courent, et la séquence entière peut être abandonnée
+    // sans conséquence.
+    for (let reste = DELAI_DEMARRAGE_S; reste > 0 && !arretDemande.current; reste--) {
+      setCompteARebours(reste)
+      await sleep(1000)
+    }
+    setCompteARebours(0)
+    if (arretDemande.current) {
+      setProgression(prev => ({ ...prev, enCours: false, termine: false }))
+      toast("Séquence annulée — aucun email n'est parti.", { icon: '↩' })
+      return
+    }
 
     const resultats: Resultat[] = []
 
@@ -586,7 +614,9 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                       : 'bg-ockham-teal hover:bg-ockham-teal-dark text-white'
                   }`}
                 >
-                  {progression.enCours
+                  {compteARebours > 0
+                    ? `⏹ Annuler · démarrage dans ${compteARebours} s`
+                    : progression.enCours
                     ? (arretAffiche
                         // L'envoi en cours va jusqu'au bout : on n'interrompt
                         // pas un email à moitié parti.

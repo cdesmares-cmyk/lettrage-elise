@@ -26,8 +26,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from 'react'
 import toast from 'react-hot-toast'
 
-/** Durée de la fenêtre d'annulation. Choisie par Clément. */
-const DELAI_SECONDES = 5
+/** Durée de la fenêtre d'annulation. Choisie par Clément, porté à 10 le 2026-11-18. */
+const DELAI_SECONDES = 10
 
 interface ContexteEnvoiDiffere {
   /**
