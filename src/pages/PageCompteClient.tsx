@@ -28,6 +28,7 @@ import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useOutlookAuth } from '../hooks/useOutlookAuth'
 import { useAlertesScore } from '../hooks/useAlertesScore'
+import toast from 'react-hot-toast'
 import { exporterXls } from '../lib/exportXls'
 import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
@@ -244,7 +245,11 @@ export function PageCompteClient() {
     await factures.chargerFactures(codes)
     const data = factures.getFactures(codes)
     if (data.length) {
-      exporterXls(data, `extraction_selection_${new Date().toISOString().split('T')[0]}`)
+      try {
+        await exporterXls(data, `extraction_selection_${new Date().toISOString().split('T')[0]}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+      }
     }
     setExportSelectionEnCours(false)
   }

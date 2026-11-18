@@ -1,5 +1,6 @@
 // Modal d'export XLS — Classique (factures) ou Grand Livre (chronologique avec solde)
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 import { IcDownload } from '../Icones'
 import type { CompteClient, FactureDetail } from '../../types/client'
 import { exporterXls, exporterGrandLivreXls, type LigneGrandLivre } from '../../lib/exportXls'
@@ -52,7 +53,12 @@ export function ModalExport({ ouvert, clients, getFactures, chargerFactures, onF
     setChargement(false)
     if (!factures.length) return
     const nom = selection === 'toutes' ? 'tous_clients' : (clients.find(c => c.code_dso === selection)?.nom ?? selection).replace(/\s+/g, '_')
-    exporterXls(factures, `extraction_${nom}_${today}`)
+    try {
+      await exporterXls(factures, `extraction_${nom}_${today}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+      return
+    }
     onFermer()
   }
 

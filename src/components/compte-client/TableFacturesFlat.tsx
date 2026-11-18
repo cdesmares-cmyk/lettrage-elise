@@ -1,5 +1,6 @@
 // Vue factures : liste plate avec filtres date, préfiltres années, tri global, pagination 50/50
 import { useState, useMemo, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { exporterXls } from '../../lib/exportXls'
@@ -125,11 +126,15 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
   const nbPages = Math.ceil(facturesTries.length / ITEMS_PER_PAGE)
   const facturesPage = facturesTries.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
 
-  function handleExport() {
+  async function handleExport() {
     if (!facturesFiltrees.length) return
     const debut = dateDebut || 'tout'
     const fin = dateFin || 'tout'
-    exporterXls(facturesFiltrees, `extraction_factures_${debut}_${fin}`)
+    try {
+      await exporterXls(facturesFiltrees, `extraction_factures_${debut}_${fin}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+    }
   }
 
   return (

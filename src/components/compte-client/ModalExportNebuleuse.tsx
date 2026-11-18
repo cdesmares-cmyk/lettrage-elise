@@ -1,5 +1,6 @@
 // Modal d'export XLS Nébuleuse — sélection par groupe + téléchargement
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 import { IcDownload } from '../Icones'
 import type { GroupeNebuleuse, FactureDetail } from '../../types/client'
 import { exporterNebuleuseXls } from '../../lib/exportXls'
@@ -38,7 +39,12 @@ export function ModalExportNebuleuse({ ouvert, groupes, getFactures, chargerFact
     const nomFichier = selection === 'tous'
       ? `extraction_nebuleuse_${new Date().toISOString().split('T')[0]}`
       : `extraction_${selection}_${new Date().toISOString().split('T')[0]}`
-    exporterNebuleuseXls(factures, groupesCibles, nomFichier)
+    try {
+      await exporterNebuleuseXls(factures, groupesCibles, nomFichier)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+      return
+    }
     onFermer()
   }
 

@@ -20,6 +20,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import { IcLoader } from '../Icones'
 import type { EnvoiAuto } from '../../hooks/useRelances'
 import type { CommentaireFacture, StatutFacture } from '../../types/client'
+import { BadgeStatutFacture } from '../BadgeStatutFacture'
+import { STATUTS_FACTURE } from '../../lib/statutsFacture'
 
 interface SauvegarderComData {
   numero_piece: string
@@ -54,25 +56,9 @@ function joursDepuis(iso: string): number {
 }
 
 const STATUTS: { val: StatutFacture | null; label: string }[] = [
-  { val: 'litige',      label: 'Litige' },
-  { val: 'provisionne', label: 'Provisionné' },
-  { val: null,          label: 'Effacer' },
+  ...STATUTS_FACTURE.map(s => ({ val: s.valeur as StatutFacture | null, label: s.libelle })),
+  { val: null, label: 'Retirer le statut' },
 ]
-
-function BadgeStatutFacture({ statut, onOuvrir }: { statut: StatutFacture | null; onOuvrir: () => void }) {
-  const cls = statut === 'litige'
-    ? 'bg-red-100 text-red-700 border-red-200'
-    : statut === 'provisionne'
-      ? 'bg-orange-100 text-orange-700 border-orange-200'
-      : 'border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600'
-  const label = statut === 'litige' ? 'Litige' : statut === 'provisionne' ? 'Provisionné' : 'Statut'
-  return (
-    <button onClick={onOuvrir}
-            className={`cursor-pointer inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded border whitespace-nowrap transition-colors ${cls}`}>
-      {label}
-    </button>
-  )
-}
 
 export function ModalEnvoiAuto({ envoi, nomClient, commentaires, onSauvegarderCommentaire, onFermer }: Props) {
   const { mettreAJourStatutLocal } = useAppData()
@@ -243,7 +229,7 @@ export function ModalEnvoiAuto({ envoi, nomClient, commentaires, onSauvegarderCo
                             : <span className="font-semibold tabular-nums text-red-600">{euros(f.reste_du)}</span>}
                         </td>
                         <td className="px-3 py-2.5 relative">
-                          <BadgeStatutFacture statut={statut} onOuvrir={() => setPopupStatut(popupStatut === n ? null : n)} />
+                          <BadgeStatutFacture statut={statut} as="button" onClick={() => setPopupStatut(popupStatut === n ? null : n)} />
                           {popupStatut === n && (
                             <div className="absolute z-30 top-9 left-3 bg-white border border-gray-200 rounded-lg shadow-xl p-1 min-w-[130px]">
                               {STATUTS.map(s => (
