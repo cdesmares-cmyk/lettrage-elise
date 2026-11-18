@@ -382,3 +382,38 @@ export const CHAMPS_FACTURES: ChampCible[] = [
     hint: 'Optionnel. Si vide, prend la valeur du Montant TTC. Utile pour importer un historique partiellement réglé.',
   },
 ]
+
+/**
+ * Champs du type « Mise à jour de statut ».
+ *
+ * Deux colonnes, et c'est tout ce qui est exigé. L'import de factures en
+ * réclame cinq — un fichier de statuts y serait refusé dès l'écran de
+ * correspondance, alors qu'il n'a besoin de rien d'autre que du numéro et du
+ * statut.
+ */
+export const CHAMPS_STATUT_FACTURE: ChampCible[] = [
+  {
+    cle: 'numero_piece',
+    label: 'N° de facture (pivot)',
+    est_pivot: true,
+    requis: true,
+    est_lettrable: false,
+    aliases: [
+      'numero piece', 'num piece', 'no piece', 'numerodepiece',
+      'n facture', 'no facture', 'numero facture', 'ref facture',
+      'piece', 'reference', 'ref',
+    ],
+  },
+  {
+    cle: 'statut_facture',
+    label: 'Statut de la facture',
+    est_pivot: false,
+    requis: true,
+    est_lettrable: false,
+    aliases: [
+      'statut', 'statut facture', 'statut de la facture', 'etat', 'état',
+      'situation', 'statut comptable', 'litige', 'depreciation',
+    ],
+    hint: 'Litige ou Dépréciée. « aucun » retire le statut. Une cellule vide ne modifie rien.',
+  },
+]

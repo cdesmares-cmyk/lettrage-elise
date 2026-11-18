@@ -1,6 +1,8 @@
 // Types partagés pour le flux d'import (onglet Dépôt, section 5.1 du CDC)
 
-export type TypeFichier = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage' | 'import_clients' | 'import_contacts'
+import type { StatutFacture } from './client'
+
+export type TypeFichier = 'csv_bancaire' | 'xlsx_factures' | 'import_lettrage' | 'import_clients' | 'import_contacts' | 'maj_statut_facture'
 
 // Définition d'un champ cible en base de données
 export interface ChampCible {
@@ -54,6 +56,13 @@ export interface ResultatValidation {
   total_credit_fichier?: number   // csv_bancaire : somme des crédits du fichier
   total_ttc_fichier?: number      // xlsx_factures : somme des montants TTC du fichier
   noms_differents?: { code_client: string; nom_fichier: string; nom_base: string }[]
+  // maj_statut_facture : le statut à poser sur chaque facture. null = retrait.
+  // Les factures absentes de cette liste ne sont pas touchées.
+  statuts_a_appliquer?: { numero_piece: string; statut: StatutFacture | null }[]
+  // maj_statut_facture : combien de factures par statut cible, affiché AVANT
+  // l'écriture. Sans ce décompte, l'opérateur valide un import de masse sur des
+  // données comptables sans savoir ce qu'il engage.
+  recap_statuts?: { libelle: string; nb: number }[]
   hash: string
   nom_fichier: string
   codes_existants?: string[]          // codes_dso déjà en base
