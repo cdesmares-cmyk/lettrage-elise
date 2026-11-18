@@ -58,14 +58,23 @@ export function definitionStatut(v: StatutFacture | null | undefined): Definitio
   return STATUTS_FACTURE.find(s => s.valeur === v) ?? null
 }
 
-/** Libellé court, chaîne vide si aucun statut. Pour l'affichage. */
+/**
+ * Libellé court, chaîne vide si aucun statut. Pour l'affichage.
+ *
+ * REPLI SUR LA VALEUR BRUTE si le statut n'est pas dans le dictionnaire. La
+ * contrainte CHECK de la migration 006 ne laisse en théorie passer que les deux
+ * valeurs connues, mais une valeur inattendue doit rester VISIBLE plutôt que
+ * disparaître : un trou silencieux est toujours pire qu'une étiquette moche.
+ */
 export function libelleStatut(v: StatutFacture | null | undefined): string {
-  return definitionStatut(v)?.libelle ?? ''
+  if (!v) return ''
+  return definitionStatut(v)?.libelle ?? String(v)
 }
 
-/** Libellé long, chaîne vide si aucun statut. Pour l'export. */
+/** Libellé long, chaîne vide si aucun statut. Pour l'export. Même repli. */
 export function libelleStatutExport(v: StatutFacture | null | undefined): string {
-  return definitionStatut(v)?.libelleExport ?? ''
+  if (!v) return ''
+  return definitionStatut(v)?.libelleExport ?? String(v)
 }
 
 

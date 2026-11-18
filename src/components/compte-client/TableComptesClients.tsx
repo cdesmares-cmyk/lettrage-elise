@@ -23,6 +23,7 @@ interface Props {
   estHistoriqueCharge: (code: string) => boolean
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
+  onNePasRelancerChange?: (numeros: string[], valeur: boolean) => Promise<boolean>
   onHistorique: (fac: FactureDetail) => void
   onOptions: (client: CompteClient) => void
   onRelancer: (client: CompteClient) => void
@@ -233,7 +234,7 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
   toast.success(`Encours ${c.nom} copié`)
 }
 
-export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onStatutsChange, onHistorique, onOptions, onRelancer, onCompenser, onCorriger, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal, clientsEnAttente, dateCalcul }: Props) {
+export function TableComptesClients({ clients, chargement, recherche, getFactures, estChargement, onExpand, onChargerHistorique, estHistoriqueCharge, onStatutChange, onStatutsChange, onNePasRelancerChange, onHistorique, onOptions, onRelancer, onCompenser, onCorriger, dernieresRelances, commentaires, onOuvrirCommentaire, modeSelection = false, selection = new Set(), onToggleSelection, onSelectionnerPage, creditParClient, nbPiecesParClient, onToggleASuivre, alertesSignal, clientsEnAttente, dateCalcul }: Props) {
   const { peutModifier } = useRole()
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [page, setPage] = useState(0)
@@ -773,6 +774,7 @@ export function TableComptesClients({ clients, chargement, recherche, getFacture
                               chargement={estChargement(c.code_dso)}
                               onStatutChange={onStatutChange}
                               onStatutsChange={onStatutsChange}
+                              onNePasRelancerChange={onNePasRelancerChange}
                               onHistorique={onHistorique}
                               commentaires={commentaires}
                               onOuvrirCommentaire={onOuvrirCommentaire}

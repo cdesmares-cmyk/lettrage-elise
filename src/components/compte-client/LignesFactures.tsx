@@ -18,6 +18,8 @@ interface Props {
    * pas, plutôt qu'un bouton grisé qui laisse croire à une permission.
    */
   onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
+  /** Exclure ou réintégrer plusieurs factures dans les relances, d'un coup. */
+  onNePasRelancerChange?: (numeros: string[], valeur: boolean) => Promise<boolean>
   onHistorique?: (fac: FactureDetail) => void
   onRelancer?: (codeClient: string) => void
   derniereRelanceParClient?: Map<string, string>
@@ -67,6 +69,17 @@ const BODACC_ICO: Record<string, () => React.ReactElement> = {
   cloture:      () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
 }
 
+/**
+ * Une action applicable à toute la sélection.
+ *
+ * Deux familles qu'il ne faut pas confondre : 'statut' pose une étiquette
+ * comptable, 'relance' change le comportement du robot. Les regrouper sous un
+ * même type permet de n'écrire qu'un seul mécanisme de confirmation.
+ */
+type ActionMasse =
+  | { type: 'statut'; valeur: StatutFacture | null }
+  | { type: 'relance'; valeur: boolean }
+
 type SortDir = 'asc' | 'desc'
 
 function sortRows<T extends Record<string, unknown>>(data: T[], col: keyof T, dir: SortDir): T[] {
@@ -102,12 +115,12 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onStatutsChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onStatutsChange, onNePasRelancerChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
   const [selection, setSelection] = useState<Set<string>>(new Set())
-  // Statut en attente de confirmation, au-delà du seuil. 'rien' = pas de demande.
-  const [confirmation, setConfirmation] = useState<StatutFacture | null | 'rien'>('rien')
+  // Action en attente de confirmation, au-delà du seuil. null = aucune demande.
+  const [confirmation, setConfirmation] = useState<ActionMasse | null>(null)
   const [application, setApplication] = useState(false)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [bodaccPopupOpen, setBodaccPopupOpen] = useState(false)
@@ -184,12 +197,12 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
       else s.add(numero)
       return s
     })
-    setConfirmation('rien')
+    setConfirmation(null)
   }
 
   function basculerTout() {
     setSelection(toutCoche ? new Set() : new Set(selectionnables.map(f => f.numero_piece)))
-    setConfirmation('rien')
+    setConfirmation(null)
   }
 
   // Au-delà de ce nombre, on demande confirmation. Un « tout cocher » suivi d'un
@@ -197,18 +210,31 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
   // arriver par surprise.
   const SEUIL_CONFIRMATION = 10
 
-  function demander(statut: StatutFacture | null) {
-    if (nbSelection > SEUIL_CONFIRMATION) setConfirmation(statut)
-    else appliquer(statut)
+  function demander(action: ActionMasse) {
+    if (nbSelection > SEUIL_CONFIRMATION) setConfirmation(action)
+    else appliquer(action)
   }
 
-  async function appliquer(statut: StatutFacture | null) {
-    if (!onStatutsChange || !nbSelection) return
+  async function appliquer(action: ActionMasse) {
+    if (!nbSelection) return
+    const numeros = numerosSelectionnes.map(f => f.numero_piece)
     setApplication(true)
-    const ok = await onStatutsChange(numerosSelectionnes.map(f => f.numero_piece), statut)
+    const ok = action.type === 'statut'
+      ? await onStatutsChange?.(numeros, action.valeur) ?? false
+      : await onNePasRelancerChange?.(numeros, action.valeur) ?? false
     setApplication(false)
-    setConfirmation('rien')
+    setConfirmation(null)
     if (ok) setSelection(new Set())
+  }
+
+  function libelleAction(a: ActionMasse): string {
+    const n = `${nbSelection} facture${nbSelection > 1 ? 's' : ''}`
+    if (a.type === 'relance') {
+      return a.valeur ? `Exclure ${n} des relances ?` : `Réintégrer ${n} dans les relances ?`
+    }
+    return a.valeur === null
+      ? `Retirer le statut de ${n} ?`
+      : `Passer ${n} en « ${libelleStatut(a.valeur)} » ?`
   }
 
   return (
@@ -427,13 +453,9 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
             <span className="text-slate-400 font-mono tabular-nums">{fmt(montantSelection)}</span>
           </div>
 
-          {confirmation !== 'rien' ? (
+          {confirmation ? (
             <>
-              <span className="text-amber-200">
-                {confirmation === null
-                  ? `Retirer le statut de ${nbSelection} factures ?`
-                  : `Passer ${nbSelection} factures en « ${libelleStatut(confirmation)} » ?`}
-              </span>
+              <span className="text-amber-200">{libelleAction(confirmation)}</span>
               <button
                 onClick={() => appliquer(confirmation)}
                 disabled={application}
@@ -442,7 +464,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
                 {application ? 'En cours…' : 'Oui, appliquer'}
               </button>
               <button
-                onClick={() => setConfirmation('rien')}
+                onClick={() => setConfirmation(null)}
                 className="font-medium px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors cursor-pointer"
               >
                 Non
@@ -453,7 +475,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
               {STATUTS_FACTURE.map(s => (
                 <button
                   key={s.valeur}
-                  onClick={() => demander(s.valeur)}
+                  onClick={() => demander({ type: 'statut', valeur: s.valeur })}
                   disabled={application}
                   className="inline-flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
                 >
@@ -464,12 +486,34 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
               {/* Sans ce bouton, on pourrait marquer en masse mais pas démarquer :
                   corriger une erreur de masse se ferait une facture à la fois. */}
               <button
-                onClick={() => demander(null)}
+                onClick={() => demander({ type: 'statut', valeur: null })}
                 disabled={application}
                 className="font-medium px-3 py-1.5 rounded-lg border border-white/20 text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
               >
                 Retirer le statut
               </button>
+
+              {/* Exclure des relances est une famille d'action différente du
+                  statut : elle change le comportement du robot, pas une
+                  étiquette. Le séparateur évite de cliquer l'un pour l'autre. */}
+              {onNePasRelancerChange && (
+                <span className="flex items-center gap-2 pl-2 border-l border-white/15">
+                  <button
+                    onClick={() => demander({ type: 'relance', valeur: true })}
+                    disabled={application}
+                    className="font-semibold px-3 py-1.5 rounded-lg border border-amber-300/40 text-amber-200 hover:bg-amber-300/10 disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    Ne pas relancer
+                  </button>
+                  <button
+                    onClick={() => demander({ type: 'relance', valeur: false })}
+                    disabled={application}
+                    className="font-medium px-3 py-1.5 rounded-lg border border-white/20 text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    Réactiver
+                  </button>
+                </span>
+              )}
               <button
                 onClick={() => setSelection(new Set())}
                 className="text-slate-400 hover:text-white transition-colors pl-2 border-l border-white/15 cursor-pointer"

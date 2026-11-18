@@ -12,6 +12,7 @@ interface Props {
   onExpand: (codes: string[]) => void
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
   onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
+  onNePasRelancerChange?: (numeros: string[], valeur: boolean) => Promise<boolean>
   onHistorique: (fac: FactureDetail) => void
   commentaires?: Map<string, CommentaireFacture>
   onOuvrirCommentaire?: (fac: FactureDetail) => void
@@ -65,7 +66,7 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onStatutsChange, onHistorique, commentaires, onOuvrirCommentaire, recherche }: Props) {
+export function TableNebuleuse({ groupes, chargement, getFactures, estChargement, onExpand, onStatutChange, onStatutsChange, onNePasRelancerChange, onHistorique, commentaires, onOuvrirCommentaire, recherche }: Props) {
   const [ouvert, setOuvert] = useState<string | null>(null)
   const [zerosVisibles, setZerosVisibles] = useState<Set<string>>(new Set())
   const [page, setPage] = useState(0)
@@ -207,6 +208,7 @@ export function TableNebuleuse({ groupes, chargement, getFactures, estChargement
                                       chargement={false}
                                       onStatutChange={onStatutChange}
                                       onStatutsChange={onStatutsChange}
+                                      onNePasRelancerChange={onNePasRelancerChange}
                                       onHistorique={onHistorique}
                                       commentaires={commentaires}
                                       onOuvrirCommentaire={onOuvrirCommentaire}
