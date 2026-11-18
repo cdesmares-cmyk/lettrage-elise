@@ -47,9 +47,24 @@ export function useEnvoiDiffere(): ContexteEnvoiDiffere {
   return ctx
 }
 
+/**
+ * 'attente' : le compte à rebours tourne, l'envoi peut encore être annulé.
+ * 'annule'  : la capsule reste quelques secondes pour confirmer que rien n'est
+ *             parti, puis disparaît.
+ *
+ * La confirmation vit DANS la capsule et non dans un toast : l'œil est déjà
+ * posé à cet endroit au moment du clic, et un message qui apparaît ailleurs se
+ * rate.
+ */
+type Phase = 'attente' | 'annule'
+
+/** Durée d'affichage du message de confirmation après annulation. */
+const DELAI_CONFIRMATION_MS = 2500
+
 export function FournisseurEnvoiDiffere({ children }: { children: ReactNode }) {
   const [libelle, setLibelle] = useState<string | null>(null)
   const [restant, setRestant] = useState(DELAI_SECONDES)
+  const [phase, setPhase] = useState<Phase>('attente')
   const action = useRef<(() => Promise<void>) | null>(null)
 
   const executer = useCallback(() => {
@@ -70,6 +85,7 @@ export function FournisseurEnvoiDiffere({ children }: { children: ReactNode }) {
     action.current = nouvelleAction
     setLibelle(nouveauLibelle)
     setRestant(DELAI_SECONDES)
+    setPhase('attente')
     if (precedente) {
       precedente().catch((err: unknown) => {
         toast.error(err instanceof Error ? err.message : "L'envoi précédent a échoué.")
@@ -79,51 +95,67 @@ export function FournisseurEnvoiDiffere({ children }: { children: ReactNode }) {
 
   function annuler() {
     action.current = null
-    setLibelle(null)
-    toast("Annulé — rien n'est parti.", { icon: '↩' })
+    setPhase('annule')
   }
 
   // Le compte à rebours. Le setTimeout déclenche l'envoi, l'interval ne sert
   // qu'à l'affichage : séparer les deux évite que le chiffre montré pilote
   // l'exécution.
   useEffect(() => {
-    if (!libelle) return
+    if (!libelle || phase !== 'attente') return
     const fin = setTimeout(executer, DELAI_SECONDES * 1000)
     const tic = setInterval(() => setRestant(r => Math.max(0, r - 1)), 1000)
     return () => { clearTimeout(fin); clearInterval(tic) }
-  }, [libelle, executer])
+  }, [libelle, phase, executer])
+
+  // Après une annulation, la capsule reste le temps d'être lue.
+  useEffect(() => {
+    if (phase !== 'annule') return
+    const t = setTimeout(() => { setLibelle(null); setPhase('attente') }, DELAI_CONFIRMATION_MS)
+    return () => clearTimeout(t)
+  }, [phase])
 
   // Quitter la page pendant la fenêtre annulerait l'envoi en silence.
   useEffect(() => {
-    if (!libelle) return
+    if (!libelle || phase !== 'attente') return
     function avantFermeture(e: BeforeUnloadEvent) {
       e.preventDefault()
       e.returnValue = ''
     }
     window.addEventListener('beforeunload', avantFermeture)
     return () => window.removeEventListener('beforeunload', avantFermeture)
-  }, [libelle])
+  }, [libelle, phase])
 
   return (
     <Contexte.Provider value={{ programmer, enAttente: libelle !== null }}>
       {children}
 
-      {/* En bas à GAUCHE : les toasts occupent le coin droit, et la barre de
-          progression de la relance en masse aussi. */}
+      {/* En bas à droite, au-dessus des toasts : c'est là que l'œil va après
+          un clic sur Envoyer, puisque c'est là qu'apparaissent déjà les
+          confirmations de l'application. */}
       {libelle && (
-        <div className="fixed bottom-6 left-6 z-[70] flex items-center gap-4 bg-ockham-navy text-white rounded-2xl shadow-2xl px-5 py-3 text-xs animate-fade-up">
-          <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ockham-teal opacity-75" />
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-ockham-teal" />
-          </span>
-          <span className="font-semibold">{libelle}</span>
-          <span className="text-slate-400 tabular-nums">part dans {restant} s</span>
-          <button
-            onClick={annuler}
-            className="font-semibold px-3 py-1.5 rounded-lg border border-white/25 hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            Annuler l'envoi
-          </button>
+        <div className="fixed bottom-6 right-6 z-[10000] flex items-center gap-4 bg-ockham-navy text-white rounded-2xl shadow-2xl px-5 py-3 text-xs animate-fade-up">
+          {phase === 'annule' ? (
+            <>
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-slate-500 flex-shrink-0" />
+              <span className="font-semibold">Annulé — rien n'a été envoyé.</span>
+            </>
+          ) : (
+            <>
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ockham-teal opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-ockham-teal" />
+              </span>
+              <span className="font-semibold">{libelle}</span>
+              <span className="text-slate-400 tabular-nums">part dans {restant} s</span>
+              <button
+                onClick={annuler}
+                className="font-semibold px-3 py-1.5 rounded-lg border border-white/25 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Annuler l'envoi
+              </button>
+            </>
+          )}
         </div>
       )}
     </Contexte.Provider>

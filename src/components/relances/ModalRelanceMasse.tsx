@@ -174,10 +174,17 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                          && scenarioCourant?.type === 'externe'
 
   const arretDemande = useRef(false)
+  const [arretAffiche, setArretAffiche] = useState(false)
+
+  function demanderArret() {
+    arretDemande.current = true
+    setArretAffiche(true)
+  }
 
   async function handleEnvoyer() {
     if (!utilisateur || !peutEnvoyer) return
     arretDemande.current = false
+    setArretAffiche(false)
     // Verrou de dernier recours. L'interface ne propose plus que de l'externe,
     // mais ce test ne dépend pas de l'interface : si un scénario interne
     // revenait un jour dans la liste, l'envoi s'arrêterait quand même ici.
@@ -290,10 +297,11 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
           <div className="flex items-center justify-between gap-3">
             <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
             <button
-              onClick={() => { arretDemande.current = true }}
-              className="text-[10px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+              onClick={demanderArret}
+              disabled={arretAffiche}
+              className="text-[10px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 disabled:opacity-40 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
             >
-              ⏹ Arrêter
+              {arretAffiche ? 'Arrêt…' : '⏹ Arrêter'}
             </button>
           </div>
         </div>
@@ -555,20 +563,12 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
             {!progression.termine ? (
               <>
                 {progression.enCours ? (
-                  <>
-                    <button
-                      onClick={() => { arretDemande.current = true }}
-                      className="flex-1 text-sm font-semibold text-red-600 border border-red-300 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg transition-colors cursor-pointer"
-                    >
-                      ⏹ Arrêter la séquence
-                    </button>
-                    <button
-                      onClick={() => setEnArrierePlan(true)}
-                      className="flex-1 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-lg transition-colors"
-                    >
-                      ✓ Retourner à la navigation
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setEnArrierePlan(true)}
+                    className="flex-1 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-lg transition-colors"
+                  >
+                    ✓ Retourner à la navigation
+                  </button>
                 ) : (
                   <button
                     onClick={onFermer}
@@ -578,12 +578,20 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
                   </button>
                 )}
                 <button
-                  onClick={handleEnvoyer}
-                  disabled={!peutEnvoyer}
-                  className="flex-[2] flex items-center justify-center gap-2 bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+                  onClick={progression.enCours ? demanderArret : handleEnvoyer}
+                  disabled={progression.enCours ? arretAffiche : !peutEnvoyer}
+                  className={`flex-[2] flex items-center justify-center gap-2 disabled:opacity-40 text-sm font-semibold py-2.5 rounded-lg transition-colors ${
+                    progression.enCours
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : 'bg-ockham-teal hover:bg-ockham-teal-dark text-white'
+                  }`}
                 >
                   {progression.enCours
-                    ? `Envoi en cours… ${progression.current}/${progression.total}`
+                    ? (arretAffiche
+                        // L'envoi en cours va jusqu'au bout : on n'interrompt
+                        // pas un email à moitié parti.
+                        ? `Arrêt après l'envoi en cours… ${progression.current}/${progression.total}`
+                        : `⏹ Arrêter la séquence · ${progression.current}/${progression.total}`)
                     : estConnecte
                       ? `✉ Envoyer ${avecContact.length} email${avecContact.length > 1 ? 's' : ''} via ${nomProvider}`
                       : `✉ Enregistrer ${avecContact.length} relance${avecContact.length > 1 ? 's' : ''}`}
