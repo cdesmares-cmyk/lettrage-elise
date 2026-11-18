@@ -17,7 +17,7 @@ import { libelleStatutExport } from './statutsFacture'
  * par l'API au-delà du plafond de lignes. C'est exactement le défaut qui a fait
  * manquer des relances pendant des mois (voir lireTout dans relance-auto).
  */
-async function chargerCommentaires(): Promise<Map<string, CommentaireFacture>> {
+export async function chargerCommentaires(): Promise<Map<string, CommentaireFacture>> {
   const LOT = 1000
   const map = new Map<string, CommentaireFacture>()
   for (let debut = 0; ; debut += LOT) {
@@ -36,7 +36,7 @@ async function chargerCommentaires(): Promise<Map<string, CommentaireFacture>> {
 
 /** Les cinq cellules du commentaire, dans l'ordre des en-têtes ci-dessous. */
 const EN_TETES_COMMENTAIRE = ['Commentaire', 'Contact', 'Date de contact', 'Opérateur', 'Ne pas relancer']
-function cellulesCommentaire(c: CommentaireFacture | undefined): (string | number | null)[] {
+export function cellulesCommentaire(c: CommentaireFacture | undefined): (string | number | null)[] {
   return [
     c?.commentaire ?? '',
     c?.contact ?? '',
