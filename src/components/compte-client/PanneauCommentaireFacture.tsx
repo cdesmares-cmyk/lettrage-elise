@@ -3,11 +3,11 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import type { FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { CommentairesFil } from '../commentaires/CommentairesFil'
+import { STATUTS_FACTURE } from '../../lib/statutsFacture'
 
-const STATUTS: { val: StatutFacture; label: string; cls: string }[] = [
-  { val: 'litige',      label: '⚠ Litige',       cls: 'bg-red-100 text-red-800 border-red-300' },
-  { val: 'provisionne', label: '📦 Provisionné',  cls: 'bg-orange-100 text-orange-800 border-orange-300' },
-]
+// Les emojis ⚠ et 📦 ont disparu au profit des icônes maison : ils ne se
+// rendaient pas de la même façon selon le poste, et ils étaient le seul endroit
+// de l'application à en utiliser.
 
 const _fmt = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -129,16 +129,17 @@ export function PanneauCommentaireFacture({ facture, commentaire, onFermer, onSa
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Statut de la facture</label>
                 <div className="space-y-1.5">
-                  {STATUTS.map(s => (
+                  {STATUTS_FACTURE.map(s => (
                     <button
-                      key={s.val}
-                      onClick={() => setStatut(statut === s.val ? null : s.val)}
+                      key={s.valeur}
+                      onClick={() => setStatut(statut === s.valeur ? null : s.valeur)}
                       className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
-                        statut === s.val ? s.cls : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                        statut === s.valeur ? s.classes : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
                       }`}
                     >
-                      {s.label}
-                      {statut === s.val && <span className="ml-auto">✓</span>}
+                      <s.Icone size={13} className="flex-shrink-0" />
+                      {s.libelle}
+                      {statut === s.valeur && <span className="ml-auto">✓</span>}
                     </button>
                   ))}
                   {statut && (

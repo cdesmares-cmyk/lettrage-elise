@@ -1,6 +1,6 @@
 // Étape 4 : prévisualisation et confirmation avant insertion en base
 import { useState } from 'react'
-import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS } from '../../lib/champsImport'
+import { CHAMPS_BANCAIRES, CHAMPS_FACTURES, CHAMPS_LETTRAGES, CHAMPS_CLIENTS, CHAMPS_CONTACTS, CHAMPS_STATUT_FACTURE } from '../../lib/champsImport'
 import { parseDate } from '../../lib/parseursImport'
 import { IcUpload } from '../Icones'
 import type { LigneMapping, ResultatValidation, TypeFichier } from '../../types/import'
@@ -89,11 +89,13 @@ export function EtapeValidation({
   const champs = typeFichier === 'csv_bancaire' ? CHAMPS_BANCAIRES
     : typeFichier === 'xlsx_factures' ? CHAMPS_FACTURES
     : typeFichier === 'import_lettrage' ? CHAMPS_LETTRAGES
+    : typeFichier === 'maj_statut_facture' ? CHAMPS_STATUT_FACTURE
     : typeFichier === 'import_contacts' ? CHAMPS_CONTACTS
     : CHAMPS_CLIENTS
   const estLettrage = typeFichier === 'import_lettrage'
   const estClients = typeFichier === 'import_clients'
   const estContacts = typeFichier === 'import_contacts'
+  const estStatut = typeFichier === 'maj_statut_facture'
   const [doublonsOuverts, setDoublonsOuverts] = useState(false)
 
   // Colonnes mappées à afficher dans l'aperçu (max 6 pour éviter le débordement)
@@ -137,6 +139,26 @@ export function EtapeValidation({
           <StatCardMontant valeur={resultat.total_ttc_fichier} label="Total TTC (fichier)" />
         )}
       </div>
+
+      {/* Récapitulatif par statut, AVANT l'écriture.
+          Un import de masse sur des données comptables ne doit pas se valider à
+          l'aveugle : c'est aussi ici qu'une colonne branchée sur la mauvaise
+          case se voit, parce que les chiffres deviennent absurdes. */}
+      {estStatut && (resultat.recap_statuts?.length ?? 0) > 0 && (
+        <div className="mb-6 rounded-xl border border-ockham-teal/30 bg-ockham-teal-muted/40 px-4 py-3">
+          <p className="text-[10px] font-bold text-ockham-teal uppercase tracking-wider mb-2">
+            Ce qui sera appliqué
+          </p>
+          <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+            {resultat.recap_statuts!.map(r => (
+              <span key={r.libelle} className="text-xs text-gray-700">
+                <strong className="tabular-nums">{r.nb.toLocaleString('fr-FR')}</strong>
+                {' '}facture{r.nb > 1 ? 's' : ''} → <strong>{r.libelle}</strong>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bannière commerciaux non reconnus (import_clients) */}
       {(resultat.commerciaux_non_reconnus?.length ?? 0) > 0 && (

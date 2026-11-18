@@ -26,6 +26,21 @@ export function IcCheque(p: SvgProps) {
 export function IcLcr(p: SvgProps) {
   return <Svg {...p}><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9.5h18"/><path d="M7.5 2.5v4"/><path d="M16.5 2.5v4"/><path d="M7 13h5"/><path d="M7 16h3"/></Svg>
 }
+// Litige : deux flèches opposées — le désaccord, pas le danger.
+//
+// Le triangle d'alerte et le bouclier sont volontairement évités : ils servent
+// déjà aux alertes BODACC (redressement et sauvegarde), avec lesquelles ce
+// badge cohabite dans la MÊME ligne du tableau des factures. Deux sens pour un
+// seul glyphe, c'est une ambiguïté de lecture sur un écran de décision.
+export function IcLitige(p: SvgProps) {
+  return <Svg {...p}><path d="M3 9h10"/><polyline points="10.5 6 13.5 9 10.5 12"/><path d="M21 15H11"/><polyline points="13.5 12 10.5 15 13.5 18"/></Svg>
+}
+
+// Créance dépréciée : une courbe descendante. La valeur qui diminue.
+export function IcDepreciee(p: SvgProps) {
+  return <Svg {...p}><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></Svg>
+}
+
 export function IcSearch(p: SvgProps) {
   return <Svg {...p}><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L19 19"/></Svg>
 }

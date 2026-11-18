@@ -28,6 +28,7 @@ import { ModalRelanceMasse } from '../components/relances/ModalRelanceMasse'
 import { useGmailAuth } from '../hooks/useGmailAuth'
 import { useOutlookAuth } from '../hooks/useOutlookAuth'
 import { useAlertesScore } from '../hooks/useAlertesScore'
+import toast from 'react-hot-toast'
 import { exporterXls } from '../lib/exportXls'
 import { supabase } from '../lib/supabase'
 import type { CompteClient, FactureDetail, VueMode } from '../types/client'
@@ -145,7 +146,7 @@ export function PageCompteClient() {
   }, [comptes.clients, alertesScore])
   const clientOptions = clientOptionsDso ? (comptes.clients.find(c => c.code_dso === clientOptionsDso) ?? null) : null
   const factures = useFacturesClient()
-  const { commentaires, chargerTous, sauvegarder } = useCommentairesFactures()
+  const { commentaires, chargerTous, sauvegarder, definirNePasRelancer } = useCommentairesFactures()
   const { relances, recharger: rechargerRelances, derniereRelanceAutoParClient } = useRelances()
   const { derniersEchangesParClient, rechargerEchanges } = useDerniersEchanges()
   const dernieresRelances = useMemo(() => {
@@ -244,7 +245,11 @@ export function PageCompteClient() {
     await factures.chargerFactures(codes)
     const data = factures.getFactures(codes)
     if (data.length) {
-      exporterXls(data, `extraction_selection_${new Date().toISOString().split('T')[0]}`)
+      try {
+        await exporterXls(data, `extraction_selection_${new Date().toISOString().split('T')[0]}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+      }
     }
     setExportSelectionEnCours(false)
   }
@@ -491,6 +496,8 @@ export function PageCompteClient() {
           onChargerHistorique={code => factures.chargerToutesFactures(code)}
           estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
+          onNePasRelancerChange={definirNePasRelancer}
           onHistorique={setFacHistorique}
           onOptions={c => setClientOptionsDso(c.code_dso)}
           onRelancer={setClientRelance}
@@ -536,6 +543,8 @@ export function PageCompteClient() {
                 onChargerHistorique={code => factures.chargerToutesFactures(code)}
                 estHistoriqueCharge={code => factures.estHistoriqueCharge(code)}
                 onStatutChange={factures.mettreAJourStatut}
+                onStatutsChange={factures.mettreAJourStatuts}
+                onNePasRelancerChange={definirNePasRelancer}
                 onHistorique={setFacHistorique}
                 onOptions={c => setClientOptionsDso(c.code_dso)}
                 onRelancer={setClientRelance}
@@ -564,6 +573,8 @@ export function PageCompteClient() {
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
+          onNePasRelancerChange={definirNePasRelancer}
           onHistorique={setFacHistorique}
           commentaires={commentaires}
           onOuvrirCommentaire={setFacCommentaire}
@@ -578,6 +589,8 @@ export function PageCompteClient() {
           estChargement={codes => factures.estChargement(codes)}
           onExpand={() => {}}
           onStatutChange={factures.mettreAJourStatut}
+          onStatutsChange={factures.mettreAJourStatuts}
+          onNePasRelancerChange={definirNePasRelancer}
           onRelancer={codeClient => {
             const c = comptes.clients.find(x => x.code_dso === codeClient)
             if (c) setClientRelance(c)

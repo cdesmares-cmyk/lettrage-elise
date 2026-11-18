@@ -1,6 +1,51 @@
 // Export XLSX via SheetJS — Calibri 12, format nombre pour les montants, brut mais traitable
 import * as XLSX from 'xlsx'
-import type { FactureDetail, GroupeNebuleuse } from '../types/client'
+import type { FactureDetail, GroupeNebuleuse, CommentaireFacture } from '../types/client'
+import { supabase } from './supabase'
+import { libelleStatutExport } from './statutsFacture'
+
+/**
+ * Charge tous les commentaires de facture, par lots.
+ *
+ * POURQUOI ICI ET PAS DEPUIS L'ÉCRAN. Aucun écran n'a la totalité des
+ * commentaires en mémoire : chacun ne charge que ce qu'il affiche. Un export
+ * qui se contenterait de ce que le composant a sous la main sortirait des
+ * cellules vides pour des factures qui ont bel et bien un commentaire — et rien
+ * ne le signalerait.
+ *
+ * LA PAGINATION EST OBLIGATOIRE. Une requête sans limite est coupée en silence
+ * par l'API au-delà du plafond de lignes. C'est exactement le défaut qui a fait
+ * manquer des relances pendant des mois (voir lireTout dans relance-auto).
+ */
+export async function chargerCommentaires(): Promise<Map<string, CommentaireFacture>> {
+  const LOT = 1000
+  const map = new Map<string, CommentaireFacture>()
+  for (let debut = 0; ; debut += LOT) {
+    const { data, error } = await supabase
+      .from('commentaires_factures')
+      .select('id, numero_piece, contact, date_contact, commentaire, operateur, updated_at, ne_pas_relancer')
+      .order('numero_piece', { ascending: true })
+      .range(debut, debut + LOT - 1)
+    if (error) throw new Error(`lecture des commentaires : ${error.message}`)
+    const lot = (data as unknown as CommentaireFacture[]) ?? []
+    for (const r of lot) map.set(r.numero_piece, r)
+    if (lot.length < LOT) break
+  }
+  return map
+}
+
+/** Les cinq cellules du commentaire, dans l'ordre des en-têtes ci-dessous. */
+const EN_TETES_COMMENTAIRE = ['Commentaire', 'Contact', 'Date de contact', 'Opérateur', 'Ne pas relancer']
+export function cellulesCommentaire(c: CommentaireFacture | undefined): (string | number | null)[] {
+  return [
+    c?.commentaire ?? '',
+    c?.contact ?? '',
+    fmtDate(c?.date_contact ?? null),
+    c?.operateur ?? '',
+    c?.ne_pas_relancer ? 'Oui' : '',
+  ]
+}
+const LARGEURS_COMMENTAIRE = [{ wch: 42 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 }]
 
 function fmtDate(iso: string | null): string {
   if (!iso) return ''
@@ -35,9 +80,10 @@ function styleSheet(ws: XLSX.WorkSheet, monetaryCols: number[]) {
 }
 
 // ── Factures compte client ────────────────────────────────────────────────────
-export function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_compte_client') {
+export async function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_compte_client') {
+  const commentaires = await chargerCommentaires()
   const aoa: (string | number | null)[][] = [
-    ['Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture'],
+    ['Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture', ...EN_TETES_COMMENTAIRE],
   ]
   for (const f of factures) {
     aoa.push([
@@ -50,14 +96,15 @@ export function exporterXls(factures: FactureDetail[], nomFichier = 'extraction_
       fmtDate(f.date_emission),
       fmtDate(f.date_echeance),
       f.statut_paiement ?? '',
-      f.statut_facture ?? '',
+      libelleStatutExport(f.statut_facture),
+      ...cellulesCommentaire(commentaires.get(f.numero_piece)),
     ])
   }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa)
   ws['!cols'] = [
     { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 14 }, { wch: 14 }, { wch: 14 },
-    { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+    { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, ...LARGEURS_COMMENTAIRE,
   ]
   styleSheet(ws, [3, 4, 5]) // Montant HT, TTC, Restant Dû
 
@@ -75,15 +122,16 @@ function buildGroupeMap(groupes: GroupeNebuleuse[]): Map<string, { cle: string; 
   return map
 }
 
-export function exporterNebuleuseXls(
+export async function exporterNebuleuseXls(
   factures: FactureDetail[],
   groupes: GroupeNebuleuse[],
   nomFichier = 'extraction_nebuleuse'
 ) {
   const groupeMap = buildGroupeMap(groupes)
+  const commentaires = await chargerCommentaires()
 
   const aoa: (string | number | null)[][] = [
-    ['Groupe', 'Nom groupe', 'Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture'],
+    ['Groupe', 'Nom groupe', 'Code client', 'Type', 'N° Facture', 'Montant HT', 'Montant TTC', 'Restant Dû', 'Date émission', 'Date échéance', 'Statut paiement', 'Statut facture', ...EN_TETES_COMMENTAIRE],
   ]
   for (const f of factures) {
     const grp = groupeMap.get(f.code_client)
@@ -99,7 +147,8 @@ export function exporterNebuleuseXls(
       fmtDate(f.date_emission),
       fmtDate(f.date_echeance),
       f.statut_paiement ?? '',
-      f.statut_facture ?? '',
+      libelleStatutExport(f.statut_facture),
+      ...cellulesCommentaire(commentaires.get(f.numero_piece)),
     ])
   }
 
@@ -107,6 +156,7 @@ export function exporterNebuleuseXls(
   ws['!cols'] = [
     { wch: 12 }, { wch: 24 }, { wch: 14 }, { wch: 10 }, { wch: 20 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 },
+    ...LARGEURS_COMMENTAIRE,
   ]
   styleSheet(ws, [5, 6, 7]) // Montant HT, TTC, Restant Dû
 

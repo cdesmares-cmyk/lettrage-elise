@@ -11,6 +11,7 @@ import { useImportFactures } from '../hooks/useImportFactures'
 import { useImportLettrage } from '../hooks/useImportLettrage'
 import { useImportClients } from '../hooks/useImportClients'
 import { useImportContacts } from '../hooks/useImportContacts'
+import { useImportStatutFacture } from '../hooks/useImportStatutFacture'
 import { useAppData } from '../contexts/AppDataContext'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -54,10 +55,12 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
   const hookLettrage = useImportLettrage()
   const hookClients = useImportClients()
   const hookContacts = useImportContacts()
+  const hookStatutFacture = useImportStatutFacture()
   const hook = typeFichier === 'csv_bancaire' ? hookBancaire
     : typeFichier === 'xlsx_factures' ? hookFactures
     : typeFichier === 'import_lettrage' ? hookLettrage
     : typeFichier === 'import_contacts' ? hookContacts
+    : typeFichier === 'maj_statut_facture' ? hookStatutFacture
     : hookClients
 
   function reinitialiser() {
@@ -228,8 +231,12 @@ export function PageDepot({ hideEnTete = false }: { hideEnTete?: boolean } = {})
               <p className="text-gray-500 text-sm mb-6">
                 {validation.nom_fichier} · {typeFichier === 'import_clients' || typeFichier === 'import_contacts'
                   ? `${validation.nb_nouvelles} créé${validation.nb_nouvelles > 1 ? 's' : ''}, ${validation.nb_doublons} mis à jour`
+                  : typeFichier === 'maj_statut_facture'
+                  ? `${validation.nb_nouvelles.toLocaleString('fr-FR')} statut${validation.nb_nouvelles > 1 ? 's' : ''} mis à jour`
                   : `${validation.nb_nouvelles.toLocaleString('fr-FR')} lignes importées`}
-                {typeFichier !== 'import_clients' && typeFichier !== 'import_contacts' && validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
+                {typeFichier === 'maj_statut_facture'
+                  ? validation.nb_doublons > 0 && ` · ${validation.nb_doublons} facture${validation.nb_doublons > 1 ? 's' : ''} inchangée${validation.nb_doublons > 1 ? 's' : ''}`
+                  : typeFichier !== 'import_clients' && typeFichier !== 'import_contacts' && validation.nb_doublons > 0 && ` · ${validation.nb_doublons} doublons ignorés`}
                 {(validation.nb_invalides ?? 0) > 0 && ` · ${validation.nb_invalides} factures ignorées`}
                 {(validation.nb_avertissements ?? 0) > 0 && ` · ${validation.nb_avertissements} sur-paiements`}
               </p>

@@ -1,5 +1,6 @@
 // Vue factures : liste plate avec filtres date, préfiltres années, tri global, pagination 50/50
 import { useState, useMemo, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
 import { exporterXls } from '../../lib/exportXls'
@@ -27,6 +28,8 @@ interface Props {
   estChargement: (codes: string[]) => boolean
   onExpand: (codes: string[]) => void
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
+  onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
+  onNePasRelancerChange?: (numeros: string[], valeur: boolean) => Promise<boolean>
   onHistorique?: (fac: FactureDetail) => void
   onRelancer?: (codeClient: string) => void
   derniereRelanceParClient?: Map<string, string>
@@ -39,7 +42,7 @@ interface Props {
   recherche?: string
 }
 
-export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
+export function TableFacturesFlat({ clients, getFactures, estChargement, onExpand, onStatutChange, onStatutsChange, onNePasRelancerChange, onHistorique, onRelancer, derniereRelanceParClient, commentaires, onOuvrirCommentaire, dateDebut, dateFin, onDateDebutChange, onDateFinChange, recherche }: Props) {
   const codes = clients.map(c => c.code_dso)
   const [page, setPage] = useState(0)
 
@@ -125,11 +128,15 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
   const nbPages = Math.ceil(facturesTries.length / ITEMS_PER_PAGE)
   const facturesPage = facturesTries.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE)
 
-  function handleExport() {
+  async function handleExport() {
     if (!facturesFiltrees.length) return
     const debut = dateDebut || 'tout'
     const fin = dateFin || 'tout'
-    exporterXls(facturesFiltrees, `extraction_factures_${debut}_${fin}`)
+    try {
+      await exporterXls(facturesFiltrees, `extraction_factures_${debut}_${fin}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de l'export.")
+    }
   }
 
   return (
@@ -262,6 +269,8 @@ export function TableFacturesFlat({ clients, getFactures, estChargement, onExpan
         factures={facturesPage}
         chargement={chargement}
         onStatutChange={onStatutChange}
+        onStatutsChange={onStatutsChange}
+        onNePasRelancerChange={onNePasRelancerChange}
         onHistorique={onHistorique}
         onRelancer={onRelancer}
         derniereRelanceParClient={derniereRelanceParClient}

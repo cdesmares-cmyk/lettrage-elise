@@ -5,7 +5,7 @@ import { useAppData } from '../contexts/AppDataContext'
 import type { FactureDetail, HistoriqueLettrage, StatutFacture } from '../types/client'
 
 export function useFacturesClient() {
-  const { facturesActives, mettreAJourStatutLocal } = useAppData()
+  const { facturesActives, mettreAJourStatutLocal, mettreAJourStatutsLocaux } = useAppData()
 
   // Factures réglées chargées à la demande (non incluses dans le contexte global)
   const [historiqueLocal, setHistoriqueLocal] = useState<FactureDetail[]>([])
@@ -102,6 +102,41 @@ export function useFacturesClient() {
     return true
   }
 
+  /**
+   * Pose le même statut sur plusieurs factures.
+   *
+   * UN SEUL UPDATE PAR LOT, et non un appel par facture : quarante requêtes
+   * séquentielles prendraient plusieurs secondes et pourraient échouer à
+   * mi-parcours, laissant la sélection à moitié traitée sans que rien ne le
+   * dise.
+   *
+   * LE LOT EST PLAFONNÉ À 200. Les numéros partent dans l'URL de la requête :
+   * au-delà, elle devient trop longue et le serveur la refuse. Le plafond est
+   * bas à dessein — une URL refusée produirait une erreur obscure, loin de sa
+   * cause.
+   *
+   * L'ÉTAT LOCAL N'EST MIS À JOUR QU'EN CAS DE SUCCÈS COMPLET. Afficher le
+   * nouveau statut alors que la base a refusé l'écriture serait le pire des
+   * cas : l'opérateur croit son travail fait et ne le refera jamais.
+   */
+  async function mettreAJourStatuts(numerosPiece: string[], statut: StatutFacture | null): Promise<boolean> {
+    if (!numerosPiece.length) return true
+    const LOT = 200
+    for (let i = 0; i < numerosPiece.length; i += LOT) {
+      const { error } = await supabase
+        .from('factures')
+        .update({ statut_facture: statut } as never)
+        .in('numero_piece', numerosPiece.slice(i, i + LOT))
+      if (error) return false
+    }
+    mettreAJourStatutsLocaux(numerosPiece, statut)
+    const cibles = new Set(numerosPiece)
+    setHistoriqueLocal(prev => prev.map(f =>
+      cibles.has(f.numero_piece) ? { ...f, statut_facture: statut } : f
+    ))
+    return true
+  }
+
   async function chargerHistorique(numeroPiece: string): Promise<HistoriqueLettrage[]> {
     const [{ data: lettragesData }, { data: rembData }] = await Promise.all([
       supabase
@@ -160,6 +195,7 @@ export function useFacturesClient() {
     getFactures,
     estChargement,
     mettreAJourStatut,
+    mettreAJourStatuts,
     chargerHistorique,
   }
 }

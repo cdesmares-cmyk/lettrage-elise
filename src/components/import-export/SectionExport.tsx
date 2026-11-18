@@ -5,6 +5,9 @@ import { IcBarChart, IcContacts, IcDownload, IcInfo, IcUsers } from '../Icones'
 import toast from 'react-hot-toast'
 import { exporterLettrageXls } from '../../lib/exportLettrageXls'
 import { exporterRelancesAutoXls, type LigneRelanceAuto } from '../../lib/exportXls'
+import { chargerCommentaires, cellulesCommentaire } from '../../lib/exportXls'
+import { libelleStatut } from '../../lib/statutsFacture'
+import type { StatutFacture, CommentaireFacture } from '../../types/client'
 import { supabase } from '../../lib/supabase'
 import * as XLSX from 'xlsx'
 
@@ -175,6 +178,7 @@ interface RowFacture {
   montant_ttc: number
   est_avoir: boolean
   reste_du: number
+  statut_facture: StatutFacture | null
 }
 
 function fmtDate(iso: string | null): string {
@@ -184,22 +188,48 @@ function fmtDate(iso: string | null): string {
   return `${d}/${m}/${y}`
 }
 
-function exporterFacturesXlsx(factures: RowFacture[]) {
-  const lignes = factures.map(f => ({
-    'numero_piece':  f.numero_piece,
-    'code_client':   f.code_client,
-    'nom_client':    f.nom_client ?? '',
-    'date_emission': fmtDate(f.date_emission),
-    'date_echeance': fmtDate(f.date_echeance),
-    'montant_ht':    f.montant_ht ?? '',
-    'montant_ttc':   f.montant_ttc,
-    'est_avoir':     f.est_avoir ? 'A' : 'F',
-    'reste_du':      f.reste_du,
-  }))
+/**
+ * Export des factures au format aller-retour.
+ *
+ * Les en-têtes sont les noms techniques des colonnes, dans l'ordre de
+ * CHAMPS_FACTURES : ce fichier est fait pour être réimporté tel quel. C'est
+ * exactement le chemin prévu pour poser des statuts en masse — exporter,
+ * remplir la colonne dans Excel, réimporter via « Mise à jour de statut ».
+ *
+ * LES NEUF PREMIÈRES COLONNES NE BOUGENT PAS, et l'ordre non plus. Les
+ * nouvelles sont ajoutées à la suite : un classeur ou une macro qui pointe déjà
+ * sur la colonne G continue de trouver le montant TTC.
+ *
+ * Le statut sort en toutes lettres et non en valeur technique. Il est relu et
+ * rempli par un humain dans Excel, et l'import accepte les deux vocabulaires.
+ */
+function exporterFacturesXlsx(factures: RowFacture[], commentaires: Map<string, CommentaireFacture>) {
+  const lignes = factures.map(f => {
+    const c = commentaires.get(f.numero_piece)
+    const [texte, contact, dateContact, operateur, nePasRelancer] = cellulesCommentaire(c)
+    return {
+      'numero_piece':    f.numero_piece,
+      'code_client':     f.code_client,
+      'nom_client':      f.nom_client ?? '',
+      'date_emission':   fmtDate(f.date_emission),
+      'date_echeance':   fmtDate(f.date_echeance),
+      'montant_ht':      f.montant_ht ?? '',
+      'montant_ttc':     f.montant_ttc,
+      'est_avoir':       f.est_avoir ? 'A' : 'F',
+      'reste_du':        f.reste_du,
+      'statut_facture':  libelleStatut(f.statut_facture),
+      'commentaire':     texte,
+      'contact':         contact,
+      'date_contact':    dateContact,
+      'operateur':       operateur,
+      'ne_pas_relancer': nePasRelancer,
+    }
+  })
   const ws = XLSX.utils.json_to_sheet(lignes)
   ws['!cols'] = [
     { wch: 20 }, { wch: 14 }, { wch: 32 }, { wch: 14 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 },
+    { wch: 18 }, { wch: 42 }, { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 16 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Factures')
@@ -222,7 +252,7 @@ export function SectionExport() {
       const factures = await fetchAll<RowFacture>((from, to) => {
         let q = supabase
           .from('v_factures_avec_reste_du')
-          .select('numero_piece, code_client, nom_client, date_emission, date_echeance, montant_ht, montant_ttc, est_avoir, reste_du')
+          .select('numero_piece, code_client, nom_client, date_emission, date_echeance, montant_ht, montant_ttc, est_avoir, reste_du, statut_facture')
           .neq('numero_piece', '411_ATTENTE')
           .order('code_client')
           .order('date_emission')
@@ -231,7 +261,8 @@ export function SectionExport() {
         return q
       })
       if (factures.length === 0) { toast('Aucune facture à exporter', { icon: 'ℹ️' }); return }
-      exporterFacturesXlsx(factures)
+      const commentaires = await chargerCommentaires()
+      exporterFacturesXlsx(factures, commentaires)
       toast.success(`${factures.length.toLocaleString('fr-FR')} facture${factures.length > 1 ? 's' : ''} exportée${factures.length > 1 ? 's' : ''}`)
     } catch {
       toast.error('Erreur lors de l\'export des factures')

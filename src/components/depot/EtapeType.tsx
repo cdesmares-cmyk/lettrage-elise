@@ -1,7 +1,7 @@
 // Étape 1 : sélection du type de fichier à importer
 import type { ReactNode } from 'react'
 import type { TypeFichier } from '../../types/import'
-import { IcBuilding, IcFileText, IcLink, IcUser, IcContacts, IcKey } from '../Icones'
+import { IcBuilding, IcFileText, IcLink, IcUser, IcContacts, IcKey, IcDepreciee } from '../Icones'
 
 interface Props {
   valeur: TypeFichier | null
@@ -58,6 +58,14 @@ const OPTIONS: {
     description: 'Import et mise à jour des contacts rattachés à vos clients (nom, email, téléphone, rôle).',
     pivot: 'Email + Code client',
     info: 'Upsert par email/code client. Colonne "delete" = désactivation. Les doublons email dans le fichier sont ignorés avec alerte.',
+  },
+  {
+    type: 'maj_statut_facture',
+    icone: <IcDepreciee size={26} />,
+    titre: 'Mise à jour de statut',
+    description: 'Pose Litige ou Dépréciée sur des factures déjà en base. Deux colonnes suffisent : le numéro et le statut.',
+    pivot: 'N° de facture',
+    info: 'Aucune facture ne peut être créée par cet import. Une cellule de statut vide laisse la facture inchangée ; « aucun » retire le statut.',
   },
 ]
 

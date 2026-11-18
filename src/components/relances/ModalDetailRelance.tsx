@@ -7,18 +7,8 @@ import type { CommentaireFacture, StatutFacture } from '../../types/client'
 import { useAppData } from '../../contexts/AppDataContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { CommentairesFil } from '../commentaires/CommentairesFil'
+import { BadgeStatutFacture, OptionsStatutFacture } from '../BadgeStatutFacture'
 
-const IcLitige = () => (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-  </svg>
-)
-const IcProv = () => (
-  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-  </svg>
-)
 const IcComment = () => (
   <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -64,11 +54,7 @@ function renderStatutBadge(
   statut: StatutFacture | null,
   onOpen: (e: React.MouseEvent, id: string) => void
 ) {
-  if (statut === 'litige')
-    return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200 whitespace-nowrap"><IcLitige /> Litige</button>
-  if (statut === 'provisionne')
-    return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200 whitespace-nowrap"><IcProv /> Provisionné</button>
-  return <button onClick={e => onOpen(e, id)} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600 whitespace-nowrap">Statut</button>
+  return <BadgeStatutFacture statut={statut} as="button" onClick={e => onOpen(e, id)} />
 }
 
 export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarderNote, commentaires, onSauvegarderCommentaire, ongletInitial }: Props) {
@@ -266,15 +252,7 @@ export function ModalDetailRelance({ relance, onFermer, onArchiver, onSauvegarde
           className="fixed z-[60] bg-white border border-gray-200 rounded-xl shadow-lg py-1.5 min-w-[160px]"
           style={{ top: popupStatut.top, left: popupStatut.left }}
         >
-          {(['litige', 'provisionne', null] as const).map(val => (
-            <button
-              key={String(val)}
-              onClick={() => changerStatutFac(popupStatut.id, val)}
-              className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 transition-colors text-gray-700"
-            >
-              {val === 'litige' ? 'Litige' : val === 'provisionne' ? 'Provisionné' : '✕ Effacer'}
-            </button>
-          ))}
+          <OptionsStatutFacture onChoisir={val => changerStatutFac(popupStatut.id, val)} />
         </div>
       )}
 

@@ -3,12 +3,23 @@ import { useState, useRef, useEffect } from 'react'
 import type { FactureDetail, StatutFacture, CommentaireFacture, StatutJuridique } from '../../types/client'
 import { useRole } from '../../contexts/RoleContext'
 import { IcFileText, IcInfo } from '../Icones'
+import { BadgeStatutFacture, OptionsStatutFacture } from '../BadgeStatutFacture'
+import { STATUTS_FACTURE, libelleStatut } from '../../lib/statutsFacture'
 import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
   factures: FactureDetail[]
   chargement: boolean
   onStatutChange: (numero: string, statut: StatutFacture | null) => void
+  /**
+   * Quand fourni, active la sélection multiple et sa barre d'action.
+   *
+   * Absent sur les écrans de consultation : la case à cocher n'y apparaît même
+   * pas, plutôt qu'un bouton grisé qui laisse croire à une permission.
+   */
+  onStatutsChange?: (numeros: string[], statut: StatutFacture | null) => Promise<boolean>
+  /** Exclure ou réintégrer plusieurs factures dans les relances, d'un coup. */
+  onNePasRelancerChange?: (numeros: string[], valeur: boolean) => Promise<boolean>
   onHistorique?: (fac: FactureDetail) => void
   onRelancer?: (codeClient: string) => void
   derniereRelanceParClient?: Map<string, string>
@@ -39,8 +50,10 @@ function badgeAnc(j: number) {
   return 'bg-red-100 text-red-700'
 }
 
-const IcLitige = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-const IcProv   = () => <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+// Les icônes de statut vivent dans Icones.tsx, via BadgeStatutFacture. Elles
+// étaient définies ici avec les mêmes tracés que les alertes BODACC ci-dessous
+// — le même bouclier voulait dire « provisionné » dans une colonne et
+// « sauvegarde » dans la suivante.
 
 const BODACC_LABELS: Record<string, string> = { sauvegarde: 'Sauvegarde', liquidation: 'Liquidation', redressement: 'Redressement', cloture: 'Clôture' }
 const BODACC_CLS: Record<string, string> = {
@@ -56,21 +69,16 @@ const BODACC_ICO: Record<string, () => React.ReactElement> = {
   cloture:      () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
 }
 
-const STATUTS: { val: StatutFacture | null; label: string }[] = [
-  { val: 'litige',      label: 'Litige'      },
-  { val: 'provisionne', label: 'Provisionné' },
-  { val: null,          label: '✕ Effacer'   },
-]
-
-function StatutBadge({ statut, estSolde, onClick }: { statut: StatutFacture | null; estSolde: boolean; onClick: (e: React.MouseEvent) => void }) {
-  if (estSolde)
-    return <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200">✓ Payée</span>
-  if (statut === 'litige')
-    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 border border-red-200"><IcLitige /> Litige</span>
-  if (statut === 'provisionne')
-    return <span onClick={onClick} className="cursor-pointer inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-orange-100 text-orange-700 border border-orange-200"><IcProv /> Provisionné</span>
-  return <span onClick={onClick} className="cursor-pointer inline-flex items-center text-[10px] font-medium px-2 py-0.5 rounded border border-dashed border-gray-300 text-gray-400 hover:border-gray-500 hover:text-gray-600">Statut</span>
-}
+/**
+ * Une action applicable à toute la sélection.
+ *
+ * Deux familles qu'il ne faut pas confondre : 'statut' pose une étiquette
+ * comptable, 'relance' change le comportement du robot. Les regrouper sous un
+ * même type permet de n'écrire qu'un seul mécanisme de confirmation.
+ */
+type ActionMasse =
+  | { type: 'statut'; valeur: StatutFacture | null }
+  | { type: 'relance'; valeur: boolean }
 
 type SortDir = 'asc' | 'desc'
 
@@ -107,9 +115,13 @@ function ColTh({ label, col, sort, dir, onSort, align = 'left' }: {
   )
 }
 
-export function LignesFactures({ factures, chargement, onStatutChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
+export function LignesFactures({ factures, chargement, onStatutChange, onStatutsChange, onNePasRelancerChange, onHistorique, onRelancer, derniereRelanceParClient, compact, controlSort, commentaires, onOuvrirCommentaire, recherche, statutJuridiqueMap, filtresBodacc, onBodaccToggle, onBodaccSetAll }: Props) {
   const { peutModifier } = useRole()
   const [popupOpen, setPopupOpen] = useState<string | null>(null)
+  const [selection, setSelection] = useState<Set<string>>(new Set())
+  // Action en attente de confirmation, au-delà du seuil. null = aucune demande.
+  const [confirmation, setConfirmation] = useState<ActionMasse | null>(null)
+  const [application, setApplication] = useState(false)
   const popupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
   const [bodaccPopupOpen, setBodaccPopupOpen] = useState(false)
   const bodaccPopupPos = useRef<{ top: number; left: number }>({ top: 0, left: 0 })
@@ -166,11 +178,81 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
 
   const thProps = { sort: sortCol, dir: sortDir, onSort: handleSort }
 
+  // Une facture soldée n'a plus de statut à poser, une ligne de compte 411_ n'en
+  // a jamais eu : ni l'une ni l'autre n'est sélectionnable.
+  const estSelectionnable = (f: FactureDetail) =>
+    Math.abs(f.reste_du) > 0.005 && !f.numero_piece.startsWith('411_')
+
+  const selectionActive = !!onStatutsChange && peutModifier
+  const selectionnables = selectionActive ? facturesTries.filter(estSelectionnable) : []
+  const numerosSelectionnes = selectionnables.filter(f => selection.has(f.numero_piece))
+  const nbSelection = numerosSelectionnes.length
+  const montantSelection = numerosSelectionnes.reduce((s, f) => s + f.reste_du, 0)
+  const toutCoche = selectionnables.length > 0 && nbSelection === selectionnables.length
+
+  function basculerLigne(numero: string) {
+    setSelection(prev => {
+      const s = new Set(prev)
+      if (s.has(numero)) s.delete(numero)
+      else s.add(numero)
+      return s
+    })
+    setConfirmation(null)
+  }
+
+  function basculerTout() {
+    setSelection(toutCoche ? new Set() : new Set(selectionnables.map(f => f.numero_piece)))
+    setConfirmation(null)
+  }
+
+  // Au-delà de ce nombre, on demande confirmation. Un « tout cocher » suivi d'un
+  // clic peut repeindre un compte entier : c'est réversible, mais ça ne doit pas
+  // arriver par surprise.
+  const SEUIL_CONFIRMATION = 10
+
+  function demander(action: ActionMasse) {
+    if (nbSelection > SEUIL_CONFIRMATION) setConfirmation(action)
+    else appliquer(action)
+  }
+
+  async function appliquer(action: ActionMasse) {
+    if (!nbSelection) return
+    const numeros = numerosSelectionnes.map(f => f.numero_piece)
+    setApplication(true)
+    const ok = action.type === 'statut'
+      ? await onStatutsChange?.(numeros, action.valeur) ?? false
+      : await onNePasRelancerChange?.(numeros, action.valeur) ?? false
+    setApplication(false)
+    setConfirmation(null)
+    if (ok) setSelection(new Set())
+  }
+
+  function libelleAction(a: ActionMasse): string {
+    const n = `${nbSelection} facture${nbSelection > 1 ? 's' : ''}`
+    if (a.type === 'relance') {
+      return a.valeur ? `Exclure ${n} des relances ?` : `Réintégrer ${n} dans les relances ?`
+    }
+    return a.valeur === null
+      ? `Retirer le statut de ${n} ?`
+      : `Passer ${n} en « ${libelleStatut(a.valeur)} » ?`
+  }
+
   return (
     <>
       <table className="w-full text-xs">
         <thead>
           <tr className="bg-white border-b border-gray-200">
+            {selectionActive && (
+              <th className="px-3 py-2 w-8">
+                <input
+                  type="checkbox"
+                  checked={toutCoche}
+                  onChange={basculerTout}
+                  title="Tout sélectionner — uniquement les factures affichées"
+                  className="accent-ockham-teal w-3.5 h-3.5 cursor-pointer align-middle"
+                />
+              </th>
+            )}
             {!compact && <ColTh label="Code" col="code_client" {...thProps} align="left" />}
             {!compact && <ColTh label="Nom" col="nom_client" {...thProps} align="left" />}
             {compact
@@ -235,6 +317,20 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   ? 'bg-ockham-teal-muted/40 hover:bg-ockham-teal-muted/70 border-gray-50'
                   : 'bg-white hover:bg-slate-50 border-gray-50'
               }`}>
+                {selectionActive && (
+                  <td className="px-3 py-2" onClick={e => e.stopPropagation()}>
+                    {estSelectionnable(f) ? (
+                      <input
+                        type="checkbox"
+                        checked={selection.has(f.numero_piece)}
+                        onChange={() => basculerLigne(f.numero_piece)}
+                        className="accent-ockham-teal w-3.5 h-3.5 cursor-pointer align-middle"
+                      />
+                    ) : (
+                      <span className="inline-block w-3.5" />
+                    )}
+                  </td>
+                )}
                 {!compact && (
                   <td className="px-3 py-2">
                     <span className="font-mono text-[10px] font-bold text-ockham-teal bg-ockham-teal-muted px-1.5 py-0.5 rounded">{f.code_client}</span>
@@ -283,7 +379,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
                   }
                 </td>
                 <td className="px-3 py-2">
-                  <StatutBadge statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
+                  <BadgeStatutFacture statut={f.statut_facture} estSolde={estSolde} onClick={e => handleStatutClick(e, f.numero_piece)} />
                 </td>
                 {modeBodacc && (
                   <td className="px-3 py-2">
@@ -349,6 +445,86 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
         </tbody>
       </table>
 
+      {/* Barre d'action de masse — n'existe que s'il y a une sélection */}
+      {selectionActive && nbSelection > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-ockham-navy text-white rounded-2xl shadow-2xl px-5 py-3 flex items-center gap-4 text-xs">
+          <div className="flex items-baseline gap-2 pr-2 border-r border-white/15">
+            <span className="font-bold">{nbSelection} facture{nbSelection > 1 ? 's' : ''}</span>
+            <span className="text-slate-400 font-mono tabular-nums">{fmt(montantSelection)}</span>
+          </div>
+
+          {confirmation ? (
+            <>
+              <span className="text-amber-200">{libelleAction(confirmation)}</span>
+              <button
+                onClick={() => appliquer(confirmation)}
+                disabled={application}
+                className="font-semibold px-3 py-1.5 rounded-lg bg-ockham-teal hover:bg-ockham-teal-dark disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                {application ? 'En cours…' : 'Oui, appliquer'}
+              </button>
+              <button
+                onClick={() => setConfirmation(null)}
+                className="font-medium px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Non
+              </button>
+            </>
+          ) : (
+            <>
+              {STATUTS_FACTURE.map(s => (
+                <button
+                  key={s.valeur}
+                  onClick={() => demander({ type: 'statut', valeur: s.valeur })}
+                  disabled={application}
+                  className="inline-flex items-center gap-1.5 font-semibold px-3 py-1.5 rounded-lg border border-white/20 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+                >
+                  <s.Icone size={12} className="flex-shrink-0" />
+                  {s.libelle}
+                </button>
+              ))}
+              {/* Sans ce bouton, on pourrait marquer en masse mais pas démarquer :
+                  corriger une erreur de masse se ferait une facture à la fois. */}
+              <button
+                onClick={() => demander({ type: 'statut', valeur: null })}
+                disabled={application}
+                className="font-medium px-3 py-1.5 rounded-lg border border-white/20 text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+              >
+                Retirer le statut
+              </button>
+
+              {/* Exclure des relances est une famille d'action différente du
+                  statut : elle change le comportement du robot, pas une
+                  étiquette. Le séparateur évite de cliquer l'un pour l'autre. */}
+              {onNePasRelancerChange && (
+                <span className="flex items-center gap-2 pl-2 border-l border-white/15">
+                  <button
+                    onClick={() => demander({ type: 'relance', valeur: true })}
+                    disabled={application}
+                    className="font-semibold px-3 py-1.5 rounded-lg border border-amber-300/40 text-amber-200 hover:bg-amber-300/10 disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    Ne pas relancer
+                  </button>
+                  <button
+                    onClick={() => demander({ type: 'relance', valeur: false })}
+                    disabled={application}
+                    className="font-medium px-3 py-1.5 rounded-lg border border-white/20 text-slate-300 hover:bg-white/10 disabled:opacity-40 transition-colors cursor-pointer"
+                  >
+                    Réactiver
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={() => setSelection(new Set())}
+                className="text-slate-400 hover:text-white transition-colors pl-2 border-l border-white/15 cursor-pointer"
+              >
+                Annuler
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Popup statut facture */}
       {popupOpen && (
         <div
@@ -356,15 +532,7 @@ export function LignesFactures({ factures, chargement, onStatutChange, onHistori
           style={{ top: popupPos.current.top, left: popupPos.current.left }}
           onMouseLeave={() => setPopupOpen(null)}
         >
-          {STATUTS.map(s => (
-            <button
-              key={String(s.val)}
-              onClick={() => { onStatutChange(popupOpen, s.val); setPopupOpen(null) }}
-              className="w-full text-left px-4 py-2 text-xs font-medium hover:bg-gray-50 transition-colors text-gray-700"
-            >
-              {s.label}
-            </button>
-          ))}
+          <OptionsStatutFacture onChoisir={v => { onStatutChange(popupOpen, v); setPopupOpen(null) }} />
         </div>
       )}
 
