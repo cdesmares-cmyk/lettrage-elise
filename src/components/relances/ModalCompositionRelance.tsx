@@ -9,7 +9,11 @@ import { ModalParametresRelances } from '../admin/ModalParametresRelances'
 import type { GmailToken } from '../../hooks/useGmailAuth'
 import type { CompteClient, CommentaireFacture } from '../../types/client'
 import { NumeroPiece } from '../NumeroPiece'
+import { IcWarning } from '../Icones'
 import { buildHtml, buildHtmlFromScenario, resolveBalises, fmtEuros, joursDepuis } from '../../lib/relanceEmail'
+import { useEnvoiDiffere } from '../../contexts/EnvoiDiffereContext'
+import { SEUIL_RERELANCE_JOURS } from '../../lib/relanceGardeFou'
+
 
 interface GmailAuthProps {
   estConnecte: boolean
@@ -66,7 +70,10 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
   const [emailFallback, setEmailFallback] = useState('')
   const [prenomFallback, setPrenomFallback] = useState('')
   const [nomFallback, setNomFallback] = useState('')
-  const [envoi, setEnvoi] = useState(false)
+  // Le modal se ferme dès le clic, l'envoi part quelques secondes plus tard :
+  // il n'y a plus d'état « en cours d'envoi » à afficher ici.
+  const { programmer } = useEnvoiDiffere()
+  const [confirmRerelance, setConfirmRerelance] = useState(false)
   const [tooltip, setTooltip] = useState<{ x: number; y: number; numero: string } | null>(null)
   const [signature, setSignature] = useState<string | null>(null)
   const [signaturePanelOuvert, setSignaturePanelOuvert] = useState(false)
@@ -142,15 +149,40 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     setFacturesSel(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
   }
 
-  const peutEnvoyer = !envoi && !!objetFinal.trim() && facturesSel.length > 0 &&
+  const peutEnvoyer = !!objetFinal.trim() && facturesSel.length > 0 &&
     (estInterne
       ? operateursSel.length > 0
       : (sanContacts ? !!emailFallback.trim() && !!nomFallback.trim() : contactsSel.length > 0)
     )
 
-  async function handleEnvoyer() {
+  /**
+   * Clic sur Envoyer : on vérifie d'abord si le client a été relancé
+   * récemment, puis on programme l'envoi.
+   */
+  function demanderEnvoi() {
     if (!utilisateur || !peutEnvoyer) return
-    setEnvoi(true)
+    if (!estInterne && joursDerniereRelance != null && joursDerniereRelance < SEUIL_RERELANCE_JOURS) {
+      setConfirmRerelance(true)
+      return
+    }
+    lancer()
+  }
+
+  /**
+   * Programme l'envoi et ferme le modal.
+   *
+   * RIEN N'EST PARTI À CE STADE. L'action n'est exécutée qu'à la fin du compte
+   * à rebours du bandeau, ce qui laisse la fenêtre d'annulation.
+   */
+  function lancer() {
+    setConfirmRerelance(false)
+    const nom = client?.nom ?? client?.code_dso ?? ''
+    programmer(estInterne ? `Notification interne · ${nom}` : `Relance à ${nom}`, executerEnvoi)
+    onFermer()
+  }
+
+  async function executerEnvoi() {
+    if (!utilisateur) return
 
     let gmailThreadId: string | undefined
 
@@ -160,7 +192,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
         const destinataires = membresAvecEmail.filter(m => operateursSel.includes(m.id)).map(m => m.email).filter(Boolean)
         if (destinataires.length > 0) {
           const res = await envoyerEmail({ destinataires, objet: objetFinal.trim(), corpsHtml: previewHtml })
-          if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); setEnvoi(false); return }
+          if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); return }
           gmailThreadId = res.threadId
         }
       }
@@ -184,11 +216,9 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
       }
       if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
       const { error } = await supabase.from('relances').insert(payload as never)
-      setEnvoi(false)
       if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
       toast.success(estConnecte ? '✉ Notification envoyée' : 'Notification enregistrée')
       onSent()
-      onFermer()
       return
     }
 
@@ -196,7 +226,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     let cIds = contactsSel
     if (sanContacts && emailFallback.trim()) {
       const ok = await ajouterContact({ nom: nomFallback.trim(), prenom: prenomFallback.trim() || null, email: emailFallback.trim(), telephone: null, role_contact: 'relance' })
-      if (!ok) { setEnvoi(false); return }
+      if (!ok) { return }
       cIds = []
     }
 
@@ -210,7 +240,7 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
         corpsHtml: previewHtml,
         ...(ccCommercial && emailCommercial ? { cc: [emailCommercial] } : {}),
       })
-      if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); setEnvoi(false); return }
+      if (!res) { toast.error(`Échec de l'envoi ${nomProvider}`); return }
       gmailThreadId = res.threadId
     }
 
@@ -236,15 +266,51 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     if (gmailThreadId) payload.gmail_thread_id = gmailThreadId
 
     const { error } = await supabase.from('relances').insert(payload as never)
-    setEnvoi(false)
     if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
     toast.success(estConnecte ? '✉ Envoyé · +10 pts' : '+10 pts · Relance enregistrée')
     onSent()
-    onFermer()
   }
+
+  const memeJour = joursDerniereRelance === 0
 
   return (
     <>
+      {confirmRerelance && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 flex items-center gap-3" style={{ background: '#0E1A2B' }}>
+              <IcWarning size={15} className={memeJour ? 'text-amber-300 flex-shrink-0' : 'text-ockham-teal flex-shrink-0'} />
+              <h3 className="text-sm font-bold text-white">
+                {memeJour ? 'Ce client a déjà été relancé aujourd\'hui' : 'Ce client a été relancé récemment'}
+              </h3>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-xs text-gray-600 leading-relaxed">
+                {memeJour
+                  ? <>Une relance est déjà partie chez <span className="font-semibold text-gray-800">{client?.nom ?? client?.code_dso}</span> aujourd'hui. Un second envoi le même jour est presque toujours un doublon.</>
+                  : <>Dernière relance il y a <span className="font-semibold text-gray-800">{joursDerniereRelance} jours</span>. En dessous de {SEUIL_RERELANCE_JOURS} jours, un nouvel envoi se remarque.</>}
+              </p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Vous aurez encore quelques secondes pour annuler après avoir validé.
+              </p>
+            </div>
+            <div className="flex gap-2 px-6 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setConfirmRerelance(false)}
+                className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors cursor-pointer"
+              >
+                Ne pas relancer
+              </button>
+              <button
+                onClick={lancer}
+                className="flex-1 text-sm font-semibold text-white bg-ockham-teal hover:bg-ockham-teal-dark py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                Relancer quand même
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" onClick={onFermer} />
       <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-[72px] pb-4">
         <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[calc(100vh-88px)] flex flex-col overflow-hidden">
@@ -597,11 +663,11 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
           <div className="flex gap-2 px-6 py-4 border-t border-gray-100 flex-shrink-0">
             <button onClick={onFermer} className="flex-1 text-sm font-medium text-gray-500 border border-gray-200 py-2.5 rounded-lg hover:border-gray-300 transition-colors">Annuler</button>
             <button
-              onClick={handleEnvoyer}
+              onClick={demanderEnvoi}
               disabled={!peutEnvoyer}
               className={`flex-[2] flex items-center justify-center gap-2 disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors ${estInterne ? 'bg-blue-500 hover:bg-blue-600' : 'bg-ockham-teal hover:bg-ockham-teal-dark'}`}
             >
-              {envoi ? '…' : estInterne
+              {estInterne
                 ? (estConnecte ? `✉ Notifier en interne via ${nomProvider}` : '✉ Enregistrer la notification')
                 : (estConnecte ? `✉ Envoyer via ${nomProvider} (+10 pts)` : '✉ Enregistrer la relance (+10 pts)')}
             </button>

@@ -5,6 +5,7 @@ import { useRole } from '../../contexts/RoleContext'
 import { IcFileText, IcInfo } from '../Icones'
 import { BadgeStatutFacture, OptionsStatutFacture } from '../BadgeStatutFacture'
 import { STATUTS_FACTURE, libelleStatut } from '../../lib/statutsFacture'
+import { SEUIL_RERELANCE_JOURS } from '../../lib/relanceGardeFou'
 import { NumeroPiece } from '../NumeroPiece'
 
 interface Props {
@@ -396,16 +397,19 @@ export function LignesFactures({ factures, chargement, onStatutChange, onStatuts
                 <td className="px-3 py-2 text-center">
                   {onRelancer && peutModifier ? (() => {
                     const derniere = derniereRelanceParClient?.get(f.code_client)
-                    const recente = derniere
-                      ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000) < 30
-                      : false
+                    const jours = derniere
+                      ? Math.floor((Date.now() - new Date(derniere).getTime()) / 86_400_000)
+                      : null
+                    const recente = jours !== null && jours < SEUIL_RERELANCE_JOURS
                     return (
                       <button
                         onClick={e => { e.stopPropagation(); onRelancer(f.code_client) }}
-                        title={recente ? 'Relancé il y a moins de 30 jours' : undefined}
+                        title={recente
+                          ? (jours === 0 ? 'Déjà relancé aujourd\'hui' : `Relancé il y a ${jours} jours`)
+                          : undefined}
                         className={`text-[10px] font-semibold px-2.5 py-1 rounded-md border transition-colors whitespace-nowrap ${
                           recente
-                            ? 'text-emerald-600 border-emerald-300 bg-emerald-50 hover:bg-emerald-100'
+                            ? 'text-amber-700 border-amber-300 bg-amber-50 hover:bg-amber-100'
                             : 'bg-ockham-teal text-white border-ockham-teal hover:bg-ockham-teal-dark'
                         }`}
                       >

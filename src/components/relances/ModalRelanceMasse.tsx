@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
@@ -173,8 +173,11 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
   const peutEnvoyer    = !progression.enCours && !progression.termine && avecContact.length > 0
                          && scenarioCourant?.type === 'externe'
 
+  const arretDemande = useRef(false)
+
   async function handleEnvoyer() {
     if (!utilisateur || !peutEnvoyer) return
+    arretDemande.current = false
     // Verrou de dernier recours. L'interface ne propose plus que de l'externe,
     // mais ce test ne dépend pas de l'interface : si un scénario interne
     // revenait un jour dans la liste, l'envoi s'arrêterait quand même ici.
@@ -188,7 +191,9 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
 
     const resultats: Resultat[] = []
 
+    let arrete = false
     for (const e of cibles) {
+      if (arretDemande.current) { arrete = true; break }
       const contactsEmail = e.contacts.filter(c => c.email)
       // Le perimetre affiche dans la liste, pas un second calcul.
       const perimetre = perimetres.get(e.client.code_dso)
@@ -248,14 +253,22 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
       setProgression(prev => ({ ...prev, current: prev.current + 1, resultats: [...prev.resultats, r] }))
 
       // Délai 2-5 secondes entre chaque envoi (sauf après le dernier)
-      if (e !== cibles[cibles.length - 1]) {
+      if (e !== cibles[cibles.length - 1] && !arretDemande.current) {
         await sleep(2000 + Math.random() * 3000)
       }
     }
 
     const nbSucces = resultats.filter(r => r.succes).length
     setProgression(prev => ({ ...prev, enCours: false, termine: true }))
-    toast.success(`${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''} · +${nbSucces * 10} pts`)
+    if (arrete) {
+      const restants = cibles.length - resultats.length
+      toast(
+        `Séquence arrêtée · ${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''}, ${restants} non envoyée${restants > 1 ? 's' : ''}.`,
+        { icon: '⏹', duration: 6000 },
+      )
+    } else {
+      toast.success(`${nbSucces} relance${nbSucces > 1 ? 's' : ''} envoyée${nbSucces > 1 ? 's' : ''} · +${nbSucces * 10} pts`)
+    }
     onFini()
   }
 
@@ -274,7 +287,15 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
               style={{ width: `${progression.total > 0 ? (progression.current / progression.total) * 100 : 0}%` }}
             />
           </div>
-          <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] text-gray-400">Les emails sont envoyés en arrière-plan.</p>
+            <button
+              onClick={() => { arretDemande.current = true }}
+              className="text-[10px] font-semibold text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+            >
+              ⏹ Arrêter
+            </button>
+          </div>
         </div>
       )}
 
@@ -534,12 +555,20 @@ export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, 
             {!progression.termine ? (
               <>
                 {progression.enCours ? (
-                  <button
-                    onClick={() => setEnArrierePlan(true)}
-                    className="flex-1 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-lg transition-colors"
-                  >
-                    ✓ Retourner à la navigation
-                  </button>
+                  <>
+                    <button
+                      onClick={() => { arretDemande.current = true }}
+                      className="flex-1 text-sm font-semibold text-red-600 border border-red-300 bg-red-50 hover:bg-red-100 py-2.5 rounded-lg transition-colors cursor-pointer"
+                    >
+                      ⏹ Arrêter la séquence
+                    </button>
+                    <button
+                      onClick={() => setEnArrierePlan(true)}
+                      className="flex-1 text-sm font-semibold text-white bg-emerald-500 hover:bg-emerald-600 py-2.5 rounded-lg transition-colors"
+                    >
+                      ✓ Retourner à la navigation
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={onFermer}

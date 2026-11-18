@@ -6,6 +6,7 @@ import { structureChoisieCetteSession, destinationCourante } from './lib/structu
 import { VuePortail } from './components/portail/VuePortail'
 import { FournisseurDonnees, useAppData } from './contexts/AppDataContext'
 import { FournisseurCorrection } from './contexts/CorrectionContext'
+import { FournisseurEnvoiDiffere } from './contexts/EnvoiDiffereContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { RoleProvider } from './contexts/RoleContext'
 import { Layout } from './components/Layout'
@@ -169,6 +170,7 @@ export default function App() {
       <RoleProvider>
       <FournisseurDonnees>
       <FournisseurCorrection>
+      <FournisseurEnvoiDiffere>
       <BrowserRouter>
         <DetecteurMobile>
           <AppRoutes />
@@ -181,6 +183,7 @@ export default function App() {
           }}
         />
       </BrowserRouter>
+      </FournisseurEnvoiDiffere>
       </FournisseurCorrection>
       </FournisseurDonnees>
       </RoleProvider>
