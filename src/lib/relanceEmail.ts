@@ -77,7 +77,19 @@ const _fmtEuros      = new Intl.NumberFormat('fr-FR', { style: 'currency', curre
 const _fmtEurosEmail = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export function fmtEuros(n: number)      { return _fmtEuros.format(n) }
-export function fmtEurosEmail(n: number) { return _fmtEurosEmail.format(n) }
+/**
+ * Montant pour l'email, avec une normalisation que l'affichage n'exige pas.
+ *
+ * Intl separe les milliers par U+202F, l'espace fine insecable. Ce caractere
+ * n'existe pas en Latin-1 : toute passerelle qui retranscode le message — et
+ * les passerelles d'entreprise le font encore — le rend en carre ou en point
+ * d'interrogation, en plein milieu d'un montant. On lui substitue U+00A0,
+ * l'insecable ordinaire, qui s'affiche identiquement partout et survit au
+ * transcodage. Meme traitement pour l'espace avant l'euro, deja en U+00A0.
+ */
+export function fmtEurosEmail(n: number) {
+  return _fmtEurosEmail.format(n).replace(/\u202f/g, '\u00a0')
+}
 export function fmtDate(iso: string)     { return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' }) }
 export function joursDepuis(iso: string) { return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000) }
 
@@ -107,8 +119,12 @@ export function resolveBalises(texte: string, ctx: {
 
 // ─── La charte du mail ──────────────────────────────────────────────────────
 //
-// Trois encres, deux signaux. Pas davantage : c'est la contrainte qui produit
-// la sobriété, pas l'inverse.
+// Variante « Lettre », choisie par Clément le 2026-11-25 parmi trois maquettes.
+// Le parti : rester une lettre. La structure tient en quatre traits — un filet
+// navy en haut, une ligne d'en-tête, deux bandes pâles autour du tableau — et
+// il n'y a ni logo, ni bandeau, ni image. Un bandeau coloré pleine largeur
+// aurait donné au mail l'allure d'une newsletter, et une newsletter se traite
+// comme une newsletter : mauvais pour du recouvrement.
 
 /**
  * Pile de polices volontairement courte.
@@ -121,21 +137,35 @@ export function resolveBalises(texte: string, ctx: {
 const POLICE = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
 const LARGEUR = 600
 
+/**
+ * Retrait horizontal du texte.
+ *
+ * Les bandes pâles du tableau vont d'un bord à l'autre des 600 px, mais leur
+ * texte est en retrait de 12 px. Le corps doit l'être d'autant, sinon les
+ * colonnes ne sont plus dans l'axe des paragraphes — le défaut saute aux yeux
+ * dès qu'on trace une verticale sur le rendu.
+ */
+const MARGE = 12
+
 const ENCRE       = '#1F2937'   // texte courant
-const ENCRE_FORTE = '#0E1A2B'   // montants et libellés qui portent
+const ENCRE_FORTE = '#0E1A2B'   // navy de la charte : montants, libellés qui portent
 const GRIS        = '#94A3B8'   // dates, en-têtes, secondaire
+const GRIS_MOYEN  = '#64748B'   // en-têtes de colonnes, posés sur la bande
 const GRIS_PALE   = '#CBD5E1'   // mentions discrètes
 const FILET       = '#E2E8F0'   // séparateur marqué
 const FILET_PALE  = '#F1F5F9'   // séparateur entre lignes
+const BANDE       = '#F8FAFC'   // fond des bandes d'en-tête et de total
 
 /**
- * Teal des liens : #0D9488 et non le #4CC5BB de l'application.
+ * Teal des liens : #0F766E, et non le #4CC5BB de la charte.
  *
- * Le teal de la charte a un contraste d'environ 2:1 sur blanc — illisible pour
- * un texte, et sous le seuil d'accessibilité. Cette variante plus sombre garde
- * l'identité en restant lisible.
+ * Le teal de la charte a un contraste d'environ 2,2:1 sur blanc. C'est un
+ * accent d'interface, pensé pour être posé SUR du navy — pas une couleur de
+ * texte. Cette variante assombrie monte à 5,5:1, conforme AA, en restant de la
+ * même famille. C'est la seule entorse à la charte dans ce fichier, et elle est
+ * nécessaire : un numéro de facture illisible est un PDF qu'on n'ouvre pas.
  */
-const ACCENT = '#0D9488'
+const ACCENT = '#0F766E'
 
 /** Rouge : le total, et un retard qui sort vraiment de l'ordinaire. */
 const ALERTE = '#B91C1C'
@@ -186,9 +216,40 @@ const EXACT = 'mso-line-height-rule:exactly;'
 // j'étais en train de réintroduire exactement la classe de panne que ce fichier
 // corrige. Les retours à la ligne entre balises sont sans effet sur le rendu.
 
-/** Une ligne de contenu dans la colonne principale. */
-function bloc(contenu: string, padding: string, styleTexte = ''): string {
-  return `<tr><td align="left" style="padding:${padding};${POL}${styleTexte}">${contenu}</td></tr>\n`
+/**
+ * Une ligne de contenu dans la colonne principale.
+ *
+ * `vertical` ne porte que le haut et le bas : le retrait horizontal est imposé
+ * ici pour que personne n'ait à y penser à chaque appel.
+ */
+function bloc(contenu: string, vertical: string, styleTexte = '', extra = ''): string {
+  const [haut, bas] = vertical.split(' ')
+  return `<tr><td align="left" style="padding:${haut} ${MARGE}px ${bas} ${MARGE}px;${extra}${POL}${styleTexte}">${contenu}</td></tr>\n`
+}
+
+/**
+ * Une ligne qui va d'un bord à l'autre, sans retrait : le tableau, qui porte
+ * déjà le sien sur ses propres cellules.
+ *
+ * Elle existe plutôt qu'un `padding-left:0` ajouté après le raccourci dans
+ * `bloc` : Word ne surcharge pas de façon fiable un raccourci par une propriété
+ * détaillée, et on se retrouverait avec un tableau décalé de 12 px sous Outlook
+ * seulement — le pire des cas, celui qu'on ne voit pas en développant.
+ */
+function blocPleineLargeur(contenu: string, vertical: string): string {
+  const [haut, bas] = vertical.split(' ')
+  return `<tr><td align="left" style="padding:${haut} 0 ${bas} 0;">${contenu}</td></tr>\n`
+}
+
+/**
+ * Une respiration verticale.
+ *
+ * Avec `&nbsp;` et une hauteur explicite, parce qu'une cellule vide est
+ * effondrée par Word et par plusieurs webmails : l'espace disparaîtrait
+ * exactement là où on l'a voulu.
+ */
+function espace(hauteur: number): string {
+  return `<tr><td style="padding:0;line-height:0;font-size:0;height:${hauteur}px;">&nbsp;</td></tr>\n`
 }
 
 /** Le corps du scénario, converti en paragraphes. */
@@ -198,26 +259,50 @@ function blocsTexte(texte: string): string {
     .filter(p => p.trim())
     .map(p => bloc(
       p.trim().replace(/\n/g, '<br />'),
-      '0 0 18px 0',
+      '0 18px',
       `${EXACT}font-size:15px;line-height:26px;color:${ENCRE};`,
     ))
     .join('')
 }
 
+/**
+ * Le haut de la lettre : un filet navy, puis qui écrit et quand.
+ *
+ * Le filet est une cellule à fond navy et non une bordure : Word rend les
+ * bordures de façon inégale selon la version, un aplat jamais. Sans nom
+ * d'organisation, seule la date subsiste — la ligne garde sa hauteur et le
+ * mail ne se déforme pas.
+ */
+function blocEnTete(nomOrg: string | null): string {
+  const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const cell = `padding:15px ${MARGE}px 14px ${MARGE}px;border-bottom:1px solid ${FILET};${POL}`
+  const demi = LARGEUR / 2
+
+  return `<tr><td style="padding:0;line-height:0;font-size:0;height:3px;background-color:${ENCRE_FORTE};">&nbsp;</td></tr>\n`
+    + `<tr><td style="padding:0;">\n`
+    + `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
+    + `<tr>\n`
+    + `<td align="left" width="${demi}" style="${cell}font-size:11px;font-weight:700;color:${ENCRE_FORTE};letter-spacing:.1em;">${(nomOrg ?? '').toUpperCase()}</td>\n`
+    + `<td align="right" width="${demi}" style="${cell}font-size:11px;color:${GRIS};">${dateJour}</td>\n`
+    + `</tr>\n`
+    + `</table>\n`
+    + `</td></tr>\n`
+}
+
 function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
   // Les libellés sont écrits en majuscules dans le HTML plutôt que par
   // text-transform : Word ignore cette propriété.
-  return `<td align="${align}" width="${largeur}" style="padding:0 0 10px 0;border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS};letter-spacing:.08em;">${libelle}</td>\n`
+  return `<td align="${align}" width="${largeur}" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS_MOYEN};letter-spacing:.08em;">${libelle}</td>\n`
 }
 
 function ligneFacture(f: FactureLigne, derniere: boolean): string {
   const retard = f.echeance ? joursDepuis(f.echeance) : null
   const estCredit = f.restedu < 0
 
-  // Le trait disparaît sous la dernière ligne : c'est l'espace qui sépare du
-  // total, pas un deuxième filet collé au premier.
+  // Le trait disparaît sous la dernière ligne : la bande de total qui suit
+  // fournit déjà la séparation, et deux traits collés font sale.
   const bordure = derniere ? '' : `border-bottom:1px solid ${FILET_PALE};`
-  const cell = `padding:13px 0;${bordure}${POL}${EXACT}line-height:20px;`
+  const cell = `padding:13px ${MARGE}px;${bordure}${POL}${EXACT}line-height:20px;`
 
   // Le numéro et sa couleur sont sur la cellule ; le <a> ne garde que ce qui
   // lui est propre, parce que les clients imposent leur propre couleur de lien.
@@ -241,15 +326,22 @@ function ligneFacture(f: FactureLigne, derniere: boolean): string {
 
   return `<tr>\n`
     + `<td align="left" style="${cell}font-size:14px;font-weight:600;color:${ENCRE_FORTE};">${numero}</td>\n`
-    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${_fmtEurosEmail.format(f.restedu)}</td>\n`
+    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEurosEmail(f.restedu)}</td>\n`
     + `<td align="right" style="${cell}font-size:13px;color:${GRIS};">${echeance}</td>\n`
     + `</tr>\n`
 }
 
-/** Le tableau des factures, sans boîte ni fond : deux filets et du blanc. */
+/**
+ * Le tableau des factures.
+ *
+ * Deux bandes très pâles — l'en-tête de colonnes et le total — lui donnent ses
+ * bords sans qu'on ait à le cerner d'un cadre. Les bandes vont d'un bord à
+ * l'autre des 600 px tandis que leur texte est en retrait de MARGE, exactement
+ * comme les paragraphes.
+ */
 function tableauFactures(factures: FactureLigne[]): string {
   const total = factures.reduce((s, f) => s + f.restedu, 0)
-  const totalBord = `padding:18px 0 0 0;border-top:1px solid ${FILET};`
+  const totalCell = `padding:14px ${MARGE}px;background-color:${BANDE};`
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
     + `<tr>\n`
@@ -259,16 +351,28 @@ function tableauFactures(factures: FactureLigne[]): string {
     + `</tr>\n`
     + factures.map((f, i) => ligneFacture(f, i === factures.length - 1)).join('')
     + `<tr>\n`
-    + `<td align="left" style="${totalBord}${POL}font-size:13px;font-weight:600;color:${ENCRE_FORTE};">Solde net</td>\n`
-    + `<td align="right" style="${totalBord}${POL}font-size:20px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${_fmtEurosEmail.format(total)}</td>\n`
-    + `<td style="${totalBord}"></td>\n`
+    + `<td align="left" style="${totalCell}${POL}font-size:13px;font-weight:700;color:${ENCRE_FORTE};">Solde net</td>\n`
+    + `<td align="right" style="${totalCell}${POL}font-size:18px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${fmtEurosEmail(total)}</td>\n`
+    + `<td style="${totalCell}"></td>\n`
     + `</tr>\n`
     + `</table>\n`
 }
 
-/** Mention Ockham — texte seul, l'hexagone SVG ne survivait à aucun client. */
-const MENTION_OCKHAM =
-  `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`
+/**
+ * Mention Ockham — texte seul, l'hexagone SVG ne survivait à aucun client.
+ *
+ * ELLE EST EN PIED DE DOCUMENT, ET NON COLLÉE AU TABLEAU. Dans la première
+ * version de la refonte elle suivait le tableau, donc elle s'insérait là où le
+ * scénario place [Tableau Factures] — c'est-à-dire en plein milieu du corps,
+ * entre le tableau et le paragraphe suivant. Défaut vu sur un envoi réel.
+ */
+function blocMention(): string {
+  return bloc(
+    `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`,
+    '22px 20px',
+    `font-size:11px;color:${GRIS_PALE};`,
+  )
+}
 
 /**
  * Enveloppe du document.
@@ -315,18 +419,25 @@ ${contenu}
  */
 function blocSignature(signature: string | null): string {
   if (!signature) return ''
-  return bloc(signature, `28px 0 0 0;border-top:1px solid ${FILET}`)
+  return bloc(signature, '22px 0px', '', `border-top:1px solid ${FILET};`)
 }
 
 
 // ─── Les deux entrées publiques ─────────────────────────────────────────────
 
 /** Construit le mail depuis un scénario contenant [Tableau Factures]. */
-export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], signature: string | null): string {
+export function buildHtmlFromScenario(
+  corps: string,
+  factures: FactureLigne[],
+  signature: string | null,
+  nomOrg: string | null = null,
+): string {
   if (UTILISER_MODELE_HISTORIQUE) return buildHtmlFromScenarioHistorique(corps, factures, signature)
 
-  const tableau = bloc(tableauFactures(factures), '6px 0 0 0')
-    + bloc(MENTION_OCKHAM, '14px 0 26px 0', `font-size:11px;color:${GRIS_PALE};`)
+  // 24 px en bas, pour retrouver l'ecart qui separe deja deux paragraphes
+  // (18 px de bas + 6 px de haut). Sans cela la phrase qui suit le total est
+  // collee a la bande grise.
+  const tableau = blocPleineLargeur(tableauFactures(factures), '6px 24px')
 
   const segments = corps.split(/\[Tableau Factures\]/i)
   let contenu = ''
@@ -335,11 +446,21 @@ export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], s
     if (i < segments.length - 1) contenu += tableau
   })
 
-  return document(contenu + blocSignature(signature))
+  return document(
+    blocEnTete(nomOrg)
+    + espace(26)                  // l'air entre l'en-tête et « Bonjour, »
+    + contenu
+    + blocSignature(signature)
+    + blocMention(),
+  )
 }
 
 /** Construit le mail par défaut, quand aucun scénario n'est choisi. */
-export function buildHtml(factures: FactureLigne[], signature: string | null): string {
+export function buildHtml(
+  factures: FactureLigne[],
+  signature: string | null,
+  nomOrg: string | null = null,
+): string {
   if (UTILISER_MODELE_HISTORIQUE) return buildHtmlHistorique(factures, signature)
 
   const corps = 'Bonjour,\n\n'
@@ -350,5 +471,5 @@ export function buildHtml(factures: FactureLigne[], signature: string | null): s
     + 'ou de nous contacter directement en cas de question ou de litige.\n\n'
     + 'Cordialement,'
 
-  return buildHtmlFromScenario(corps, factures, signature)
+  return buildHtmlFromScenario(corps, factures, signature, nomOrg)
 }

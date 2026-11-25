@@ -50,7 +50,7 @@ interface Resultat {
 }
 
 export function ModalRelanceMasse({ clients, gmailAuth, commentaires, onFermer, onFini }: Props) {
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
   const { facturesActives, scenarios } = useAppData()
   const { estConnecte, provider = 'gmail', token: gmailToken, envoyerEmail, recupererSignature } = gmailAuth
   const nomProvider = provider === 'outlook' ? 'Outlook' : 'Gmail'
@@ -245,9 +245,10 @@ const DELAI_DEMARRAGE_S = 10
       const ctx           = { nomClient: e.client.nom, codeClient: e.client.code_dso, montantDu }
       const objetResolu   = resolveBalises(sujet.trim() || e.client.nom, ctx)
       const objetClient   = objetResolu.includes(e.client.code_dso) ? objetResolu : `${objetResolu} — ${e.client.nom} (${e.client.code_dso})`
+      const nomOrg        = profil?.nom_organisation ?? null
       const corpsHtml     = scenarioCourant
-        ? buildHtmlFromScenario(resolveBalises(scenarioCourant.corps_texte, ctx), factureLignes, signature)
-        : buildHtml(factureLignes, signature)
+        ? buildHtmlFromScenario(resolveBalises(scenarioCourant.corps_texte, ctx), factureLignes, signature, nomOrg)
+        : buildHtml(factureLignes, signature, nomOrg)
 
       let gmailThreadId: string | undefined
       if (estConnecte) {

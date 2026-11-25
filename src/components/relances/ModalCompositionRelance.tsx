@@ -40,7 +40,7 @@ interface Props {
 }
 
 export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, commentaires, onOuvrirContacts, niveauClient, joursDerniereRelance }: Props) {
-  const { utilisateur } = useAuth()
+  const { utilisateur, profil } = useAuth()
   const { peutModifier } = useRole()
   const { contacts, ajouter: ajouterContact } = useContacts(client?.code_dso ?? null)
   const { facturesActives, scenarios, membresOrg } = useAppData()
@@ -136,11 +136,13 @@ export function ModalCompositionRelance({ client, onFermer, onSent, gmailAuth, c
     echeance: f.date_echeance, pdfUrl: f.axonaut_pdf_url,
   }))
 
+  const nomOrg = profil?.nom_organisation ?? null
+
   const previewHtml = corpsResolu
     ? corpsResolu.includes('[Tableau Factures]')
-      ? buildHtmlFromScenario(corpsResolu, lignesFactures, signature)
-      : buildHtml(lignesFactures, signature)
-    : buildHtml(lignesFactures, signature)
+      ? buildHtmlFromScenario(corpsResolu, lignesFactures, signature, nomOrg)
+      : buildHtml(lignesFactures, signature, nomOrg)
+    : buildHtml(lignesFactures, signature, nomOrg)
 
   function toggleContact(id: string) {
     setContactsSel(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
