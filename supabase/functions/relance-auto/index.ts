@@ -5,6 +5,7 @@
 // dans les delai_rerelance_jours derniers jours.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { buildHtmlHistorique } from './mailHistorique.ts'
 
 const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
 const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -57,8 +58,54 @@ function resolveBalises(texte: string, ctx: {
 }
 
 // ── Construction HTML email ──────────────────────────────────────────────────
+//
+// COPIE DU CONSTRUCTEUR DU FRONT, src/lib/relanceEmail.ts, qui porte le long
+// commentaire expliquant chaque règle. Deux copies parce que cette fonction
+// tourne sous Deno et ne peut rien importer de src/ : factoriser imposerait un
+// paquet partagé publié, pour deux appelants. TOUTE MODIFICATION ICI DOIT ÊTRE
+// FAITE LÀ-BAS AUSSI — le client ne doit pas recevoir deux mails différents
+// selon qu'un humain ou le cron a déclenché la relance.
+//
+// Le robot a en plus un bloc que le front n'a pas : les avoirs disponibles.
+//
+// Rappel des règles, en bref : mise en page en tableaux avec largeurs en
+// attributs HTML, cellpadding/cellspacing/border à zéro, aucun SVG, styles en
+// ligne portés par la CELLULE et non par un span à l'intérieur, line-height en
+// pixels avec mso-line-height-rule, et un retour à la ligne par cellule pour
+// rester sous la limite SMTP de 998 octets par ligne.
 
-const SVG_PDF = `<svg width="10" height="11" viewBox="0 0 10 11" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;"><path d="M2 1.5h4.5L8.5 3.5v7H2v-9z" stroke="#0D9488" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 1.5v2h2" stroke="#0D9488" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 6.5h3M3.5 8h2" stroke="#4CC5BB" stroke-width="1.2" stroke-linecap="round"/></svg>`
+/**
+ * Filet de sécurité : `true` restaure le modèle d'avant le 2026-11-25.
+ *
+ * Le front a sa propre bascule, dans src/lib/relanceEmail.ts. Les deux doivent
+ * être changées ensemble, et cette fonction redéployée.
+ */
+const UTILISER_MODELE_HISTORIQUE = false
+
+const POLICE = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+const LARGEUR = 600
+
+const ENCRE       = '#1F2937'
+const ENCRE_FORTE = '#0E1A2B'
+const GRIS        = '#94A3B8'
+const GRIS_PALE   = '#CBD5E1'
+const FILET       = '#E2E8F0'
+const FILET_PALE  = '#F1F5F9'
+
+/** Teal lisible : celui de la charte, #4CC5BB, a un contraste d'environ 2:1 sur blanc. */
+const ACCENT = '#0D9488'
+const ALERTE = '#B91C1C'
+const CREDIT = '#15803D'
+
+/** Au-delà de ce retard la date passe en rouge. En deçà, tout est en retard de toute façon. */
+const SEUIL_RETARD_ROUGE = 90
+
+const COL_FACTURE  = 280
+const COL_MONTANT  = 150
+const COL_ECHEANCE = LARGEUR - COL_FACTURE - COL_MONTANT
+
+const POL = `font-family:${POLICE};`
+const EXACT = 'mso-line-height-rule:exactly;'
 
 interface FactureLigne {
   numero: string
@@ -68,105 +115,166 @@ interface FactureLigne {
   pdfUrl: string | null
 }
 
-function buildRow(f: FactureLigne): string {
-  const retard = f.echeance ? joursDepuis(f.echeance) : null
-  const estEchu = retard !== null && retard > 0
-  const badgeDelai = retard === null ? '' : estEchu
-    ? `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${retard}j</span>`
-    : `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#F0FDF4;border:1px solid #BBF7D0;color:#16A34A;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">−${Math.abs(retard)}j</span>`
-  const numFacture = f.pdfUrl
-    ? `<a href="${f.pdfUrl}" style="color:#0D9488;font-weight:600;font-size:14px;text-decoration:none;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${f.numero}</a>`
-    : `<span style="color:#374151;font-weight:600;font-size:14px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${f.numero}</span>`
-  const badgePdf = f.pdfUrl
-    ? `<a href="${f.pdfUrl}" style="display:inline-block;vertical-align:middle;margin-left:7px;background:#E6F7F5;border:1px solid rgba(76,197,187,0.3);border-radius:20px;padding:1px 12px 2px;text-decoration:none;">${SVG_PDF}<span style="font-size:10px;font-weight:600;color:#0D9488;margin-left:3px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;vertical-align:middle;">PDF</span></a>`
-    : ''
-  const couleurMontant = estEchu ? '#DC2626' : '#0E1A2B'
-  return `<tr style="background:#ffffff;">
-    <td style="padding:14px 16px;border-bottom:1px solid #F1F5F9;vertical-align:middle;">
-      ${numFacture}${badgePdf}${badgeDelai}
-    </td>
-    <td style="padding:14px 16px;border-bottom:1px solid #F1F5F9;text-align:right;white-space:nowrap;vertical-align:middle;">
-      <span style="font-size:14px;font-weight:700;color:${couleurMontant};font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtEuros(f.restedu)}</span>
-    </td>
-    <td style="padding:14px 16px;border-bottom:1px solid #F1F5F9;text-align:right;white-space:nowrap;vertical-align:middle;">
-      <span style="font-size:13px;color:#6B7280;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtDate(f.echeance)}</span>
-    </td>
-  </tr>`
-}
-
-function textToHtmlBlocs(texte: string): string {
-  return texte.split(/\n{2,}/).filter(p => p.trim()).map(p =>
-    `<p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${p.trim().replace(/\n/g, '<br>')}</p>`
-  ).join('')
-}
-
 interface AvoirLigne {
   numero: string
   montant: number
   echeance: string | null
 }
 
+function bloc(contenu: string, padding: string, styleTexte = ''): string {
+  return `<tr><td align="left" style="padding:${padding};${POL}${styleTexte}">${contenu}</td></tr>\n`
+}
+
+function textToHtmlBlocs(texte: string): string {
+  return texte
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p => bloc(
+      p.trim().replace(/\n/g, '<br />'),
+      '0 0 18px 0',
+      `${EXACT}font-size:15px;line-height:26px;color:${ENCRE};`,
+    ))
+    .join('')
+}
+
+/** Libellés écrits en majuscules dans le HTML : Word ignore text-transform. */
+function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
+  return `<td align="${align}" width="${largeur}" style="padding:0 0 10px 0;border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS};letter-spacing:.08em;">${libelle}</td>\n`
+}
+
+function buildRow(f: FactureLigne, derniere: boolean): string {
+  const retard = f.echeance ? joursDepuis(f.echeance) : null
+  const estCredit = f.restedu < 0
+  const bordure = derniere ? '' : `border-bottom:1px solid ${FILET_PALE};`
+  const cell = `padding:13px 0;${bordure}${POL}${EXACT}line-height:20px;`
+
+  const numero = f.pdfUrl
+    ? `<a href="${f.pdfUrl}" style="color:${ACCENT};text-decoration:none;">${f.numero}</a>`
+      + `<span style="font-size:11px;font-weight:400;color:${GRIS_PALE};">&nbsp;&nbsp;PDF</span>`
+    : f.numero
+
+  let echeance = '&mdash;'
+  if (f.echeance) {
+    const enRetard = retard !== null && retard > 0 && !estCredit
+    const suffixe = !enRetard
+      ? ''
+      : retard > SEUIL_RETARD_ROUGE
+        ? `<span style="color:${ALERTE};">&nbsp;&middot;&nbsp;${retard} j</span>`
+        : `&nbsp;&middot;&nbsp;${retard} j`
+    echeance = fmtDate(f.echeance) + suffixe
+  }
+
+  return `<tr>\n`
+    + `<td align="left" style="${cell}font-size:14px;font-weight:600;color:${ENCRE_FORTE};">${numero}</td>\n`
+    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEuros(f.restedu)}</td>\n`
+    + `<td align="right" style="${cell}font-size:13px;color:${GRIS};">${echeance}</td>\n`
+    + `</tr>\n`
+}
+
+function tableauFactures(factures: FactureLigne[]): string {
+  const total = factures.reduce((s, f) => s + f.restedu, 0)
+  const totalBord = `padding:18px 0 0 0;border-top:1px solid ${FILET};`
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
+    + `<tr>\n`
+    + enTeteColonne('FACTURE', 'left', COL_FACTURE)
+    + enTeteColonne('RESTANT D&Ucirc;', 'right', COL_MONTANT)
+    + enTeteColonne('&Eacute;CH&Eacute;ANCE', 'right', COL_ECHEANCE)
+    + `</tr>\n`
+    + factures.map((f, i) => buildRow(f, i === factures.length - 1)).join('')
+    + `<tr>\n`
+    + `<td align="left" style="${totalBord}${POL}font-size:13px;font-weight:600;color:${ENCRE_FORTE};">Solde net</td>\n`
+    + `<td align="right" style="${totalBord}${POL}font-size:20px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${fmtEuros(total)}</td>\n`
+    + `<td style="${totalBord}"></td>\n`
+    + `</tr>\n`
+    + `</table>\n`
+}
+
+/**
+ * Les avoirs disponibles, sous le tableau des factures.
+ *
+ * Plus de boîte verte : un intitulé, trois colonnes, et le vert réservé aux
+ * montants — c'est là qu'il signifie quelque chose. La boîte colorée entrait en
+ * concurrence avec le tableau principal, qui est le vrai sujet du mail.
+ */
 function buildAvoirsBlock(avoirs: AvoirLigne[]): string {
   if (!avoirs.length) return ''
   const total = avoirs.reduce((s, a) => s + Math.abs(a.montant), 0)
-  const rows = avoirs.map(a => `<tr>
-    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;font-size:13px;color:#374151;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${a.numero}</td>
-    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;text-align:right;white-space:nowrap;">
-      <span style="font-size:13px;font-weight:700;color:#16A34A;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtEuros(Math.abs(a.montant))}</span>
-    </td>
-    <td style="padding:10px 16px;border-bottom:1px solid #F0FDF4;text-align:right;white-space:nowrap;">
-      <span style="font-size:12px;color:#6B7280;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtDate(a.echeance)}</span>
-    </td>
-  </tr>`).join('')
-  return `<div style="border-radius:12px;border:1px solid #BBF7D0;background:#F0FDF4;overflow:hidden;margin-top:16px;margin-bottom:8px;">
-  <div style="padding:10px 16px 8px;border-bottom:1px solid #BBF7D0;">
-    <span style="font-size:11px;font-weight:700;color:#15803D;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Avoir${avoirs.length > 1 ? 's' : ''} disponible${avoirs.length > 1 ? 's' : ''} — ${fmtEuros(total)} à déduire</span>
-  </div>
-  <table style="width:100%;border-collapse:collapse;">
-    <tbody>${rows}</tbody>
-  </table>
-</div>`
+  const pluriel = avoirs.length > 1 ? 'S' : ''
+
+  const lignes = avoirs.map((a, i) => {
+    const bordure = i === avoirs.length - 1 ? '' : `border-bottom:1px solid ${FILET_PALE};`
+    const cell = `padding:11px 0;${bordure}${POL}${EXACT}line-height:18px;`
+    return `<tr>\n`
+      + `<td align="left" style="${cell}font-size:13px;color:${ENCRE};">${a.numero}</td>\n`
+      + `<td align="right" style="${cell}font-size:13px;font-weight:600;color:${CREDIT};">${fmtEuros(Math.abs(a.montant))}</td>\n`
+      + `<td align="right" style="${cell}font-size:12px;color:${GRIS};">${fmtDate(a.echeance)}</td>\n`
+      + `</tr>\n`
+  }).join('')
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
+    + `<tr>\n`
+    + `<td colspan="3" align="left" style="padding:0 0 8px 0;border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS};letter-spacing:.08em;">AVOIR${pluriel} DISPONIBLE${pluriel} &mdash; ${fmtEuros(total)} &Agrave; D&Eacute;DUIRE</td>\n`
+    + `</tr>\n`
+    + lignes
+    + `</table>\n`
+}
+
+/** Mention Ockham — texte seul, l'hexagone SVG ne survivait à aucun client. */
+const MENTION_OCKHAM =
+  `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`
+
+/**
+ * Enveloppe du document. Le seul bloc <style> est entre commentaires
+ * conditionnels : il n'est lu que par Outlook, et son absence ailleurs ne
+ * change rien puisque tout le reste est en ligne.
+ */
+function documentHtml(contenu: string): string {
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<title>Relance</title>
+<!--[if mso]>
+<style type="text/css">
+  table, td { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
+  body, table, td, p, a, span { font-family:'Segoe UI', Arial, sans-serif !important; }
+</style>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;">
+<tr><td align="left" style="padding:0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">
+${contenu}
+</table>
+</td></tr>
+</table>
+</body>
+</html>`
 }
 
 function buildHtml(corps: string, factures: FactureLigne[], signature: string | null, avoirs: AvoirLigne[] = []): string {
-  const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
-  const rows = factures.map(buildRow).join('')
-  const avoirsBlock = buildAvoirsBlock(avoirs)
-  const tableBlock = `
-  <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:#E6F7F5;">
-          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Facture</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Restant dû</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Échéance</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
-          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Total à régler</td>
-          <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
-            <span style="font-size:17px;font-weight:800;color:#DC2626;letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${fmtEuros(totalReste)}</span>
-          </td>
-          <td style="padding:13px 16px;"></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>${avoirsBlock}`
-  const sig = signature
-    ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${textToHtmlBlocs(signature)}</div>`
-    : ''
+  if (UTILISER_MODELE_HISTORIQUE) return buildHtmlHistorique(corps, factures, signature, avoirs)
+
+  const tableau = bloc(tableauFactures(factures), '6px 0 0 0')
+    + (avoirs.length ? bloc(buildAvoirsBlock(avoirs), '22px 0 0 0') : '')
+    + bloc(MENTION_OCKHAM, '14px 0 26px 0', `font-size:11px;color:${GRIS_PALE};`)
+
   const segments = corps.split(/\[Tableau Factures\]/i)
-  let bodyHtml = ''
+  let contenu = ''
   segments.forEach((seg, i) => {
-    bodyHtml += textToHtmlBlocs(seg)
-    if (i < segments.length - 1) bodyHtml += tableBlock
+    contenu += textToHtmlBlocs(seg)
+    if (i < segments.length - 1) contenu += tableau
   })
-  return `<div style="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;color:#374151;max-width:600px;line-height:1.75;">
-  <div style="height:4px;background:linear-gradient(90deg,#0E1A2B 0%,#4CC5BB 100%);border-radius:4px 4px 0 0;margin-bottom:28px;"></div>
-  ${bodyHtml}${sig}
-</div>`
+
+  // La signature vient de la boîte de l'opérateur et porte ses propres styles.
+  // On l'isole par un filet plutôt que de tenter de la normaliser.
+  const sig = signature ? bloc(signature, `28px 0 0 0;border-top:1px solid ${FILET}`) : ''
+
+  return documentHtml(contenu + sig)
 }
 
 // ── Rôle du contact : comparaison tolérante ────────────────────────────────

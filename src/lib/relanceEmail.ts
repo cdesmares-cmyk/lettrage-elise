@@ -1,3 +1,70 @@
+// Construction du mail de relance client.
+//
+// ─── POURQUOI CE FICHIER A ÉTÉ RÉÉCRIT, le 2026-11-25 ───────────────────────
+//
+// Un HTML d'email n'est pas un document, c'est une PROPOSITION. Il est rendu
+// par un moteur qu'on ne choisit pas, après être passé par des relais qui ont
+// le droit de le réécrire. Trois transformations successives :
+//
+//   à l'envoi      le fournisseur ré-emballe le HTML dans sa propre enveloppe
+//   à la réception le client assainit (il retire <style>, <svg>, position…)
+//                  puis rend — et Outlook Windows rend avec le moteur de WORD
+//   au retransfert le client reprend le message TEL QU'IL L'A RENDU, le
+//                  re-sérialise et le ré-assainit. Les pertes s'accumulent.
+//
+// L'ancienne version était écrite comme une page web : mise en page en <div>,
+// max-width, border-radius, dégradés, SVG en ligne. Elle s'affichait bien chez
+// Gmail, qui est un vrai moteur web, et se disloquait partout ailleurs.
+//
+// ─── LES RÈGLES QUI EN DÉCOULENT, et qu'il ne faut pas défaire ──────────────
+//
+//   1. MISE EN PAGE EN TABLEAUX, largeurs en ATTRIBUTS HTML doublées en CSS.
+//      Word ignore max-width : une mise en page en <div> s'étale sur toute la
+//      largeur de la fenêtre.
+//   2. cellpadding/cellspacing/border À ZÉRO sur chaque tableau. Sans eux Word
+//      applique ses propres espacements — c'est LA cause de « le tableau ne
+//      ressemble plus à rien ».
+//   3. AUCUN SVG. Gmail les supprime, Outlook ne les rend pas.
+//   4. line-height EN PIXELS + mso-line-height-rule:exactly. Word interprète
+//      mal les valeurs relatives.
+//   5. Styles EN LIGNE uniquement. Un <style> dans le <head> est retiré par
+//      plusieurs clients, dont Gmail historiquement.
+//
+// border-radius, lui, peut rester : Word l'ignore et affiche des angles
+// droits. C'est une dégradation silencieuse, pas une casse.
+//
+// ─── CE QUI A CHANGÉ CÔTÉ DESIGN, et pourquoi ───────────────────────────────
+//
+// Constat sur un envoi réel : TOUT était rouge. Chaque montant, chaque badge
+// de retard, le total. Un retard de 8 jours criait aussi fort qu'un retard de
+// 223 jours. Quand tout crie, plus rien ne s'entend.
+//
+// La couleur est donc devenue rare et signifiante :
+//   teal   uniquement ce qui est CLIQUABLE
+//   rouge  uniquement le total, et un retard de plus de 90 jours
+//   le reste en encre et en gris
+//
+// Et les traits ont cédé la place au blanc : plus de boîte autour du tableau,
+// plus de fond coloré sur l'en-tête, plus de pastilles. La hiérarchie passe
+// par la taille et la graisse. C'est plus sobre — et chacun de ces retraits
+// rend aussi le rendu plus sûr.
+import {
+  buildHtmlFromScenarioHistorique,
+  buildHtmlHistorique,
+} from './relanceEmailHistorique'
+
+/**
+ * Filet de sécurité demandé par Clément.
+ *
+ * Passer à `true` restaure intégralement le modèle d'avant le 2026-11-25, sans
+ * rien toucher d'autre. À utiliser si la refonte pose problème en production.
+ *
+ * Le robot a sa propre copie de cette bascule : la changer ici ne suffit pas,
+ * il faut aussi la changer dans supabase/functions/relance-auto/index.ts ET
+ * redéployer la fonction.
+ */
+export const UTILISER_MODELE_HISTORIQUE = false
+
 export type FactureLigne = {
   numero: string
   montantTtc: number
@@ -21,45 +88,6 @@ export function buildCorps(factures: FactureLigne[]) {
   return `Bonjour,\n\nNous nous permettons de vous contacter au sujet des factures suivantes en attente de règlement :\n\n${lignes}\n\nNous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter en cas de question ou de litige.\n\nCordialement`
 }
 
-// ─── SVG document inline (Gmail-safe : pas de flex, pas de shadow) ────────────
-const SVG_PDF = `<svg width="10" height="11" viewBox="0 0 10 11" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-1px;"><path d="M2 1.5h4.5L8.5 3.5v7H2v-9z" stroke="#0D9488" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 1.5v2h2" stroke="#0D9488" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.5 6.5h3M3.5 8h2" stroke="#4CC5BB" stroke-width="1.2" stroke-linecap="round"/></svg>`
-
-function buildRow(f: FactureLigne): string {
-  const retard = f.echeance ? joursDepuis(f.echeance) : null
-  const estEchu = retard !== null && retard > 0
-
-  // Badge retard / à venir (pas sur les avoirs/crédits)
-  const badgeDelai = f.restedu < 0 || retard === null ? '' : estEchu
-    ? `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#FEF2F2;border:1px solid #FECACA;color:#DC2626;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${retard}j</span>`
-    : `<span style="display:inline-block;margin-left:6px;vertical-align:middle;background:#F0FDF4;border:1px solid #BBF7D0;color:#16A34A;font-size:10px;font-weight:700;padding:2px 6px;border-radius:20px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">−${Math.abs(retard)}j</span>`
-
-  // N° facture : cliquable si PDF, sinon texte
-  const numFacture = f.pdfUrl
-    ? `<a href="${f.pdfUrl}" style="color:#0D9488;font-weight:600;font-size:14px;text-decoration:none;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${f.numero}</a>`
-    : `<span style="color:#374151;font-weight:600;font-size:14px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${f.numero}</span>`
-
-  // Badge PDF inline (uniquement si lien disponible)
-  const badgePdf = f.pdfUrl
-    ? `<a href="${f.pdfUrl}" style="display:inline-block;vertical-align:middle;margin-left:7px;background:#E6F7F5;border:1px solid rgba(76,197,187,0.3);border-radius:20px;padding:1px 12px 2px;text-decoration:none;text-align:center;line-height:1;">${SVG_PDF}<span style="font-size:10px;font-weight:600;color:#0D9488;margin-left:3px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;vertical-align:middle;">PDF</span></a>`
-    : ''
-
-  // Montant restant : vert si crédit (avoir/411), rouge si échu, navy sinon
-  const couleurMontant = f.restedu < 0 ? '#16A34A' : estEchu ? '#DC2626' : '#0E1A2B'
-
-  return `
-    <tr style="background:#ffffff;">
-      <td style="padding:13px 16px;border-bottom:1px solid #F1F5F9;vertical-align:middle;">
-        ${numFacture}${badgePdf}
-      </td>
-      <td style="padding:13px 16px;text-align:right;border-bottom:1px solid #F1F5F9;vertical-align:middle;white-space:nowrap;">
-        <span style="font-size:15px;font-weight:700;color:${couleurMontant};font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(f.restedu)}</span>
-      </td>
-      <td style="padding:13px 16px;text-align:right;border-bottom:1px solid #F1F5F9;vertical-align:middle;white-space:nowrap;">
-        <span style="font-size:13px;color:#6B7280;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${f.echeance ? fmtDate(f.echeance) : '—'}</span>${badgeDelai}
-      </td>
-    </tr>`
-}
-
 // Résout les balises textuelles (sauf [Tableau Factures] qui reste en place)
 export function resolveBalises(texte: string, ctx: {
   nomClient: string
@@ -76,125 +104,251 @@ export function resolveBalises(texte: string, ctx: {
     .replace(/\[Nom organisation\]/gi, ctx.nomOrg ?? '')
 }
 
-// Convertit le texte brut (avec \n) en blocs <p> HTML pour email
-function textToHtmlBlocs(texte: string): string {
+
+// ─── La charte du mail ──────────────────────────────────────────────────────
+//
+// Trois encres, deux signaux. Pas davantage : c'est la contrainte qui produit
+// la sobriété, pas l'inverse.
+
+/**
+ * Pile de polices volontairement courte.
+ *
+ * Elle est répétée sur chaque cellule — c'est la seule façon fiable de
+ * l'imposer dans Word, qui hérite mal. Chaque caractère compte donc : une pile
+ * de 77 caractères pesait 230 octets par ligne de facture, pour rien. Outlook
+ * reçoit de toute façon sa propre police par le bloc conditionnel du <head>.
+ */
+const POLICE = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+const LARGEUR = 600
+
+const ENCRE       = '#1F2937'   // texte courant
+const ENCRE_FORTE = '#0E1A2B'   // montants et libellés qui portent
+const GRIS        = '#94A3B8'   // dates, en-têtes, secondaire
+const GRIS_PALE   = '#CBD5E1'   // mentions discrètes
+const FILET       = '#E2E8F0'   // séparateur marqué
+const FILET_PALE  = '#F1F5F9'   // séparateur entre lignes
+
+/**
+ * Teal des liens : #0D9488 et non le #4CC5BB de l'application.
+ *
+ * Le teal de la charte a un contraste d'environ 2:1 sur blanc — illisible pour
+ * un texte, et sous le seuil d'accessibilité. Cette variante plus sombre garde
+ * l'identité en restant lisible.
+ */
+const ACCENT = '#0D9488'
+
+/** Rouge : le total, et un retard qui sort vraiment de l'ordinaire. */
+const ALERTE = '#B91C1C'
+const CREDIT = '#15803D'
+
+/**
+ * Au-delà de ce retard, la date passe en rouge.
+ *
+ * Toutes les factures d'une relance sont en retard par construction : colorer
+ * le retard en soi n'apprend rien. Ce seuil reprend celui de la pastille
+ * d'ancienneté de l'application (LignesFactures), pour que l'écran et le mail
+ * racontent la même chose.
+ */
+const SEUIL_RETARD_ROUGE = 90
+
+const COL_FACTURE  = 280
+const COL_MONTANT  = 150
+const COL_ECHEANCE = LARGEUR - COL_FACTURE - COL_MONTANT
+
+/**
+ * Les styles de texte sont portés par la CELLULE, jamais par un <span> dedans.
+ *
+ * MESURE, le 2026-11-25. Première version de cette refonte : une constante
+ * `font-family:…;mso-line-height-rule:exactly;` répétée sur chaque cellule ET
+ * sur le span à l'intérieur. Résultat : 2 289 octets par ligne de facture,
+ * contre 1 837 pour l'ancien modèle avec ses SVG. Le retrait des images était
+ * entièrement mangé par la répétition des styles.
+ *
+ * Ce qui rend la répétition évitable : Word n'hérite pas du <body> ni du
+ * <table> vers le <td>, mais il hérite correctement du <td> vers son contenu.
+ * Styler la cellule suffit donc, et le span ne sert plus que lorsqu'un fragment
+ * doit s'écarter du reste — la mention PDF, un retard en rouge.
+ */
+const POL = `font-family:${POLICE};`
+
+/** Word interprète mal les line-height relatifs. À poser avec chaque line-height. */
+const EXACT = 'mso-line-height-rule:exactly;'
+
+
+// ─── Les briques ────────────────────────────────────────────────────────────
+//
+// Chaque brique termine par un retour à la ligne, et chaque cellule occupe sa
+// propre ligne.
+//
+// POURQUOI : le SMTP impose 998 octets par ligne (RFC 5321). Au-delà, un relais
+// a le droit de couper — au milieu d'un attribut, d'une entité, n'importe où. La
+// première version de cette refonte produisait une ligne de 12 932 caractères :
+// j'étais en train de réintroduire exactement la classe de panne que ce fichier
+// corrige. Les retours à la ligne entre balises sont sans effet sur le rendu.
+
+/** Une ligne de contenu dans la colonne principale. */
+function bloc(contenu: string, padding: string, styleTexte = ''): string {
+  return `<tr><td align="left" style="padding:${padding};${POL}${styleTexte}">${contenu}</td></tr>\n`
+}
+
+/** Le corps du scénario, converti en paragraphes. */
+function blocsTexte(texte: string): string {
   return texte
     .split(/\n{2,}/)
     .filter(p => p.trim())
-    .map(p =>
-      `<p style="margin:0 0 16px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${
-        p.trim().replace(/\n/g, '<br>')
-      }</p>`
-    )
+    .map(p => bloc(
+      p.trim().replace(/\n/g, '<br />'),
+      '0 0 18px 0',
+      `${EXACT}font-size:15px;line-height:26px;color:${ENCRE};`,
+    ))
     .join('')
 }
 
-// Construit le HTML email depuis un scénario (corps_texte avec [Tableau Factures])
-export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], signature: string | null): string {
-  const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
-  const rows = factures.map(buildRow).join('')
-  const couleurTotal = totalReste < 0 ? '#16A34A' : '#DC2626'
-
-  const tableBlock = `
-  <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:#E6F7F5;">
-          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Facture</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Restant dû</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Échéance</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
-          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Solde net</td>
-          <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
-            <span style="font-size:17px;font-weight:800;color:${couleurTotal};letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
-          </td>
-          <td style="padding:13px 16px;"></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>`
-
-  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <a href="https://www.ockham-finance.com" style="color:#9CA3AF;font-weight:600;text-decoration:none;" target="_blank">Ockham Finance</a></p>`
-
-  const sig = signature
-    ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${signature}</div>`
-    : ''
-
-  // Découper sur [Tableau Factures] et injecter le bloc HTML
-  const segments = corps.split(/\[Tableau Factures\]/i)
-  let bodyHtml = ''
-  segments.forEach((seg, i) => {
-    bodyHtml += textToHtmlBlocs(seg)
-    if (i < segments.length - 1) bodyHtml += tableBlock + notePdf
-  })
-
-  return `
-<div style="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;color:#374151;max-width:600px;line-height:1.75;">
-  <div style="height:4px;background:linear-gradient(90deg,#0E1A2B 0%,#4CC5BB 100%);border-radius:4px 4px 0 0;margin-bottom:28px;"></div>
-  ${bodyHtml}
-  ${sig}
-</div>`
+function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
+  // Les libellés sont écrits en majuscules dans le HTML plutôt que par
+  // text-transform : Word ignore cette propriété.
+  return `<td align="${align}" width="${largeur}" style="padding:0 0 10px 0;border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS};letter-spacing:.08em;">${libelle}</td>\n`
 }
 
+function ligneFacture(f: FactureLigne, derniere: boolean): string {
+  const retard = f.echeance ? joursDepuis(f.echeance) : null
+  const estCredit = f.restedu < 0
+
+  // Le trait disparaît sous la dernière ligne : c'est l'espace qui sépare du
+  // total, pas un deuxième filet collé au premier.
+  const bordure = derniere ? '' : `border-bottom:1px solid ${FILET_PALE};`
+  const cell = `padding:13px 0;${bordure}${POL}${EXACT}line-height:20px;`
+
+  // Le numéro et sa couleur sont sur la cellule ; le <a> ne garde que ce qui
+  // lui est propre, parce que les clients imposent leur propre couleur de lien.
+  const numero = f.pdfUrl
+    ? `<a href="${f.pdfUrl}" style="color:${ACCENT};text-decoration:none;">${f.numero}</a>`
+      + `<span style="font-size:11px;font-weight:400;color:${GRIS_PALE};">&nbsp;&nbsp;PDF</span>`
+    : f.numero
+
+  let echeance = '&mdash;'
+  if (f.echeance) {
+    // Le retard n'est coloré que s'il dépasse le seuil : sinon il n'y a pas de
+    // span du tout, et la cellule porte seule la mise en forme.
+    const enRetard = retard !== null && retard > 0 && !estCredit
+    const suffixe = !enRetard
+      ? ''
+      : retard > SEUIL_RETARD_ROUGE
+        ? `<span style="color:${ALERTE};">&nbsp;&middot;&nbsp;${retard} j</span>`
+        : `&nbsp;&middot;&nbsp;${retard} j`
+    echeance = fmtDate(f.echeance) + suffixe
+  }
+
+  return `<tr>\n`
+    + `<td align="left" style="${cell}font-size:14px;font-weight:600;color:${ENCRE_FORTE};">${numero}</td>\n`
+    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${_fmtEurosEmail.format(f.restedu)}</td>\n`
+    + `<td align="right" style="${cell}font-size:13px;color:${GRIS};">${echeance}</td>\n`
+    + `</tr>\n`
+}
+
+/** Le tableau des factures, sans boîte ni fond : deux filets et du blanc. */
+function tableauFactures(factures: FactureLigne[]): string {
+  const total = factures.reduce((s, f) => s + f.restedu, 0)
+  const totalBord = `padding:18px 0 0 0;border-top:1px solid ${FILET};`
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
+    + `<tr>\n`
+    + enTeteColonne('FACTURE', 'left', COL_FACTURE)
+    + enTeteColonne('RESTANT D&Ucirc;', 'right', COL_MONTANT)
+    + enTeteColonne('&Eacute;CH&Eacute;ANCE', 'right', COL_ECHEANCE)
+    + `</tr>\n`
+    + factures.map((f, i) => ligneFacture(f, i === factures.length - 1)).join('')
+    + `<tr>\n`
+    + `<td align="left" style="${totalBord}${POL}font-size:13px;font-weight:600;color:${ENCRE_FORTE};">Solde net</td>\n`
+    + `<td align="right" style="${totalBord}${POL}font-size:20px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${_fmtEurosEmail.format(total)}</td>\n`
+    + `<td style="${totalBord}"></td>\n`
+    + `</tr>\n`
+    + `</table>\n`
+}
+
+/** Mention Ockham — texte seul, l'hexagone SVG ne survivait à aucun client. */
+const MENTION_OCKHAM =
+  `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`
+
+/**
+ * Enveloppe du document.
+ *
+ * Le <head> ne porte aucun style de mise en forme — tout est en ligne. Le seul
+ * bloc <style> est entre commentaires conditionnels : il n'est lu que par
+ * Outlook, et son absence ailleurs ne change rien.
+ */
+function document(contenu: string): string {
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="fr">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="x-apple-disable-message-reformatting" />
+<title>Relance</title>
+<!--[if mso]>
+<style type="text/css">
+  table, td { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
+  body, table, td, p, a, span { font-family:'Segoe UI', Arial, sans-serif !important; }
+</style>
+<![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#ffffff;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;background-color:#ffffff;">
+<tr><td align="left" style="padding:0;">
+<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">
+${contenu}
+</table>
+</td></tr>
+</table>
+</body>
+</html>`
+}
+
+/**
+ * Bloc signature.
+ *
+ * La signature vient de la boîte mail de l'opérateur et porte ses propres
+ * styles — sa propre police, parfois sa propre couleur. On ne peut pas la
+ * normaliser sans la dénaturer : on se contente de l'isoler par un filet et de
+ * l'air, là où l'ancienne version ajoutait une barre teal qui entrait en
+ * concurrence avec elle.
+ */
+function blocSignature(signature: string | null): string {
+  if (!signature) return ''
+  return bloc(signature, `28px 0 0 0;border-top:1px solid ${FILET}`)
+}
+
+
+// ─── Les deux entrées publiques ─────────────────────────────────────────────
+
+/** Construit le mail depuis un scénario contenant [Tableau Factures]. */
+export function buildHtmlFromScenario(corps: string, factures: FactureLigne[], signature: string | null): string {
+  if (UTILISER_MODELE_HISTORIQUE) return buildHtmlFromScenarioHistorique(corps, factures, signature)
+
+  const tableau = bloc(tableauFactures(factures), '6px 0 0 0')
+    + bloc(MENTION_OCKHAM, '14px 0 26px 0', `font-size:11px;color:${GRIS_PALE};`)
+
+  const segments = corps.split(/\[Tableau Factures\]/i)
+  let contenu = ''
+  segments.forEach((seg, i) => {
+    contenu += blocsTexte(seg)
+    if (i < segments.length - 1) contenu += tableau
+  })
+
+  return document(contenu + blocSignature(signature))
+}
+
+/** Construit le mail par défaut, quand aucun scénario n'est choisi. */
 export function buildHtml(factures: FactureLigne[], signature: string | null): string {
-  const totalReste = factures.reduce((s, f) => s + f.restedu, 0)
-  const rows = factures.map(buildRow).join('')
-  const couleurTotal = totalReste < 0 ? '#16A34A' : '#DC2626'
+  if (UTILISER_MODELE_HISTORIQUE) return buildHtmlHistorique(factures, signature)
 
-  // Mention Ockham discrète sous le tableau
-  const notePdf = `<p style="margin:0 0 24px;font-size:11px;color:#CBD5E1;text-align:right;letter-spacing:.03em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Propulsé par <svg width="10" height="11" viewBox="0 0 12 13" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:inline-block;vertical-align:-2px;margin:0 2px;"><path d="M6 1L10.5 3.5v5L6 11 1.5 8.5v-5L6 1z" stroke="#CBD5E1" stroke-width="1.2" fill="none"/></svg> <a href="https://www.ockham-finance.com" style="color:#9CA3AF;font-weight:600;text-decoration:none;" target="_blank">Ockham Finance</a></p>`
+  const corps = 'Bonjour,\n\n'
+    + 'Nous nous permettons de vous adresser ce rappel concernant les factures suivantes '
+    + 'qui restent à ce jour en attente de règlement.\n\n'
+    + '[Tableau Factures]\n\n'
+    + 'Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, '
+    + 'ou de nous contacter directement en cas de question ou de litige.\n\n'
+    + 'Cordialement,'
 
-  const sig = signature
-    ? `<div style="border-left:3px solid #4CC5BB;padding:4px 0 4px 14px;margin-bottom:32px;">${signature}</div>`
-    : ''
-
-  return `
-<div style="font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-size:15px;color:#374151;max-width:600px;line-height:1.75;">
-
-  <!-- Bandeau accent -->
-  <div style="height:4px;background:linear-gradient(90deg,#0E1A2B 0%,#4CC5BB 100%);border-radius:4px 4px 0 0;margin-bottom:28px;"></div>
-
-  <!-- Corps -->
-  <p style="margin:0 0 10px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Bonjour,</p>
-  <p style="margin:0 0 24px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Nous nous permettons de vous adresser ce rappel concernant les factures suivantes qui restent à ce jour en attente de règlement.</p>
-
-  <!-- Table factures -->
-  <div style="border-radius:12px;border:1px solid #E2E8F0;overflow:hidden;margin-bottom:8px;">
-    <table style="width:100%;border-collapse:collapse;">
-      <thead>
-        <tr style="background:#E6F7F5;">
-          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Facture</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Restant dû</th>
-          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:700;color:#0E1A2B;text-transform:uppercase;letter-spacing:.07em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Échéance</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows}
-      </tbody>
-      <tfoot>
-        <tr style="background:#F8FAFC;border-top:1px solid #E2E8F0;">
-          <td style="padding:13px 16px;font-weight:700;color:#0E1A2B;font-size:13px;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Solde net</td>
-          <td style="padding:13px 16px;text-align:right;white-space:nowrap;">
-            <span style="font-size:17px;font-weight:800;color:${couleurTotal};letter-spacing:-.02em;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">${_fmtEurosEmail.format(totalReste)}</span>
-          </td>
-          <td style="padding:13px 16px;"></td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-
-  ${notePdf}
-
-  <!-- Clôture -->
-  <p style="margin:0 0 10px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Nous vous remercions de bien vouloir procéder au règlement dans les meilleurs délais, ou de nous contacter directement en cas de question ou de litige.</p>
-  <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.75;font-family:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;">Cordialement,</p>
-
-  ${sig}
-
-
-</div>`
+  return buildHtmlFromScenario(corps, factures, signature)
 }
