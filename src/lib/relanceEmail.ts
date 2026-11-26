@@ -162,11 +162,52 @@ const LARGEUR = 600
  */
 const MARGE = 12
 
+/**
+ * L'ÉCHELLE TYPOGRAPHIQUE. Quatre tailles, un rôle chacune.
+ *
+ * Refonte du 2026-11-26. Le tableau émettait SEPT tailles — 10, 11, 12, 13,
+ * 14, 15 et 18 px — pour six lignes de contenu. Six d'entre elles tenaient
+ * dans un écart de cinq pixels : à cette distance l'œil ne lit pas une
+ * hiérarchie, il lit une irrégularité. Le symptôme le plus visible était un
+ * numéro de facture en 14 px à côté de son montant en 15 px, même rang, même
+ * graisse, un pixel d'écart et aucune raison.
+ *
+ * Une échelle ne fonctionne que si les marches se voient. Celles-ci se voient.
+ *
+ * T_TOTAL mérite son écart. Mesuré sur un encours réel : lignes à 15 px, total
+ * à 18 px, sur « 55 166,47 € » contre « 147 386,87 € » — personne ne distingue
+ * trois pixels sur sept chiffres. SEULE LA COULEUR portait le total, et un
+ * homme sur douze ne distingue pas le rouge du noir. À 20 px le total est la
+ * seule rupture de la ligne de base, donc visible par la forme d'abord.
+ */
+const T_MICRO = 11   // en-têtes de colonnes, mention PDF, pied de page
+const T_PETIT = 13   // dates et retards
+const T_CORPS = 15   // prose, numéros, montants, libellé du solde, titre du bloc
+const T_TOTAL = 20   // le solde net, et lui seul
+
+/**
+ * Deux graisses, pas trois.
+ *
+ * 600 et 700 cohabitaient. L'écart entre les deux est à peine perceptible dans
+ * la plupart des polices : il ne produit pas de niveau supplémentaire, il
+ * produit du flottement.
+ */
+const GRAS = 600
+
 const ENCRE       = '#1F2937'   // texte courant
 const ENCRE_FORTE = '#0E1A2B'   // navy de la charte : montants, libellés qui portent
-const GRIS        = '#94A3B8'   // dates, en-têtes, secondaire
-const GRIS_MOYEN  = '#64748B'   // en-têtes de colonnes, posés sur la bande
-const GRIS_PALE   = '#CBD5E1'   // mentions discrètes
+
+/**
+ * Les gris, et leur contraste mesuré sur blanc.
+ *
+ * L'ancien jeu descendait à #CBD5E1, soit 1,5:1 — la mention « PDF » y était à
+ * la limite de l'invisible alors que c'est elle qui signale qu'il y a un
+ * document à ouvrir. Les dates étaient à 2,6:1, illisibles sur un téléphone en
+ * extérieur. Le seuil AA pour du petit texte est de 4,5:1.
+ */
+const GRIS        = '#64748B'   // 4,8:1 — secondaire lisible : dates, en-têtes
+const GRIS_TENU   = '#94A3B8'   // 2,6:1 — tertiaire : mention PDF, pied. Assumé :
+                                // l'information est aussi portée par le lien teal.
 const FILET       = '#E2E8F0'   // séparateur marqué
 const FILET_PALE  = '#F1F5F9'   // séparateur entre lignes
 const BANDE       = '#F8FAFC'   // fond des bandes d'en-tête et de total
@@ -275,7 +316,7 @@ function blocsTexte(texte: string): string {
     .map(p => bloc(
       p.trim().replace(/\n/g, '<br />'),
       '0 18px',
-      `${EXACT}font-size:15px;line-height:26px;color:${ENCRE};`,
+      `${EXACT}font-size:${T_CORPS}px;line-height:26px;color:${ENCRE};`,
     ))
     .join('')
 }
@@ -298,7 +339,7 @@ function filetHaut(): string {
 function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
   // Les libellés sont écrits en majuscules dans le HTML plutôt que par
   // text-transform : Word ignore cette propriété.
-  return `<td align="${align}" width="${largeur}" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS_MOYEN};letter-spacing:.08em;">${libelle}</td>\n`
+  return `<td align="${align}" width="${largeur}" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:${T_MICRO}px;font-weight:${GRAS};color:${GRIS};letter-spacing:.08em;">${libelle}</td>\n`
 }
 
 function ligneFacture(f: FactureLigne, derniere: boolean): string {
@@ -314,7 +355,7 @@ function ligneFacture(f: FactureLigne, derniere: boolean): string {
   // lui est propre, parce que les clients imposent leur propre couleur de lien.
   const numero = f.pdfUrl
     ? `<a href="${f.pdfUrl}" style="color:${ACCENT};text-decoration:none;">${f.numero}</a>`
-      + `<span style="font-size:11px;font-weight:400;color:${GRIS_PALE};">&nbsp;&nbsp;PDF</span>`
+      + `<span style="font-size:${T_MICRO}px;font-weight:400;color:${GRIS_TENU};">&nbsp;&nbsp;PDF</span>`
     : f.numero
 
   let echeance = '&mdash;'
@@ -331,9 +372,9 @@ function ligneFacture(f: FactureLigne, derniere: boolean): string {
   }
 
   return `<tr>\n`
-    + `<td align="left" style="${cell}font-size:14px;font-weight:600;color:${ENCRE_FORTE};">${numero}</td>\n`
-    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEurosEmail(f.restedu)}</td>\n`
-    + `<td align="right" style="${cell}font-size:13px;color:${GRIS};">${echeance}</td>\n`
+    + `<td align="left" style="${cell}font-size:${T_CORPS}px;font-weight:${GRAS};color:${ENCRE_FORTE};">${numero}</td>\n`
+    + `<td align="right" style="${cell}font-size:${T_CORPS}px;font-weight:${GRAS};color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEurosEmail(f.restedu)}</td>\n`
+    + `<td align="right" style="${cell}font-size:${T_PETIT}px;color:${GRIS};">${echeance}</td>\n`
     + `</tr>\n`
 }
 
@@ -357,8 +398,8 @@ function tableauFactures(factures: FactureLigne[]): string {
     + `</tr>\n`
     + factures.map((f, i) => ligneFacture(f, i === factures.length - 1)).join('')
     + `<tr>\n`
-    + `<td align="left" style="${totalCell}${POL}font-size:13px;font-weight:700;color:${ENCRE_FORTE};">Solde net</td>\n`
-    + `<td align="right" style="${totalCell}${POL}font-size:18px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${fmtEurosEmail(total)}</td>\n`
+    + `<td align="left" style="${totalCell}${POL}font-size:${T_CORPS}px;font-weight:${GRAS};color:${ENCRE_FORTE};">Solde net</td>\n`
+    + `<td align="right" style="${totalCell}${POL}font-size:${T_TOTAL}px;font-weight:${GRAS};color:${total < 0 ? CREDIT : ALERTE};">${fmtEurosEmail(total)}</td>\n`
     + `<td style="${totalCell}"></td>\n`
     + `</tr>\n`
     + `</table>\n`
@@ -374,9 +415,9 @@ function tableauFactures(factures: FactureLigne[]): string {
  */
 function blocMention(): string {
   return bloc(
-    `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`,
+    `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_TENU};text-decoration:none;">Ockham Finance</a>`,
     '22px 20px',
-    `font-size:11px;color:${GRIS_PALE};`,
+    `font-size:${T_MICRO}px;color:${GRIS_TENU};`,
   )
 }
 
@@ -465,9 +506,9 @@ export function buildEncoursHtml(nomClient: string, factures: FactureLigne[]): s
     // Pas de bordure sous la ligne de contexte : la bande grise de l'en-tête
     // de colonnes, qui suit immédiatement, sépare déjà. Deux traits collés
     // l'un à l'autre se voient, et ne séparent pas mieux qu'un seul.
-    + `<td align="left" style="padding:13px ${MARGE}px 12px ${MARGE}px;${POL}font-size:12px;line-height:18px;${EXACT}">`
-    + `<span style="font-weight:700;color:${ENCRE_FORTE};">Encours ${nomClient}</span>`
-    + `<span style="color:${GRIS};">&nbsp;&middot;&nbsp;état au ${dateJour}</span>`
+    + `<td align="left" style="padding:13px ${MARGE}px 12px ${MARGE}px;${POL}font-size:${T_CORPS}px;line-height:22px;${EXACT}">`
+    + `<span style="font-weight:${GRAS};color:${ENCRE_FORTE};">Encours ${nomClient}</span>`
+    + `<span style="font-size:${T_PETIT}px;color:${GRIS};">&nbsp;&middot;&nbsp;état au ${dateJour}</span>`
     + `</td>\n`
     + `</tr>\n`
     + `<tr>\n`

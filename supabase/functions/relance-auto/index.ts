@@ -109,11 +109,30 @@ const LARGEUR = 600
  */
 const MARGE = 12
 
+/**
+ * L'ECHELLE TYPOGRAPHIQUE. Quatre tailles, un role chacune.
+ *
+ * Refonte du 2026-11-26 ; le raisonnement complet est dans
+ * src/lib/relanceEmail.ts. En resume : le tableau emettait SEPT tailles pour
+ * six lignes de contenu, dont six tenaient dans un ecart de cinq pixels. A
+ * cette distance l'oeil ne lit pas une hierarchie, il lit une irregularite.
+ *
+ * T_TOTAL merite son ecart. Mesure sur un encours reel : a 18 px contre 15 px
+ * pour les lignes, le solde ne se distinguait plus que par sa couleur — et un
+ * homme sur douze ne distingue pas le rouge du noir.
+ */
+const T_MICRO = 11   // en-tetes de colonnes, mention PDF, pied de page
+const T_PETIT = 13   // dates, retards, lignes d'avoirs
+const T_CORPS = 15   // prose, numeros, montants, libelle du solde
+const T_TOTAL = 20   // le solde net, et lui seul
+
+/** Deux graisses, pas trois : l'ecart 600/700 ne cree pas un niveau, il cree du flottement. */
+const GRAS = 600
+
 const ENCRE       = '#1F2937'
 const ENCRE_FORTE = '#0E1A2B'   // navy de la charte
-const GRIS        = '#94A3B8'
-const GRIS_MOYEN  = '#64748B'
-const GRIS_PALE   = '#CBD5E1'
+const GRIS        = '#64748B'   // 4,8:1 sur blanc — secondaire lisible
+const GRIS_TENU   = '#94A3B8'   // 2,6:1 — tertiaire : mention PDF, pied
 const FILET       = '#E2E8F0'
 const FILET_PALE  = '#F1F5F9'
 const BANDE       = '#F8FAFC'
@@ -193,7 +212,7 @@ function textToHtmlBlocs(texte: string): string {
     .map(p => bloc(
       p.trim().replace(/\n/g, '<br />'),
       '0 18px',
-      `${EXACT}font-size:15px;line-height:26px;color:${ENCRE};`,
+      `${EXACT}font-size:${T_CORPS}px;line-height:26px;color:${ENCRE};`,
     ))
     .join('')
 }
@@ -214,7 +233,7 @@ function filetHaut(): string {
 
 /** Libellés écrits en majuscules dans le HTML : Word ignore text-transform. */
 function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
-  return `<td align="${align}" width="${largeur}" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS_MOYEN};letter-spacing:.08em;">${libelle}</td>\n`
+  return `<td align="${align}" width="${largeur}" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:${T_MICRO}px;font-weight:${GRAS};color:${GRIS};letter-spacing:.08em;">${libelle}</td>\n`
 }
 
 function buildRow(f: FactureLigne, derniere: boolean): string {
@@ -225,7 +244,7 @@ function buildRow(f: FactureLigne, derniere: boolean): string {
 
   const numero = f.pdfUrl
     ? `<a href="${f.pdfUrl}" style="color:${ACCENT};text-decoration:none;">${f.numero}</a>`
-      + `<span style="font-size:11px;font-weight:400;color:${GRIS_PALE};">&nbsp;&nbsp;PDF</span>`
+      + `<span style="font-size:${T_MICRO}px;font-weight:400;color:${GRIS_TENU};">&nbsp;&nbsp;PDF</span>`
     : f.numero
 
   let echeance = '&mdash;'
@@ -240,9 +259,9 @@ function buildRow(f: FactureLigne, derniere: boolean): string {
   }
 
   return `<tr>\n`
-    + `<td align="left" style="${cell}font-size:14px;font-weight:600;color:${ENCRE_FORTE};">${numero}</td>\n`
-    + `<td align="right" style="${cell}font-size:15px;font-weight:600;color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEuros(f.restedu)}</td>\n`
-    + `<td align="right" style="${cell}font-size:13px;color:${GRIS};">${echeance}</td>\n`
+    + `<td align="left" style="${cell}font-size:${T_CORPS}px;font-weight:${GRAS};color:${ENCRE_FORTE};">${numero}</td>\n`
+    + `<td align="right" style="${cell}font-size:${T_CORPS}px;font-weight:${GRAS};color:${estCredit ? CREDIT : ENCRE_FORTE};">${fmtEuros(f.restedu)}</td>\n`
+    + `<td align="right" style="${cell}font-size:${T_PETIT}px;color:${GRIS};">${echeance}</td>\n`
     + `</tr>\n`
 }
 
@@ -264,8 +283,8 @@ function tableauFactures(factures: FactureLigne[]): string {
     + `</tr>\n`
     + factures.map((f, i) => buildRow(f, i === factures.length - 1)).join('')
     + `<tr>\n`
-    + `<td align="left" style="${totalCell}${POL}font-size:13px;font-weight:700;color:${ENCRE_FORTE};">Solde net</td>\n`
-    + `<td align="right" style="${totalCell}${POL}font-size:18px;font-weight:700;color:${total < 0 ? CREDIT : ALERTE};">${fmtEuros(total)}</td>\n`
+    + `<td align="left" style="${totalCell}${POL}font-size:${T_CORPS}px;font-weight:${GRAS};color:${ENCRE_FORTE};">Solde net</td>\n`
+    + `<td align="right" style="${totalCell}${POL}font-size:${T_TOTAL}px;font-weight:${GRAS};color:${total < 0 ? CREDIT : ALERTE};">${fmtEuros(total)}</td>\n`
     + `<td style="${totalCell}"></td>\n`
     + `</tr>\n`
     + `</table>\n`
@@ -292,15 +311,15 @@ function buildAvoirsBlock(avoirs: AvoirLigne[]): string {
     // avoirs ne tombent plus dans l'axe de ceux des factures.
     const l = (n: number) => (i === 0 ? ` width="${n}"` : '')
     return `<tr>\n`
-      + `<td align="left"${l(COL_FACTURE)} style="${cell}font-size:13px;color:${ENCRE};">${a.numero}</td>\n`
-      + `<td align="right"${l(COL_MONTANT)} style="${cell}font-size:13px;font-weight:600;color:${CREDIT};">${fmtEuros(Math.abs(a.montant))}</td>\n`
-      + `<td align="right"${l(COL_ECHEANCE)} style="${cell}font-size:12px;color:${GRIS};">${fmtDate(a.echeance)}</td>\n`
+      + `<td align="left"${l(COL_FACTURE)} style="${cell}font-size:${T_PETIT}px;color:${ENCRE};">${a.numero}</td>\n`
+      + `<td align="right"${l(COL_MONTANT)} style="${cell}font-size:${T_PETIT}px;font-weight:${GRAS};color:${CREDIT};">${fmtEuros(Math.abs(a.montant))}</td>\n`
+      + `<td align="right"${l(COL_ECHEANCE)} style="${cell}font-size:${T_PETIT}px;color:${GRIS};">${fmtDate(a.echeance)}</td>\n`
       + `</tr>\n`
   }).join('')
 
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
     + `<tr>\n`
-    + `<td colspan="3" align="left" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:10px;font-weight:700;color:${GRIS_MOYEN};letter-spacing:.08em;">AVOIR${pluriel} DISPONIBLE${pluriel} &mdash; ${fmtEuros(total)} &Agrave; D&Eacute;DUIRE</td>\n`
+    + `<td colspan="3" align="left" style="padding:9px ${MARGE}px;background-color:${BANDE};border-bottom:1px solid ${FILET};${POL}font-size:${T_MICRO}px;font-weight:${GRAS};color:${GRIS};letter-spacing:.08em;">AVOIR${pluriel} DISPONIBLE${pluriel} &mdash; ${fmtEuros(total)} &Agrave; D&Eacute;DUIRE</td>\n`
     + `</tr>\n`
     + lignes
     + `</table>\n`
@@ -316,9 +335,9 @@ function buildAvoirsBlock(avoirs: AvoirLigne[]): string {
  */
 function blocMention(): string {
   return bloc(
-    `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_PALE};text-decoration:none;">Ockham Finance</a>`,
+    `Propuls&eacute; par <a href="https://www.ockham-finance.com" target="_blank" style="color:${GRIS_TENU};text-decoration:none;">Ockham Finance</a>`,
     '22px 20px',
-    `font-size:11px;color:${GRIS_PALE};`,
+    `font-size:${T_MICRO}px;color:${GRIS_TENU};`,
   )
 }
 
