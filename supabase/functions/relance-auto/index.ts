@@ -97,7 +97,7 @@ function resolveBalises(texte: string, ctx: {
  */
 const UTILISER_MODELE_HISTORIQUE = false
 
-const POLICE = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+const POLICE = "'Plus Jakarta Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
 const LARGEUR = 600
 
 /**

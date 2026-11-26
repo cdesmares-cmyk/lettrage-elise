@@ -127,14 +127,29 @@ export function resolveBalises(texte: string, ctx: {
 // traite comme une newsletter — mauvais pour du recouvrement.
 
 /**
- * Pile de polices volontairement courte.
+ * Pile de polices, courte après la marque.
  *
  * Elle est répétée sur chaque cellule — c'est la seule façon fiable de
- * l'imposer dans Word, qui hérite mal. Chaque caractère compte donc : une pile
- * de 77 caractères pesait 230 octets par ligne de facture, pour rien. Outlook
- * reçoit de toute façon sa propre police par le bloc conditionnel du <head>.
+ * l'imposer dans Word, qui hérite mal. Chaque caractère y est donc payé autant
+ * de fois qu'il y a de cellules, et la pile a été taillée pour ça : une
+ * première version de 77 caractères coûtait 230 octets par ligne de facture.
+ *
+ * PLUS JAKARTA SANS NE S'AFFICHERA PRESQUE JAMAIS, et c'est assumé. La police
+ * de la charte est une webfont, chargée par un <link> Google Fonts dans
+ * index.html. Ce lien ne voyage pas avec le mail : Gmail retire les <link> et
+ * les <style> des corps de message, et Outlook Windows — moteur Word — ne sait
+ * pas charger de webfont du tout. Elle ne rendra donc que sur une machine où
+ * la police est installée au niveau du système.
+ *
+ * On la déclare quand même, en tête : elle coûte 22 caractères, elle dit quelle
+ * est la police voulue, et elle devient effective le jour où les postes
+ * l'installent. Partout ailleurs, la suite de la pile prend le relais — c'est
+ * exactement le rendu d'aujourd'hui.
+ *
+ * Outlook reçoit de toute façon sa propre police par le bloc conditionnel du
+ * <head>, qui force Segoe UI.
  */
-const POLICE = "-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
+const POLICE = "'Plus Jakarta Sans',-apple-system,'Segoe UI',Roboto,Arial,sans-serif"
 const LARGEUR = 600
 
 /**
