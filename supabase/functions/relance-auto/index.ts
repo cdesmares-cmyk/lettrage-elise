@@ -453,7 +453,33 @@ function estRoleRelancable(r: string | null | undefined): boolean {
 
 // ── Envoi Resend Batch (jusqu'à 100 emails par appel) ───────────────────────
 
-interface EmailPayload { from: string; to: string[]; subject: string; html: string }
+interface EmailPayload { from: string; to: string[]; subject: string; html: string; reply_to?: string }
+
+/**
+ * Adresse de réponse exploitable, ou null.
+ *
+ * POURQUOI ON VALIDE PLUTÔT QUE DE FAIRE CONFIANCE. Resend rejette la requête
+ * ENTIÈRE en 422 si une seule adresse est mal formée, et le robot envoie par
+ * lots de cent. Une faute de frappe dans le champ d'administration ne coûterait
+ * donc pas un email mais cent — et en silence, de nuit, sans personne pour
+ * voir passer l'erreur. Le même motif de panne que le 401 de septembre.
+ *
+ * Le test est volontairement grossier : il écarte ce qui casserait l'envoi
+ * (espaces, virgules, point-virgules, arobase manquante ou en double, domaine
+ * sans point) sans prétendre valider une adresse au sens de la RFC 5322, ce
+ * qu'aucune expression régulière ne fait correctement. Face au doute on omet
+ * le champ : les réponses retombent sur l'expéditeur, ce qui est exactement
+ * l'état actuel. Dégrader vaut mieux que perdre le lot.
+ */
+function replyToValide(brut: string | null | undefined): string | null {
+  const a = (brut ?? '').trim()
+  if (!a) return null
+  if (!/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(a)) {
+    console.warn(`[relance-auto] reply_to ignoré, format douteux : ${JSON.stringify(a)}`)
+    return null
+  }
+  return a
+}
 interface PendingEmail {
   to: string[]; objet: string; html: string
   codeDso: string; nomClient: string; montantDu: number
@@ -507,7 +533,7 @@ Deno.serve(async (req: Request) => {
     // 1. Orgs avec mode auto actif
     const { data: orgs, error: errOrgs } = await supabase
       .from('organisations')
-      .select('id, nom, delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, signature_auto')
+      .select('id, nom, delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, signature_auto, relance_auto_reply_to')
       .eq('relance_auto_active', true)
     if (errOrgs) return json({ error: errOrgs.message }, 500)
 
@@ -517,6 +543,9 @@ Deno.serve(async (req: Request) => {
       const delaiEcheanceOrg = (org.delai_echeance_jours as number) ?? 30
       const delaiDeclenche   = (org.delai_declenchement_relance_jours as number) ?? 7
       const delaiRerelance   = (org.delai_rerelance_jours as number) ?? 30
+      // Reglage par organisation : le From reste generique, seul le bouton
+      // Repondre du client est redirige. Null = comportement d'avant.
+      const replyToOrg       = replyToValide(org.relance_auto_reply_to as string | null)
       const signatureAuto    = org.signature_auto as string | null
       let nbEnvoyesOrg = 0
       let nbSkipOrg    = 0
@@ -792,7 +821,12 @@ Deno.serve(async (req: Request) => {
       const BATCH_SIZE = 100
       for (let i = 0; i < pending.length; i += BATCH_SIZE) {
         const batch   = pending.slice(i, i + BATCH_SIZE)
-        const payload = batch.map(p => ({ from: FROM_EMAIL, to: p.to, subject: p.objet, html: p.html }))
+        const payload: EmailPayload[] = batch.map(p => ({
+          from: FROM_EMAIL, to: p.to, subject: p.objet, html: p.html,
+          // Omis plutot que mis a null : Resend valide le champ des qu'il est
+          // present, et un null ferait tomber le lot.
+          ...(replyToOrg ? { reply_to: replyToOrg } : {}),
+        }))
         const ids     = await envoyerResendBatch(payload)
 
         const logsAInserer: object[] = []

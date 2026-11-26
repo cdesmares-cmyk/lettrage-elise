@@ -11,6 +11,7 @@ interface ParamsAuto {
   delai_rerelance_jours: number
   relance_auto_active: boolean
   signature_auto: string | null
+  relance_auto_reply_to: string | null
   relance_auto_derniere_exec:   string | null
   relance_auto_dernier_statut:  'ok' | 'partiel' | 'erreur' | null
   relance_auto_dernier_message: string | null
@@ -34,6 +35,7 @@ export function TabModeAutoRelance() {
     delai_rerelance_jours: 30,
     relance_auto_active: false,
     signature_auto: null,
+    relance_auto_reply_to: null,
     relance_auto_derniere_exec:   null,
     relance_auto_dernier_statut:  null,
     relance_auto_dernier_message: null,
@@ -45,7 +47,7 @@ export function TabModeAutoRelance() {
     if (!profil?.organisation_id) return
     supabase
       .from('organisations')
-      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto, relance_auto_derniere_exec, relance_auto_dernier_statut, relance_auto_dernier_message')
+      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto, relance_auto_reply_to, relance_auto_derniere_exec, relance_auto_dernier_statut, relance_auto_dernier_message')
       .eq('id', profil.organisation_id)
       .single()
       .then(({ data }) => {
@@ -57,6 +59,7 @@ export function TabModeAutoRelance() {
             delai_rerelance_jours: row.delai_rerelance_jours ?? 30,
             relance_auto_active: row.relance_auto_active ?? false,
             signature_auto: row.signature_auto ?? null,
+            relance_auto_reply_to: row.relance_auto_reply_to ?? null,
             relance_auto_derniere_exec:   row.relance_auto_derniere_exec ?? null,
             relance_auto_dernier_statut:  row.relance_auto_dernier_statut ?? null,
             relance_auto_dernier_message: row.relance_auto_dernier_message ?? null,
@@ -66,13 +69,36 @@ export function TabModeAutoRelance() {
       })
   }, [profil?.organisation_id])
 
+  /**
+   * Même test que la fonction relance-auto, pour le dire AVANT l'envoi.
+   *
+   * Resend rejette un lot entier de cent emails si une seule adresse est mal
+   * formée. La fonction se protège en omettant le champ, mais le silence n'est
+   * pas une réponse : autant signaler la faute de frappe ici, pendant qu'on
+   * regarde l'écran.
+   */
+  const replyToDouteux =
+    !!params.relance_auto_reply_to &&
+    !/^[^\s@,;<>]+@[^\s@,;<>]+\.[^\s@,;<>]{2,}$/.test(params.relance_auto_reply_to)
+
   async function sauvegarder() {
     if (!profil?.organisation_id) return
     setSauvegarde(true)
     try {
+      // On n'écrit QUE les champs modifiables. `params` porte aussi les trois
+      // colonnes de suivi du cron, que la fonction met à jour de son côté : les
+      // renvoyer telles qu'elles ont été chargées écraserait un passage survenu
+      // entre-temps par des valeurs périmées.
       const { error } = await supabase
         .from('organisations')
-        .update(params as never)
+        .update({
+          delai_echeance_jours:              params.delai_echeance_jours,
+          delai_declenchement_relance_jours: params.delai_declenchement_relance_jours,
+          delai_rerelance_jours:             params.delai_rerelance_jours,
+          relance_auto_active:               params.relance_auto_active,
+          signature_auto:                    params.signature_auto,
+          relance_auto_reply_to:             params.relance_auto_reply_to,
+        } as never)
         .eq('id', profil.organisation_id)
       if (error) throw error
       toast.success('Paramètres enregistrés.')
@@ -160,6 +186,33 @@ export function TabModeAutoRelance() {
         <p className="text-[11px] text-gray-400 mt-1.5">
           Insérée après le corps du scénario. La balise [Nom organisation] est disponible.
         </p>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Adresse de réponse
+        </label>
+        <input
+          type="email"
+          value={params.relance_auto_reply_to ?? ''}
+          onChange={e => setParams(p => ({ ...p, relance_auto_reply_to: e.target.value.trim() || null }))}
+          placeholder="Ex : support.compta@mon-entreprise.fr"
+          className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-700 outline-none transition-colors ${
+            replyToDouteux ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-ockham-teal'
+          }`}
+        />
+        {replyToDouteux ? (
+          <p className="text-[11px] text-red-600 mt-1.5 font-semibold">
+            Cette adresse ne ressemble pas à un email. Elle sera ignorée à l'envoi, et les réponses
+            repartiront vers l'adresse d'expédition.
+          </p>
+        ) : (
+          <p className="text-[11px] text-gray-400 mt-1.5">
+            Les relances automatiques partent d'une adresse générique. Renseignez ici la boîte qui doit
+            recevoir les réponses quand le client clique sur « Répondre ». Vide : les réponses vont à
+            l'adresse d'expédition, que personne ne relève.
+          </p>
+        )}
       </div>
 
       <div className="border-t border-gray-100 pt-5">
