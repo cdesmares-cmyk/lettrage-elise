@@ -120,11 +120,11 @@ export function resolveBalises(texte: string, ctx: {
 // ─── La charte du mail ──────────────────────────────────────────────────────
 //
 // Variante « Lettre », choisie par Clément le 2026-11-25 parmi trois maquettes.
-// Le parti : rester une lettre. La structure tient en quatre traits — un filet
-// navy en haut, une ligne d'en-tête, deux bandes pâles autour du tableau — et
-// il n'y a ni logo, ni bandeau, ni image. Un bandeau coloré pleine largeur
-// aurait donné au mail l'allure d'une newsletter, et une newsletter se traite
-// comme une newsletter : mauvais pour du recouvrement.
+// Le parti : rester une lettre. Toute la structure tient en trois traits : un
+// filet navy en haut, et deux bandes pâles qui donnent au tableau ses bords
+// sans le cerner. Ni logo, ni bandeau, ni image : un bandeau coloré pleine
+// largeur aurait donné au mail l'allure d'une newsletter, et une newsletter se
+// traite comme une newsletter — mauvais pour du recouvrement.
 
 /**
  * Pile de polices volontairement courte.
@@ -266,27 +266,18 @@ function blocsTexte(texte: string): string {
 }
 
 /**
- * Le haut de la lettre : un filet navy, puis qui écrit et quand.
+ * Le haut de la lettre : un filet navy, et rien d'autre.
+ *
+ * Il portait aussi le nom de l'organisation et la date ; Clément les a retirés
+ * le 2026-11-25. Le destinataire connaît son fournisseur, et la date figure
+ * déjà dans l'en-tête du message que son client mail affiche. La ligne
+ * n'apportait donc rien que le mail ne disait déjà.
  *
  * Le filet est une cellule à fond navy et non une bordure : Word rend les
- * bordures de façon inégale selon la version, un aplat jamais. Sans nom
- * d'organisation, seule la date subsiste — la ligne garde sa hauteur et le
- * mail ne se déforme pas.
+ * bordures de façon inégale selon la version, un aplat jamais.
  */
-function blocEnTete(nomOrg: string | null): string {
-  const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-  const cell = `padding:15px ${MARGE}px 14px ${MARGE}px;border-bottom:1px solid ${FILET};${POL}`
-  const demi = LARGEUR / 2
-
+function filetHaut(): string {
   return `<tr><td style="padding:0;line-height:0;font-size:0;height:3px;background-color:${ENCRE_FORTE};">&nbsp;</td></tr>\n`
-    + `<tr><td style="padding:0;">\n`
-    + `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR}" style="width:${LARGEUR}px;max-width:${LARGEUR}px;border-collapse:collapse;">\n`
-    + `<tr>\n`
-    + `<td align="left" width="${demi}" style="${cell}font-size:11px;font-weight:700;color:${ENCRE_FORTE};letter-spacing:.1em;">${(nomOrg ?? '').toUpperCase()}</td>\n`
-    + `<td align="right" width="${demi}" style="${cell}font-size:11px;color:${GRIS};">${dateJour}</td>\n`
-    + `</tr>\n`
-    + `</table>\n`
-    + `</td></tr>\n`
 }
 
 function enTeteColonne(libelle: string, align: 'left' | 'right', largeur: number): string {
@@ -430,7 +421,6 @@ export function buildHtmlFromScenario(
   corps: string,
   factures: FactureLigne[],
   signature: string | null,
-  nomOrg: string | null = null,
 ): string {
   if (UTILISER_MODELE_HISTORIQUE) return buildHtmlFromScenarioHistorique(corps, factures, signature)
 
@@ -447,8 +437,8 @@ export function buildHtmlFromScenario(
   })
 
   return document(
-    blocEnTete(nomOrg)
-    + espace(26)                  // l'air entre l'en-tête et « Bonjour, »
+    filetHaut()
+    + espace(30)                  // l'air entre le filet et « Bonjour, »
     + contenu
     + blocSignature(signature)
     + blocMention(),
@@ -459,7 +449,6 @@ export function buildHtmlFromScenario(
 export function buildHtml(
   factures: FactureLigne[],
   signature: string | null,
-  nomOrg: string | null = null,
 ): string {
   if (UTILISER_MODELE_HISTORIQUE) return buildHtmlHistorique(factures, signature)
 
@@ -471,5 +460,5 @@ export function buildHtml(
     + 'ou de nous contacter directement en cas de question ou de litige.\n\n'
     + 'Cordialement,'
 
-  return buildHtmlFromScenario(corps, factures, signature, nomOrg)
+  return buildHtmlFromScenario(corps, factures, signature)
 }
