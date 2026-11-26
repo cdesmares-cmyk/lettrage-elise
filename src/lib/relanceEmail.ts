@@ -414,6 +414,56 @@ function blocSignature(signature: string | null): string {
 }
 
 
+/**
+ * L'encours du client, pour le presse-papier. PAS un email.
+ *
+ * POURQUOI UNE FONCTION À PART, et non le constructeur d'email avec un corps
+ * réduit à [Tableau Factures] — ce qu'on faisait jusqu'au 2026-11-26.
+ *
+ * Un email est un document autonome envoyé à un tiers : il lui faut un haut,
+ * un bas, une mention d'émetteur. Un collage est un FRAGMENT déposé dans un
+ * message que l'opérateur rédige déjà : il fournit lui-même le bonjour, le
+ * contexte et sa signature. Passer par le constructeur d'email collait donc
+ * dans son message le filet navy — une barre noire en travers du texte — et
+ * « Propulsé par Ockham Finance » juste au-dessus de SA signature. Deux
+ * éléments faux par construction, pas par réglage.
+ *
+ * POURQUOI UN CADRE, alors que le mail n'en a pas. Le mail est volontairement
+ * sans bord : des filets et du blanc, rien qui concurrence le contenu. C'est
+ * juste quand le mail EST le document. Déposé au milieu du texte de quelqu'un
+ * d'autre, le même tableau n'a plus de limite et se dissout. Un fragment a
+ * besoin d'un bord précisément parce qu'il vit dans le contenu d'autrui.
+ *
+ * La ligne de contexte met le rendu riche au niveau du rendu texte, qui portait
+ * déjà « ENCOURS CLIENT — … / État au … » quand la version HTML n'avait rien.
+ * Le code client n'y figure pas : c'est une référence interne, sans valeur pour
+ * le destinataire d'un mail client.
+ */
+export function buildEncoursHtml(nomClient: string, factures: FactureLigne[]): string {
+  const dateJour = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+
+  // border-collapse:separate, sans quoi l'arrondi est ignoré. Word ignore
+  // l'arrondi de toute façon et rend des angles droits — dégradation
+  // silencieuse, pas une casse.
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="${LARGEUR + 2}" style="width:${LARGEUR + 2}px;max-width:${LARGEUR + 2}px;border-collapse:separate;border:1px solid ${FILET};border-radius:10px;background-color:#ffffff;">\n`
+    + `<tr>\n`
+    // Pas de bordure sous la ligne de contexte : la bande grise de l'en-tête
+    // de colonnes, qui suit immédiatement, sépare déjà. Deux traits collés
+    // l'un à l'autre se voient, et ne séparent pas mieux qu'un seul.
+    + `<td align="left" style="padding:13px ${MARGE}px 12px ${MARGE}px;${POL}font-size:12px;line-height:18px;${EXACT}">`
+    + `<span style="font-weight:700;color:${ENCRE_FORTE};">Encours ${nomClient}</span>`
+    + `<span style="color:${GRIS};">&nbsp;&middot;&nbsp;état au ${dateJour}</span>`
+    + `</td>\n`
+    + `</tr>\n`
+    + `<tr>\n`
+    + `<td style="padding:0;">\n`
+    + tableauFactures(factures)
+    + `</td>\n`
+    + `</tr>\n`
+    + `</table>\n`
+}
+
+
 // ─── Les deux entrées publiques ─────────────────────────────────────────────
 
 /** Construit le mail depuis un scénario contenant [Tableau Factures]. */

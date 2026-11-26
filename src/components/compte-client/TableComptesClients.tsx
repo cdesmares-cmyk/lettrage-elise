@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { ancienneteRelance } from '../../lib/pilotageRelances'
 import toast from 'react-hot-toast'
-import { buildHtmlFromScenario, fmtEurosEmail } from '../../lib/relanceEmail'
+import { buildEncoursHtml, fmtEurosEmail } from '../../lib/relanceEmail'
 import type { FactureLigne } from '../../lib/relanceEmail'
 import type { CompteClient, FactureDetail, StatutFacture, CommentaireFacture } from '../../types/client'
 import { LignesFactures } from './LignesFactures'
@@ -200,7 +200,11 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
     pdfUrl: (f as FactureDetail & { axonaut_pdf_url?: string | null }).axonaut_pdf_url ?? null,
   }))
 
-  const html = buildHtmlFromScenario('[Tableau Factures]', factureLignes, null)
+  // Un bloc autonome, et non un email. Passer par le constructeur d'email
+  // déposait dans le message de l'opérateur le filet navy — une barre noire en
+  // travers de son texte — et « Propulsé par Ockham Finance » juste au-dessus
+  // de SA signature. Voir buildEncoursHtml pour le raisonnement complet.
+  const html = buildEncoursHtml(c.nom, factureLignes)
 
   const sep = '─'.repeat(68)
   const plainText = [
@@ -217,8 +221,8 @@ async function copierEncours(c: CompteClient, factures: FactureDetail[]) {
     }),
     sep,
     `  ${'Solde net'.padEnd(16)}   ${fmtEurosEmail(total).padStart(14)}`,
-    '',
-    `Propulsé par Ockham Finance · ${date}`,
+    // Pas de mention Ockham : comme la version riche, ce bloc est collé dans
+    // le message de l'opérateur, au-dessus de sa propre signature.
   ].join('\n')
 
   try {
