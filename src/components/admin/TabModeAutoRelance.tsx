@@ -11,6 +11,7 @@ interface ParamsAuto {
   delai_rerelance_jours: number
   relance_auto_active: boolean
   signature_auto: string | null
+  relance_auto_nom_expediteur: string | null
   relance_auto_reply_to: string | null
   relance_auto_derniere_exec:   string | null
   relance_auto_dernier_statut:  'ok' | 'partiel' | 'erreur' | null
@@ -35,6 +36,7 @@ export function TabModeAutoRelance() {
     delai_rerelance_jours: 30,
     relance_auto_active: false,
     signature_auto: null,
+    relance_auto_nom_expediteur: null,
     relance_auto_reply_to: null,
     relance_auto_derniere_exec:   null,
     relance_auto_dernier_statut:  null,
@@ -47,7 +49,7 @@ export function TabModeAutoRelance() {
     if (!profil?.organisation_id) return
     supabase
       .from('organisations')
-      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto, relance_auto_reply_to, relance_auto_derniere_exec, relance_auto_dernier_statut, relance_auto_dernier_message')
+      .select('delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, relance_auto_active, signature_auto, relance_auto_nom_expediteur, relance_auto_reply_to, relance_auto_derniere_exec, relance_auto_dernier_statut, relance_auto_dernier_message')
       .eq('id', profil.organisation_id)
       .single()
       .then(({ data }) => {
@@ -59,6 +61,7 @@ export function TabModeAutoRelance() {
             delai_rerelance_jours: row.delai_rerelance_jours ?? 30,
             relance_auto_active: row.relance_auto_active ?? false,
             signature_auto: row.signature_auto ?? null,
+            relance_auto_nom_expediteur: row.relance_auto_nom_expediteur ?? null,
             relance_auto_reply_to: row.relance_auto_reply_to ?? null,
             relance_auto_derniere_exec:   row.relance_auto_derniere_exec ?? null,
             relance_auto_dernier_statut:  row.relance_auto_dernier_statut ?? null,
@@ -97,6 +100,7 @@ export function TabModeAutoRelance() {
           delai_rerelance_jours:             params.delai_rerelance_jours,
           relance_auto_active:               params.relance_auto_active,
           signature_auto:                    params.signature_auto,
+          relance_auto_nom_expediteur:       params.relance_auto_nom_expediteur,
           relance_auto_reply_to:             params.relance_auto_reply_to,
         } as never)
         .eq('id', profil.organisation_id)
@@ -185,6 +189,27 @@ export function TabModeAutoRelance() {
         />
         <p className="text-[11px] text-gray-400 mt-1.5">
           Insérée après le corps du scénario. La balise [Nom organisation] est disponible.
+        </p>
+      </div>
+
+      <div>
+        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">
+          Nom de l'expéditeur affiché
+        </label>
+        <input
+          type="text"
+          maxLength={64}
+          value={params.relance_auto_nom_expediteur ?? ''}
+          onChange={e => setParams(p => ({ ...p, relance_auto_nom_expediteur: e.target.value || null }))}
+          placeholder="Ex : Elise Lyon"
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:border-ockham-teal transition-colors"
+        />
+        <p className="text-[11px] text-gray-400 mt-1.5">
+          Le nom commercial que verra le client dans sa boîte de réception. Mettez-y la structure qui
+          relance, pour qu'il corresponde à votre signature — deux noms différents dans un même message
+          font douter de l'émetteur. <span className="text-gray-500">Seul le nom est modifiable :
+          l'adresse d'envoi doit rester celle du domaine vérifié.</span> Vide : le nom technique est
+          conservé.
         </p>
       </div>
 

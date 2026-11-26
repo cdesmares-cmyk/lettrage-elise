@@ -471,6 +471,27 @@ interface EmailPayload { from: string; to: string[]; subject: string; html: stri
  * le champ : les réponses retombent sur l'expéditeur, ce qui est exactement
  * l'état actuel. Dégrader vaut mieux que perdre le lot.
  */
+function expediteurOrg(nom: string | null | undefined): string {
+  const propre = (nom ?? '')
+    // Un retour à la ligne dans un en-tête permet d'en injecter d'autres : un
+    // « Nom\nBcc: ailleurs@x.com » expédierait la relance à un tiers.
+    .replace(/[\r\n]+/g, ' ')
+    // Ces caractères casseraient la syntaxe « Nom <adresse> » ou la citation.
+    .replace(/["\\<>]/g, '')
+    .trim()
+  if (!propre) return FROM_EMAIL
+
+  // L'ADRESSE N'EST JAMAIS CELLE DE L'ORGANISATION. Elle est reprise de
+  // RESEND_FROM_RELANCE parce qu'elle doit appartenir à un domaine vérifié
+  // chez Resend ; une adresse arbitraire se ferait refuser en 403, de nuit,
+  // sans que personne le voie. Seul le nom affiché est paramétrable.
+  const adresse = FROM_EMAIL.match(/<([^>]+)>/)?.[1] ?? FROM_EMAIL.trim()
+
+  // Toujours entre guillemets : un nom contenant une virgule ou un point
+  // d'exclamation est sinon interprété comme une liste de destinataires.
+  return `"${propre}" <${adresse}>`
+}
+
 function replyToValide(brut: string | null | undefined): string | null {
   const a = (brut ?? '').trim()
   if (!a) return null
@@ -533,7 +554,7 @@ Deno.serve(async (req: Request) => {
     // 1. Orgs avec mode auto actif
     const { data: orgs, error: errOrgs } = await supabase
       .from('organisations')
-      .select('id, nom, delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, signature_auto, relance_auto_reply_to')
+      .select('id, nom, delai_echeance_jours, delai_declenchement_relance_jours, delai_rerelance_jours, signature_auto, relance_auto_reply_to, relance_auto_nom_expediteur')
       .eq('relance_auto_active', true)
     if (errOrgs) return json({ error: errOrgs.message }, 500)
 
@@ -546,6 +567,8 @@ Deno.serve(async (req: Request) => {
       // Reglage par organisation : le From reste generique, seul le bouton
       // Repondre du client est redirige. Null = comportement d'avant.
       const replyToOrg       = replyToValide(org.relance_auto_reply_to as string | null)
+      // Nom commercial affiche. L adresse, elle, reste celle du domaine verifie.
+      const fromOrg          = expediteurOrg(org.relance_auto_nom_expediteur as string | null)
       const signatureAuto    = org.signature_auto as string | null
       let nbEnvoyesOrg = 0
       let nbSkipOrg    = 0
@@ -822,7 +845,7 @@ Deno.serve(async (req: Request) => {
       for (let i = 0; i < pending.length; i += BATCH_SIZE) {
         const batch   = pending.slice(i, i + BATCH_SIZE)
         const payload: EmailPayload[] = batch.map(p => ({
-          from: FROM_EMAIL, to: p.to, subject: p.objet, html: p.html,
+          from: fromOrg, to: p.to, subject: p.objet, html: p.html,
           // Omis plutot que mis a null : Resend valide le champ des qu'il est
           // present, et un null ferait tomber le lot.
           ...(replyToOrg ? { reply_to: replyToOrg } : {}),
