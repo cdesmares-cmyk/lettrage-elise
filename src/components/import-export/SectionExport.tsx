@@ -9,23 +9,8 @@ import { chargerCommentaires, cellulesCommentaire } from '../../lib/exportXls'
 import { libelleStatut } from '../../lib/statutsFacture'
 import type { StatutFacture, CommentaireFacture } from '../../types/client'
 import { supabase } from '../../lib/supabase'
+import { fetchAll } from '../../lib/pagination'
 import * as XLSX from 'xlsx'
-
-async function fetchAll<T>(
-  buildQuery: (from: number, to: number) => PromiseLike<{ data: unknown }>
-): Promise<T[]> {
-  const PAGE = 1000
-  const acc: T[] = []
-  let offset = 0
-  while (true) {
-    const { data } = await buildQuery(offset, offset + PAGE - 1)
-    const rows = (data ?? []) as T[]
-    acc.push(...rows)
-    if (rows.length < PAGE) break
-    offset += PAGE
-  }
-  return acc
-}
 
 type TypeExport = 'factures' | 'lettrage' | 'contacts' | 'clients' | 'relances'
 

@@ -3,6 +3,7 @@
 // date_lettrage pour les corrections et dispatches (date réelle de l'opération de dispatch).
 import * as XLSX from 'xlsx'
 import { supabase } from './supabase'
+import { fetchAll } from './pagination'
 
 interface RowLettrage {
   id: string
@@ -78,24 +79,6 @@ function fmtDate(iso: string): string {
 
 function round2(n: number) { return Math.round(n * 100) / 100 }
 
-// Pagine par tranches de 1000 pour contourner le plafond PostgREST db-max-rows
-async function fetchAll<T>(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  buildQuery: (from: number, to: number) => PromiseLike<{ data: any }>
-): Promise<T[]> {
-  const PAGE = 1000
-  const acc: T[] = []
-  let offset = 0
-  while (true) {
-    const { data } = await buildQuery(offset, offset + PAGE - 1)
-    const rows: T[] = data ?? []
-    acc.push(...rows)
-    if (rows.length < PAGE) break
-    offset += PAGE
-  }
-  return acc
-}
-
 export async function exporterLettrageXls(dateDebut: string, dateFin: string, nomFichier?: string): Promise<void> {
   // ── 1. Toutes les lignes bancaires dans la plage de dates ────────
   const lignes = await fetchAll<RowLigneBancaire>((from, to) =>
@@ -105,6 +88,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .gte('date_operation', dateDebut)
       .lte('date_operation', dateFin)
       .order('date_operation', { ascending: true })
+      .order('id_operation')
       .range(from, to)
   )
 
@@ -133,6 +117,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
         .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur, mode, date_lettrage')
         .in('id_ligne_bancaire', ligneIdsCredit)
         .eq('annule', false)
+        .order('id')
         .range(from, to)
     )
   }
@@ -149,6 +134,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .lte('date_lettrage', dateFin)
       .order('compensation_id')
       .order('date_lettrage')
+      .order('id')
       .range(from, to)
   )
 
@@ -163,6 +149,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .gte('date_lettrage', dateDebut)
       .lte('date_lettrage', dateFin)
       .order('date_lettrage')
+      .order('id')
       .range(from, to)
   )
 
@@ -178,6 +165,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       .lte('date_lettrage', dateFin)
       .order('correction_id')
       .order('date_lettrage')
+      .order('id')
       .range(from, to)
   )
 

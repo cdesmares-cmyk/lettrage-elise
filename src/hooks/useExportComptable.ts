@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { exporterLettrageXls } from '../lib/exportLettrageXls'
+import { fetchAll } from '../lib/pagination'
 
 export interface ExportComptable {
   id: string
@@ -18,13 +19,19 @@ export function useExportComptable() {
   const [chargement, setChargement] = useState(false)
 
   const charger = useCallback(async () => {
-    const [{ data: lockData }, { data: histData }] = await Promise.all([
-      supabase
-        .from('lettrages')
-        .select('id_ligne_bancaire, export_id')
-        .not('export_id', 'is', null)
-        .eq('annule', false)
-        .limit(10000),
+    const [lockRows, { data: histData }] = await Promise.all([
+      // Paginé, et non plus `.limit(10000)`. Cette carte dit à l'écran quelles
+      // lignes sont verrouillées ; tronquée, elle affichait comme libres des
+      // lignes déjà exportées, invitant à les relettrer.
+      fetchAll<{ id_ligne_bancaire: string | null; export_id: string | null }>((from, to) =>
+        supabase
+          .from('lettrages')
+          .select('id, id_ligne_bancaire, export_id')
+          .not('export_id', 'is', null)
+          .eq('annule', false)
+          .order('id')
+          .range(from, to)
+      ),
       supabase
         .from('exports_comptables')
         .select('id, date_debut, date_fin, nb_lettrages, montant_total, created_at, exporte_par')
@@ -32,7 +39,7 @@ export function useExportComptable() {
         .limit(20),
     ])
 
-    const rows = ((lockData as { id_ligne_bancaire: string | null; export_id: string | null }[]) ?? [])
+    const rows = lockRows
     const hist = (histData as ExportComptable[]) ?? []
     const dateByExportId = Object.fromEntries(hist.map(e => [e.id, e.created_at]))
 
@@ -46,62 +53,71 @@ export function useExportComptable() {
     setHistorique(hist)
   }, [])
 
+  /**
+   * Le périmètre exact de l'export, calculé en SQL.
+   *
+   * Avant la migration 194, cette fonction lançait quatre requêtes sans
+   * pagination. PostgREST les tronquait à 1000 lignes EN SILENCE : l'écran
+   * annonçait « 1000 lignes » dès que la période en comptait davantage, et —
+   * plus grave — le montant total était la somme des mille premières lignes
+   * seulement. L'opérateur déclenchait un verrouillage comptable irréversible
+   * sur un chiffre sous-estimé.
+   *
+   * Compter et sommer sont le travail de Postgres, pas celui du navigateur :
+   * un aller-retour, aucun plafond à contourner, et des milliers de lignes qui
+   * ne traversent plus le réseau pour finir dans un `reduce`.
+   */
   async function apercu(dateDebut: string, dateFin: string) {
-    const [{ data: lettreesData }, { data: nonLettreesData }, { data: compData }, { data: corrData }] = await Promise.all([
-      supabase
-        .from('v_lignes_bancaires_avec_statut')
-        .select('id_operation, credit')
-        .eq('statut_lettrage', 'lettre')
-        .gte('date_operation', dateDebut)
-        .lte('date_operation', dateFin),
-      supabase
-        .from('v_lignes_bancaires_avec_statut')
-        .select('id_operation')
-        .in('statut_lettrage', ['non_lettre', 'partiel'])
-        .gte('date_operation', dateDebut)
-        .lte('date_operation', dateFin),
-      supabase
-        .from('lettrages')
-        .select('compensation_id')
-        .not('compensation_id', 'is', null)
-        .is('id_ligne_bancaire', null)
-        .eq('annule', false)
-        .is('export_id', null)
-        .gte('date_lettrage', dateDebut)
-        .lte('date_lettrage', dateFin),
-      supabase
-        .from('lettrages')
-        .select('correction_id')
-        .not('correction_id', 'is', null)
-        .eq('mode', 'correction')
-        .eq('annule', false)
-        .is('export_id', null)
-        .gte('date_lettrage', dateDebut)
-        .lte('date_lettrage', dateFin),
-    ])
-    const lettrees = (lettreesData as { id_operation: string; credit: number | null }[]) ?? []
-    const nonLettrees = (nonLettreesData as { id_operation: string }[]) ?? []
-    const nbCompensations = new Set(((compData as { compensation_id: string }[]) ?? []).map(r => r.compensation_id)).size
-    const nbCorrections = new Set(((corrData as { correction_id: string }[]) ?? []).map(r => r.correction_id)).size
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)('apercu_export_comptable', {
+      p_date_debut: dateDebut,
+      p_date_fin:   dateFin,
+    })
+    if (error) throw error
+    const r = (data ?? {}) as {
+      nb_lignes?: number; montant?: number; nb_non_lettrees?: number
+      nb_compensations?: number; nb_corrections?: number
+    }
     return {
-      nbLignes: lettrees.length,
-      montant: lettrees.reduce((s, l) => s + (l.credit ?? 0), 0),
-      nbNonLettrees: nonLettrees.length,
-      nbCompensations,
-      nbCorrections,
+      nbLignes:        r.nb_lignes ?? 0,
+      montant:         Number(r.montant ?? 0),
+      nbNonLettrees:   r.nb_non_lettrees ?? 0,
+      nbCompensations: r.nb_compensations ?? 0,
+      nbCorrections:   r.nb_corrections ?? 0,
     }
   }
 
+  /**
+   * LE FICHIER D'ABORD, LE VERROU ENSUITE.
+   *
+   * L'ordre inverse était en place jusqu'au 2026-11-27, et il exposait à la
+   * pire des deux pannes : la RPC verrouillait, puis la génération du fichier
+   * échouait — réseau, délai, volume. Les lettrages étaient alors verrouillés
+   * comptablement, aucun fichier n'était produit, et l'écran affichait « Erreur
+   * lors de l'export » sans dire que le verrou, lui, avait bien eu lieu.
+   * L'opérateur croyait l'opération annulée alors qu'elle était faite.
+   *
+   * Dans ce sens-ci, un échec du verrou laisse l'opérateur avec un fichier et
+   * rien de verrouillé : il relance, et l'état repart propre. Le fichier ne
+   * dépend pas du verrou — exporterLettrageXls filtre sur la période, jamais
+   * sur export_id — donc son contenu est identique avant et après.
+   */
   async function exporter(dateDebut: string, dateFin: string) {
     setChargement(true)
     try {
+      await genererFichier(dateDebut, dateFin, `export_comptable_${dateDebut}_${dateFin}`)
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase.rpc as any)('creer_export_comptable', {
         p_date_debut: dateDebut,
         p_date_fin:   dateFin,
       })
-      if (error) throw error
-      await genererFichier(dateDebut, dateFin, `export_comptable_${dateDebut}_${dateFin}`)
+      if (error) {
+        throw new Error(
+          `Le fichier a été téléchargé, mais le verrouillage a échoué : ${error.message}. `
+          + 'Les lettrages ne sont PAS verrouillés — relancez l\'export.'
+        )
+      }
       await charger()
     } finally {
       setChargement(false)
