@@ -262,8 +262,11 @@ export function SectionExport() {
     try {
       await exporterLettrageXls(dateDebut, dateFin)
       toast.success('Export généré')
-    } catch {
-      toast.error('Erreur lors de l\'export')
+    } catch (err) {
+      // La cause, et non un message muet. Le 2026-11-27, un `catch {}` vide ici
+      // et dans la modale d'extraction a rendu indiagnosticable un refus de la
+      // passerelle sur la longueur d'URL : l'export échouait sans rien dire.
+      toast.error(err instanceof Error ? `Export impossible — ${err.message}` : 'Erreur lors de l\'export')
     } finally {
       setChargement(false)
     }
@@ -547,11 +550,16 @@ export function SectionExport() {
               <div>
                 <p className="font-semibold text-gray-600 mb-1">Onglet Lignes bancaires</p>
                 <p>Date · Libellé · Débit · Crédit</p>
-                <p>Type (Facture / Autres) · Commentaire</p>
+                <p>Type (Facture / 471_Autres / Mixte) · Commentaire</p>
               </div>
               <div className="col-span-2">
                 <p className="font-semibold text-gray-600 mb-1">Onglet Cadrage</p>
-                <p>Par jour : Total Crédit reçu · Total Lettré (hors Autres) — écart visible pour l'expert-comptable</p>
+                <p>Par jour : Total Crédit · Lettré client · 471_Autres · Jamais lettré · Contrôle</p>
+                <p className="mt-0.5 text-gray-400">
+                  Les trois montants se somment au crédit du jour. La colonne <span className="font-mono">Contrôle</span> croise
+                  deux calculs indépendants du montant lettré : <strong className="text-gray-500">elle doit valoir zéro</strong>.
+                  Une valeur non nulle signale un export incomplet, pas une erreur de lettrage.
+                </p>
               </div>
             </div>
           </div>

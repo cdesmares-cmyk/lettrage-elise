@@ -308,19 +308,30 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   styleHeaderRow(ws2, 9)
 
   // ── Feuille 3 : Cadrage ──────────────────────────────────────────
-  const jourMap = new Map<string, { totalCredit: number; totalLettreRealise: number; totalAutres: number }>()
+  // totalLettreVue vient de la VUE (montant_lettre, agrégé par Postgres) ;
+  // lettreClient et autres viennent des LIGNES DE LETTRAGE rapatriées. Deux
+  // chemins indépendants pour la même grandeur : leur écart alimente la
+  // colonne Contrôle, et c'est ce qui donne sa valeur à cette feuille.
+  const jourMap = new Map<string, {
+    totalCredit: number
+    totalLettreVue: number
+    totalLettreRealise: number
+    totalAutres: number
+  }>()
+  const vide = () => ({ totalCredit: 0, totalLettreVue: 0, totalLettreRealise: 0, totalAutres: 0 })
 
   for (const lb of lignes) {
     if (!lb.credit) continue
     const date = lb.date_operation
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0, totalAutres: 0 })
+    if (!jourMap.has(date)) jourMap.set(date, vide())
     jourMap.get(date)!.totalCredit += lb.credit
+    jourMap.get(date)!.totalLettreVue += lb.montant_lettre ?? 0
   }
 
   for (const l of lettrages) {
     const date = ligneInfoMap.get(l.id_ligne_bancaire)?.date_operation
     if (!date) continue
-    if (!jourMap.has(date)) jourMap.set(date, { totalCredit: 0, totalLettreRealise: 0, totalAutres: 0 })
+    if (!jourMap.has(date)) jourMap.set(date, vide())
     // Les encaissements affectés au compte d'attente 471 sont suivis à part.
     // Ils n'ont mouvementé aucun compte client, donc ils n'ont rien à faire
     // dans le total lettré ; mais ils expliquent une partie de l'écart. Sans
@@ -337,24 +348,52 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     else                             jourMap.get(date)!.totalLettreRealise += l.montant
   }
 
+  // DES EN-TÊTES QUI DISENT CE QUE CONTIENNENT LES COLONNES.
+  //
+  // L'ancienne version affichait « Total Lettré » et « Delta », et calculait :
+  //     totalLettre = totalCredit - totalLettreRealise
+  //     delta       = totalCredit - totalLettre      // = totalLettreRealise
+  // Soit l'inverse de leurs noms : « Total Lettré » montrait le RESTE non
+  // affecté à un client, et « Delta » le vrai montant lettré.
+  //
+  // Tant que la colonne 471 affichait zéro, l'inversion restait invisible.
+  // Une fois cette colonne réparée, le 2026-11-27, elle devenait absurde :
+  // « Total Lettré » et « dont Autres » tombaient égales, puisque le reste
+  // après lettrage client EST la part 471 quand la ligne est soldée.
+  //
+  // Le risque n'était pas cosmétique. Un expert-comptable lisant « crédit
+  // 27 115,58 € / Delta 26 982,62 € » y voit un écart de rapprochement de
+  // 99,5 %, et part chercher une anomalie qui n'existe pas.
+  //
+  // LA COLONNE CONTRÔLE croise deux sources indépendantes : ce que la vue
+  // calcule comme montant lettré, et la somme des lignes de lettrage
+  // rapatriées. Elle doit valoir zéro. Une valeur non nulle signale un
+  // rapatriement incomplet — exactement la panne du filtre .in() corrigée le
+  // même jour, qui vidait la feuille Affectation sans rien dire.
   const aoa3: (string | number)[][] = [
-    ['Date', 'Total Crédit', 'Total Lettré', 'dont Autres (471)', 'Delta'],
+    ['Date', 'Total Crédit', 'Lettré client', '471_Autres', 'Jamais lettré', 'Contrôle'],
   ]
-  for (const [date, { totalCredit, totalLettreRealise, totalAutres }] of [...jourMap.entries()].sort()) {
-    const totalLettre = round2(totalCredit - totalLettreRealise)
-    const delta = round2(totalCredit - totalLettre)
-    aoa3.push([fmtDate(date), round2(totalCredit), totalLettre, round2(totalAutres), delta])
+  const ligneCadrage = (credit: number, lettreVue: number, client: number, autres: number) => ({
+    credit:       round2(credit),
+    client:       round2(client),
+    autres:       round2(autres),
+    jamaisLettre: round2(credit - lettreVue),
+    controle:     round2(lettreVue - client - autres),
+  })
+
+  for (const [date, v] of [...jourMap.entries()].sort()) {
+    const c = ligneCadrage(v.totalCredit, v.totalLettreVue, v.totalLettreRealise, v.totalAutres)
+    aoa3.push([fmtDate(date), c.credit, c.client, c.autres, c.jamaisLettre, c.controle])
   }
-  const grandCredit = round2([...jourMap.values()].reduce((s, v) => s + v.totalCredit, 0))
-  const grandLettreRealise = round2([...jourMap.values()].reduce((s, v) => s + v.totalLettreRealise, 0))
-  const grandAutres = round2([...jourMap.values()].reduce((s, v) => s + v.totalAutres, 0))
-  const grandLettre = round2(grandCredit - grandLettreRealise)
-  const grandDelta = round2(grandCredit - grandLettre)
-  aoa3.push(['TOTAL', grandCredit, grandLettre, grandAutres, grandDelta])
+
+  const somme = (f: (v: { totalCredit: number; totalLettreVue: number; totalLettreRealise: number; totalAutres: number }) => number) =>
+    [...jourMap.values()].reduce((s, v) => s + f(v), 0)
+  const g = ligneCadrage(somme(v => v.totalCredit), somme(v => v.totalLettreVue), somme(v => v.totalLettreRealise), somme(v => v.totalAutres))
+  aoa3.push(['TOTAL', g.credit, g.client, g.autres, g.jamaisLettre, g.controle])
 
   const ws3 = XLSX.utils.aoa_to_sheet(aoa3)
-  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 18 }, { wch: 14 }]
-  styleHeaderRow(ws3, 5)
+  ws3['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 16 }, { wch: 12 }]
+  styleHeaderRow(ws3, 6)
 
   XLSX.utils.book_append_sheet(wb, ws1, 'Affectation')
   XLSX.utils.book_append_sheet(wb, ws2, 'Lignes bancaires')
