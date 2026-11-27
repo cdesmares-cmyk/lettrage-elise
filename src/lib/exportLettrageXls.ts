@@ -3,7 +3,7 @@
 // date_lettrage pour les corrections et dispatches (date réelle de l'opération de dispatch).
 import * as XLSX from 'xlsx'
 import { supabase } from './supabase'
-import { fetchAll } from './pagination'
+import { fetchAll, fetchAllParLots } from './pagination'
 
 interface RowLettrage {
   id: string
@@ -109,18 +109,20 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     .map(l => l.id_operation)
 
   // ── 2. Lettrages associés aux lignes crédit ──────────────────────
-  let lettrages: RowLettrage[] = []
-  if (ligneIdsCredit.length) {
-    lettrages = await fetchAll<RowLettrage>((from, to) =>
-      supabase
-        .from('lettrages')
-        .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur, mode, date_lettrage')
-        .in('id_ligne_bancaire', ligneIdsCredit)
-        .eq('annule', false)
-        .order('id')
-        .range(from, to)
-    )
-  }
+  // PAR LOTS, et non en un seul `.in()`. Mesuré le 2026-11-27 : au-delà
+  // d'environ 700 identifiants la passerelle refuse l'URL en 400. L'erreur
+  // était avalée par l'ancien helper, et la feuille « Affectation » sortait
+  // VIDE, sans rien signaler — sur une période de plus de 700 lignes, donc
+  // précisément sur les exports qui comptent.
+  const lettrages = await fetchAllParLots<RowLettrage>(ligneIdsCredit, (lot, from, to) =>
+    supabase
+      .from('lettrages')
+      .select('id, id_ligne_bancaire, code_client, numero_facture, montant, commentaire, operateur, mode, date_lettrage')
+      .in('id_ligne_bancaire', lot)
+      .eq('annule', false)
+      .order('id')
+      .range(from, to)
+  )
 
   // ── 2b. Compensations internes ───────────────────────────────────
   const compensations = await fetchAll<RowCompensation>((from, to) =>

@@ -46,3 +46,66 @@ export async function fetchAll<T>(
     offset += PAGE
   }
 }
+
+/**
+ * Budget d'identifiants, en caractères, pour un seul filtre `.in()`.
+ *
+ * MESURÉ le 2026-11-27 contre l'API du projet, et non deviné :
+ *
+ *   600 identifiants  ~22 000 caractères d'URL  ->  HTTP 200
+ *   800 identifiants  ~29 700 caractères d'URL  ->  HTTP 400 Bad Request
+ *
+ * supabase-js envoie les `select()` en GET : la liste passe donc dans l'URL,
+ * et la passerelle la refuse au-delà d'environ 24 Ko. 8 000 caractères laissent
+ * un facteur trois de marge, y compris si un identifiant s'allonge.
+ */
+const BUDGET_FILTRE_IN = 8000
+
+/**
+ * Découpe une liste d'identifiants en lots tenant dans une URL.
+ *
+ * Découpé PAR LONGUEUR et non par nombre : `id_operation` est du texte libre,
+ * pas un UUID de taille fixe. Compter les éléments marcherait aujourd'hui et
+ * casserait le jour où une banque produit des références plus longues.
+ */
+export function lotsPourFiltreIn(ids: string[], budget = BUDGET_FILTRE_IN): string[][] {
+  const lots: string[][] = []
+  let courant: string[] = []
+  let longueur = 0
+  for (const id of ids) {
+    // +1 pour la virgule de séparation.
+    if (courant.length && longueur + id.length + 1 > budget) {
+      lots.push(courant)
+      courant = []
+      longueur = 0
+    }
+    courant.push(id)
+    longueur += id.length + 1
+  }
+  if (courant.length) lots.push(courant)
+  return lots
+}
+
+/**
+ * Comme `fetchAll`, mais pour une requête filtrée par une longue liste d'`id`.
+ *
+ * POURQUOI. Un filtre `.in()` portant des milliers d'identifiants produit une
+ * URL que la passerelle refuse en 400. Jusqu'au 2026-11-27 cette erreur était
+ * AVALÉE par le helper de pagination : l'export rendait alors un fichier dont
+ * la feuille « Affectation » était vide, sans rien signaler. Un fichier remis
+ * à un expert-comptable, amputé de toutes ses affectations, et personne pour
+ * le savoir.
+ *
+ * Chaque lot est paginé indépendamment ; les résultats sont concaténés.
+ */
+export async function fetchAllParLots<T>(
+  ids: string[],
+  buildQuery: (lot: string[], from: number, to: number) => PromiseLike<{ data: unknown; error?: unknown }>
+): Promise<T[]> {
+  if (!ids.length) return []
+  const acc: T[] = []
+  for (const lot of lotsPourFiltreIn(ids)) {
+    acc.push(...await fetchAll<T>((from, to) => buildQuery(lot, from, to)))
+  }
+  return acc
+}

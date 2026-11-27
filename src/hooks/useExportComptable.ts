@@ -124,6 +124,39 @@ export function useExportComptable() {
     }
   }
 
+  /**
+   * Le périmètre de l'export interne, avant de le lancer.
+   *
+   * Même principe que `apercu`, et même raison d'être en SQL : compter des
+   * dizaines de milliers de lignes dans le navigateur pour n'en garder qu'un
+   * total, c'est le travail de Postgres.
+   *
+   * Les compteurs reproduisent exactement ce que construit exportLettrageXls,
+   * de façon à ce que le fichier remis à l'expert-comptable puisse être
+   * recompté contre ce que l'écran annonçait.
+   */
+  async function apercuInterne(dateDebut: string, dateFin: string) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (supabase.rpc as any)('apercu_export_interne', {
+      p_date_debut: dateDebut,
+      p_date_fin:   dateFin,
+    })
+    if (error) throw error
+    const r = (data ?? {}) as {
+      nb_lignes_bancaires?: number; nb_affectations?: number
+      nb_lettrees?: number; nb_non_lettrees?: number
+      montant_credit?: number; montant_lettre?: number
+    }
+    return {
+      nbLignesBancaires: r.nb_lignes_bancaires ?? 0,
+      nbAffectations:    r.nb_affectations ?? 0,
+      nbLettrees:        r.nb_lettrees ?? 0,
+      nbNonLettrees:     r.nb_non_lettrees ?? 0,
+      montantCredit:     Number(r.montant_credit ?? 0),
+      montantLettre:     Number(r.montant_lettre ?? 0),
+    }
+  }
+
   async function retelecharger(exp: ExportComptable) {
     await genererFichier(
       exp.date_debut,
@@ -136,5 +169,5 @@ export function useExportComptable() {
     await exporterLettrageXls(dateDebut, dateFin, nomFichier)
   }
 
-  return { lignesExportees, historique, chargement, charger, apercu, exporter, retelecharger }
+  return { lignesExportees, historique, chargement, charger, apercu, apercuInterne, exporter, retelecharger }
 }

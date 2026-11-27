@@ -470,6 +470,7 @@ export function PageLettrage() {
         historique={exportComptable.historique}
         chargementExport={exportComptable.chargement}
         onApercu={exportComptable.apercu}
+        onApercuInterne={exportComptable.apercuInterne}
         onExporter={exportComptable.exporter}
         onRetelecharger={exportComptable.retelecharger}
       />
