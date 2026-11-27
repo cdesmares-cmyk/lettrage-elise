@@ -4,6 +4,7 @@
 import * as XLSX from 'xlsx'
 import { supabase } from './supabase'
 import { fetchAll, fetchAllParLots } from './pagination'
+import { estCompte471, LIBELLE_471 } from './comptes471'
 
 interface RowLettrage {
   id: string
@@ -197,7 +198,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       infos_complementaires: info?.infos_complementaires ?? '',
       debit_credit: info?.debit_credit ?? '',
       code_client: l.code_client,
-      numero_facture: l.code_client === 'AUTRES' ? 'Autres' : (l.numero_facture ?? ''),
+      numero_facture: estCompte471(l.code_client) ? LIBELLE_471 : (l.numero_facture ?? ''),
       type: l.montant < 0 ? 'Avoir' : '',
       montant: l.montant,
       commentaire: l.commentaire ?? '',
@@ -229,7 +230,7 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
       infos_complementaires: '',
       debit_credit: '',
       code_client: imp.code_client,
-      numero_facture: imp.code_client === 'AUTRES' ? 'Autres' : (imp.numero_facture ?? ''),
+      numero_facture: estCompte471(imp.code_client) ? LIBELLE_471 : (imp.numero_facture ?? ''),
       type: imp.montant < 0 ? 'Avoir' : '',
       montant: imp.montant,
       commentaire: imp.commentaire ?? '',
@@ -275,15 +276,15 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
   for (const lb of lignes) {
     const isDebit = lb.statut_lettrage === 'debit'
     const letts = lettragsByLigne.get(lb.id_operation) ?? []
-    const hasFactures = letts.some(l => l.code_client !== 'AUTRES')
-    const hasAutres = letts.some(l => l.code_client === 'AUTRES')
+    const hasFactures = letts.some(l => !estCompte471(l.code_client))
+    const hasAutres = letts.some(l => estCompte471(l.code_client))
     const type = isDebit ? 'Débit'
       : !letts.length ? 'Non lettré'
       : hasFactures && hasAutres ? 'Mixte'
-      : hasAutres ? 'Autres'
+      : hasAutres ? LIBELLE_471
       : 'Facture'
     const commentairesAutres = letts
-      .filter(l => l.code_client === 'AUTRES')
+      .filter(l => estCompte471(l.code_client))
       .map(l => (l.commentaire ?? '').trim() || (l.numero_facture ?? '').trim())
       .filter(Boolean)
       .join(' / ')
@@ -326,8 +327,14 @@ export async function exporterLettrageXls(dateDebut: string, dateFin: string, no
     // cette colonne, un écart parfaitement légitime — un remboursement
     // fournisseur, par exemple — ressemble à une erreur de lettrage, et
     // quelqu'un part chercher un problème qui n'existe pas.
-    if (l.code_client === 'AUTRES') jourMap.get(date)!.totalAutres += l.montant
-    else                            jourMap.get(date)!.totalLettreRealise += l.montant
+    //
+    // CE TEST NE PORTAIT QUE SUR 'AUTRES' jusqu'au 2026-11-27. Or le panneau
+    // de lettrage — le parcours quotidien — écrit '471'. La colonne était donc
+    // aveugle au cas principal, et ces montants partaient dans le `else`,
+    // c'est-à-dire exactement dans le total lettré client que le paragraphe
+    // ci-dessus interdit. Le Cadrage se trompait deux fois sur la même ligne.
+    if (estCompte471(l.code_client)) jourMap.get(date)!.totalAutres += l.montant
+    else                             jourMap.get(date)!.totalLettreRealise += l.montant
   }
 
   const aoa3: (string | number)[][] = [
